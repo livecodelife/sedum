@@ -1,6 +1,6 @@
 id: prov-2026-3aea61a1
 title: The --lang warning is not a load-time check and moves to M3
-status: open
+status: implemented
 created_at: "2026-08-07"
 author: calebcowen@gmail.com
 intent: |
@@ -61,7 +61,7 @@ supersedes: ""
 superseded_by: ""
 related:
   - prov-2026-1a1a9b52
-sealed_at_sha: ""
+sealed_at_sha: f5ff0c09a48b4240d2d8f38f98734c9c65c5ac5b
 associated_specs:
   - path: internal/genpkg/genpkg_test.go
     run_command: go test -count=1 ./$(dirname {{path}})
