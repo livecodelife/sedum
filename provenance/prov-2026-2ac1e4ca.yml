@@ -1,0 +1,87 @@
+id: prov-2026-2ac1e4ca
+title: Load-time tie detection needs a pattern-overlap primitive, and it lives in M1a
+status: open
+created_at: "2026-08-07"
+author: calebcowen@gmail.com
+intent: |
+  M1 (prov-2026-8e6dac6c) rejects a package when "two file templates tie under
+  the specificity ranking", and M3 (prov-2026-1a1a9b52) is written on the
+  assumption that "ties were already rejected at load, so a match here is
+  unambiguous". Both sentences point at M1a for the ranking. Implementing them
+  exposed a gap: the ranking alone cannot answer M1's question.
+
+  M3 asks about a path. It has one, and a tie is simply two patterns that both
+  match it and compare equal. M1 has no path - it has walked files/ and holds a
+  set of pattern strings. Comparing those pairwise with the ranking alone
+  reports `app/{name}.rb` and `lib/{name}.rb` as a tie, because they are equally
+  specific. They are not a tie. No path exists that both match, so no file could
+  ever receive the wrong boilerplate. Rejecting that package would make the
+  literal-mirror layout unusable the moment a project had two directories.
+
+  So a tie is the conjunction of two properties, and only one of them is the
+  ranking: two patterns tie when they compare equal AND some path exists that
+  both match. The second is a pattern-overlap question, and the decision here is
+  that it belongs in M1a alongside the ranking rather than in M1. M1's blueprint
+  is about YAML schemas, filesystem shape, and load-time diagnostics; burying
+  "can two path patterns describe a common string" inside it would put the
+  matcher's second half under a record nobody would think to read. It is also
+  pure in exactly the way M1a is pure - pattern strings in, an answer out, no
+  filesystem - and it is only testable as a string table on this side of the
+  line.
+
+  M1a therefore exposes two entry points over one parsed pattern set:
+
+    Match(path)  - M3's half. The winner and its bound captures, a reported tie,
+                   or a reported no-match.
+    Conflicts()  - M1's half. Every pair that both ties under the ranking and can
+                   match a common path, in a stable order.
+
+  Overlap is decided exactly, by intersecting the two segments as automata and
+  asking whether the intersection is non-empty, rather than by a heuristic over
+  literal prefixes. The grammar is small - alternating literals and one-or-more
+  wildcards (prov-2026-bc163215) - so this is a product walk over a state space
+  bounded by the product of the two segment lengths, and it terminates on
+  patterns far larger than any real file template. The reason to be exact rather
+  than approximate is that both failure directions are bad and neither is
+  visible: an over-approximation rejects legitimate packages, and an
+  under-approximation lets a genuine tie through to M3, which is written to
+  assume it cannot happen and would silently pick a template by iteration order.
+constraints:
+  - >-
+    A tie requires both equal specificity and a path both patterns can match.
+    Equal specificity alone is not a tie, and reporting it as one would reject
+    packages whose templates live in different directories.
+  - >-
+    Overlap is decided exactly, not estimated. An approximation is wrong in one
+    of two invisible directions - rejecting valid packages, or admitting a tie
+    into M3, which is specified to assume ties were already eliminated.
+  - >-
+    Both entry points are order-independent. Feeding the same pattern set in a
+    different order yields the same winner and the same conflict list, because
+    the caller walks a directory and does not control iteration order.
+  - >-
+    Conflicts names both patterns in a stable order and reports each pair once,
+    so a package loader's diagnostic does not change between runs.
+  - >-
+    The overlap primitive stays pure. It reads no directory and stats no file;
+    the caller supplies the pattern set, exactly as with the matcher.
+affected_scope: []
+forbidden_scope: []
+type: imprint
+implements: prov-2026-f51f04b2
+supersedes: ""
+superseded_by: ""
+related:
+  - prov-2026-8e6dac6c
+  - prov-2026-1a1a9b52
+  - prov-2026-bc163215
+sealed_at_sha: ""
+associated_specs:
+  - path: internal/filetmpl/filetmpl_test.go
+    run_command: go test -count=1 ./$(dirname {{path}})
+associated_traces: []
+monitors: []
+tags:
+  - sedum
+  - m1a
+  - filetmpl
