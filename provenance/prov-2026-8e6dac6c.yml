@@ -35,7 +35,9 @@ intent: |
     - a template or path pattern referencing an undefined transform pipeline
     - a composite composing another composite, or an action in another package
     - a composite whose children declare the same kwarg name with different types
-    - two file templates that tie under the specificity ranking
+    - two file templates that tie under the specificity ranking (the ranking
+      itself lives in M1a, prov-2026-f51f04b2; M1 walks files/ to collect the
+      pattern set and rejects the package on a reported tie)
     - a package whose declared name disagrees with its directory name
 
   Warnings:
@@ -84,7 +86,6 @@ constraints:
     Load-time validation runs with no records, no model, and no network access.
 affected_scope:
   - internal/genpkg/**
-  - internal/filetmpl/**
   - internal/cli/validate.go
   - testdata/generators/**
 forbidden_scope: []

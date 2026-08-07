@@ -1,0 +1,96 @@
+id: prov-2026-f51f04b2
+title: M1a - File template path matching, captures, and specificity ranking
+status: draft
+created_at: "2026-08-07"
+author: calebcowen@gmail.com
+intent: |
+  Split out of M1 (prov-2026-8e6dac6c) because two milestones depend on it and
+  neither owns it. M1 needs the ranking to detect templates that tie at package
+  load; M3 needs the matcher to bind captures for an authorized path at
+  generation time. Leaving it inside M1 would mean M3's core mechanism was
+  sealed under a record about YAML schemas.
+
+  A package's files/ directory is a literal mirror of the target project's
+  structure, and each template's own path is its pattern. There is no mapping
+  table and no registry of file types:
+
+    app/controllers/{name}_controller.rb
+    app/models/{name}.rb
+    config/initializers/{name}.rb
+    _default.rb
+
+  Matching app/controllers/users_controller.rb against that tree selects the
+  first template and binds name=users. Captures are sub-segment, not whole
+  segment - {name}_controller.rb is literal text around a capture - so a segment
+  parses into an alternating sequence of literals and captures rather than being
+  classified wholesale.
+
+  Specificity ranking, applied leftmost segment first:
+
+    1. literal beats capture
+    2. capture beats glob
+    3. longer literal prefix beats shorter
+
+  The comparison is total and deterministic, and it reports a tie rather than
+  resolving one. Two templates that tie reject the package at load (M1's rule);
+  silently picking one would make which boilerplate a file receives depend on
+  directory iteration order.
+
+  No match is reported as no match. This package does not know about _default
+  and does not create files - the caller decides whether to fall back or to
+  create the file empty with a log line.
+
+  The whole package is pure: it takes a set of pattern strings and a path and
+  returns a match, a tie, or nothing. Walking files/ to collect the pattern set
+  belongs to whoever owns the filesystem (M1 at load, M3 at generation), which
+  keeps the ranking rules testable as a table of strings with no fixture tree on
+  disk and no temp directories.
+
+  Testable: a table of pattern-set x path -> expected template and bound
+  captures; each ranking rule demonstrated by a pair that differs only in that
+  rule; a tie reported as a tie naming both patterns; sub-segment captures bound
+  correctly including multiple captures in one segment; a path matching nothing
+  reported as no match rather than an error.
+constraints:
+  - >-
+    The package is pure. It accepts pattern strings and a path and returns a
+    result - it never reads a directory, stats a file, or writes anything. The
+    caller supplies the pattern set.
+  - >-
+    Ranking is total and deterministic, and never depends on the order patterns
+    were supplied in. Feeding the same set in a different order must produce the
+    same winner.
+  - >-
+    A tie is a reported outcome, not something the matcher resolves. Callers
+    decide what a tie means; M1 rejects the package over it.
+  - >-
+    No match is a reported outcome, not an error. This package has no knowledge
+    of _default templates, empty-file fallback, or logging.
+  - >-
+    Captures are sub-segment. A segment is an alternating sequence of literal
+    text and captures, so {name}_controller.rb binds name=users from
+    users_controller.rb.
+  - >-
+    Paths are compared in slash-normalized form regardless of host separator, so
+    a package authored on one platform matches identically on another.
+  - >-
+    No language, framework, or filetype knowledge. The matcher treats every
+    segment as opaque text and never interprets an extension.
+affected_scope:
+  - internal/filetmpl/**
+forbidden_scope: []
+type: blueprint
+implements: prov-2026-d554bfc3
+supersedes: ""
+superseded_by: ""
+related:
+  - prov-2026-8e6dac6c
+  - prov-2026-1a1a9b52
+sealed_at_sha: ""
+associated_specs: []
+associated_traces: []
+monitors: []
+tags:
+  - sedum
+  - m1a
+  - filetmpl

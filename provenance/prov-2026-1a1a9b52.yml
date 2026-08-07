@@ -18,13 +18,13 @@ intent: |
   not per run - one record may legitimately touch a .rb and a .ts path and each
   is generated under its own package's conventions.
 
-  Phase 3 - match each authorized path against its package's files/ tree. The
-  template's own path is the pattern; segments in braces are captures. Ranking,
-  applied leftmost segment first: literal beats capture, capture beats glob,
-  longer literal prefix beats shorter. Ties were rejected at load in M1. On no
-  match, fall back to the package's _default template; with no _default, create
-  the file empty and write a log line - deliberately not a hard error, since a
-  migration or a plain config file may legitimately start blank.
+  Phase 3 - match each authorized path against its package's files/ tree, using
+  the matcher and ranking from M1a (prov-2026-f51f04b2). Ties were already
+  rejected at load in M1, so a match here is unambiguous. On the no-match result
+  M1a reports, fall back to the package's _default template; with no _default,
+  create the file empty and write a log line - deliberately not a hard error,
+  since a migration or a plain config file may legitimately start blank.
+  Deciding what no-match means is this milestone's job, not the matcher's.
 
   Phase 3 is create-if-absent. An existing path is never re-rendered over, since
   that would destroy injected regions the file already carries. Sedum verifies
@@ -80,7 +80,6 @@ constraints:
 affected_scope:
   - internal/record/**
   - internal/resolve/**
-  - internal/filetmpl/**
   - internal/pipeline/**
   - internal/cli/resolve.go
   - testdata/**
