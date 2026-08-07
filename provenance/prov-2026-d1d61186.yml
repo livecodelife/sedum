@@ -1,0 +1,85 @@
+id: prov-2026-d1d61186
+title: 'actions.yaml anchor schema: a scalar with reserved keywords and per-kind companion fields'
+status: open
+created_at: "2026-08-07"
+author: calebcowen@gmail.com
+intent: |
+  Anchors are M4's machinery (prov-2026-b6fa093c), but their YAML shape is M1's
+  problem, and M1 cannot defer it. Strict KnownFields decoding means actions.yaml
+  is rejected for any key the schema does not model, so M1 must model every field
+  an action will ever carry - including the ones only M4 reads. M1 also owns the
+  warning "an action whose marker anchor appears in no file template", which
+  requires telling a marker anchor apart from the other kinds.
+
+  PRD.md gives the vocabulary - marker, region, start_of_file, end_of_file,
+  after_match, before_match - and three examples, all scalars: `anchor:
+  class_body_top`, `anchor: class_body`, `anchor: end_of_file`. Two of those are
+  marker names and one is a keyword, with nothing in the syntax distinguishing
+  them. Two of the six kinds also need data the scalar has nowhere to put: region
+  needs two marker names, and after_match/before_match need a regex that PRD.md
+  says is "declared in the action definition".
+
+  Decision: `anchor` stays a scalar, and the six kinds are reserved values of it.
+  `start_of_file`, `end_of_file`, `region`, `after_match`, and `before_match` are
+  keywords; any other value names a marker. `marker` itself is reserved too, and
+  using it bare is an error naming the marker the author probably meant, because
+  a bare `anchor: marker` reads like a declaration and is almost certainly a
+  half-finished edit rather than a marker literally named "marker".
+
+  The kinds that need more data carry it in companion fields on the action:
+  `anchor_start` and `anchor_end` for region, `anchor_pattern` for after_match
+  and before_match. Each is required exactly when its kind is used and rejected
+  otherwise, so a stray anchor_pattern beside `anchor: end_of_file` is a
+  diagnostic rather than a silently ignored line.
+
+  The alternative was making `anchor` a mapping - `anchor: {marker: class_body}`,
+  `anchor: {region: [start, end]}` - which is unambiguous and needs no reserved
+  words. It was rejected because it contradicts every example in PRD.md and
+  would make the common case, a marker, the verbose one. The cost of the scalar
+  form is that five names are unavailable as marker names. That cost is
+  acceptable: the marker namespace belongs entirely to the package author, who
+  can rename, and the collision is loud - a template planting a marker called
+  `end_of_file` gets the keyword's behavior, which any test of that action shows
+  immediately.
+
+  Marker syntax itself follows PRD.md and the package's declared comment_prefix:
+  a file template plants `<comment_prefix> sedum:anchor:<name>`. That is the
+  string M1 scans file templates for when deciding whether an action's marker
+  anchor was ever planted. M4 must read markers with the same syntax; it is
+  fixed here because M1 is the first thing that has to recognize one.
+constraints:
+  - >-
+    `anchor` is a scalar. start_of_file, end_of_file, region, after_match,
+    before_match, and marker are reserved values; every other value names a
+    marker planted by a file template.
+  - >-
+    Companion fields are required exactly when their kind is used and rejected
+    otherwise - anchor_start and anchor_end for region, anchor_pattern for
+    after_match and before_match. A field that does not apply to the declared
+    anchor is a diagnostic, never an ignored line.
+  - >-
+    Marker syntax is `<comment_prefix> sedum:anchor:<name>`, planted by file
+    templates. M1 recognizes it to raise the unplanted-marker warning and M4
+    must locate markers with the identical syntax.
+  - >-
+    M1 models every field an action carries, including ones only later
+    milestones read, because strict decoding rejects any key the schema omits.
+    Adding a field later is a schema change, not an additive one.
+affected_scope: []
+forbidden_scope: []
+type: imprint
+implements: prov-2026-8e6dac6c
+supersedes: ""
+superseded_by: ""
+related:
+  - prov-2026-b6fa093c
+sealed_at_sha: ""
+associated_specs:
+  - path: internal/genpkg/genpkg_test.go
+    run_command: go test -count=1 ./$(dirname {{path}})
+associated_traces: []
+monitors: []
+tags:
+  - sedum
+  - m1
+  - anchors
