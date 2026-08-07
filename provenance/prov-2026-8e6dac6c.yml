@@ -1,6 +1,6 @@
 id: prov-2026-8e6dac6c
 title: M1 - Generator package loading and load-time validation (sedum validate)
-status: draft
+status: open
 created_at: "2026-08-07"
 author: calebcowen@gmail.com
 intent: |
@@ -88,6 +88,8 @@ affected_scope:
   - internal/genpkg/**
   - internal/cli/validate.go
   - testdata/generators/**
+  - go.mod
+  - go.sum
 forbidden_scope: []
 type: blueprint
 implements: prov-2026-d554bfc3
@@ -95,7 +97,9 @@ supersedes: ""
 superseded_by: ""
 related: []
 sealed_at_sha: ""
-associated_specs: []
+associated_specs:
+  - path: internal/genpkg/genpkg_test.go
+    run_command: go test -count=1 ./$(dirname {{path}})
 associated_traces: []
 monitors: []
 tags:
