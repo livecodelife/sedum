@@ -59,6 +59,7 @@ constraints:
     Baseline stack, applied consistently across every blueprint under this
     brief - spf13/cobra (CLI), gopkg.in/yaml.v3 (config and record parsing,
     strict/KnownFields decoding), text/template (rendering), log/slog (run log),
+    iancoleman/strcase (case conversion and word splitting),
     sashabaranov/go-openai (model client, OpenAI-compatible so local endpoints
     work). Any addition to this list is an imprint-level decision with a stated
     reason.

@@ -16,9 +16,26 @@ intent: |
   conventions live; a Go package declares different pipelines over the identical
   operation set, and nothing language-specific enters core.
 
+  Case conversion uses iancoleman/strcase, whose real value is word splitting -
+  it normalizes UserURL, user-id, and users_controller alike into snake form,
+  which is the fiddly part of the job. snake, kebab, upper, and lower delegate
+  to it directly.
+
   Exception tables handle irregular mappings without new machinery
-  (op_exceptions: pascal: {url: URL, id: ID}), applied as a whole-token lookup
-  before the operation runs.
+  (op_exceptions: pascal: {url: URL, id: ID}). They are applied per word, not to
+  the whole token: pascal over user_url with url -> URL must yield UserURL. So
+  pascal and camel normalize through strcase.ToSnake, split on underscore, look
+  each word up in the package's exception table for that operation, title-case
+  the words that miss, and join. camel lowercases the leading word and skips the
+  exception table for position zero, since a leading acronym would otherwise
+  render uRL.
+
+  strcase.ConfigureAcronym is deliberately not used, for two independent
+  reasons. It writes to a package-global sync.Map, so with several generator
+  packages loaded in one run the last one to configure would win process-wide -
+  a direct contradiction of per-file resolution. And it is a whole-string lookup
+  on the input, so it converts a bare url but leaves user_url untouched, which
+  is not the behavior op_exceptions describes.
 
   Inflection ships as a declarative rule table per language rather than per
   package - ordered regex/replacement pairs, an irregulars map, an uncountables
@@ -69,6 +86,15 @@ constraints:
   - >-
     A model-supplied inflection form overrides the rule table for that value; the
     rule table is the default, not the authority.
+  - >-
+    op_exceptions are per package and per operation, resolved from the loaded
+    package at call time. No transform state is stored in a process-global, and
+    strcase.ConfigureAcronym is never called - two packages in one run must be
+    able to disagree about how a token capitalizes.
+  - >-
+    op_exceptions apply per word after normalization, not to the whole input
+    token, so that an exception declared once affects every token containing that
+    word.
   - >-
     The user-defined transforms tier is out of scope for this milestone. Adding
     it later requires its own blueprint covering the process protocol, declared
