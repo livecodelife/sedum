@@ -1,0 +1,7 @@
+name: chi
+extensions: [".go"]
+comment_prefix: "//"
+
+transforms:
+  exported: [pascal]
+  receiver: [singular, camel]

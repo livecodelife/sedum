@@ -1,0 +1,21 @@
+actions:
+  # A composite bundles actions that are always performed together. It has no
+  # template of its own and takes its kwargs from its children.
+  createHandler:
+    composes: [addHandlerFunc, addRoute]
+
+  addHandlerFunc:
+    kwargs:
+      resource: { type: string, required: true }
+      verb: { type: string, required: true }
+    injects_into: "internal/handlers/{{resource|snake}}.go"
+    anchor: handlers
+    exposed: false
+
+  addRoute:
+    kwargs:
+      resource: { type: string, required: true }
+      verb: { type: string, required: false }
+    injects_into: "internal/handlers/{{resource|snake}}.go"
+    anchor: end_of_file
+    exposed: false

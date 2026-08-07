@@ -1,0 +1,26 @@
+actions:
+  addBeforeFilter:
+    kwargs:
+      controller: { type: string, required: true }
+      filter: { type: string, required: true }
+      only: { type: list, required: false }
+    injects_into: "app/controllers/{{controller|snake}}_controller.rb"
+    anchor: class_body_top
+
+  # A discriminated action: the kwarg named by discriminator selects the
+  # template, and variants enumerates the values that have a dedicated one.
+  createControllerMethod:
+    kwargs:
+      controller: { type: string, required: true }
+      name: { type: string, required: true }
+      collection: { type: string, required: false }
+    discriminator: name
+    variants: [index, show, create]
+    injects_into: "app/controllers/{{controller|snake}}_controller.rb"
+    anchor: class_body
+
+  createModelClass:
+    kwargs:
+      name: { type: string, required: true }
+    injects_into: "app/models/{{name|snake}}.rb"
+    anchor: class_body

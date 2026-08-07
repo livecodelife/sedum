@@ -2,6 +2,8 @@ package cli
 
 import (
 	"bytes"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -112,7 +114,10 @@ func exec(t *testing.T, args ...string) (string, error) {
 	root.SetOut(&out)
 	root.SetErr(&out)
 	root.SetArgs(args)
-	return out.String(), root.Execute()
+	// Execute first: as return operands these evaluate left to right, so
+	// reading the buffer inline would always capture it empty.
+	err := root.Execute()
+	return out.String(), err
 }
 
 // wantErr asserts the command failed and that the message names every needle.
@@ -233,7 +238,6 @@ func TestUnimplementedCommandsNameTheirMilestone(t *testing.T) {
 		args      []string
 		milestone string
 	}{
-		{[]string{"validate", "--generators", "g"}, "M1"},
 		{[]string{"resolve", "--generators", "g", "--records", "r"}, "M3"},
 		{[]string{"actions", "--generators", "g", "--package", "rails"}, "M6"},
 		{[]string{"grow", "--generators", "g", "--records", "r"}, "M6"},
@@ -244,6 +248,34 @@ func TestUnimplementedCommandsNameTheirMilestone(t *testing.T) {
 			_, err := exec(t, tc.args...)
 			wantErr(t, err, "not implemented", tc.milestone)
 		})
+	}
+}
+
+// validate is the one command a milestone has landed, so it is exercised end
+// to end here: the checks themselves are genpkg's to test, but that the command
+// reaches them and reports what they found is this package's.
+func TestValidateReportsOnTheGeneratorsDirectory(t *testing.T) {
+	out, err := exec(t, "validate", "--generators", filepath.Join("..", "..", "testdata", "generators"))
+	if err != nil {
+		t.Fatalf("validate on the fixture packages failed: %v\n%s", err, out)
+	}
+	for _, want := range []string{"2 package(s) loaded", "0 error(s)"} {
+		if !strings.Contains(out, want) {
+			t.Errorf("validate output = %q, does not report %q", out, want)
+		}
+	}
+}
+
+func TestValidateFailsOnARejectedPackage(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(dir, "broken"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	out, err := exec(t, "validate", "--generators", dir)
+	wantErr(t, err, "broken")
+	if !strings.Contains(out, "manifest_missing") {
+		t.Errorf("validate output = %q, does not name the rule violated", out)
 	}
 }
 

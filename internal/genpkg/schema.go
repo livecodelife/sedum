@@ -1,0 +1,150 @@
+package genpkg
+
+import "slices"
+
+// The YAML shapes of a generator package's two declaration files, and the
+// resolved types loading produces from them.
+//
+// Decoding is strict: an unrecognized key is an error naming the key and its
+// file, not a silently ignored field. A typo in a key is otherwise invisible
+// until generation, at which point it looks like a missing feature rather than
+// a misspelling.
+
+// manifest is sedum.yaml.
+type manifest struct {
+	Name          string                       `yaml:"name"`
+	Extensions    []string                     `yaml:"extensions"`
+	CommentPrefix string                       `yaml:"comment_prefix"`
+	Transforms    map[string][]string          `yaml:"transforms"`
+	OpExceptions  map[string]map[string]string `yaml:"op_exceptions"`
+}
+
+// actionsFile is actions/actions.yaml.
+type actionsFile struct {
+	Actions map[string]*actionDecl `yaml:"actions"`
+}
+
+// actionDecl is one entry under actions:. Every field an action will ever carry
+// is modeled here, including the ones only later milestones read, because
+// strict decoding rejects any key the schema omits (prov-2026-d1d61186).
+//
+// Exposed is a pointer so that "absent" is distinguishable from "false".
+// exposed defaults to true: authoring an action is enough to make it usable,
+// and hiding is the deliberate act.
+type actionDecl struct {
+	Kwargs        map[string]Kwarg `yaml:"kwargs"`
+	Discriminator string           `yaml:"discriminator"`
+	Variants      []string         `yaml:"variants"`
+	InjectsInto   string           `yaml:"injects_into"`
+	Anchor        string           `yaml:"anchor"`
+	AnchorStart   string           `yaml:"anchor_start"`
+	AnchorEnd     string           `yaml:"anchor_end"`
+	AnchorPattern string           `yaml:"anchor_pattern"`
+	Composes      []string         `yaml:"composes"`
+	Exposed       *bool            `yaml:"exposed"`
+}
+
+// Kwarg is one entry in an action's argument schema - the shape the model is
+// held to when it binds arguments.
+type Kwarg struct {
+	Type     string `yaml:"type"`
+	Required bool   `yaml:"required"`
+}
+
+// KwargTypes is the closed set an action's kwarg may declare. It is
+// deliberately small: sufficient for argument binding and nothing more.
+var KwargTypes = []string{"string", "int", "bool", "list"}
+
+func validKwargType(t string) bool { return slices.Contains(KwargTypes, t) }
+
+// ActionKind is how an action is realized. It is read from the schema and never
+// inferred from the filesystem.
+type ActionKind int
+
+const (
+	// Simple has one template file named for the action.
+	Simple ActionKind = iota
+	// Discriminated has a directory named for the action holding one
+	// template per declared variant plus an optional _default.
+	Discriminated
+	// Composite has no template at all and triggers no filesystem lookup.
+	Composite
+)
+
+func (k ActionKind) String() string {
+	switch k {
+	case Discriminated:
+		return "discriminated"
+	case Composite:
+		return "composite"
+	default:
+		return "simple"
+	}
+}
+
+// DefaultVariant names the fallback template in a discriminated action's
+// directory. It is optional; a discriminator value that is not a declared
+// variant falls to it when present.
+const DefaultVariant = "_default"
+
+// Action is a loaded, resolved action definition.
+type Action struct {
+	Name string
+
+	// Kwargs is the declared schema for a simple action, and the union of
+	// its children's schemas for a composite - union of names, union of
+	// required flags.
+	Kwargs        map[string]Kwarg
+	Discriminator string
+	Variants      []string
+	InjectsInto   string
+	Anchor        string
+	AnchorStart   string
+	AnchorEnd     string
+	AnchorPattern string
+	Composes      []string
+	Exposed       bool
+
+	// Template is the path to a simple action's template, relative to the
+	// package directory. Empty for the other kinds.
+	Template string
+	// Templates maps variant name to template path for a discriminated
+	// action, including DefaultVariant when present. Empty for the others.
+	Templates map[string]string
+
+	kind ActionKind
+}
+
+func (a *Action) Kind() ActionKind { return a.kind }
+
+// Package is a loaded generator package: a team's conventions for one target
+// stack.
+type Package struct {
+	Name string
+	// Dir is the package directory as it was found on disk.
+	Dir           string
+	Extensions    []string
+	CommentPrefix string
+	// Transforms are the named pipelines the package declares over the
+	// built-in operation set.
+	Transforms   map[string][]string
+	OpExceptions map[string]map[string]string
+	Actions      map[string]*Action
+
+	// FileTemplates are the path patterns under files/, slash-normalized and
+	// relative to files/. Each template's own path is its pattern. They are
+	// not part of the action catalog and are never loaded as actions.
+	FileTemplates []string
+}
+
+// Exposed returns the actions a catalog may show, in no particular order.
+// Only exposed actions ever reach the model.
+func (p *Package) Exposed() []*Action {
+	var out []*Action
+	for _, a := range p.Actions {
+		if a.Exposed {
+			out = append(out, a)
+		}
+	}
+	return out
+}

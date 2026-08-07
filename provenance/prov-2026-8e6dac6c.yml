@@ -87,6 +87,10 @@ constraints:
 affected_scope:
   - internal/genpkg/**
   - internal/cli/validate.go
+  # M0's flag test asserts validate is unimplemented. Implementing it here is
+  # what makes that assertion false, so the case moves out of that table in the
+  # same change that lands the command.
+  - internal/cli/flags_test.go
   - testdata/generators/**
   - go.mod
   - go.sum

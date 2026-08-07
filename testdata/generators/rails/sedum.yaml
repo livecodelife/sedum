@@ -1,0 +1,19 @@
+# A generator package declares one team's conventions for one target stack.
+# The package's directory name is what --package and --lang refer to; the name
+# here must agree with it.
+name: rails
+extensions: [".rb"]
+comment_prefix: "#"
+
+# Named compositions of the built-in operations. Nothing language-specific
+# lives in Sedum's core: "constantize" means what this package says it means.
+transforms:
+  constantize: [singular, pascal]
+  instantize: [plural, "prefix:@"]
+  tablename: [plural, snake]
+
+# Irregular mappings, handled by a table rather than by new machinery.
+op_exceptions:
+  pascal:
+    url: URL
+    id: ID
