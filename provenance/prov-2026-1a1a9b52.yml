@@ -18,6 +18,15 @@ intent: |
   not per run - one record may legitimately touch a .rb and a .ts path and each
   is generated under its own package's conventions.
 
+  Phase 2 also carries a warning inherited from M1: a --lang flag naming a
+  package that claims no extension in the record set. M1's blueprint listed it
+  as a load-time check, but its input is the record set, which does not exist at
+  load - see prov-2026-3aea61a1, which moved it here. It is raised from the
+  extension-to-package map M1 builds plus the authorized path set this milestone
+  ingests, and it is the third member of the extension-resolution family
+  alongside the two hard errors above - a warning rather than an error, because
+  a redundant preference is harmless where an unresolvable path is not.
+
   Phase 3 - match each authorized path against its package's files/ tree, using
   the matcher and ranking from M1a (prov-2026-f51f04b2). Ties were already
   rejected at load in M1, so a match here is unambiguous. On the no-match result

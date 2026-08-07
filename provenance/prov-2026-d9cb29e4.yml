@@ -11,6 +11,15 @@ intent: |
   prefix:X, suffix:X. Operation arguments are string literals only - dynamic
   arguments would start the construction of an expression language and are out.
 
+  That operation list currently exists as genpkg.BuiltinOperations, names only,
+  because M1 needed it to decide whether a transform reference resolves and the
+  engine did not exist yet (prov-2026-73127e53). This milestone relocates it to
+  internal/transform as the single declaration the engine is built from, with
+  genpkg consuming it. It must end up declared exactly once, next to the code
+  that implements it: two copies drift, and a package then validates against a
+  transform that no longer exists. The dependency runs one way - internal/
+  transform is a leaf and must not import internal/genpkg.
+
   Declarative pipelines are named compositions of built-ins, declared per package
   in sedum.yaml (instantize: [plural, "prefix:@"]). This is where language
   conventions live; a Go package declares different pipelines over the identical
