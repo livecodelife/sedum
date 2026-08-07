@@ -1,0 +1,79 @@
+id: prov-2026-73127e53
+title: The closed built-in transform vocabulary lives in genpkg until M2 claims it
+status: open
+created_at: "2026-08-07"
+author: calebcowen@gmail.com
+intent: |
+  M1 must reject "a template or path pattern referencing an undefined transform
+  pipeline". Deciding a reference is undefined means knowing everything it could
+  legitimately resolve to, and that is two sets: the pipelines the package
+  declares in sedum.yaml, and the built-in operations Sedum ships. M1 owns the
+  first. The second belongs to M2 (prov-2026-d9cb29e4), which is not built yet.
+
+  Only the names are needed. M1 never applies a transform - it checks that a
+  reference resolves - so what it requires is the closed vocabulary from PRD.md:
+  pascal, camel, snake, kebab, upper, lower, plural, singular, prefix:X, and
+  suffix:X. The implementations, the inflection rule tables, and the exception
+  tables are all M2's.
+
+  Decision: the name list lives in internal/genpkg for now, declared as the
+  validation vocabulary and marked as M2's to claim. M2 owns internal/transform,
+  which is outside M1's scope, and widening M1 to plant a file in M2's package
+  ahead of M2 would seal a stub under the wrong record. Having internal/transform
+  import genpkg for the names later would be worse still - it inverts the
+  dependency, making the transform engine depend on the package loader.
+
+  When M2 lands, the list moves to internal/transform as the single declaration
+  the engine is built from, and genpkg consumes it. That relocation is M2's to
+  make and should be noted in its blueprint before it opens: the vocabulary must
+  end up declared exactly once, next to the code that implements it, or the two
+  will drift and a package will validate against a transform that no longer
+  exists.
+
+  One consequence for what M1 checks. Because the built-in list is names only,
+  M1 verifies that a reference resolves to a known name; it does not verify that
+  a parameterized operation's argument makes sense, and it does not execute a
+  pipeline. `prefix:` and `suffix:` are recognized by their operation name with
+  the argument after the colon treated as opaque, since PRD.md fixes those
+  arguments as string literals - dynamic arguments are explicitly out, so there
+  is nothing to resolve.
+
+  Extracting references does not require a template parser and must not
+  introduce one. A reference is the pipe-separated tail of a `{{...}}`
+  expression: M1 finds those spans, splits on `|`, and treats the first element
+  as the value and the rest as transforms. That is enough to check names and
+  commits M2 to nothing about how it renders.
+constraints:
+  - >-
+    The built-in operation vocabulary is declared exactly once. It sits in
+    internal/genpkg for M1 and moves to internal/transform when M2 lands, with
+    genpkg consuming it - it is never declared in both.
+  - >-
+    internal/transform must not depend on internal/genpkg. The transform engine
+    is a leaf; the package loader consumes it, not the other way around.
+  - >-
+    M1 validates that a transform reference resolves to a name, and nothing
+    more. It does not apply transforms, check operation arguments, or execute
+    pipelines - those need M2's engine and belong to M2's tests.
+  - >-
+    Reference extraction is textual and stays that way. Finding `{{...}}` spans
+    and splitting on `|` is the whole mechanism; introducing a template parser
+    here would pre-empt M2's rendering decisions.
+affected_scope: []
+forbidden_scope: []
+type: imprint
+implements: prov-2026-8e6dac6c
+supersedes: ""
+superseded_by: ""
+related:
+  - prov-2026-d9cb29e4
+sealed_at_sha: ""
+associated_specs:
+  - path: internal/genpkg/genpkg_test.go
+    run_command: go test -count=1 ./$(dirname {{path}})
+associated_traces: []
+monitors: []
+tags:
+  - sedum
+  - m1
+  - transforms
