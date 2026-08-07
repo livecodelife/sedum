@@ -1,6 +1,6 @@
 id: prov-2026-f51f04b2
 title: M1a - File template path matching, captures, and specificity ranking
-status: draft
+status: open
 created_at: "2026-08-07"
 author: calebcowen@gmail.com
 intent: |
@@ -87,7 +87,9 @@ related:
   - prov-2026-8e6dac6c
   - prov-2026-1a1a9b52
 sealed_at_sha: ""
-associated_specs: []
+associated_specs:
+  - path: internal/filetmpl/filetmpl_test.go
+    run_command: go test -count=1 ./$(dirname {{path}})
 associated_traces: []
 monitors: []
 tags:
