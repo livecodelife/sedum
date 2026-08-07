@@ -1,0 +1,84 @@
+id: prov-2026-86a21f53
+title: Resolve the --stop-after / --execute / --record conflict in the PRD flag rules
+status: draft
+created_at: "2026-08-07"
+author: calebcowen@gmail.com
+intent: |
+  Three rules the PRD states independently cannot all hold literally:
+
+    1. "--record and --execute are mutually exclusive." (CLI flag table)
+    2. "--stop-after invocations and --stop-after expansion require --record."
+       (Stop points)
+    3. "With --execute, a --stop-after value naming a phase that replay does not
+       run is an error. Only expansion is meaningful." (Stop points)
+
+  Rule 3 blesses --execute --stop-after expansion. Rule 2 says that combination
+  requires --record. Rule 1 says --record cannot appear with --execute. So the
+  combination the PRD calls meaningful is unreachable.
+
+  Resolution: rule 2 is conditional, not absolute. Its stated reason is that
+  "without it the model's output is discarded and there is nothing to resume
+  from, having already paid for the call." Under --execute no model call happens
+  and the recording already exists on disk, so the hazard rule 2 guards against
+  does not exist and the requirement does not apply.
+
+  Implemented reading:
+
+    - Without --execute: --stop-after invocations|expansion require --record.
+      Unchanged from the PRD.
+    - With --execute: --record is neither required nor permitted. --stop-after is
+      accepted for any phase replay actually runs and rejected otherwise.
+
+  Which phases replay runs follows from "replay enters the pipeline at Phase 3
+  with resolution already decided, skips Phase 4 entirely, and runs Phases 5
+  through 7 unchanged." Replay runs Phases 0, 3, 5, 6, 7 and does not run Phases
+  1, 2, or 4. Mapping the stop points onto that:
+
+    resolution  (after Phase 2) -> rejected, replay does not run Phase 2
+    files       (after Phase 3) -> accepted
+    invocations (after Phase 5) -> accepted
+    expansion   (after Phase 6) -> accepted
+
+  This is broader than the PRD's "only expansion is meaningful," which is a
+  remark about usefulness rather than a legality rule - the sentence immediately
+  before it states the legality rule as "a phase that replay does not run," and
+  files and invocations are both phases replay runs. Rejecting them would mean
+  the error message has to say a phase is not run when it is, which is worse
+  than permitting a stop point of limited utility.
+
+  Encoded in internal/cli as a table mapping each stop point to the phase it
+  follows plus whether replay runs that phase, so the rule is data rather than a
+  chain of conditionals, and M7 has one place to correct if replay's phase set
+  ever changes.
+constraints:
+  - >-
+    The --record requirement for --stop-after invocations|expansion applies only
+    when a model call will happen. Under --execute it is waived because the
+    recording already exists and no call was paid for.
+  - >-
+    Legality of a --stop-after value under --execute is decided by whether replay
+    runs the phase it follows, never by a hardcoded list of accepted values.
+  - >-
+    Rejecting --execute --stop-after resolution must say that replay does not run
+    resolution, naming both flags. A generic conflict message would leave the
+    user unable to tell which of the two to drop.
+  - >-
+    This reading is a deviation from a literal reading of the PRD's Stop points
+    section. If the PRD is revised, this imprint is the record of why the code
+    disagrees with the document as written.
+affected_scope:
+  - internal/cli/**
+forbidden_scope: []
+type: imprint
+implements: prov-2026-aa4b736d
+supersedes: ""
+superseded_by: ""
+related: []
+sealed_at_sha: ""
+associated_specs: []
+associated_traces: []
+monitors: []
+tags:
+  - sedum
+  - m0
+  - cli
