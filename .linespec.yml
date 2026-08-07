@@ -1,0 +1,11 @@
+provenance:
+    enforcement: strict
+    dir: provenance
+    exclude_paths: []
+    shared_repos: []
+    cache_ttl_minutes: 0
+    commit_tag_required: true
+    auto_affected_scope: false
+    run_associated_specs_on_complete: true
+    overlap_specs_on_complete: "block"
+    commit_on_status_change: true
