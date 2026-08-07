@@ -1,0 +1,73 @@
+id: prov-2026-3aea61a1
+title: The --lang warning is not a load-time check and moves to M3
+status: open
+created_at: "2026-08-07"
+author: calebcowen@gmail.com
+intent: |
+  M1's blueprint lists three warnings. The third - "a --lang flag naming a
+  package that claims no extension in the record set" - cannot be produced by
+  anything M1 builds, and this imprint moves it rather than faking it.
+
+  The phrase "in the record set" is the problem. M1's own final constraint is
+  that load-time validation runs with no records, no model, and no network, and
+  `sedum validate` takes no --records flag at all: its whole flag surface is
+  --generators, --package, and --strict. So at the moment the warning would fire
+  there is no record set to check the flag against. The check is not merely
+  inconvenient to run at load; its input does not exist yet.
+
+  It is also not a check about a package. Every other load-time rule is a
+  statement about a generator package being internally coherent, and rejecting
+  or flagging one is meaningful without knowing what will be generated. This one
+  is a statement about a particular invocation - these records, this --lang flag
+  - and the same package is fine or not depending on which records a run was
+  pointed at. Warning about it while loading would mean the same package
+  validates differently on two runs, which is exactly the property "packages are
+  wholly valid or rejected" exists to prevent.
+
+  The check itself is worth keeping; a --lang flag that names a package no
+  authorized path could resolve to is almost always a typo or a stale script.
+  It belongs in M3's Phase 2, where --lang is applied and the extension set of
+  the authorized paths is known. M3 already owns "a contested extension with no
+  disambiguating flag is a hard error" and "a path whose extension no package
+  claims is a hard error"; this is the third member of that family, and the only
+  one of the three that is a warning rather than an error, because a redundant
+  preference is harmless whereas an unresolvable path is not.
+
+  What M1 keeps is the half that is a load-time fact: the extension-to-package
+  map, including the contested entries. M3 has everything it needs to raise the
+  warning from that map plus the authorized path set. No behavior is dropped;
+  it fires one phase later, at the point where it can be true.
+
+  M3's blueprint (prov-2026-1a1a9b52) is still a draft, so this obligation
+  should be written into it before it is opened.
+constraints:
+  - >-
+    Load-time validation stays free of records. A rule whose input is the record
+    set is not a load-time rule, however naturally it reads in a list beside
+    ones that are.
+  - >-
+    A package's validity does not depend on the run it is used in. The same
+    package pointed at two different record sets must produce the same findings,
+    which is what makes "wholly valid or rejected" a usable contract.
+  - >-
+    The warning is deferred, not dropped. M3 raises it in Phase 2 from the
+    extension-to-package map M1 builds and the authorized path set M3 ingests,
+    alongside the two hard errors it already owns about extension resolution.
+affected_scope: []
+forbidden_scope: []
+type: imprint
+implements: prov-2026-8e6dac6c
+supersedes: ""
+superseded_by: ""
+related:
+  - prov-2026-1a1a9b52
+sealed_at_sha: ""
+associated_specs:
+  - path: internal/genpkg/genpkg_test.go
+    run_command: go test -count=1 ./$(dirname {{path}})
+associated_traces: []
+monitors: []
+tags:
+  - sedum
+  - m1
+  - validation
