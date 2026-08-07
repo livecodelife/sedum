@@ -1,6 +1,6 @@
 id: prov-2026-bc163215
 title: 'Pattern grammar: glob is a sub-segment wildcard, adjacent wildcards are rejected, captures bind shortest'
-status: open
+status: implemented
 created_at: "2026-08-07"
 author: calebcowen@gmail.com
 intent: |
@@ -77,7 +77,7 @@ implements: prov-2026-f51f04b2
 supersedes: ""
 superseded_by: ""
 related: []
-sealed_at_sha: ""
+sealed_at_sha: 690a5546b01e25542e3abec5e1dcdeaa49d8c855
 associated_specs:
   - path: internal/filetmpl/filetmpl_test.go
     run_command: go test -count=1 ./$(dirname {{path}})
