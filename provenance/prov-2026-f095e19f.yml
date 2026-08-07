@@ -1,0 +1,102 @@
+id: prov-2026-f095e19f
+title: M6 - Model invocation and output validation (sedum grow, sedum actions)
+status: draft
+created_at: "2026-08-07"
+author: calebcowen@gmail.com
+intent: |
+  Implement Phases 4 and 5, closing the loop. Delivers `sedum grow` end to end
+  and `sedum actions`.
+
+  Phase 4 - one model call per provenance record. The prompt carries the record's
+  intent, its constraints, the paths created for it in Phase 3, and the action
+  catalog: the union of exposed actions across every package the record's paths
+  resolved to, with kwarg schemas and variant lists.
+
+  Variant lists are included deliberately. Without them there is an invisible
+  cliff - name: index gets a full implementation while name: search falls to
+  _default, and the model has no way to know it fell off. Exposing the list lets
+  it prefer covered values where intent maps cleanly and take the fallback
+  knowingly where it does not.
+
+  The response is structured output, not tool calls: a JSON array of
+  {action, kwargs} objects. This keeps the mechanism working with models that
+  lack tool-calling support, which is most of the open-weight range worth
+  evaluating. The client is sashabaranov/go-openai against an OpenAI-compatible
+  endpoint, so a local server (LM Studio, vLLM, Ollama) and a hosted API are the
+  same code path; --model names the model and endpoint plus credentials come from
+  the environment.
+
+  Phase 5 - deterministic validation, each check producing a specific
+  re-promptable error: the action name exists and is exposed in this record's
+  catalog; all required kwargs are present; no unknown kwargs; every value
+  matches its declared type; the discriminator value is a declared variant or
+  _default exists; the rendered injects_into path was created in Phase 3. On
+  failure, re-prompt with the specific violations appended, up to --retries.
+  The loop costs one model call - no compilation, no service startup, no test
+  execution.
+
+  `sedum actions` prints a package's catalog exactly as the model would receive
+  it, with --all to include unexposed actions marked as such and --json to emit
+  the raw payload. It is the authoring feedback loop for exposure and catalog
+  clarity, and it shares the catalog builder with Phase 4 rather than
+  reimplementing it - if the two could drift, the command stops being evidence.
+
+  Testable: end-to-end generation from a Rails provenance record with no
+  hand-written invocation list; each validation rule demonstrably triggers a
+  correct re-prompt against a recorded/stubbed model response; retry exhaustion
+  halts with the accumulated violations; `sedum actions --json` output is
+  byte-identical to the catalog embedded in the Phase 4 prompt.
+constraints:
+  - >-
+    The model selects actions from a closed vocabulary and binds their arguments.
+    It does not write code, choose file paths, name files, or make structural
+    decisions. Anything it returns outside the declared schema is rejected, never
+    interpreted.
+  - >-
+    Structured JSON output, not tool calls. Tool-calling support must not be a
+    requirement for a model to work with Sedum.
+  - >-
+    The catalog contains only exposed actions from the packages this record's
+    paths resolved to. An unexposed action is not merely rejected if selected -
+    it is absent from the option set, making that invalidity unrepresentable.
+  - >-
+    Every Phase 5 check produces an error specific enough to re-prompt with. A
+    generic "invalid output" is a defect, because the retry loop's whole value is
+    that the model is told exactly what was wrong.
+  - >-
+    Retries are bounded by --retries (default 3). Exhaustion halts the run and
+    reports every accumulated violation.
+  - >-
+    Nothing downstream of Phase 5 consults the model. Once output validates, the
+    remainder of the run is a pure function of that output and the packages.
+  - >-
+    sedum actions and the Phase 4 prompt build the catalog through the same code
+    path. Divergence between them would make the authoring feedback loop lie.
+  - >-
+    Model configuration comes from --model plus the environment. No credentials,
+    endpoints, or model names are read from a generator package or a provenance
+    record.
+  - >-
+    A model call is made only when --execute is absent. Under replay Phase 4 is
+    skipped entirely and --retries and --model are ignored.
+affected_scope:
+  - internal/selection/**
+  - internal/catalog/**
+  - internal/cli/grow.go
+  - internal/cli/actions.go
+  - internal/pipeline/**
+  - testdata/**
+forbidden_scope: []
+type: blueprint
+implements: prov-2026-d554bfc3
+supersedes: ""
+superseded_by: ""
+related: []
+sealed_at_sha: ""
+associated_specs: []
+associated_traces: []
+monitors: []
+tags:
+  - sedum
+  - m6
+  - model

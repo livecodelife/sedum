@@ -1,0 +1,112 @@
+id: prov-2026-dc227be7
+title: M7 - Recording and replay
+status: draft
+created_at: "2026-08-07"
+author: calebcowen@gmail.com
+intent: |
+  Serialize what a run resolved and what the model decided, and replay it without
+  a model. Delivers --record, --execute, and --stop-after invocations|expansion.
+
+  Every phase after model invocation is deterministic, so the model's entire
+  contribution to a run can be captured once and replayed forever. A recording is
+  a JSON file describing which files to create, which package and template each
+  resolved to, and which action invocations to apply.
+
+  This makes three things possible. Runs become reproducible in the strong
+  sense - same recording, same output, no sampling involved. A team can commit a
+  recording as a standard service scaffold and generate new services from it
+  deterministically. And a recording is plain JSON, so it can be hand-edited when
+  a situation needs something the model did not produce or produced wrongly.
+
+  Schema decisions carried from M4's fixture format:
+    - invocations are grouped under phases; every recording this implementation
+      produces has exactly one phase named default, and replay executes phases in
+      order. Recordings are committed artifacts, so reserving the level costs one
+      array nesting while adding it later costs a migration.
+    - invocations are recorded pre-expansion. A composite is stored as the
+      composite, because expansion is deterministic and re-running it is free.
+      This keeps recordings compact and at the abstraction level an author edits
+      in - changing a createMethod call means editing one entry, not keeping two
+      injections in sync.
+    - no timestamps, run identifiers, or other volatile fields. Two recordings of
+      equivalent runs must diff cleanly, so that a change in model output is
+      visible as a change in the file.
+
+  Replay enters the pipeline at Phase 3 with resolution already decided, skips
+  Phase 4 entirely, and runs Phases 5 through 7 unchanged. Validation is
+  identical but failures are terminal - a hand-edited recording naming a
+  nonexistent action, omitting a required kwarg, or targeting a file it did not
+  create fails exactly the checks a model response would fail, and the run halts
+  because there is nothing to re-prompt.
+
+  Sedum verifies that every package named in a recording is present in the
+  generators directory and still claims the extensions recorded against it. A
+  mismatch halts. But a recording is not a lockfile: it captures decisions, not
+  templates. Replaying after a package change picks up the new templates, which
+  is usually what teams want, and means byte-identical output across time
+  requires versioning the generator package alongside the recording.
+
+  Provenance records are optional on replay. Supplied, Sedum verifies every path
+  in the recording is authorized by affected_scope and violates no
+  forbidden_scope, halting on any unauthorized path. Omitted, the recording
+  executes as written. Both modes are legitimate - replaying against the records
+  that produced it wants the check; a hand-edited generic scaffold has no
+  corresponding records.
+
+  Testable: recording a run and replaying it produces byte-identical output with
+  no model invocation; stopping at invocations and resuming with --execute
+  matches an uninterrupted run; a hand-edited recording with an invalid action
+  halts with a specific error and no partial writes; a recording with an
+  unauthorized path fails scope validation when records are supplied and succeeds
+  when they are not; a package whose extensions changed since recording halts.
+constraints:
+  - >-
+    Recordings carry no timestamps, run identifiers, or other volatile fields.
+    Two recordings of equivalent runs must diff cleanly.
+  - >-
+    Invocations are recorded pre-expansion. Composites are stored as composites,
+    never as their expanded children.
+  - >-
+    Invocations are grouped under phases even though this implementation emits
+    exactly one, named default. Recordings are committed artifacts and schema
+    changes after they exist are migrations.
+  - >-
+    Replay validation is identical to model-output validation but terminal.
+    There is no re-prompt loop and no partial application - the run halts and
+    reports.
+  - >-
+    A recording is not a lockfile. It captures decisions, not templates.
+    Replaying after a package change picks up the new templates by design.
+  - >-
+    Package identity is verified on replay - every recorded package must be
+    present and still claim the extensions recorded against it, or the run halts.
+  - >-
+    --record and --execute are mutually exclusive. Both compose with --dry-run.
+  - >-
+    --stop-after invocations and --stop-after expansion require --record. Without
+    it the model output is discarded and there is nothing to resume from, having
+    already paid for the call, so Sedum rejects the combination rather than
+    running it.
+  - >-
+    Under --execute, --lang is ignored because package resolution is recorded per
+    file, and --records becomes optional, enabling scope validation only when
+    supplied.
+affected_scope:
+  - internal/recording/**
+  - internal/pipeline/**
+  - internal/cli/grow.go
+  - testdata/**
+forbidden_scope: []
+type: blueprint
+implements: prov-2026-d554bfc3
+supersedes: ""
+superseded_by: ""
+related: []
+sealed_at_sha: ""
+associated_specs: []
+associated_traces: []
+monitors: []
+tags:
+  - sedum
+  - m7
+  - recording

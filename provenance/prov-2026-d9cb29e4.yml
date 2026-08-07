@@ -1,0 +1,92 @@
+id: prov-2026-d9cb29e4
+title: 'M2 - Transforms: built-in operations, declarative pipelines, exception tables, inflection'
+status: draft
+created_at: "2026-08-07"
+author: calebcowen@gmail.com
+intent: |
+  Implement the transform layer and the template rendering that consumes it.
+
+  Built-in operations, shipped in core and always available, each pure
+  string -> string: pascal, camel, snake, kebab, upper, lower, plural, singular,
+  prefix:X, suffix:X. Operation arguments are string literals only - dynamic
+  arguments would start the construction of an expression language and are out.
+
+  Declarative pipelines are named compositions of built-ins, declared per package
+  in sedum.yaml (instantize: [plural, "prefix:@"]). This is where language
+  conventions live; a Go package declares different pipelines over the identical
+  operation set, and nothing language-specific enters core.
+
+  Exception tables handle irregular mappings without new machinery
+  (op_exceptions: pascal: {url: URL, id: ID}), applied as a whole-token lookup
+  before the operation runs.
+
+  Inflection ships as a declarative rule table per language rather than per
+  package - ordered regex/replacement pairs, an irregulars map, an uncountables
+  list - loaded from an embedded YAML asset via go:embed. The model may also
+  supply explicit forms (collection: {plural: users, singular: user}); a
+  model-supplied form overrides the rule table when both are present.
+
+  Rendering: template and path-pattern syntax is {{name|op|op}}, which is not Go
+  template syntax. The renderer translates each expression into text/template
+  source ({{ .name | plural | prefix "@" }}) against a FuncMap built from the
+  package's resolved transforms, then executes it. This buys parse-time detection
+  of an undefined transform and reuses a stdlib engine rather than hand-rolling
+  one. The recognized syntax stays exactly what the PRD describes - no
+  conditionals, no loops, no arithmetic - and anything outside it is a render
+  error, not a passthrough.
+
+  The user-defined transforms tier (a transforms file in the target language,
+  long-lived process, declared examples, impure marking) is specified in the PRD
+  and deliberately NOT built here. Built-ins, pipelines, and exception tables
+  cover Rails, Go, and C++ conventions. Build it when a target demands it.
+
+  Testable: a table of input/pipeline/expected triples covering every built-in,
+  every documented package pipeline, and the exception tables; an undefined
+  pipeline fails at package load, not at render time; inflection round-trips a
+  fixture list of regular and irregular nouns.
+constraints:
+  - >-
+    Every built-in operation is a pure string -> string function. No operation
+    reads a file, consults the environment, or depends on anything but its input
+    and its literal argument.
+  - >-
+    Operation arguments are string literals only. Dynamic arguments such as
+    prefix:{{other_arg}} are rejected at load with a message saying so, because
+    supporting them begins an expression language.
+  - >-
+    A template or path pattern referencing an undefined pipeline is a hard error
+    at package load, never a render-time failure. Half a run must not be written
+    before a typo in a transform name surfaces.
+  - >-
+    No language or framework name appears in this package's code. English
+    inflection rules live in an embedded data table, not in Go source, and
+    per-language tables are added as data files.
+  - >-
+    Recognized template syntax is exactly {{name}} and {{name|op|op:arg}}. Go
+    template constructs that happen to be expressible after translation -
+    conditionals, ranges, nested field access - are rejected at load rather than
+    silently supported, so the syntax cannot drift by accident.
+  - >-
+    A model-supplied inflection form overrides the rule table for that value; the
+    rule table is the default, not the authority.
+  - >-
+    The user-defined transforms tier is out of scope for this milestone. Adding
+    it later requires its own blueprint covering the process protocol, declared
+    examples, and impure-run marking.
+affected_scope:
+  - internal/transform/**
+  - internal/render/**
+forbidden_scope: []
+type: blueprint
+implements: prov-2026-d554bfc3
+supersedes: ""
+superseded_by: ""
+related: []
+sealed_at_sha: ""
+associated_specs: []
+associated_traces: []
+monitors: []
+tags:
+  - sedum
+  - m2
+  - transforms

@@ -1,0 +1,90 @@
+id: prov-2026-aa4b736d
+title: 'M0 - CLI scaffold: Cobra command surface, project layout, and run log'
+status: draft
+created_at: "2026-08-07"
+author: calebcowen@gmail.com
+intent: |
+  Stand up the Go module, the package layout every later milestone fills in, the
+  complete Cobra command surface from the PRD, and the run log.
+
+  Four commands exist after this milestone with their full documented flag sets:
+  grow, validate, resolve, actions. Each parses and validates its flags, builds a
+  typed config struct, and delegates to an internal package. Until the owning
+  milestone lands, the delegate returns a "not implemented" error naming the
+  milestone. Getting the flag surface right first means every later milestone
+  wires into a shape that already matches the PRD, and `sedum --help` is usable
+  documentation from day one.
+
+  Cobra is the CLI framework. Flag interdependence is declared to Cobra where it
+  can express it (MarkFlagsMutuallyExclusive for --record/--execute) and checked
+  in PreRunE where it cannot (--stop-after invocations|expansion requires
+  --record; --stop-after with --execute rejects phases replay does not run;
+  --retries, --model, and --lang are ignored under --execute).
+
+  Package layout established here, one package per pipeline concern:
+
+    cmd/sedum/           main, wires cli.Execute
+    internal/cli/        cobra commands, flag parsing, config structs
+    internal/runlog/     slog handler, .sedum/run.log, -v mirroring
+    internal/genpkg/     generator package schemas and loading      (M1)
+    internal/filetmpl/   path-pattern matching and specificity      (M1, M3)
+    internal/transform/  operations, pipelines, inflection          (M2)
+    internal/render/     template rendering                         (M2)
+    internal/record/     provenance record ingestion                (M3)
+    internal/resolve/    extension-to-package resolution            (M3)
+    internal/expand/     composite expansion, variant selection     (M4, M5)
+    internal/inject/     anchors, ownership markers, injection      (M4)
+    internal/selection/  model invocation and output validation     (M6)
+    internal/recording/  recording schema, serialization, replay    (M4, M7)
+    internal/pipeline/   phase orchestration and stop points        (M3+)
+
+  Testable: `sedum --help` and each subcommand's `--help` list exactly the flags
+  in the PRD's CLI tables; every documented flag conflict is rejected with a
+  specific message; an unimplemented command exits non-zero naming its milestone.
+constraints:
+  - >-
+    Cobra commands are thin. A command parses flags, validates their
+    interdependence, constructs a config struct, and calls into an internal
+    package. No pipeline logic, no filesystem work, and no template handling
+    lives under cmd/ or internal/cli/.
+  - >-
+    The flag surface matches the PRD's CLI tables exactly - names, repeatability,
+    and defaults. Adding a flag the PRD does not list, or omitting one it does,
+    is a scope change requiring an imprint.
+  - >-
+    Flag interdependence is enforced before any work begins - --record and
+    --execute are mutually exclusive; --stop-after invocations and --stop-after
+    expansion require --record; --stop-after under --execute rejects any phase
+    replay does not run. Each rejection names the flags involved.
+  - >-
+    The run log is diagnostic output only, written via log/slog to .sedum/run.log
+    and cleared per run. Nothing in the system reads it back; idempotency state
+    lives in ownership markers in generated files.
+  - >-
+    No package-level mutable state. Configuration is passed as values; loggers
+    are passed explicitly rather than read from a global.
+  - >-
+    Every error surfaced to the user names the artifact it concerns - the file,
+    the package, the action, or the rule violated. Bare "invalid input" style
+    errors are not acceptable output at any layer.
+affected_scope:
+  - go.mod
+  - go.sum
+  - .gitignore
+  - cmd/sedum/**
+  - internal/cli/**
+  - internal/runlog/**
+forbidden_scope: []
+type: blueprint
+implements: prov-2026-d554bfc3
+supersedes: ""
+superseded_by: ""
+related: []
+sealed_at_sha: ""
+associated_specs: []
+associated_traces: []
+monitors: []
+tags:
+  - sedum
+  - cli
+  - m0

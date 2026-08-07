@@ -1,0 +1,100 @@
+id: prov-2026-1a1a9b52
+title: M3 - Path resolution and file creation from file templates (sedum resolve)
+status: draft
+created_at: "2026-08-07"
+author: calebcowen@gmail.com
+intent: |
+  Implement Phases 1 through 3 and the orchestration that runs phases in order.
+  Delivers `sedum resolve` and `--stop-after resolution|files`.
+
+  Phase 1 - ingest provenance records. Read the records directory, parse intent,
+  constraints, affected_scope, and forbidden_scope, validate schema conformance,
+  and collect the authorized path set. --only filters to named records.
+
+  Phase 2 - resolve each authorized path to a generator package by extension,
+  applying --lang where an extension is contested. A path whose extension no
+  package claims is a hard error. A contested extension with no disambiguating
+  flag is a hard error naming both candidate packages. Resolution is per file,
+  not per run - one record may legitimately touch a .rb and a .ts path and each
+  is generated under its own package's conventions.
+
+  Phase 3 - match each authorized path against its package's files/ tree. The
+  template's own path is the pattern; segments in braces are captures. Ranking,
+  applied leftmost segment first: literal beats capture, capture beats glob,
+  longer literal prefix beats shorter. Ties were rejected at load in M1. On no
+  match, fall back to the package's _default template; with no _default, create
+  the file empty and write a log line - deliberately not a hard error, since a
+  migration or a plain config file may legitimately start blank.
+
+  Phase 3 is create-if-absent. An existing path is never re-rendered over, since
+  that would destroy injected regions the file already carries. Sedum verifies
+  the markers the matched template declares are present and moves on; a file that
+  exists but lacks its template's markers is a hard error, because either
+  something else wrote it or the template changed shape after generation. This is
+  what makes stopping and resuming a run an ordinary workflow.
+
+  `sedum resolve` runs Phases 0-3 with no model and reports what each authorized
+  path resolved to: its package, the file template that matched, and the captures
+  bound. --show-template includes the rendered output. It is the primary
+  debugging tool for package resolution and template specificity, and it
+  deliberately overlaps --stop-after resolution: the command is the read-only
+  inspection tool, the flag is a checkpoint inside a run that will continue.
+
+  Testable: every affected_scope path exists with the correct boilerplate and
+  nothing else was created; a rerun does not re-render over existing files; a
+  contested extension with no --lang errors naming both packages; an unclaimed
+  extension errors; specificity ranking picks the expected template across a
+  fixture tree; an existing file missing its template's markers halts.
+constraints:
+  - >-
+    Nothing is created that a provenance record did not authorize. There is no
+    sibling expansion and no inference of companion files - if a record names
+    src/user_controller.cpp but omits include/user_controller.hpp, the header is
+    not created and the injection targeting it fails loudly in Phase 7. This is a
+    governance position, not an ergonomics trade-off.
+  - >-
+    Phase 3 is create-if-absent. An existing file is never re-rendered from its
+    template. Sedum verifies expected markers are present and moves on.
+  - >-
+    A file that exists but lacks its matched template's markers is a hard error
+    naming the file, the template, and the missing marker.
+  - >-
+    No match plus no _default creates an empty file and logs it. This is not an
+    error, because not every authorized path needs boilerplate.
+  - >-
+    The file template tree is a literal mirror of the target project structure.
+    There is no mapping table and no registry of file types; the template's path
+    is the pattern.
+  - >-
+    Phases run in strict order and each phase's output is the next phase's only
+    input. A stop point halts at a phase boundary with everything before it
+    complete and nothing after it started.
+  - >-
+    Resuming after resolution or files is an ordinary rerun. Phases 0-2 are pure
+    and Phase 3 is create-if-absent, so nothing needs to be preserved between the
+    stop and the resume - no state file, no cache.
+  - >-
+    Record ingestion reads intent, constraints, affected_scope, and
+    forbidden_scope only. Sedum does not interpret record status, lifecycle, or
+    any other provenance field, and does not write to records.
+affected_scope:
+  - internal/record/**
+  - internal/resolve/**
+  - internal/filetmpl/**
+  - internal/pipeline/**
+  - internal/cli/resolve.go
+  - testdata/**
+forbidden_scope: []
+type: blueprint
+implements: prov-2026-d554bfc3
+supersedes: ""
+superseded_by: ""
+related: []
+sealed_at_sha: ""
+associated_specs: []
+associated_traces: []
+monitors: []
+tags:
+  - sedum
+  - m3
+  - resolution

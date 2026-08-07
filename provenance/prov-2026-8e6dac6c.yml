@@ -1,0 +1,103 @@
+id: prov-2026-8e6dac6c
+title: M1 - Generator package loading and load-time validation (sedum validate)
+status: draft
+created_at: "2026-08-07"
+author: calebcowen@gmail.com
+intent: |
+  Implement Phase 0: discover generator packages under the generators directory,
+  parse both YAML schemas, resolve every action to its template artifact, and run
+  every load-time check. Delivers `sedum validate`.
+
+  A generators directory's top-level subdirectories are generator packages. Each
+  declares its name, the extensions it claims, its comment prefix, and its
+  transform pipelines in sedum.yaml; its actions in actions/actions.yaml; its
+  file templates as a literal mirror of the target project's structure under
+  files/; and its action templates under actions/.
+
+  Loading builds the extension-to-package map. A contested extension is not an
+  error at load - it becomes one only when a path with that extension appears and
+  no --lang flag disambiguates it, so multi-package directories stay legal and
+  fail at the point of real ambiguity.
+
+  Action shape is determined by the schema, not by what is on disk. An action
+  with no discriminator resolves to a single template file named for the action;
+  an action with a discriminator resolves to a directory named for the action
+  containing one file per declared variant plus an optional _default. A composite
+  has no template and triggers no filesystem lookup at all - searching for one is
+  a bug, not a fallback. Sedum resolves the declared shape and errors when the
+  filesystem disagrees.
+
+  Errors (reject the package):
+    - sedum.yaml or actions.yaml missing, malformed, or carrying unknown keys
+    - a kwarg type outside the closed set string|int|bool|list
+    - an action's declared shape absent from disk, or present in the wrong form
+    - a declared variant with no template file
+    - a template or path pattern referencing an undefined transform pipeline
+    - a composite composing another composite, or an action in another package
+    - a composite whose children declare the same kwarg name with different types
+    - two file templates that tie under the specificity ranking
+    - a package whose declared name disagrees with its directory name
+
+  Warnings:
+    - an action whose marker anchor appears in no file template in its package
+    - an action that is unexposed and referenced by no composite (dead config)
+    - a --lang flag naming a package that claims no extension in the record set
+
+  Testable: a deliberately malformed package produces the correct specific error
+  for each rule above; `--strict` promotes every warning to an error; a valid
+  package loads clean with no records, no model, and no network.
+constraints:
+  - >-
+    Packages are wholly valid or rejected. There are no partial loads and no
+    "load what parses" fallback - a package with one broken action does not
+    contribute its working actions to a run.
+  - >-
+    YAML decoding is strict (KnownFields). An unrecognized key in sedum.yaml or
+    actions.yaml is an error naming the key and its file, not a silently ignored
+    field, because a typo in a key is otherwise invisible until generation.
+  - >-
+    Every diagnostic names the package, the file, and the rule violated, and
+    validation reports all findings for a package rather than halting on the
+    first, so an author fixes a package in one pass.
+  - >-
+    An action's kind is read from the schema. Sedum never infers whether an
+    action is simple, discriminated, or composite from the filesystem, and never
+    performs a filesystem lookup for a composite.
+  - >-
+    Composite rules are enforced here, not at generation - nesting is exactly one
+    level, children stay within the package, the composite's kwarg schema is the
+    union of its children's names and required flags, and same-name different-
+    type children reject the package.
+  - >-
+    exposed defaults to true. Only exposed actions ever reach a catalog. Hiding
+    is the deliberate act, so that authoring an action is enough to make it
+    usable.
+  - >-
+    File templates are not part of the action catalog and are never loaded as
+    actions. They are matched by path during file creation and are invisible to
+    the model.
+  - >-
+    Marker-anchor checking is a warning, not an error - template selection is
+    path-dependent, so complete verification is impossible and a false hard error
+    would block legitimate packages.
+  - >-
+    Load-time validation runs with no records, no model, and no network access.
+affected_scope:
+  - internal/genpkg/**
+  - internal/filetmpl/**
+  - internal/cli/validate.go
+  - testdata/generators/**
+forbidden_scope: []
+type: blueprint
+implements: prov-2026-d554bfc3
+supersedes: ""
+superseded_by: ""
+related: []
+sealed_at_sha: ""
+associated_specs: []
+associated_traces: []
+monitors: []
+tags:
+  - sedum
+  - m1
+  - validation

@@ -1,0 +1,79 @@
+id: prov-2026-fef25a79
+title: M5 - Composite action expansion
+status: draft
+created_at: "2026-08-07"
+author: calebcowen@gmail.com
+intent: |
+  Complete Phase 6 by expanding composite actions into their ordered children and
+  mapping union kwargs onto each child's schema.
+
+  A composite bundles simple actions that are always performed together. The
+  motivating case is a language where one logical change spans two files - a C++
+  method requires a declaration in the header and a definition in the
+  implementation file, and neither is valid alone.
+
+  A composite's kwarg schema is the union of its children's schemas: union of
+  names, union of required flags. A kwarg shared by two children is supplied once
+  by the caller and passed to both. That is the mechanism's main ergonomic
+  payoff - one binding of class and name produces correctly shaped injections in
+  two files.
+
+  Expansion maps each union kwarg onto the subset each child declares, drops
+  kwargs a child does not declare, and executes children in declaration order.
+  There is no reordering and no dependency resolution between children. Each
+  expanded child then flows through the same Phase 6 and Phase 7 machinery M4
+  built, with no special-casing downstream - a composite is a front-end concept
+  that ceases to exist after expansion.
+
+  The structural rules (one level of nesting, no cross-package composition,
+  type-consistent kwarg unions, required-if-any-child-requires) are enforced at
+  load in M1. This milestone consumes an already-validated composite and must not
+  re-litigate those checks at generation time.
+
+  Testable: a C++ createMethod fixture injects correctly into both header and
+  implementation from a single invocation; children execute in declaration order;
+  a kwarg declared by one child and not the other is passed only to the declaring
+  child; omitting the header from affected_scope produces a clear hard error
+  rather than creating the file.
+constraints:
+  - >-
+    Composites nest exactly one level. A composite may not compose another
+    composite and may not compose an action from a different package. Enforced at
+    load in M1; expansion assumes it.
+  - >-
+    Children execute in declaration order. There is no reordering, no dependency
+    resolution, and no data flow between children.
+  - >-
+    A composite has no template and triggers no filesystem lookup. Searching the
+    filesystem for a composite's template is a bug, not a fallback.
+  - >-
+    Expansion is deterministic and the model does not participate. It is a pure
+    function of the validated invocation and the loaded package.
+  - >-
+    After expansion a composite is indistinguishable from a list of simple
+    invocations. Downstream phases contain no composite-aware branches.
+  - >-
+    A child targeting a file no provenance record authorized fails loudly in
+    Phase 7. Expansion never creates the missing file, however obvious the
+    convention - completeness of affected_scope is the record author's
+    responsibility.
+  - >-
+    A composite may reference an exposed child. This is legal but gives the model
+    overlapping options; it is addressed in authoring guidance, not machinery.
+affected_scope:
+  - internal/expand/**
+  - testdata/**
+forbidden_scope: []
+type: blueprint
+implements: prov-2026-d554bfc3
+supersedes: ""
+superseded_by: ""
+related: []
+sealed_at_sha: ""
+associated_specs: []
+associated_traces: []
+monitors: []
+tags:
+  - sedum
+  - m5
+  - composites

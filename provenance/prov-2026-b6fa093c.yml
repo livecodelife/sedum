@@ -1,0 +1,112 @@
+id: prov-2026-b6fa093c
+title: M4 - Action rendering and anchored injection with ownership markers
+status: draft
+created_at: "2026-08-07"
+author: calebcowen@gmail.com
+intent: |
+  Implement Phases 6 and 7 for simple actions, driven by hand-written invocation
+  lists with no model involved. This is the deterministic half of the system and
+  it must be provably correct before M6 introduces a model, so that any later
+  failure is unambiguously a selection failure rather than a rendering one.
+
+  Phase 6 (simple actions) - render each action's injects_into pattern against
+  its bound kwargs, require it to resolve to exactly one file, select the variant
+  template for a discriminated action, and apply transforms.
+
+  Phase 7 - locate the anchor in the target file and write the rendered content
+  into the anchored region. Anchors are a small closed vocabulary evaluated at
+  the text level, with no parser anywhere: marker (a named Sedum comment planted
+  by a file template), region (between a named start and end marker),
+  start_of_file, end_of_file, and after_match / before_match against a regex
+  declared in the action definition. Marker syntax uses the package's declared
+  comment_prefix, since #, //, and -- all appear across targets.
+
+  Every injected region is wrapped in ownership markers naming the action that
+  produced it, the ownership tier, and the kwargs it was rendered from:
+
+    # sedum:createControllerMethod:index owned {"controller":"users"}
+    ...
+    # /sedum:createControllerMethod:index
+
+  Re-running replaces the region an action owns rather than appending beside it,
+  which makes reruns and partial regeneration safe with no sidecar cache and no
+  resolution manifest. The audit trail falls out as a side effect: grepping
+  markers yields file -> action -> variant -> arguments with no maintained state,
+  and ownership is visible in the diff a human reviews.
+
+  Tiers: owned means Sedum replaces the region every run and hand edits are lost;
+  seeded means Sedum generated it once and never touches it again. Only owned is
+  exercised by this milestone. seeded is written into the marker format now
+  because markers are durable artifacts on disk - adding the field later would
+  leave every file generated in the interim carrying an older marker shape and
+  require a migration across generated codebases. The same reasoning applies to
+  the recorded kwargs: nothing reads them back yet, and they cost one token per
+  marker.
+
+  Invocation lists in this milestone are fixtures. Their format is the recording
+  schema from M7 - defined here in internal/recording as types only, with no
+  serialization or replay entry - so that M7 is largely serialization work rather
+  than new execution machinery.
+
+  Testable: a fixture invocation list produces byte-identical output on repeat
+  runs; re-running replaces owned regions rather than duplicating them; a missing
+  anchor halts naming the action, the file, and the anchor; each anchor kind
+  places text where expected; a seeded region is left untouched on rerun.
+constraints:
+  - >-
+    A missing anchor is a hard error. It means the file is not shaped the way the
+    action assumed - a disagreement between configuration and reality the author
+    must resolve. Auto-creating an anchor would paper over exactly the mistake
+    worth surfacing.
+  - >-
+    injects_into must resolve to exactly one file. Zero matches and multiple
+    matches are both errors naming the action and the rendered pattern.
+  - >-
+    Injection is textual. No language parser, no AST, and no syntax awareness of
+    any kind. Anchors are found by marker comment or by declared regex, and
+    nothing else.
+  - >-
+    Marker comments are rendered with the package's declared comment_prefix. The
+    prefix is never hardcoded and never inferred from a file extension.
+  - >-
+    Idempotency state lives only in the ownership markers in generated files. No
+    sidecar cache, no manifest, no lockfile, and nothing read back from the run
+    log.
+  - >-
+    Re-running replaces an owned region in place rather than appending beside it.
+    A seeded region is skipped on every run after the first.
+  - >-
+    The marker format is a durable on-disk artifact. Tier and recorded kwargs are
+    written from the first generated file even though nothing reads them back
+    yet, because changing marker shape after generated codebases exist is a
+    migration.
+  - >-
+    No action's template may depend on a value produced by another action. Every
+    value comes from bound kwargs or from transforms over them. If this becomes
+    limiting it signals a planning layer is warranted - a different architecture,
+    not an increment on this one.
+  - >-
+    No model is involved in this milestone. Invocation lists are hand-written
+    fixtures shaped exactly like a recording.
+  - >-
+    Multiple records injecting into the same file is out of scope. If it becomes
+    necessary the marker gains the record ID and nothing else changes.
+affected_scope:
+  - internal/inject/**
+  - internal/expand/**
+  - internal/recording/**
+  - testdata/**
+forbidden_scope: []
+type: blueprint
+implements: prov-2026-d554bfc3
+supersedes: ""
+superseded_by: ""
+related: []
+sealed_at_sha: ""
+associated_specs: []
+associated_traces: []
+monitors: []
+tags:
+  - sedum
+  - m4
+  - injection

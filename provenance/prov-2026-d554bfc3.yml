@@ -1,0 +1,85 @@
+id: prov-2026-d554bfc3
+title: 'Sedum: configuration-driven boilerplate generation from provenance records'
+status: draft
+created_at: "2026-08-07"
+author: calebcowen@gmail.com
+intent: |
+  Build Sedum, a Go CLI that generates boilerplate code from provenance records
+  using generator packages that teams author themselves.
+
+  A provenance record declares intent, constraints, and the files a change is
+  authorized to touch. A generator package declares a team's conventions: the
+  shape of each file type, which code-injection actions exist, what arguments
+  they take, what templates they render, and where in a file the results belong.
+  Sedum reads both, uses a language model to translate intent into a list of
+  action invocations, and executes those invocations deterministically.
+
+  The load-bearing property is that Sedum's core contains no language-specific
+  knowledge. It reads a directory, matches a path against a pattern, applies
+  string operations, renders a template, and places text at an anchor. It does
+  not know what a controller is, what a header file is, or how Go capitalizes
+  initialisms. Teams express all of that in configuration; a team switching from
+  Rails to Java writes a new generator package rather than waiting on Sedum.
+
+  Success: a team authors a generator package for their stack, points Sedum at a
+  provenance directory and that package, and receives the files the records
+  authorized, shaped by their file templates, containing the boilerplate their
+  action templates describe. They run it again and get the same result.
+
+  Source of truth for scope and behavior is PRD.md at the repo root. This brief
+  is the parent of one blueprint per milestone (M0 scaffold, M1-M7 from the PRD).
+constraints:
+  - >-
+    Configuration carries all target knowledge. No language, framework, or
+    filetype name may appear in Sedum's core. Adding a target means authoring a
+    generator package, never modifying Sedum.
+  - >-
+    The model does exactly one job: select actions from a closed, declared
+    vocabulary and bind their arguments. It does not write code, choose file
+    paths, or make structural decisions.
+  - >-
+    Everything after the model's response is deterministic. File creation,
+    template rendering, transform resolution, composite expansion, path
+    resolution, and injection are pure functions of validated model output and
+    the generator package.
+  - >-
+    Sedum touches only what a provenance record authorizes. No file is created
+    that affected_scope did not name; no convention rule infers companion files
+    into existence.
+  - >-
+    Failures are loud and specific. A missing anchor, an undefined transform, or
+    an unauthorized path halts the run with a diagnostic naming the action, the
+    file, and the rule violated.
+  - >-
+    No language parsers and no AST work anywhere in the system. Injection points
+    exist because a file template planted a marker, not because Sedum parsed
+    structure out of a file.
+  - >-
+    Prefer well-known third-party packages over hand-rolled equivalents.
+    Baseline stack, applied consistently across every blueprint under this
+    brief - spf13/cobra (CLI), gopkg.in/yaml.v3 (config and record parsing,
+    strict/KnownFields decoding), text/template (rendering), log/slog (run log),
+    sashabaranov/go-openai (model client, OpenAI-compatible so local endpoints
+    work). Any addition to this list is an imprint-level decision with a stated
+    reason.
+  - >-
+    Non-goals held firm: business logic synthesis, structured-document editing
+    (pom.xml, package.json, CMakeLists.txt), cross-action value flow, scanning
+    existing codebases, and behavioral verification of generated code.
+  - >-
+    Milestone order is deliberate. M4 (deterministic rendering and injection)
+    must be provably correct before M6 introduces a model, so that any later
+    failure is unambiguously a selection failure rather than a rendering one.
+affected_scope: []
+forbidden_scope: []
+type: brief
+supersedes: ""
+superseded_by: ""
+related: []
+sealed_at_sha: ""
+associated_specs: []
+associated_traces: []
+monitors: []
+tags:
+  - sedum
+  - codegen
