@@ -1,0 +1,89 @@
+id: prov-2026-bc163215
+title: 'Pattern grammar: glob is a sub-segment wildcard, adjacent wildcards are rejected, captures bind shortest'
+status: open
+created_at: "2026-08-07"
+author: calebcowen@gmail.com
+intent: |
+  PRD.md's specificity ranking names three tiers - literal, capture, glob - but
+  only ever defines two. Captures get a syntax and an example; glob appears once,
+  in the phrase "capture beats glob", and nowhere else in the document. The
+  ranking cannot be implemented without deciding what a glob is, so this imprint
+  decides it rather than leaving the meaning to whichever test got written first.
+
+  Three decisions.
+
+  1. A glob is `*`, and it is sub-segment, exactly as a capture is. It matches one
+  or more characters inside a single path segment and never crosses `/`. It binds
+  nothing - it is the tier you reach for when a segment varies and its value is
+  not wanted in the template. `**` is deliberately NOT introduced: a
+  segment-spanning wildcard would make two patterns of different segment counts
+  able to match one path, and the ranking is specified as a leftmost-first walk
+  over segments, which presumes both candidates have the same segments to walk.
+  Adding `**` later means specifying how it ranks against a segment it consumed;
+  that is a PRD change, not an implementation detail, so the door stays shut
+  rather than being opened by accident here.
+
+  Because `**` does not exist, patterns only ever compete against patterns with
+  the same segment count. `app/models/{name}.rb` cannot match
+  `app/models/admin/user.rb`, and `_default.rb` matches only a top-level file -
+  which is consistent with M3 owning the `_default` fallback separately, since
+  the matcher's answer for a nested path is a plain no-match.
+
+  2. Two wildcards may not be adjacent within a segment. `{a}{b}`, `*{b}`,
+  `{a}*`, and `**` are all rejected at parse with a diagnostic naming the
+  pattern. There is no non-arbitrary place to split `users_handler` between two
+  adjacent captures, and a rule that picked one would put the value bound to
+  `{a}` at the mercy of a convention nobody wrote down. Rejecting is cheap for
+  the author (insert the separator they meant) and removes an entire class of
+  silently-wrong captures. This also makes the segment grammar an alternating
+  sequence of literals and wildcards, which is what makes both matching and
+  ranking a straightforward positional walk.
+
+  Also rejected at parse: an unclosed `{`, an unmatched `}`, a capture with no
+  name, and the same capture name twice in one pattern. Reusing a name is not a
+  backreference - a template that says `{pkg}/{pkg}_test.go` almost certainly
+  meant two different values, and silently letting the second binding win would
+  hide it. (That path is still expressible; it just needs two names.)
+
+  3. A wildcard matches at least one character, and where a wildcard is followed
+  by a literal the literal binds at its leftmost viable occurrence - so captures
+  take the shortest text that still lets the rest of the pattern complete.
+  `{name}_handler.go` against `user_handler_handler.go` binds `name=user_handler`
+  only because binding `user` leaves `_handler.go` unconsumed; where both work,
+  the shorter wins. Requiring at least one character is what keeps
+  `{name}_controller.rb` from matching `_controller.rb` with an empty name, which
+  would produce a file whose boilerplate names nothing.
+constraints:
+  - >-
+    A wildcard - capture or glob - matches one or more characters and never
+    crosses a path separator. There is no zero-width match and no segment-
+    spanning wildcard.
+  - >-
+    Ambiguity is a parse error, not a resolved case. Adjacent wildcards, an
+    unclosed or unmatched brace, an unnamed capture, and a repeated capture name
+    each reject the pattern with a diagnostic naming the pattern itself.
+  - >-
+    Where several bindings satisfy a pattern, the leftmost literal placement
+    wins, making every capture the shortest text that still completes the match.
+    The choice is documented rather than emergent, because it decides what a
+    generated file is named.
+  - >-
+    `**` is not part of the grammar. Introducing it changes how the segment-wise
+    ranking is specified and is a PRD-level decision, not an implementation one.
+affected_scope: []
+forbidden_scope: []
+type: imprint
+implements: prov-2026-f51f04b2
+supersedes: ""
+superseded_by: ""
+related: []
+sealed_at_sha: ""
+associated_specs:
+  - path: internal/filetmpl/filetmpl_test.go
+    run_command: go test -count=1 ./$(dirname {{path}})
+associated_traces: []
+monitors: []
+tags:
+  - sedum
+  - m1a
+  - filetmpl
