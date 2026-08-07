@@ -1,6 +1,6 @@
 id: prov-2026-2ac1e4ca
 title: Load-time tie detection needs a pattern-overlap primitive, and it lives in M1a
-status: open
+status: implemented
 created_at: "2026-08-07"
 author: calebcowen@gmail.com
 intent: |
@@ -75,7 +75,7 @@ related:
   - prov-2026-8e6dac6c
   - prov-2026-1a1a9b52
   - prov-2026-bc163215
-sealed_at_sha: ""
+sealed_at_sha: 8cf99bbce0955f81797c2e68db284d03c0466c8f
 associated_specs:
   - path: internal/filetmpl/filetmpl_test.go
     run_command: go test -count=1 ./$(dirname {{path}})
