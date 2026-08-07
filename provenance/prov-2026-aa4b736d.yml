@@ -83,9 +83,9 @@ related: []
 sealed_at_sha: ""
 associated_specs:
   - path: internal/cli/flags_test.go
-    type: go_test
+    run_command: go test -count=1 ./$(dirname {{path}})
   - path: internal/runlog/runlog_test.go
-    type: go_test
+    run_command: go test -count=1 ./$(dirname {{path}})
 associated_traces: []
 monitors: []
 tags:
