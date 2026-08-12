@@ -1,6 +1,6 @@
 id: prov-2026-6feb227b
 title: op_exceptions are consulted only by the word-joining case operations
-status: open
+status: implemented
 created_at: "2026-08-12"
 author: calebcowen@gmail.com
 intent: |
@@ -61,7 +61,7 @@ implements: prov-2026-d9cb29e4
 supersedes: ""
 superseded_by: ""
 related: []
-sealed_at_sha: ""
+sealed_at_sha: 9efcbe08610675d59c4474e9e7d7eb9d92fdb5b9
 associated_specs:
   - path: internal/transform/transform_test.go
     run_command: go test -count=1 ./$(dirname {{path}})
