@@ -11,9 +11,9 @@ import (
 // predicted, so the cases below are written as those triples rather than as
 // behavioral prose.
 
-// railsConfig is the worked example from PRD.md: a package whose pipelines and
+// exampleConfig is the worked example from PRD.md: a package whose pipelines and
 // exception table say what "constantize" means for its target.
-func railsConfig() Config {
+func exampleConfig() Config {
 	return Config{
 		Pipelines: map[string][]string{
 			"constantize": {"singular", "pascal"},
@@ -99,7 +99,7 @@ func TestEveryOperationIsCovered(t *testing.T) {
 }
 
 func TestDeclaredPipelines(t *testing.T) {
-	e := newEngine(t, railsConfig())
+	e := newEngine(t, exampleConfig())
 
 	cases := []struct{ ref, in, want string }{
 		{"constantize", "users", "User"},
@@ -138,7 +138,7 @@ func TestPipelinesAreLanguageAgnostic(t *testing.T) {
 }
 
 func TestExceptionsApplyPerWord(t *testing.T) {
-	e := newEngine(t, railsConfig())
+	e := newEngine(t, exampleConfig())
 
 	cases := []struct{ ref, in, want string }{
 		// The whole reason exceptions are per word: declaring url -> URL
@@ -162,7 +162,7 @@ func TestExceptionsApplyPerWord(t *testing.T) {
 func TestExceptionsAreScopedToTheirPackage(t *testing.T) {
 	// Two packages loaded in one run must be able to disagree about how a
 	// token capitalizes, which is why no transform state is process-global.
-	with := newEngine(t, railsConfig())
+	with := newEngine(t, exampleConfig())
 	without := newEngine(t, Config{})
 
 	if got := apply(t, with, "pascal", "user_url"); got != "UserURL" {
@@ -217,7 +217,7 @@ func TestInflectionRoundTrips(t *testing.T) {
 }
 
 func TestModelSuppliedFormsOverrideTheRuleTable(t *testing.T) {
-	e := newEngine(t, railsConfig())
+	e := newEngine(t, exampleConfig())
 
 	// The rule table is the default, not the authority. A model that binds
 	// explicit forms wins for that value.
@@ -249,7 +249,7 @@ func TestModelSuppliedFormsOverrideTheRuleTable(t *testing.T) {
 }
 
 func TestUnresolvableReferences(t *testing.T) {
-	e := newEngine(t, railsConfig())
+	e := newEngine(t, exampleConfig())
 
 	cases := []struct{ ref, wants string }{
 		{"nonesuch", "neither a built-in operation"},
