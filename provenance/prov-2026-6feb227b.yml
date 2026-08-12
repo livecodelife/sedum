@@ -1,0 +1,73 @@
+id: prov-2026-6feb227b
+title: op_exceptions are consulted only by the word-joining case operations
+status: open
+created_at: "2026-08-12"
+author: calebcowen@gmail.com
+intent: |
+  op_exceptions is declared per operation:
+
+    op_exceptions:
+      pascal:
+        url: URL
+
+  which reads as though any operation may have a table. Implementing it that
+  way would be dishonest. An exception is a per-word substitution applied after
+  normalization, and only two operations have words to substitute into: pascal
+  and camel split their input into words and choose a rendering for each. The
+  other eight do not.
+
+  For snake and kebab a table cannot change anything - the lookup key is the
+  normalized lowercase word, which is already what those operations emit, so
+  `snake: {url: url}` is the only entry that could ever match and it is a no-op.
+  For upper and lower the output is a whole-token case fold with no word
+  boundaries to consult. For prefix and suffix the operation is concatenation.
+  For plural and singular a table would work, but it would be a third mechanism
+  for irregular morphology beside the language rule table's irregulars map and
+  the model-supplied forms, and three places to look for why a word inflected
+  the way it did is two too many.
+
+  So: pascal and camel consult the table, and declaring one for any other
+  operation is an error at load naming the operation and saying which
+  operations consult a table. The alternative - accept it and ignore it - hides
+  a table the author believes is in force, which is the failure mode a loud
+  loader exists to prevent. An unknown operation name in op_exceptions is the
+  same error for the same reason.
+
+  The lookup is case-insensitive on the key, since normalization has already
+  lowercased the word by the time it is looked up, and an author writing
+  `URL: URL` means the same thing as `url: URL`.
+
+  This is a narrowing of what the schema appears to offer, and it is reversible:
+  an operation that later grows a word-level substitution point joins the
+  consulting set and the error stops firing for it. Nothing about a stored
+  artifact changes, because op_exceptions is package configuration and never
+  reaches disk in a generated file.
+constraints:
+  - >-
+    pascal and camel are the operations that consult op_exceptions. An
+    op_exceptions table declared for any other operation is a load-time error
+    naming the operation, never a table that is silently ignored.
+  - >-
+    Exception keys are matched case-insensitively against the normalized word,
+    so the same entry serves however the author capitalized the key.
+  - >-
+    Irregular morphology has exactly two sources - the language inflection table
+    and model-supplied forms. op_exceptions is not a third, and plural and
+    singular do not consult it.
+affected_scope: []
+forbidden_scope: []
+type: imprint
+implements: prov-2026-d9cb29e4
+supersedes: ""
+superseded_by: ""
+related: []
+sealed_at_sha: ""
+associated_specs:
+  - path: internal/transform/transform_test.go
+    run_command: go test -count=1 ./$(dirname {{path}})
+associated_traces: []
+monitors: []
+tags:
+  - sedum
+  - m2
+  - transforms
