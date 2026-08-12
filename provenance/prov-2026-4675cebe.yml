@@ -1,6 +1,6 @@
 id: prov-2026-4675cebe
 title: Load-time transform checking parses templates instead of scanning them
-status: open
+status: implemented
 created_at: "2026-08-12"
 author: calebcowen@gmail.com
 intent: |
@@ -76,7 +76,7 @@ supersedes: ""
 superseded_by: ""
 related:
   - prov-2026-73127e53
-sealed_at_sha: ""
+sealed_at_sha: eb5410a87daa09ac66b1c580594925333b753136
 associated_specs:
   - path: internal/genpkg/genpkg_test.go
     run_command: go test -count=1 ./$(dirname {{path}})
