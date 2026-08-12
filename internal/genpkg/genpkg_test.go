@@ -5,6 +5,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/calebcowen/sedum/internal/transform"
 )
 
 // Load-time validation is where a generator package's mistakes are supposed to
@@ -143,6 +145,25 @@ func TestValidPackageLoadsClean(t *testing.T) {
 		if !a.Exposed {
 			t.Errorf("action %s: Exposed = false, want the default of true", name)
 		}
+	}
+}
+
+// A loaded package carries the engine its templates were checked against, so
+// that the vocabulary a package validates against and the one it later renders
+// with cannot be two different things.
+func TestLoadedPackageCarriesItsTransformEngine(t *testing.T) {
+	set, _ := loadTree(t, validPackage())
+	pkg := set.Packages[0]
+
+	if pkg.Engine == nil {
+		t.Fatal("valid package loaded with no transform engine")
+	}
+	got, err := pkg.Engine.Apply(transform.ParseRef("constantize"), "users")
+	if err != nil {
+		t.Fatalf("constantize: %v", err)
+	}
+	if got != "User" {
+		t.Errorf("constantize(users) = %q, want User", got)
 	}
 }
 
@@ -318,6 +339,52 @@ func TestErrorRules(t *testing.T) {
 				"rails/files/app/models/{name}.rb": text("class {{name|constantise}}\nend\n")}),
 			rule:     RuleTransformUndefined,
 			mentions: []string{"constantise"},
+		},
+		{
+			// The pipelines themselves are checked, not only the
+			// references to them. A pipeline whose step names no
+			// operation would otherwise load clean and fail at render,
+			// which is the failure this milestone exists to prevent.
+			name: "pipeline step names no operation",
+			files: mutated(map[string]*string{"rails/sedum.yaml": text(
+				"name: rails\nextensions: [\".rb\"]\ncomment_prefix: \"#\"\n" +
+					"transforms:\n  constantize: [singula, pascal]\n  instantize: [plural, \"prefix:@\"]\n")}),
+			rule:     RuleTransformInvalid,
+			mentions: []string{"constantize", "singula"},
+		},
+		{
+			name: "pipeline step takes a dynamic argument",
+			files: mutated(map[string]*string{"rails/sedum.yaml": text(
+				"name: rails\nextensions: [\".rb\"]\ncomment_prefix: \"#\"\n" +
+					"transforms:\n  constantize: [singular, pascal]\n  instantize: [plural, \"prefix:{{sigil}}\"]\n")}),
+			rule:     RuleTransformInvalid,
+			mentions: []string{"instantize", "string literals only"},
+		},
+		{
+			name: "op_exceptions declares a table nothing consults",
+			files: mutated(map[string]*string{"rails/sedum.yaml": text(
+				"name: rails\nextensions: [\".rb\"]\ncomment_prefix: \"#\"\n" +
+					"transforms:\n  constantize: [singular, pascal]\n  instantize: [plural, \"prefix:@\"]\n" +
+					"op_exceptions:\n  snake:\n    url: URL\n")}),
+			rule:     RuleTransformInvalid,
+			mentions: []string{"snake"},
+		},
+		{
+			// A Go template construct survives translation and would
+			// work, so the grammar has to be enforced at load or it
+			// stops being the grammar.
+			name: "template uses a construct outside the grammar",
+			files: mutated(map[string]*string{
+				"rails/actions/addBeforeFilter.rb": text("{{if filter}}before_action :{{filter}}{{end}}\n")}),
+			rule:     RuleTemplateSyntaxInvalid,
+			mentions: []string{"addBeforeFilter", "if filter"},
+		},
+		{
+			name: "file template leaves an expression unclosed",
+			files: mutated(map[string]*string{
+				"rails/files/app/models/{name}.rb": text("class {{name|constantize\nend\n")}),
+			rule:     RuleTemplateSyntaxInvalid,
+			mentions: []string{"never closed"},
 		},
 		{
 			name: "composite composes another composite",

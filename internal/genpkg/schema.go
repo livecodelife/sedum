@@ -1,6 +1,10 @@
 package genpkg
 
-import "slices"
+import (
+	"slices"
+
+	"github.com/calebcowen/sedum/internal/transform"
+)
 
 // The YAML shapes of a generator package's two declaration files, and the
 // resolved types loading produces from them.
@@ -129,7 +133,12 @@ type Package struct {
 	// built-in operation set.
 	Transforms   map[string][]string
 	OpExceptions map[string]map[string]string
-	Actions      map[string]*Action
+	// Engine applies this package's transforms. It is built from the two
+	// fields above at load, so that a pipeline which cannot be built rejects
+	// the package instead of failing mid-render (prov-2026-4675cebe). It is
+	// nil only for a package that was rejected.
+	Engine  *transform.Engine
+	Actions map[string]*Action
 
 	// FileTemplates are the path patterns under files/, slash-normalized and
 	// relative to files/. Each template's own path is its pattern. They are

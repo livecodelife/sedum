@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/calebcowen/sedum/internal/filetmpl"
+	"github.com/calebcowen/sedum/internal/render"
 )
 
 // The load-time checks. Each one reports every instance it finds rather than
@@ -224,19 +225,36 @@ func checkFileTemplatePatterns(patterns []string, r *reporter) {
 	}
 }
 
-// checkTransformRefs rejects a reference that resolves to neither a built-in
-// operation nor a pipeline the package declares. It is a hard error at load
-// rather than at render, because a package that cannot render is broken whether
-// or not a given run happens to reach the template.
-func checkTransformRefs(pkg *Package, fileTemplates []string, actionTemplates map[string]string, r *reporter) {
+// checkTemplates reads every template and path pattern in the package with the
+// renderer's own parser, and rejects two different mistakes.
+//
+// A template that is not Sedum's syntax at all is one. The grammar is {{name}}
+// and {{name|op|op:arg}}; a conditional or a range would survive translation
+// into text/template and work, which is precisely how a syntax drifts into a
+// language nobody designed. Rejecting it here is the only place it can be
+// caught before it is depended on (prov-2026-4675cebe).
+//
+// A well-formed reference to a transform that does not exist is the other. That
+// is a hard error at load rather than at render because a package that cannot
+// render is broken whether or not a given run happens to reach the template.
+func checkTemplates(pkg *Package, fileTemplates []string, actionTemplates map[string]string, r *reporter) {
 	report := func(file string, source string, text string) {
-		for _, ref := range transformRefs(text) {
-			if pkg.resolves(ref) {
-				continue
+		exprs, problems := render.Parse(text)
+		for _, problem := range problems {
+			r.errorf(file, RuleTemplateSyntaxInvalid, "%s: %v", source, problem)
+		}
+		if pkg.Engine == nil {
+			// The vocabulary itself is broken and has already been
+			// reported. Checking references against it would name every
+			// template that used a pipeline rather than the pipeline.
+			return
+		}
+		for _, expr := range exprs {
+			for _, ref := range expr.Transforms {
+				if err := pkg.Engine.Check(ref); err != nil {
+					r.errorf(file, RuleTransformUndefined, "%s: %s: %v", source, expr.Source, err)
+				}
 			}
-			r.errorf(file, RuleTransformUndefined,
-				"%s references transform %q, which is neither a built-in operation (%s) nor a pipeline this package declares (%s)",
-				source, ref, strings.Join(BuiltinOperations, ", "), strings.Join(sortedKeys(pkg.Transforms), ", "))
 		}
 	}
 

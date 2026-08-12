@@ -1,81 +1,13 @@
 package genpkg
 
-import (
-	"regexp"
-	"slices"
-	"strings"
-)
+import "regexp"
 
-// Transform reference checking.
+// Anchors: where in a file an action's output belongs.
 //
-// A reference is undefined unless it resolves to a pipeline the package
-// declares or to a built-in operation. Loading needs the built-in names to
-// decide that, and nothing else - it never applies a transform.
-//
-// BuiltinOperations is therefore names only, and it is M2's to claim: when the
-// transform engine lands in internal/transform, this list moves there so that
-// the vocabulary is declared once, next to the code that implements it
-// (prov-2026-73127e53).
-
-// BuiltinOperations is the closed set of operations Sedum ships. Pure
-// string -> string, always available in every package.
-var BuiltinOperations = []string{
-	"pascal", "camel", "snake", "kebab",
-	"upper", "lower",
-	"plural", "singular",
-	"prefix", "suffix",
-}
-
-// parameterizedOperations take a string literal argument after a colon:
-// prefix:@, suffix:_path. Arguments are literals only - dynamic arguments
-// would start the construction of an expression language - so there is nothing
-// in the argument to resolve.
-var parameterizedOperations = map[string]bool{"prefix": true, "suffix": true}
-
-// expression matches a {{...}} span. Finding these and splitting on '|' is the
-// whole extraction mechanism: enough to check that names resolve, and it
-// commits the eventual renderer to nothing.
-var expression = regexp.MustCompile(`\{\{([^{}]*)\}\}`)
-
-// transformRefs returns the transform names referenced in s, in order of
-// appearance and without duplicates. The first element of a piped expression
-// is the value being transformed, not a transform.
-func transformRefs(s string) []string {
-	var (
-		out  []string
-		seen = map[string]bool{}
-	)
-	for _, m := range expression.FindAllStringSubmatch(s, -1) {
-		parts := strings.Split(m[1], "|")
-		for _, raw := range parts[1:] {
-			name := strings.TrimSpace(raw)
-			if name == "" || seen[name] {
-				continue
-			}
-			seen[name] = true
-			out = append(out, name)
-		}
-	}
-	return out
-}
-
-// resolves reports whether a reference names a built-in operation or one of the
-// package's declared pipelines.
-func (p *Package) resolves(ref string) bool {
-	// An operation argument is opaque: prefix:@ is the prefix operation.
-	if name, _, ok := strings.Cut(ref, ":"); ok {
-		return parameterizedOperations[name]
-	}
-	if slices.Contains(BuiltinOperations, ref) {
-		// A bare prefix or suffix with no argument is not usable.
-		return !parameterizedOperations[ref]
-	}
-	_, declared := p.Transforms[ref]
-	return declared
-}
-
-// Anchor vocabulary. anchor is a scalar; these values are reserved and every
-// other value names a marker planted by a file template (prov-2026-d1d61186).
+// anchor is a scalar; the values below are reserved and every other value names
+// a marker planted by a file template (prov-2026-d1d61186). Marker syntax uses
+// the package's declared comment prefix, since #, // and -- all appear across
+// targets.
 const (
 	AnchorStartOfFile = "start_of_file"
 	AnchorEndOfFile   = "end_of_file"

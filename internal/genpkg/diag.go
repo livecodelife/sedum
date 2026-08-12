@@ -44,6 +44,8 @@ const (
 	RuleTemplateAmbiguous      = "action_template_ambiguous"
 	RuleVariantTemplateMissing = "variant_template_missing"
 	RuleTransformUndefined     = "transform_undefined"
+	RuleTransformInvalid       = "transform_invalid"
+	RuleTemplateSyntaxInvalid  = "template_syntax_invalid"
 	RuleCompositeNested        = "composite_nested"
 	RuleCompositeUnknownChild  = "composite_unknown_child"
 	RuleCompositeKwargConflict = "composite_kwarg_conflict"

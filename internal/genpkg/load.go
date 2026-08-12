@@ -25,6 +25,8 @@ import (
 	"strings"
 
 	"gopkg.in/yaml.v3"
+
+	"github.com/calebcowen/sedum/internal/transform"
 )
 
 const (
@@ -152,6 +154,22 @@ func loadPackage(dir, dirName string) (*Package, Findings, error) {
 		Actions:       map[string]*Action{},
 	}
 
+	// The engine is built before anything reads a template, because the
+	// vocabulary a reference is checked against is exactly what it declares.
+	// When it cannot be built, the reference check is skipped rather than run
+	// against an empty vocabulary, which would report every template in the
+	// package as broken and bury the one pipeline that actually is.
+	engine, err := transform.New(transform.Config{
+		Pipelines:  man.Transforms,
+		Exceptions: man.OpExceptions,
+	})
+	if err != nil {
+		for _, problem := range unwrap(err) {
+			r.errorf(manifestFile, RuleTransformInvalid, "%v", problem)
+		}
+	}
+	pkg.Engine = engine
+
 	if man.Name != dirName {
 		r.errorf(manifestFile, RuleNameMismatch,
 			"package declares name %q but its directory is named %q; the directory name is what --package and --lang refer to",
@@ -187,7 +205,7 @@ func loadPackage(dir, dirName string) (*Package, Findings, error) {
 		return nil, nil, err
 	}
 
-	checkTransformRefs(pkg, fileTemplates.contents, actionTemplates, r)
+	checkTemplates(pkg, fileTemplates.contents, actionTemplates, r)
 	checkMarkerAnchors(pkg, fileTemplates.contents, r)
 	checkDeadConfig(pkg, r)
 
@@ -462,6 +480,15 @@ func siblingsNamed(dir, stem string) ([]string, error) {
 	}
 	sort.Strings(out)
 	return out, nil
+}
+
+// unwrap flattens a joined error into the problems it was built from, so that
+// each one becomes its own finding rather than a paragraph inside one.
+func unwrap(err error) []error {
+	if joined, ok := err.(interface{ Unwrap() []error }); ok {
+		return joined.Unwrap()
+	}
+	return []error{err}
 }
 
 func sortedKeys[V any](m map[string]V) []string {
