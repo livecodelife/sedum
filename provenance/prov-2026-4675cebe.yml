@@ -1,0 +1,88 @@
+id: prov-2026-4675cebe
+title: Load-time transform checking parses templates instead of scanning them
+status: open
+created_at: "2026-08-12"
+author: calebcowen@gmail.com
+intent: |
+  M1 checked transform references textually: find the {{...}} spans, split on
+  '|', treat the tail as transform names, and ask whether each name resolves.
+  That was deliberate (prov-2026-73127e53) - a template parser would have
+  pre-empted M2's rendering decisions, and names were all M1 needed.
+
+  M2 has the parser, and one of this milestone's constraints cannot be met
+  without using it at load: "Go template constructs that happen to be
+  expressible after translation - conditionals, ranges, nested field access -
+  are rejected at load rather than silently supported". A textual scan cannot
+  do that. It sees {{if .exposed}} as an expression whose value is "if .exposed"
+  and whose transform list is empty, finds nothing undefined, and passes the
+  package. The construct then survives to render time, where it either fails
+  far from the mistake or, worse, works.
+
+  So genpkg stops scanning and starts parsing. Its transform check becomes:
+  render.Parse over every action template, file template, injects_into pattern,
+  and file-template path, reporting each syntax error as a finding, then
+  engine.Check over every reference the parse returned. genpkg.transformRefs
+  and Package.resolves are deleted rather than kept alongside - two
+  implementations of "what does this template reference" is exactly the drift
+  prov-2026-73127e53 was written to prevent, and the vocabulary being declared
+  once is worth little if the thing that reads it is declared twice.
+
+  Two consequences worth stating.
+
+  A Package now carries a *transform.Engine, built from its declared pipelines
+  and op_exceptions during load. Building it is itself a load-time check that
+  M1 did not have: a pipeline whose step names no operation, a step carrying a
+  dynamic argument, a pipeline that composes another pipeline, and a pipeline
+  that shadows a built-in are all rejected there. M1 validated references to
+  pipelines but never the pipelines themselves, so `constantize: [singula,
+  pascal]` loaded clean and failed at render - the precise failure this
+  milestone's constraint forbids. When the engine cannot be built the package
+  is rejected and reference checking is skipped, because a checker with no
+  vocabulary would report every reference as undefined and bury the real cause.
+
+  And the dependency edge runs genpkg -> render -> transform. transform stays a
+  leaf, as prov-2026-73127e53 requires. render depends on transform because
+  translating {{x|prefix:@}} into text/template source needs to know that prefix
+  takes a literal argument; it does not depend on genpkg, so nothing about
+  package layout reaches the renderer.
+
+  The new findings are two rules rather than one. A template that is not
+  Sedum's syntax at all (template_syntax_invalid) is a different mistake from a
+  well-formed reference to a transform that does not exist
+  (transform_undefined), and an author fixes them differently.
+constraints:
+  - >-
+    Load-time reference extraction and render-time translation read the same
+    parser. genpkg does not keep a second, more lenient scanner for validation -
+    a package that loads clean is one whose templates the renderer accepted.
+  - >-
+    A package's transform engine is built at load, and failing to build it
+    rejects the package. Reference checking is skipped in that case rather than
+    run against an empty vocabulary, so the diagnostics name the broken pipeline
+    and not every template that used it.
+  - >-
+    internal/transform imports nothing of Sedum's. internal/render imports only
+    internal/transform. The knowledge flows one way: genpkg knows about
+    rendering, rendering knows about transforms, transforms know about neither.
+  - >-
+    A syntax error and an undefined transform are separate rules with separate
+    identifiers, because collapsing them would make a caller unable to suppress
+    or test for one without matching on prose.
+affected_scope: []
+forbidden_scope: []
+type: imprint
+implements: prov-2026-d9cb29e4
+supersedes: ""
+superseded_by: ""
+related:
+  - prov-2026-73127e53
+sealed_at_sha: ""
+associated_specs:
+  - path: internal/genpkg/genpkg_test.go
+    run_command: go test -count=1 ./$(dirname {{path}})
+associated_traces: []
+monitors: []
+tags:
+  - sedum
+  - m2
+  - validation
