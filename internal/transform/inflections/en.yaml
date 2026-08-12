@@ -1,0 +1,146 @@
+# English inflection rules.
+#
+# This file is data, not configuration: it is not something a generator package
+# declares or overrides. A package that needs a different answer for one word
+# gets it from the model's supplied forms, which take precedence over
+# everything here.
+#
+# Both rule lists are ordered most specific first and the first match wins.
+# Replacements use ${n} to refer to a capture group; a group that did not
+# participate expands to nothing, which is how one rule can cover two shapes.
+
+# Words with a single form. Checked before anything else, since no rule below
+# should ever see them.
+uncountable:
+  - equipment
+  - information
+  - money
+  - rice
+  - series
+  - species
+  - fish
+  - sheep
+  - deer
+  - offspring
+  - news
+  - jeans
+  - police
+  - staff
+
+# Words no rule can derive, singular to plural. Read in both directions, which
+# is also what makes an already-inflected irregular a fixed point: pluralizing
+# "people" has to yield "people", not "peoples".
+irregular:
+  person: people
+  man: men
+  woman: women
+  child: children
+  foot: feet
+  tooth: teeth
+  goose: geese
+  mouse: mice
+  louse: lice
+  ox: oxen
+  datum: data
+  medium: media
+  criterion: criteria
+  phenomenon: phenomena
+  move: moves
+  zombie: zombies
+  sex: sexes
+
+plural:
+  - match: "(quiz)$"
+    replace: "${1}zes"
+  - match: "(matr|vert|ind)(?:ix|ex)$"
+    replace: "${1}ices"
+  # A word already ending in one of these takes -es rather than -s.
+  - match: "(x|ch|ss|sh)$"
+    replace: "${1}es"
+  # -y after a consonant becomes -ies; after a vowel it does not, so "day"
+  # stays "days".
+  - match: "([^aeiouy]|qu)y$"
+    replace: "${1}ies"
+  - match: "(hive)$"
+    replace: "${1}s"
+  # knife -> knives and wolf -> wolves in one rule; the unmatched group is
+  # empty.
+  - match: "(?:([^f])fe|([lr])f)$"
+    replace: "${1}${2}ves"
+  - match: "sis$"
+    replace: "ses"
+  - match: "([ti])um$"
+    replace: "${1}a"
+  - match: "(buffal|tomat|potat|ech|her|vet)o$"
+    replace: "${1}oes"
+  - match: "(bu)s$"
+    replace: "${1}ses"
+  - match: "(alias|status)$"
+    replace: "${1}es"
+  - match: "(octop|vir)us$"
+    replace: "${1}i"
+  - match: "(ax|test)is$"
+    replace: "${1}es"
+  # Already plural. This is the rule that makes pluralizing twice a no-op for
+  # every regular noun.
+  - match: "s$"
+    replace: "s"
+  - match: "$"
+    replace: "s"
+
+singular:
+  - match: "(database)s$"
+    replace: "${1}"
+  - match: "(quiz)zes$"
+    replace: "${1}"
+  - match: "(matr)ices$"
+    replace: "${1}ix"
+  - match: "(vert|ind)ices$"
+    replace: "${1}ex"
+  - match: "(alias|status)(es)?$"
+    replace: "${1}"
+  - match: "(octop|vir)(us|i)$"
+    replace: "${1}us"
+  - match: "^(a)x[ie]s$"
+    replace: "${1}xis"
+  - match: "(cris|test)(is|es)$"
+    replace: "${1}is"
+  - match: "(shoe)s$"
+    replace: "${1}"
+  - match: "(o)es$"
+    replace: "${1}"
+  - match: "(bus)(es)?$"
+    replace: "${1}"
+  - match: "(m|l)ice$"
+    replace: "${1}ouse"
+  - match: "(x|ch|ss|sh)es$"
+    replace: "${1}"
+  - match: "(m)ovies$"
+    replace: "${1}ovie"
+  - match: "(s)eries$"
+    replace: "${1}eries"
+  - match: "([^aeiouy]|qu)ies$"
+    replace: "${1}y"
+  # wolves -> wolf, before the general -ves rule, which would give "wolfe".
+  - match: "([lr])ves$"
+    replace: "${1}f"
+  - match: "(tive)s$"
+    replace: "${1}"
+  - match: "(hive)s$"
+    replace: "${1}"
+  - match: "([^f])ves$"
+    replace: "${1}fe"
+  - match: "(^analy)(sis|ses)$"
+    replace: "${1}sis"
+  - match: "((a)naly|(b)a|(d)iagno|(p)arenthe|(p)rogno|(s)ynop|(t)he)(sis|ses)$"
+    replace: "${1}sis"
+  - match: "([ti])a$"
+    replace: "${1}um"
+  - match: "(n)ews$"
+    replace: "${1}ews"
+  # Already singular and ending in -ss, which the last rule would otherwise
+  # strip to -s.
+  - match: "(ss)$"
+    replace: "${1}"
+  - match: "s$"
+    replace: ""
