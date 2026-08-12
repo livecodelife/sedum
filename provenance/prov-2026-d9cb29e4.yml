@@ -1,6 +1,6 @@
 id: prov-2026-d9cb29e4
 title: 'M2 - Transforms: built-in operations, declarative pipelines, exception tables, inflection'
-status: draft
+status: open
 created_at: "2026-08-07"
 author: calebcowen@gmail.com
 intent: |
@@ -27,8 +27,10 @@ intent: |
 
   Case conversion uses iancoleman/strcase, whose real value is word splitting -
   it normalizes UserURL, user-id, and users_controller alike into snake form,
-  which is the fiddly part of the job. snake, kebab, upper, and lower delegate
-  to it directly.
+  which is the fiddly part of the job. snake and kebab delegate to it directly.
+  upper and lower are not word-splitting operations and do not: they are
+  strings.ToUpper and strings.ToLower over the whole token, so a screaming
+  constant is the composition [snake, upper] rather than an eleventh built-in.
 
   Exception tables handle irregular mappings without new machinery
   (op_exceptions: pascal: {url: URL, id: ID}). They are applied per word, not to
@@ -111,6 +113,13 @@ constraints:
 affected_scope:
   - internal/transform/**
   - internal/render/**
+  # The vocabulary relocation is this milestone's, and genpkg is where it is
+  # consumed from: the loader builds a package's engine, and the load-time
+  # checks that "an undefined pipeline fails at load" and "Go template
+  # constructs are rejected at load" both run there.
+  - internal/genpkg/**
+  - go.mod
+  - go.sum
 forbidden_scope: []
 type: blueprint
 implements: prov-2026-d554bfc3
@@ -118,7 +127,13 @@ supersedes: ""
 superseded_by: ""
 related: []
 sealed_at_sha: ""
-associated_specs: []
+associated_specs:
+  - path: internal/transform/transform_test.go
+    run_command: go test -count=1 ./$(dirname {{path}})
+  - path: internal/render/render_test.go
+    run_command: go test -count=1 ./$(dirname {{path}})
+  - path: internal/genpkg/genpkg_test.go
+    run_command: go test -count=1 ./$(dirname {{path}})
 associated_traces: []
 monitors: []
 tags:
