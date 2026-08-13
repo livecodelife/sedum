@@ -1,6 +1,6 @@
 id: prov-2026-d9cb29e4
 title: 'M2 - Transforms: built-in operations, declarative pipelines, exception tables, inflection'
-status: open
+status: implemented
 created_at: "2026-08-07"
 author: calebcowen@gmail.com
 intent: |
@@ -126,7 +126,7 @@ implements: prov-2026-d554bfc3
 supersedes: ""
 superseded_by: ""
 related: []
-sealed_at_sha: ""
+sealed_at_sha: 395839387affc4ad1b470b606148fab92bda8d32
 associated_specs:
   - path: internal/transform/transform_test.go
     run_command: go test -count=1 ./$(dirname {{path}})
