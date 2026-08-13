@@ -86,6 +86,21 @@ constraints:
     Record ingestion reads intent, constraints, affected_scope, and
     forbidden_scope only. Sedum does not interpret record status, lifecycle, or
     any other provenance field, and does not write to records.
+  - >-
+    No target-language or framework knowledge enters this milestone's code. A
+    path resolves to a package only through the extensions that package
+    declares: there is no built-in extension map, no default or fallback
+    package, and no rule that infers a target from a path's shape or a
+    directory's name. Resolution and file creation are where such knowledge
+    would be easiest to smuggle in - the code is handling real paths and real
+    extensions for the first time - which is why the PRD's general principle is
+    restated here as a checkable rule.
+  - >-
+    That rule is proved by a fixture package for a target that shares no
+    extension, comment prefix, pipeline name, or directory convention with any
+    other fixture. If it resolves paths and creates files on the same terms as
+    the others, nothing target-specific is in the path. A constraint whose
+    violation no test would catch is a comment.
 affected_scope:
   - internal/record/**
   - internal/resolve/**
