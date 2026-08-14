@@ -409,10 +409,10 @@ Marker comments are the load-bearing case. Marker syntax uses the package's decl
 
 ## Ownership and Idempotency
 
-Every injected region is wrapped in ownership markers naming the action that produced it, the ownership tier, and the kwargs it was rendered from:
+Every injected region is wrapped in ownership markers naming the action that produced it, the ownership tier, the record that last parameterized it, and the kwargs it was rendered from:
 
 ```ruby
-# sedum:createControllerMethod:index owned {"controller":"users","collection":"users"}
+# sedum:createControllerMethod:index {"tier":"owned","record":"PR-014","kwargs":{"controller":"users","collection":"users"}}
 def index
   @users = User.all
   render json: @users
@@ -424,15 +424,41 @@ Re-running a generation replaces the region an action owns rather than appending
 
 This produces the audit trail as a side effect: grepping markers yields file -> action -> variant -> arguments with no maintained state, and ownership is visible in the diff a human reviews.
 
+The action and variant stay literal on the line because that is what makes the audit trail greppable rather than parseable. Everything else is one JSON object.
+
+### The attribute object is the extension point
+
+The marker is a durable artifact and Sedum is not the only tool that reads one. A marker sits in a generated codebase long after the version that wrote it is gone, so a marker's reader and its writer are routinely different versions of Sedum — and, once anything is built on top of Sedum, different tools entirely.
+
+The attributes are a JSON object rather than positional fields for that reason. A field added later is an addition rather than a migration across every repository already carrying markers.
+
+Two promises follow, and Sedum keeps both:
+
+**A marker is never rejected for carrying more than the reading version expects, or less.** An unrecognised key is ignored; a declared key that is absent takes its documented default. An attribute object that is not readable as JSON is still an error, because that is corruption rather than version skew.
+
+**An unrecognised key survives the round trip.** It is retained on read and re-emitted when the region is rewritten, including when a rerun replaces the region's contents. This is the half that does not come free: ignoring a key on read and preserving it on write are different promises, and only the first one is what a decoder gives you.
+
+The second promise is what makes the attribute object usable by anything other than Sedum. A tool built above Sedum annotates a region with its own state under its own keys, and that state is still there after the next run — without a schema change and without a sidecar file keyed by region, which would reintroduce exactly the maintained state markers exist to avoid.
+
+Preservation is transparent. Sedum does not read, validate, interpret, or reorder an unrecognised key, and a carried key may not shadow one Sedum models. The keys Sedum models are `tier`, `record`, `writer`, and `kwargs`.
+
+`writer` names the tool that last wrote the region. It is absent when that tool is Sedum, so every marker written before the key existed reads correctly. It exists because a demoted tier is otherwise unattributable — a region reading `seeded` gives no way to tell whether a package author declared it or another tool demoted it — and because Phase 3's *"something other than Sedum wrote it"* diagnostic is undiagnosable in a two-writer world without it.
+
+No version token. Additive evolution is already free under the object, and a token earns its place only for a breaking change, meaning an existing field whose meaning changes.
+
 ### Ownership tiers
 
 The tier field declares whether Sedum may overwrite a region.
 
-`owned` — Sedum generated this region and replaces it on every run. Hand edits are lost.
+`owned` — Sedum generated this region and replaces it on every run. Edits to it are lost, whoever made them. The tier is a statement about the region, not about humans; a tool editing an owned region loses its work exactly as a person does.
 
 `seeded` — Sedum generated this region once and never touches it again. Present in the file, skipped on rerun.
 
 An action declares its tier in `actions.yaml`, defaulting to `owned`. A template whose body is a stub a human is expected to complete should declare `seeded`; a template that fully determines its output should not.
+
+**The marker's tier governs after the first write.** The declaration in `actions.yaml` supplies the value written the first time and has no authority over a region that already exists. A region whose tier was demoted after generation — because it stopped being Sedum's to overwrite — is precisely the region a declaration must not overrule, so the file is what decides and the declaration is only the default it started from.
+
+This is the rule for when the `actions.yaml` key lands. Decoding is strict today and the key is not accepted yet, so the declaration currently supplies nothing; both tiers are already honored when read from a marker.
 
 **Only `owned` is exercised by the milestones in this document.** `seeded` is specified now because markers are written to disk and read back on rerun. Adding the field later would leave every file generated in the interim carrying markers in an older shape, requiring a migration across generated codebases. The cost of reserving it is one token per marker.
 
@@ -442,7 +468,17 @@ The kwargs serialized on the opening marker make a region self-describing. A rea
 
 Nothing in this document reads them back. They are written for the same reason the tier field is: markers are durable artifacts, and changing their shape after generated codebases exist is expensive.
 
-Multiple records injecting into the same file is out of scope. If it becomes necessary, the marker gains the record ID and nothing else changes.
+Recording all of them, rather than the subset that currently selects a region, keeps open the question of which kwargs select and which merely parameterize. That rule lives in code and can be redefined without migrating generated codebases; the rule today is that an action's required kwargs select and its optional kwargs parameterize.
+
+### The record attribute
+
+The marker carries the ID of the record that last wrote a region, **as an attribute rather than as part of the region's identity**. A region is identified by its action, its variant, and its selecting kwargs; the record ID says who last wrote it.
+
+That distinction is what lets a later record refine a region an earlier record produced, replacing it in place instead of minting a second region beside it. Under record-scoped identity, a record whose intent is *"PUT should support partial updates"* would produce two definitions of one function rather than a replacement.
+
+**One file is still generated from one record within a single run.** Ingestion rejects a path named by two records, because Phase 4 makes one model call per record and two records naming one file would mean two independent calls deciding the same file's contents. Records that share a file are generated one at a time with `--only`, and their regions coexist and survive each other's reruns.
+
+So the two halves are worth stating separately: refinement of a region across records and across runs is supported and is what the record attribute exists for. Two records naming one path in one run is not, and the restriction is on the whole-directory run rather than on the outcome.
 
 ---
 
