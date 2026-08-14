@@ -95,6 +95,7 @@ affected_scope:
   - internal/cli/config.go
   - internal/cli/config_test.go
   - testdata/**
+  - PRD.md
   - go.mod
   - go.sum
 forbidden_scope: []
@@ -107,7 +108,11 @@ sealed_at_sha: ""
 associated_specs:
   - path: internal/catalog/catalog_test.go
     run_command: go test -count=1 ./$(dirname {{path}})
+  - path: internal/selection/selection_test.go
+    run_command: go test -count=1 ./$(dirname {{path}})
   - path: internal/pipeline/pipeline_test.go
+    run_command: go test -count=1 ./$(dirname {{path}})
+  - path: internal/cli/actions_test.go
     run_command: go test -count=1 ./$(dirname {{path}})
 associated_traces: []
 monitors: []
