@@ -1,0 +1,136 @@
+id: prov-2026-c5697387
+title: A kwarg carries a description, because the catalog is the only thing the model reads
+status: draft
+created_at: "2026-08-14"
+author: calebcowen@gmail.com
+intent: |
+  A kwarg may declare a description, and the catalog carries it. An action may
+  declare one too. Both are authored prose passed through untouched, and they
+  exist because everything an author currently writes to explain a kwarg is
+  written where the model cannot see it.
+
+  ## What went wrong four times
+
+  Running M6 against two real packages produced four separate wrong bindings,
+  and every one of them had its answer sitting in a YAML comment beside the
+  declaration:
+
+  - todo-api's chi package: "Optional because a delete needs none of them - one
+    kwarg schema covers every variant." The model read required: false and
+    omitted the kwarg. (That one also wants [[prov-2026-369544c1]]; the two are
+    complementary rather than alternatives - derived requirements say a value is
+    needed, a description says what a correct one looks like.)
+  - todo-rails addColumn: an options string meaning "the rest of the line after
+    the column name". The model bound ":string, null: false", duplicating the
+    type it had already been given, and the template rendered
+    t.string :title:string, null: false.
+  - todo-rails definePermittedParams: an attributes string meaning bare names.
+    The model bound "title, completed" where the template needed :title,
+    :completed, and the controller raised NameError on a bare word.
+  - todo-rails addColumn again, after that: a default meant to be written as
+    the Ruby literal it becomes. Nothing said so.
+
+  Each was a kwarg whose type is string and whose meaning is a convention. The
+  type system is deliberately tiny - string, int, bool, list, sufficient for
+  argument binding and nothing more - so it cannot express "a comma-separated
+  list of bare names" and should not try. What it can do is let the author say
+  it in a sentence.
+
+  ## Why the retry loop is not the answer
+
+  It is tempting to leave this to Phase 5: bind it wrong, get told, bind it
+  right. That fails on all three counts.
+
+  It often cannot tell. "title, completed" is a valid string for a required
+  string kwarg. Every Phase 5 check passes. The failure surfaces as a NameError
+  in a running Rails app, which is past the last point Sedum looks.
+
+  Where it can tell, it tells too late and says the wrong thing. The diagnostic
+  names a rendered path or a template file, not the convention that was missed,
+  so the model corrects toward the symptom.
+
+  And it is the wrong shape of fix regardless. This is the argument the variant
+  list and the injects_into pattern were both added under: the retry loop is a
+  backstop for mistakes, not a channel for information the catalog could have
+  carried. A model that has to fail once to learn what an argument means is
+  paying a call for something the author already knew and already wrote down.
+
+  ## The shape
+
+  A kwarg's declaration gains an optional description; so does an action. Both
+  are strings, both are optional, and absent means absent - no placeholder text
+  and no synthesised sentence, because an invented description is worse than
+  none.
+
+  The catalog emits them beside the kwarg and the action they belong to, and
+  sedum actions prints them, so the loop where an author writes a description
+  and sees what the model will see stays closed.
+
+  Nothing interprets them. Sedum does not parse a description, validate it,
+  derive a constraint from it, or check that a bound value agrees with it - and
+  a description must never become a place where a rule lives, because a rule
+  the model can read and Phase 5 cannot enforce is worse than no rule. Every
+  check stays exactly where it is.
+
+  This adds no target knowledge to Sedum's core. A description is the author's
+  sentence about the author's kwarg, passed through the way the kwarg's name and
+  the injects_into pattern already are.
+
+  ## Cost and scope
+
+  Additive to actions.yaml: a package that declares none is unchanged and
+  unaffected, so there is no migration. The catalog is regenerated per run and
+  is not a durable artifact, so its shape is free to grow. Recordings and
+  markers are untouched - a description describes an argument, and what a region
+  was parameterized with is already on the marker.
+
+  Worth saying plainly: this makes catalog quality an authoring responsibility
+  rather than a property of the model. That is the right place for it. An author
+  who writes a bad description gets bad selection, and sedum actions is where
+  they see it - which is a better failure than the one this record was written
+  from, where the author wrote a good explanation and the tool threw it away.
+constraints:
+  - >-
+    description is optional on both a kwarg and an action, and absent means
+    absent. Nothing is invented to fill it, because a synthesised description is
+    worse than none.
+  - >-
+    Descriptions are passed through untouched. Sedum does not parse, validate,
+    or derive anything from one, and no check consults one.
+  - >-
+    A description must never carry a rule. A constraint the model can read and
+    Phase 5 cannot enforce is worse than no constraint - if a rule matters, it
+    belongs in the schema where it is checked.
+  - >-
+    The catalog and sedum actions both emit them, through the one builder, so
+    the loop where an author sees what the model will see stays closed.
+  - >-
+    Additive to actions.yaml. A package declaring no descriptions behaves
+    exactly as it does today, so no existing package needs editing.
+  - >-
+    Descriptions reach the prompt and nothing else. They are not recorded on
+    markers and not written into recordings - a description describes an
+    argument, not a region.
+affected_scope:
+  - internal/genpkg/**
+  - internal/catalog/**
+  - internal/cli/actions.go
+  - internal/selection/**
+  - testdata/**
+  - PRD.md
+forbidden_scope: []
+type: blueprint
+implements: prov-2026-d554bfc3
+supersedes: ""
+superseded_by: ""
+related:
+  - prov-2026-369544c1
+  - prov-2026-1bbb8e2e
+sealed_at_sha: ""
+associated_specs: []
+associated_traces: []
+monitors: []
+tags:
+  - sedum
+  - catalog
+  - authoring
