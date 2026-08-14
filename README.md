@@ -26,7 +26,7 @@ unambiguously a selection failure rather than a rendering failure.
 | 2 — Resolve paths to packages and templates | Working |
 | 3 — Create files from templates | Working |
 | 4–5 — Model invocation and validation | Not built |
-| 6 — Expand and resolve | Working for simple and discriminated actions; composite expansion not built |
+| 6 — Expand and resolve | Working, including composite expansion |
 | 7 — Inject | Working |
 
 | Command | State |
@@ -43,14 +43,11 @@ every rerun — but **they have no command-line entry point yet**. The designed
 entry is `--execute`, which replays a hand-written or recorded invocation list
 with no model involved; until it lands, injection is reachable only from Go.
 
-Two other limits are worth knowing before pointing this at a real project:
-
-- A path named by two provenance records is still rejected in Phase 1. Records
-  that share a file generate correctly one at a time with `--only`, and their
-  regions coexist and survive each other's reruns — the restriction is on the
-  whole-directory run, not on the outcome.
-- A composite action cannot be expanded yet, so a generator package whose
-  exposed catalog is built from composites has no reachable path through them.
+One other limit is worth knowing before pointing this at a real project: a path
+named by two provenance records is still rejected in Phase 1. Records that share
+a file generate correctly one at a time with `--only`, and their regions coexist
+and survive each other's reruns — the restriction is on the whole-directory run,
+not on the outcome.
 
 Flag parsing and flag-interdependence checks are live for every command, so an
 unusable flag combination is rejected today even where the underlying phase is
@@ -803,7 +800,7 @@ internal/pipeline/    Phase ordering and stop points.
 internal/genpkg/      Package loading and every Phase 0 check.
 internal/record/      Provenance record ingestion and the authorized path set.
 internal/resolve/     Path-to-package resolution, template matching, file creation.
-internal/expand/      Phase 6: injects_into rendering, variant selection, transforms.
+internal/expand/      Phase 6: composite expansion, injects_into rendering, variant selection, transforms.
 internal/inject/      Phase 7: the marker format, anchor location, region replacement.
 internal/recording/   The recording schema. Types only; serialization is M7.
 internal/transform/   Built-in operations, declarative pipelines, inflection.
