@@ -23,7 +23,7 @@ unambiguously a selection failure rather than a rendering failure.
 |---|---|
 | 0 — Load and validate generator packages | Working |
 | 1 — Ingest provenance records | Working |
-| 2 — Resolve paths to packages and templates | Working |
+| 2 — Resolve paths to packages and templates | Working, including unmanaged paths |
 | 3 — Create files from templates | Working |
 | 4–5 — Model invocation and validation | Not built |
 | 6 — Expand and resolve | Working, including composite expansion |
@@ -199,6 +199,29 @@ If two packages in the directory claim the same extension, that is not an error 
 The `--lang` flag names a package to prefer. It may be repeated. Sedum infers which extension each named package resolves; a flag naming a package that claims no extension in the current record set is a warning, not an error.
 
 A path whose extension no package claims is a hard error. Sedum does not guess.
+
+### Unmanaged paths
+
+A package may declare paths it does not write:
+
+```yaml
+unmanaged:
+  - Gemfile
+  - config/credentials/
+```
+
+Entries use the same grammar as a record's `affected_scope` — `**`, `*`, `?`, `[…]`, and a trailing slash for a subtree. An authorized path matching one is skipped, reported, and the run continues: not created, not rendered, not injected into.
+
+This exists so a record can describe the whole change. Moving a Rails service to PostgreSQL means adding the `pg` gem, so `Gemfile` belongs in `affected_scope` — and `Gemfile` has no extension, so without a declaration the run halts on it. The alternative is trimming records to what a generator happens to reach, which makes the record a description of the tool rather than of the work.
+
+**It authorizes nothing.** `affected_scope` still decides what may be touched; this says only that Sedum is not what touches it. Usually a person is, or another tool pointed at it separately, so a run gathers these paths into a list rather than passing over them silently:
+
+```
+1 path(s) left unmanaged, for a person or another tool:
+  Gemfile (rails declares "Gemfile")
+```
+
+An unclaimed extension nobody disowned is still a hard error. Silence is not a declaration.
 
 ---
 
@@ -445,7 +468,9 @@ Read the provenance directory. Parse each record: `intent`, `constraints`, `affe
 
 ### Phase 2 — Resolve paths to packages and templates
 
-For each authorized path, resolve its extension to a generator package, applying `--lang` where the extension is contested. A path whose extension no package claims is a hard error. A contested extension with no disambiguating flag is a hard error naming both candidate packages.
+For each authorized path, first check it against the union of every package's `unmanaged` patterns; a match is recorded and skipped. Then resolve its extension to a generator package, applying `--lang` where the extension is contested. A path whose extension no package claims is a hard error. A contested extension with no disambiguating flag is a hard error naming both candidate packages.
+
+The unmanaged check runs *before* extension resolution, because the paths most often declared unmanaged are the ones no extension can reach.
 
 Then match the path against that package's `files/` tree and bind the captured segments. Matching lives here rather than in Phase 3 because it is pure — it reads the loaded packages and decides, touching nothing — which is what lets `--stop-after resolution` report a matched template and its captures without any phase having written or read a file.
 
