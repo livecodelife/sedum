@@ -202,29 +202,37 @@ func TestFlagInterdependence(t *testing.T) {
 	}
 }
 
-// Combinations the PRD explicitly blesses must survive validation and fail only
-// on the milestone that has not landed yet.
+// Combinations the PRD explicitly blesses must survive validation. What they
+// fail on afterwards says how far they got: a combination whose phases have all
+// landed reaches Phase 0 and fails on the generators directory these cases name
+// but do not create, and every other combination names the milestone it is
+// waiting on.
 func TestLegalFlagCombinations(t *testing.T) {
+	const reachesThePipeline = "read generators directory"
+
 	tests := []struct {
 		name string
 		args []string
+		// fails is the fragment that proves validation passed.
+		fails string
 	}{
-		{"record composes with dry-run", []string{"grow", "--generators", "g", "--records", "r", "--record", "out.json", "--dry-run"}},
-		{"execute composes with dry-run", []string{"grow", "--generators", "g", "--execute", "in.json", "--dry-run"}},
-		{"execute makes records optional", []string{"grow", "--generators", "g", "--execute", "in.json"}},
-		{"execute accepts records for scope validation", []string{"grow", "--generators", "g", "--records", "r", "--execute", "in.json"}},
-		{"replay may stop after expansion without record", []string{"grow", "--generators", "g", "--execute", "in.json", "--stop-after", "expansion"}},
-		{"stop-after files needs no record", []string{"grow", "--generators", "g", "--records", "r", "--stop-after", "files"}},
-		{"repeated lang and only", []string{"grow", "--generators", "g", "--records", "r", "--lang", "rails", "--lang", "chi", "--only", "PR-1", "--only", "PR-2"}},
+		{"record composes with dry-run", []string{"grow", "--generators", "g", "--records", "r", "--record", "out.json", "--dry-run"}, "not implemented"},
+		{"execute composes with dry-run", []string{"grow", "--generators", "g", "--execute", "in.json", "--dry-run"}, "not implemented"},
+		{"execute makes records optional", []string{"grow", "--generators", "g", "--execute", "in.json"}, "not implemented"},
+		{"execute accepts records for scope validation", []string{"grow", "--generators", "g", "--records", "r", "--execute", "in.json"}, "not implemented"},
+		{"replay may stop after expansion without record", []string{"grow", "--generators", "g", "--execute", "in.json", "--stop-after", "expansion"}, "not implemented"},
+		{"stop-after files needs no record", []string{"grow", "--generators", "g", "--records", "r", "--stop-after", "files"}, reachesThePipeline},
+		{"stop-after resolution needs no record", []string{"grow", "--generators", "g", "--records", "r", "--stop-after", "resolution"}, reachesThePipeline},
+		{"repeated lang and only", []string{"grow", "--generators", "g", "--records", "r", "--lang", "rails", "--lang", "chi", "--only", "PR-1", "--only", "PR-2"}, "not implemented"},
 	}
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			_, err := exec(t, tc.args...)
 			if err == nil {
-				t.Fatalf("expected the not-implemented error, got nil")
+				t.Fatalf("expected an error, got nil")
 			}
-			if !strings.Contains(err.Error(), "not implemented") {
+			if !strings.Contains(err.Error(), tc.fails) {
 				t.Fatalf("flag validation rejected a legal combination: %v", err)
 			}
 		})
@@ -238,9 +246,9 @@ func TestUnimplementedCommandsNameTheirMilestone(t *testing.T) {
 		args      []string
 		milestone string
 	}{
-		{[]string{"resolve", "--generators", "g", "--records", "r"}, "M3"},
 		{[]string{"actions", "--generators", "g", "--package", "rails"}, "M6"},
 		{[]string{"grow", "--generators", "g", "--records", "r"}, "M6"},
+		{[]string{"grow", "--generators", "g", "--execute", "rec.json"}, "M7"},
 	}
 
 	for _, tc := range tests {
@@ -259,7 +267,7 @@ func TestValidateReportsOnTheGeneratorsDirectory(t *testing.T) {
 	if err != nil {
 		t.Fatalf("validate on the fixture packages failed: %v\n%s", err, out)
 	}
-	for _, want := range []string{"2 package(s) loaded", "0 error(s)"} {
+	for _, want := range []string{"3 package(s) loaded", "0 error(s)"} {
 		if !strings.Contains(out, want) {
 			t.Errorf("validate output = %q, does not report %q", out, want)
 		}

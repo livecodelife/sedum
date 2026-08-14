@@ -2,8 +2,12 @@ package cli
 
 import (
 	"fmt"
+	"io"
 
 	"github.com/spf13/cobra"
+
+	"github.com/calebcowen/sedum/internal/pipeline"
+	"github.com/calebcowen/sedum/internal/runlog"
 )
 
 func newGrowCommand() *cobra.Command {
@@ -25,7 +29,7 @@ Nothing is created that a provenance record did not authorize.`,
 			for _, ignored := range cfg.IgnoredFlags() {
 				fmt.Fprintf(cmd.ErrOrStderr(), "sedum: ignoring %s\n", ignored)
 			}
-			return notImplemented("grow", "M6", "model invocation and output validation")
+			return runGrow(cmd.OutOrStdout(), cmd.ErrOrStderr(), cfg)
 		},
 	}
 
@@ -50,4 +54,76 @@ Nothing is created that a provenance record did not authorize.`,
 	cmd.MarkFlagsMutuallyExclusive("record", "execute")
 
 	return cmd
+}
+
+// runGrow runs as much of the pipeline as has landed.
+//
+// A run that would reach an unimplemented phase is refused before anything is
+// written. Creating files and then failing at the model call would leave the
+// output tree half built for a reason the user could have been told first.
+func runGrow(out, errOut io.Writer, cfg GrowConfig) error {
+	if cfg.Replaying() {
+		return notImplemented("grow --execute", "M7", "recording and replay")
+	}
+
+	sp, ok := lookupStopPoint(cfg.StopAfter)
+	if !ok || sp.afterPhase > pipeline.PhaseCreate {
+		return notImplemented("grow", "M6", "model invocation and output validation")
+	}
+
+	log, err := runlog.New(cfg.LogPath, cfg.Verbose)
+	if err != nil {
+		return err
+	}
+	defer log.Close()
+
+	result, err := pipeline.Run(pipeline.Config{
+		Generators:     cfg.Generators,
+		Records:        cfg.Records,
+		Output:         cfg.Output,
+		Lang:           cfg.Lang,
+		Only:           cfg.Only,
+		DryRun:         cfg.DryRun,
+		StopAfterPhase: sp.afterPhase,
+		Log:            log,
+	})
+	if err != nil {
+		return err
+	}
+
+	printWarnings(errOut, result.Warnings)
+	if sp.afterPhase == pipeline.PhaseResolve {
+		printResolutions(out, result, false)
+	} else {
+		printFiles(out, result, cfg.DryRun)
+	}
+	fmt.Fprintf(out, "\nstopped after %s\n", sp.name)
+	return nil
+}
+
+// printFiles reports what Phase 3 did, separating the files it created from the
+// ones it found already there. Create-if-absent means the second group is
+// normal rather than exceptional, so it is reported rather than hidden.
+func printFiles(out io.Writer, result *pipeline.Result, dryRun bool) {
+	verb := "created"
+	if dryRun {
+		verb = "would create"
+	}
+
+	var existing int
+	for _, f := range result.Files {
+		if f.Existed {
+			existing++
+			continue
+		}
+		fmt.Fprintf(out, "%s  %s  (%s %s)\n", verb, f.Path, f.Package.Name, describeTemplate(f.Resolution))
+	}
+	for _, f := range result.Files {
+		if f.Existed {
+			fmt.Fprintf(out, "exists   %s  (left as it is)\n", f.Path)
+		}
+	}
+
+	fmt.Fprintf(out, "\n%d path(s) authorized, %d %s, %d already present\n",
+		len(result.Files), len(result.Files)-existing, verb, existing)
 }
