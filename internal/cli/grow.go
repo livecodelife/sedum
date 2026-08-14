@@ -219,29 +219,53 @@ func describeKwargs(kwargs map[string]any) string {
 	return strings.Join(pairs, " ")
 }
 
-// printFiles reports what Phase 3 did, separating the files it created from the
-// ones it found already there. Create-if-absent means the second group is
-// normal rather than exceptional, so it is reported rather than hidden.
+// printFiles reports what Phase 3 did, in three groups.
+//
+// Files it created, files it found already there, and files a package declares
+// it does not write. Create-if-absent makes the second group normal rather than
+// exceptional, so it is reported rather than hidden. The third is the run's
+// handoff - authorized work something other than Sedum has to do - and is
+// gathered at the end rather than scattered through the listing, because a
+// person acting on it wants it as a list.
+//
+// An unmanaged path resolved to no package, by design: the check runs before
+// extension resolution so a path no extension can reach is still reportable.
+// That is why it is not merely a different line here but a different branch -
+// there is no package name to print.
 func printFiles(out io.Writer, result *pipeline.Result, dryRun bool) {
 	verb := "created"
 	if dryRun {
 		verb = "would create"
 	}
 
-	var existing int
+	var created, existing, unmanaged int
 	for _, f := range result.Files {
-		if f.Existed {
+		switch {
+		case f.Unmanaged:
+			unmanaged++
+		case f.Existed:
 			existing++
-			continue
+		default:
+			created++
+			fmt.Fprintf(out, "%s  %s  (%s %s)\n", verb, f.Path, f.Package.Name, describeTemplate(f.Resolution))
 		}
-		fmt.Fprintf(out, "%s  %s  (%s %s)\n", verb, f.Path, f.Package.Name, describeTemplate(f.Resolution))
 	}
 	for _, f := range result.Files {
-		if f.Existed {
+		if f.Existed && !f.Unmanaged {
 			fmt.Fprintf(out, "exists   %s  (left as it is)\n", f.Path)
 		}
 	}
 
-	fmt.Fprintf(out, "\n%d path(s) authorized, %d %s, %d already present\n",
-		len(result.Files), len(result.Files)-existing, verb, existing)
+	fmt.Fprintf(out, "\n%d path(s) authorized, %d %s, %d already present, %d left unmanaged\n",
+		len(result.Files), created, verb, existing, unmanaged)
+
+	if unmanaged == 0 {
+		return
+	}
+	fmt.Fprintf(out, "\n%d path(s) left unmanaged, for a person or another tool:\n", unmanaged)
+	for _, f := range result.Files {
+		if f.Unmanaged {
+			fmt.Fprintf(out, "  %s (%s declares %q)\n", f.Path, f.UnmanagedBy, f.UnmanagedAs)
+		}
+	}
 }

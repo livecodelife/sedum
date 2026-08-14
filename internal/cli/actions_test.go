@@ -2,6 +2,8 @@ package cli
 
 import (
 	"encoding/json"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -109,6 +111,62 @@ func TestActionsJSONIsTheCatalogPayload(t *testing.T) {
 	if err := json.Unmarshal([]byte(out), &decoded); err != nil {
 		t.Fatalf("--json does not decode: %v", err)
 	}
+}
+
+// An unmanaged path resolved to no package, by design - the check runs before
+// extension resolution so a path no extension can reach is still reportable. A
+// run reporting what it created has to handle that as a different branch rather
+// than a different line, and until a real record named a Gemfile nothing here
+// did: the report dereferenced a package that was never there.
+func TestGrowReportsUnmanagedPathsRatherThanCrashing(t *testing.T) {
+	dir := t.TempDir()
+	generators := writeFiles(t, map[string]string{
+		"rails/sedum.yaml": "name: rails\nextensions: [\".rb\"]\ncomment_prefix: \"#\"\n" +
+			"unmanaged:\n  - Gemfile\n",
+		"rails/files/app/models/{name}.rb": "class X\nend\n",
+		"rails/actions/actions.yaml":       "actions: {}\n",
+	})
+	records := writeFiles(t, map[string]string{
+		"r.yml": "id: prov-2026-dddddddd\nintent: |\n  Add a model and the gem it needs.\n" +
+			"affected_scope:\n  - app/models/todo.rb\n  - Gemfile\n",
+	})
+
+	out, err := exec(t, "grow",
+		"--generators", generators,
+		"--records", records,
+		"--output", dir,
+		"--log", filepath.Join(t.TempDir(), "run.log"),
+		"--stop-after", "files")
+	if err != nil {
+		t.Fatalf("grow: %v\n%s", err, out)
+	}
+
+	for _, want := range []string{"Gemfile", "left unmanaged", "for a person or another tool"} {
+		if !strings.Contains(out, want) {
+			t.Errorf("the report does not mention %q:\n%s", want, out)
+		}
+	}
+	if strings.Contains(out, "created  Gemfile") {
+		t.Errorf("an unmanaged path was reported as created:\n%s", out)
+	}
+	if _, err := os.Stat(filepath.Join(dir, "Gemfile")); err == nil {
+		t.Error("an unmanaged path was created")
+	}
+}
+
+func writeFiles(t *testing.T, files map[string]string) string {
+	t.Helper()
+	root := t.TempDir()
+	for rel, content := range files {
+		full := filepath.Join(root, filepath.FromSlash(rel))
+		if err := os.MkdirAll(filepath.Dir(full), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(full, []byte(content), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	return root
 }
 
 // A package that is not there is a mistake worth naming, and the diagnostic

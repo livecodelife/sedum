@@ -174,8 +174,16 @@ func indentBlock(text string) string {
 	return b.String()
 }
 
+// printWarnings reports what the phases collected.
+//
+// A warning that already says it is one is not told so twice: a load finding
+// carries its own "warning:" prefix, and a phase's own warning does not.
 func printWarnings(errOut io.Writer, warnings []string) {
 	for _, w := range warnings {
+		if strings.HasPrefix(w, "warning:") {
+			fmt.Fprintf(errOut, "sedum: %s\n", w)
+			continue
+		}
 		fmt.Fprintf(errOut, "sedum: warning: %s\n", w)
 	}
 }
