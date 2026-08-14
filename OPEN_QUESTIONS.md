@@ -1,14 +1,34 @@
 # Sedum — Open Design Questions
 
-Scratch document. Nothing here is a requirement. These are directions explored after the MVP scope was settled, recorded so the reasoning isn't lost, and deliberately kept out of the PRD because most of them depend on answers M1–M7 will produce.
+Scratch document. Nothing here is a requirement. These are directions explored after the MVP scope was settled, recorded so the reasoning isn't lost.
 
-Two decisions from this exploration were pulled forward into the PRD, because both write durable artifacts whose shape is expensive to change later: **ownership tiers** (`owned` / `seeded`) and **recorded kwargs** on markers, and the **`phases` grouping** in recordings. Everything else below is open.
+**Most of this document is no longer about Sedum.** It was originally framed as directions kept out of the PRD because most of them depend on answers M1–M7 will produce — which implied they would return to Sedum once those answers arrived. `TOOL_BOUNDARIES.md` decides that they will not. §4–§14 describe a **convergence loop**: a tool that sits above Sedum, drives generation, verifies the result by running something, and repairs what did not converge. That is a different tool with a weaker guarantee — open synthesis validated by execution, rather than bounded selection over a closed vocabulary — and a single binary containing both would take the weaker guarantee as its own.
+
+So these sections are not deferred Sedum work. They are the design notes for a tool that will be built on Sedum's [integration surface](PRD.md), and the useful question about each is no longer "when does Sedum do this" but "what does Sedum have to expose so something else can."
+
+**The split is not clean by section.** §1, §2, and §3 each have a Sedum half and a harness half, and they are marked inline where the halves diverge. §12's record *drafter* belongs to LineSpec, which already owns record authoring — `provenance create` / `discover` / `next` are the same shape of operation, and drafting is `discover` pointed at intent rather than at source. §15 is a mix of both.
+
+Several decisions from this exploration were pulled forward into the PRD, because they write durable artifacts whose shape is expensive to change later:
+
+- **ownership tiers** (`owned` / `seeded`) and **recorded kwargs** on markers
+- the **`phases` grouping** in recordings
+- the **record attribute** on the marker, as an attribute rather than as part of a region's identity (`prov-2026-36c8a99c`)
+- the **attribute object as an extension point**, with unrecognised-key preservation promised in both directions, plus the **`writer`** attribute (`prov-2026-72775ae5`)
+
+That last one changes what several sections below need from Sedum, because a tool above Sedum can now record its own per-region state on the marker without a schema change.
 
 Sections 7–14 come from a later session on imprint integration, cross-region logic, and the record-authoring workflow. Several of those threads reached a settled position rather than staying open; they are marked as such where they did.
 
 ---
 
 ## 1. Generated tests as a first pass
+
+> **Split.** Generating test files from templates and actions is Sedum's — it is
+> ordinary generation into authorized paths, and the `phases` grouping in
+> recordings is already reserved for it. Feeding pass one's rendered output into
+> pass two's prompt, and stopping between them for review, belongs to the caller:
+> `--stop-after tests` is not a Sedum phase name, and Sedum's `--stop-after`
+> vocabulary stays closed to its own seven phases.
 
 ### The idea
 
@@ -46,6 +66,17 @@ A generated test never carries the authority of a hand-authored contract.
 
 ## 2. Associated specs
 
+> **Split.** Specs as *selection evidence* is Sedum's: a spec is text in the
+> Phase 4 prompt, Sedum never parses it, and the no-target-knowledge principle
+> survives. Specs as *signal* and as *regression fixtures* are the caller's —
+> both require running something, which is behavioral verification and a stated
+> non-goal. `run_command` is arbitrary shell and belongs in `.linespec.yml`,
+> where target knowledge already lives, not in a generator package.
+>
+> The PRD settles the fixture tension in passing: recordings carry no volatile
+> fields, so a recorded pass set could never have lived in one. Pass sets are the
+> caller's artifact.
+
 Specs as **selection evidence** is the cheapest available accuracy lever and requires no execution: a spec asserting `GET /users → 200`, `POST /users → 201`, `DELETE /users/:id → 204` tells the model which methods to generate far more reliably than prose intent does. Sedum never parses it — for prompt purposes any spec is text, which preserves the no-target-knowledge principle.
 
 Specs as **signal** — run once after generation, report, never retry. Boilerplate mostly won't pass behavioral specs and shouldn't be expected to, but a pass count is useful information and one run is not a verify loop.
@@ -58,6 +89,11 @@ Specs as **generator-package regression fixtures** is the most interesting use. 
 
 ## 3. Updates to existing code
 
+> **Split.** Additive change to a Sedum-generated file and changes inside the
+> parameter space are Sedum's, and both already work. Changes outside the
+> parameter space — refusing well, and then the edit layer that acts on the
+> refusal — are the caller's. Where `adopt` lives is open.
+
 ### The easy cases
 
 **Additive change to a Sedum-generated file** is nearly free: Phase 3 becomes create-if-absent, verify-markers-if-present. A record saying "add destroy" resolves to `createControllerMethod(name: destroy)` injected at the existing marker. This likely covers most real update traffic.
@@ -69,6 +105,8 @@ Specs as **generator-package regression fixtures** is the most interesting use. 
 A surprising amount of update traffic is a kwarg change. "Include addresses in the index response" is `render json: @users, include: :addresses` — if the `index` variant accepts an `includes` kwarg, the update is a re-invocation against an owned region. Fully deterministic, no code editing at all.
 
 This is why kwargs are recorded on the marker: current state becomes readable from the file, and desired-vs-actual becomes a diff over kwargs.
+
+**This half is Sedum's, and it already works.** Re-invoking an action against a file an earlier run created validates correctly: Phase 3 is create-if-absent, so an existing path stays in the authorized set rather than dropping out of it, and Phase 5's path check accepts it. `prov-2026-72775ae5` corrected the wording that suggested otherwise — the check is authorized-and-managed, not created-by-this-run. The constraint worth watching is the marker round trip, not path validation.
 
 ### Changes outside the parameter space
 
@@ -85,6 +123,8 @@ A work item from the boilerplate layer is a much better-conditioned task than op
 **Structured edits, not region rewrites.** Ask for a replacement region and the model rewrites the whole thing with incidental drift. Ask for a small list of `{after, insert}` / `{replace, with}` operations validated against current text, and the blast radius is bounded, invalid edits are rejectable without execution, and the human reviews the actual change. Same structured-output discipline as Phase 5, one layer down.
 
 **Edited regions change tier.** A region the edit layer touches can't stay `owned` — the next replay would destroy the edit. It becomes `seeded`, or a third state recording both the originating invocation and the modifying record.
+
+*The third state is resolved by deferral.* With unrecognised-key preservation, the edit layer records whatever it needs about the edit in its own marker attributes — the modifying record, the attempt count, the spec that last verified it — and `seeded` plus `writer` covers the part Sedum has to understand: this region is no longer Sedum's to overwrite, and here is who took it. A standardised third tier can be added later from what the keys turn out to be used for, rather than guessed at now. Guessing it now would put a tier in every marker on disk before anything reads it.
 
 **`modifyContent` takes a region marker, not a file and method name.** "Method name" requires knowing how methods are delimited in the target language. A marker reference is target-agnostic and already carries the kwargs.
 
@@ -254,6 +294,12 @@ Secondary benefit: the constraint pressures design toward simple, granular, inpu
 
 ## 12. Two provenance domains, and who authors which record
 
+> **Where this lands.** The record *drafter* belongs to LineSpec, which already
+> owns record authoring — `provenance create`, `discover`, and `next` are the
+> same shape of operation, and drafting is `discover` pointed at intent rather
+> than at source. Nothing in this section is Sedum's: Sedum reads five fields out
+> of a record and never writes one.
+
 ### The domains
 
 The linespec suite has **its own** provenance hierarchy, separate from the code repository's. A blueprint there says "we want this behavior"; each discrete test edit — update this spec, create that one — is an imprint under it. This is where intent originates and where it is captured: at the moment the behavior is decided, by a human.
@@ -304,6 +350,22 @@ An empty marked stub counts as **present**. It rides the update path with an emp
 
 **Beat two — behavioral convergence.** Re-run the specs. Now every failure is trustworthy, because no failure can mean "not built yet." The topological order, the update-test-then-logic loop, and the escalation ladder all operate on a signal with the structural noise removed.
 
+### `unmanaged` moves the beat boundary
+
+Beat one as written above is not enough to deliver its own guarantee, and `unmanaged` is why.
+
+Sedum declines to write the paths a package declares unmanaged. Those paths are authorized, reported, and skipped — the handoff is the point. But a Rails service whose `Gemfile` never gained the `pg` gem does not boot, and a linespec test against it fails for exactly the structural reason beat two was supposed to have eliminated. Beat one ran, Sedum did everything it does, and the world is still not structurally complete.
+
+So beat one is three steps, not one:
+
+1. Sedum scaffolds what it manages.
+2. The unmanaged paths are satisfied — by a person, or by a tool pointed at them.
+3. Beat two runs.
+
+The middle step has no slot in the two-beat framing and **is not Sedum's to fill**. Appending a gem to a `Gemfile` needs a format-aware primitive with merge semantics, which is a stated non-goal; declaring the path unmanaged is how a package says so out loud.
+
+This is not an argument against `unmanaged`. Together with pattern entries that authorize without naming (`prov-2026-e8671c88`), it turns `affected_scope` from "the list of files Sedum will make" into an authorization surface with several categories, only one of which Sedum acts on — which is the shape a record needs as soon as more than one tool works under it. What it means is that a tool driving the loop must treat an unmanaged path as a **precondition** of beat two rather than as a report it can read and move past. Sedum tells it which paths those are; deciding whether to queue them, prompt for them, or halt is the caller's.
+
 ### Why this ordering rather than interleaving
 
 The judgment layer never sees a failure it should not act on. The cheap deterministic beat absorbs all structural noise before the expensive fallible beat begins — the same instinct as keeping the model's surface small, applied to the *input* of the loop rather than its scope.
@@ -331,6 +393,8 @@ Editing-the-spec-as-programming is safe *because* the integration layer is human
 **Removal.** If a record drops `destroy`, does replay delete the owned region? Saying yes turns recordings from action logs into declarative desired state and replay into reconciliation — powerful, converges toward idempotent sync. It also means an incomplete hand-edited recording silently deletes code. If pursued: `--prune` opt-in, never default.
 
 **`forbidden_scope` becomes load-bearing** the moment Sedum edits an existing repository rather than generating into paths it created. It is nearly decorative under the MVP scope.
+
+That moment arrives sooner than the sentence above assumes. It is not gated on Sedum gaining the ability to edit — it arrives as soon as **anything** working under a record edits an existing repository, and the edit layer in §4 is exactly that. Sedum enforces `forbidden_scope` over what Sedum does; nothing enforces it over what a tool above Sedum does except that tool. Whether the enforcement belongs there, or whether a record's forbidden paths should be checkable independently of who is acting, is open.
 
 **Two-phase generation requires the recording `phases` grouping** already reserved in the PRD, with test and implementation as separate named phases.
 
