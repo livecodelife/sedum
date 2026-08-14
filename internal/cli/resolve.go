@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"sort"
@@ -26,7 +27,7 @@ Writes nothing. The primary debugging tool for package resolution and template
 specificity.`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			return runResolve(cmd.OutOrStdout(), cmd.ErrOrStderr(), cfg)
+			return runResolve(cmd.Context(), cmd.OutOrStdout(), cmd.ErrOrStderr(), cfg)
 		},
 	}
 
@@ -48,8 +49,8 @@ specificity.`,
 // directories it reads are the two it was pointed at, and its answer does not
 // depend on where it was run from (prov-2026-43808a47). Rendering for
 // --show-template is Phase 3's, but it is the half that touches nothing.
-func runResolve(out, errOut io.Writer, cfg ResolveConfig) error {
-	result, err := pipeline.Run(pipeline.Config{
+func runResolve(ctx context.Context, out, errOut io.Writer, cfg ResolveConfig) error {
+	result, err := pipeline.Run(ctx, pipeline.Config{
 		Generators:     cfg.Generators,
 		Records:        cfg.Records,
 		Lang:           cfg.Lang,

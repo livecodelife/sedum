@@ -169,9 +169,11 @@ func TestGrowStopsAfterFilesHavingCreatedThem(t *testing.T) {
 	}
 }
 
-// Without a stop point the run would reach a phase that has not landed, and it
-// says so before touching the output tree rather than after.
-func TestGrowWithNoStopPointRefusesBeforeWriting(t *testing.T) {
+// A run that will reach Phase 4 builds its model client first, so a run that
+// cannot reach a model fails while nothing has been written. Creating files and
+// then failing at the model call would leave the output tree half built for a
+// reason the user could have been told first.
+func TestGrowRefusesBeforeWritingWhenItCannotReachAModel(t *testing.T) {
 	dir := t.TempDir()
 
 	_, err := exec(t, "grow",
@@ -179,9 +181,31 @@ func TestGrowWithNoStopPointRefusesBeforeWriting(t *testing.T) {
 		"--records", fixtureRecords(t),
 		"--output", dir)
 
-	wantErr(t, err, "not implemented", "M6")
+	wantErr(t, err, "--model is required")
 	if entries, _ := os.ReadDir(dir); len(entries) != 0 {
 		t.Errorf("a refused run wrote %d entries", len(entries))
+	}
+}
+
+// A run halting before Phase 4 never consults a model, so it needs no model
+// configured and no endpoint to exist. That is what makes these stop points
+// usable as inspection tools rather than as partial generations.
+func TestGrowStoppingBeforeTheModelNeedsNoModel(t *testing.T) {
+	for _, stop := range []string{"resolution", "files"} {
+		t.Run(stop, func(t *testing.T) {
+			out, err := exec(t, "grow",
+				"--generators", fixtureGenerators(),
+				"--records", fixtureRecords(t),
+				"--output", t.TempDir(),
+				"--log", filepath.Join(t.TempDir(), "run.log"),
+				"--stop-after", stop)
+			if err != nil {
+				t.Fatalf("grow --stop-after %s: %v\n%s", stop, err, out)
+			}
+			if !strings.Contains(out, "stopped after "+stop) {
+				t.Errorf("the run does not report where it stopped:\n%s", out)
+			}
+		})
 	}
 }
 

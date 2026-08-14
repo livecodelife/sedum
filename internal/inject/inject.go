@@ -52,6 +52,19 @@ type Options struct {
 	Output string
 	// DryRun decides everything and writes nothing.
 	DryRun bool
+
+	// Unwritten is what Phase 3 rendered for the files it did not write,
+	// keyed by authorized path. It exists for --dry-run: injecting into a
+	// file a dry run declined to create would otherwise report a missing file
+	// for every path the same run just said it would create.
+	//
+	// It is consulted only for a path that is not on disk, so a real run
+	// never reads it and an existing file is always read from disk. That is
+	// what keeps a dry run's report accurate rather than merely successful: a
+	// file carrying regions from an earlier run reports a replacement, and a
+	// file that would be new reports a first injection (prov-2026-23653fdc).
+	Unwritten map[string]string
+
 	// Log is the run log. A nil log discards.
 	Log *runlog.Log
 }
@@ -91,7 +104,7 @@ func Apply(invocations []Invocation, opts Options) ([]Result, error) {
 	for _, inv := range invocations {
 		content, ok := buffers[inv.Path]
 		if !ok {
-			loaded, err := readTarget(opts.Output, inv)
+			loaded, err := readTarget(opts.Output, opts.Unwritten, inv)
 			if err != nil {
 				problems = append(problems, err)
 				continue
@@ -153,12 +166,21 @@ func Apply(invocations []Invocation, opts Options) ([]Result, error) {
 // Nothing is created that a provenance record did not authorize, so a record
 // naming an implementation file but omitting its header produces exactly this
 // failure, naming the file the record forgot.
-func readTarget(output string, inv Invocation) (string, error) {
+//
+// A dry run supplies what Phase 3 would have written for the files it declined
+// to create, and that is consulted only after the filesystem has said the path
+// is absent. A path in neither place is the hard error above, unchanged: a
+// record that forgot a companion file fails a dry run exactly as it fails a
+// real one, which is most of the value of running one.
+func readTarget(output string, unwritten map[string]string, inv Invocation) (string, error) {
 	full := filepath.Join(output, filepath.FromSlash(inv.Path))
 
 	data, err := os.ReadFile(full)
 	switch {
 	case errors.Is(err, fs.ErrNotExist):
+		if rendered, ok := unwritten[inv.Path]; ok {
+			return rendered, nil
+		}
 		return "", fmt.Errorf(
 			"action %s injects into %s, which no provenance record authorized: the file was not created, so there is nowhere to put the injection",
 			inv.Action.Name, inv.Path)

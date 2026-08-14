@@ -5,19 +5,30 @@
 // package's whole job is to run each phase, hand its output to the next as that
 // phase's only input, and stop where it was told to stop.
 //
-// Phases 0 through 3 are implemented. A phase that fails halts the run, which
-// is what makes a stop point mean "everything before this is complete and
-// nothing after it started" rather than "some of it happened".
+// A phase that fails halts the run, which is what makes a stop point mean
+// "everything before this is complete and nothing after it started" rather than
+// "some of it happened".
+//
+// Phase 4 is the only phase that consults a model, and it is the only place
+// this package is not a pure function of its inputs. Everything after it
+// consumes the validated invocation list and the generator packages, which is
+// why a stop at Phase 5 can be resumed from a recording and a stop before it
+// cannot.
 package pipeline
 
 import (
+	"context"
 	"fmt"
 	"strings"
 
+	"github.com/calebcowen/sedum/internal/expand"
 	"github.com/calebcowen/sedum/internal/genpkg"
+	"github.com/calebcowen/sedum/internal/inject"
 	"github.com/calebcowen/sedum/internal/record"
+	"github.com/calebcowen/sedum/internal/recording"
 	"github.com/calebcowen/sedum/internal/resolve"
 	"github.com/calebcowen/sedum/internal/runlog"
+	"github.com/calebcowen/sedum/internal/selection"
 )
 
 // The phase boundaries a run can be halted at. The values are the phase numbers
@@ -28,6 +39,10 @@ const (
 	PhaseIngest
 	PhaseResolve
 	PhaseCreate
+	PhaseSelect
+	PhaseValidate
+	PhaseExpand
+	PhaseInject
 )
 
 // Config is everything a run needs. It is filled in by the command and read
@@ -43,8 +58,15 @@ type Config struct {
 	DryRun bool
 
 	// StopAfterPhase halts the run after the named phase. Zero runs every
-	// phase this milestone implements, since Phase 0 is not a stop point.
+	// phase, since Phase 0 is not a stop point.
 	StopAfterPhase int
+
+	// Client is the model Phase 4 consults. It may be nil only for a run that
+	// stops before Phase 4, which is what sedum resolve is.
+	Client selection.Client
+
+	// Retries bounds Phase 5's re-prompt loop.
+	Retries int
 
 	// Log is the run log. A nil log discards.
 	Log *runlog.Log
@@ -59,6 +81,16 @@ type Result struct {
 	// Files is nil when the run stopped before Phase 3.
 	Files []resolve.File
 
+	// Selections is what the model chose for each record, validated. It is
+	// nil when the run stopped before Phase 4, and it is the recording's
+	// content: invocations are held pre-expansion, at the abstraction level
+	// an author edits in.
+	Selections []Selection
+
+	// Injections is what Phase 7 wrote, or would have written under a dry
+	// run. Nil when the run stopped before Phase 7.
+	Injections []inject.Result
+
 	// Unmanaged are the authorized paths a generator package declared Sedum
 	// does not write. They are the run's handoff: authorized work that
 	// something other than Sedum has to do.
@@ -69,12 +101,23 @@ type Result struct {
 	Warnings []string
 
 	// StoppedAfter is the phase the run halted at, or zero if it ran to the
-	// end of what is implemented.
+	// end.
 	StoppedAfter int
 }
 
+// Selection is one record's validated invocation list, with the files it was
+// selected against.
+//
+// One record, one model call, one entry. The grouping is the recording's shape
+// as well, which is not a coincidence: a recording is this list serialized.
+type Selection struct {
+	RecordID    string
+	Files       []resolve.File
+	Invocations []recording.Invocation
+}
+
 // Run executes the phases in order.
-func Run(cfg Config) (*Result, error) {
+func Run(ctx context.Context, cfg Config) (*Result, error) {
 	log := cfg.Log
 	if log == nil {
 		log = runlog.Discard()
@@ -157,6 +200,138 @@ func Run(cfg Config) (*Result, error) {
 
 	if cfg.StopAfterPhase == PhaseCreate {
 		log.Info("stopping after file creation")
+		return result, nil
 	}
+
+	// Phases 4 and 5 - one model call per record, and deterministic
+	// validation of what it returned.
+	//
+	// Per record rather than per run, because a record is the unit of intent:
+	// its constraints govern its own paths, and one call deciding two records'
+	// files would make each record's constraints apply to the other's.
+	selections, err := selectAll(ctx, cfg, records, files, log)
+	if err != nil {
+		return nil, err
+	}
+	result.Selections = selections
+
+	if cfg.StopAfterPhase == PhaseValidate {
+		log.Info("stopping after validated invocations")
+		return result, nil
+	}
+
+	// Phase 6 - expand composites, render paths, select variants, apply
+	// transforms. The model does not participate and nothing here is read
+	// from it: every value comes from the validated kwargs.
+	var resolved []inject.Invocation
+	for _, s := range selections {
+		expanded, err := expand.Expand(s.RecordID, s.Files, s.Invocations)
+		if err != nil {
+			return nil, fmt.Errorf("record %s: %w", s.RecordID, err)
+		}
+		log.Info("expanded invocations", "record", s.RecordID,
+			"selected", len(s.Invocations), "resolved", len(expanded))
+		resolved = append(resolved, expanded...)
+	}
+
+	if cfg.StopAfterPhase == PhaseExpand {
+		log.Info("stopping after expansion")
+		return result, nil
+	}
+
+	// Phase 7 - inject.
+	applied, err := inject.Apply(resolved, inject.Options{
+		Output:    cfg.Output,
+		DryRun:    cfg.DryRun,
+		Unwritten: unwritten(cfg, files),
+		Log:       log,
+	})
+	if err != nil {
+		return nil, err
+	}
+	result.Injections = applied
 	return result, nil
+}
+
+// selectAll runs Phase 4 and Phase 5 once per record.
+//
+// A record whose paths all resolved to nothing Sedum writes is skipped without
+// a model call. Its catalog would be empty, so the only valid answer is an
+// empty list, and paying for a call to be told so would be a cost the run can
+// see is pointless before it is incurred.
+func selectAll(ctx context.Context, cfg Config, records *record.Set, files []resolve.File, log *runlog.Log) ([]Selection, error) {
+	var out []Selection
+
+	for _, rec := range records.Records {
+		mine := filesOf(files, rec.ID)
+		if !anyManaged(mine) {
+			log.Info("no model call for record", "record", rec.ID,
+				"reason", "no path it authorized is written by a generator package")
+			out = append(out, Selection{RecordID: rec.ID, Files: mine})
+			continue
+		}
+
+		if cfg.Client == nil {
+			// A run reaching Phase 4 without a model is a caller mistake
+			// rather than a user's, and it is named as one: the alternative
+			// is a nil dereference at the point of the call.
+			return nil, fmt.Errorf("record %s: reaching model invocation with no model configured", rec.ID)
+		}
+
+		invocations, err := selection.Select(ctx, cfg.Client, selection.Request{
+			RecordID:    rec.ID,
+			Intent:      rec.Intent,
+			Constraints: rec.Constraints,
+			Files:       mine,
+		}, selection.Options{Retries: cfg.Retries, Log: log})
+		if err != nil {
+			return nil, err
+		}
+
+		out = append(out, Selection{RecordID: rec.ID, Files: mine, Invocations: invocations})
+	}
+
+	return out, nil
+}
+
+// unwritten collects what Phase 3 rendered for files a dry run declined to
+// create, so Phase 7 can decide against them without anything being written.
+//
+// It is empty for a real run, where every created file is on disk and injection
+// reads it there (prov-2026-23653fdc).
+func unwritten(cfg Config, files []resolve.File) map[string]string {
+	if !cfg.DryRun {
+		return nil
+	}
+
+	out := map[string]string{}
+	for _, f := range files {
+		if f.Existed || f.Unmanaged {
+			continue
+		}
+		out[f.Path] = f.Rendered
+	}
+	return out
+}
+
+// filesOf returns the files created for one record.
+func filesOf(files []resolve.File, recordID string) []resolve.File {
+	var out []resolve.File
+	for _, f := range files {
+		if f.RecordID == recordID {
+			out = append(out, f)
+		}
+	}
+	return out
+}
+
+// anyManaged reports whether any of a record's paths is one a generator package
+// actually writes.
+func anyManaged(files []resolve.File) bool {
+	for _, f := range files {
+		if !f.Unmanaged {
+			return true
+		}
+	}
+	return false
 }

@@ -208,7 +208,13 @@ func TestFlagInterdependence(t *testing.T) {
 // but do not create, and every other combination names the milestone it is
 // waiting on.
 func TestLegalFlagCombinations(t *testing.T) {
-	const reachesThePipeline = "read generators directory"
+	const (
+		reachesThePipeline = "read generators directory"
+		// A run that will reach Phase 4 builds its model client before any
+		// phase runs, so this fragment proves the flags were accepted and the
+		// run got as far as needing a model.
+		reachesTheModel = "--model is required"
+	)
 
 	tests := []struct {
 		name string
@@ -216,14 +222,14 @@ func TestLegalFlagCombinations(t *testing.T) {
 		// fails is the fragment that proves validation passed.
 		fails string
 	}{
-		{"record composes with dry-run", []string{"grow", "--generators", "g", "--records", "r", "--record", "out.json", "--dry-run"}, "not implemented"},
+		{"record composes with dry-run", []string{"grow", "--generators", "g", "--records", "r", "--record", "out.json", "--dry-run"}, reachesTheModel},
 		{"execute composes with dry-run", []string{"grow", "--generators", "g", "--execute", "in.json", "--dry-run"}, "not implemented"},
 		{"execute makes records optional", []string{"grow", "--generators", "g", "--execute", "in.json"}, "not implemented"},
 		{"execute accepts records for scope validation", []string{"grow", "--generators", "g", "--records", "r", "--execute", "in.json"}, "not implemented"},
 		{"replay may stop after expansion without record", []string{"grow", "--generators", "g", "--execute", "in.json", "--stop-after", "expansion"}, "not implemented"},
 		{"stop-after files needs no record", []string{"grow", "--generators", "g", "--records", "r", "--stop-after", "files"}, reachesThePipeline},
 		{"stop-after resolution needs no record", []string{"grow", "--generators", "g", "--records", "r", "--stop-after", "resolution"}, reachesThePipeline},
-		{"repeated lang and only", []string{"grow", "--generators", "g", "--records", "r", "--lang", "rails", "--lang", "chi", "--only", "PR-1", "--only", "PR-2"}, "not implemented"},
+		{"repeated lang and only", []string{"grow", "--generators", "g", "--records", "r", "--lang", "rails", "--lang", "chi", "--only", "PR-1", "--only", "PR-2"}, reachesTheModel},
 	}
 
 	for _, tc := range tests {

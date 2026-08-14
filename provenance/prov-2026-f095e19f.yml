@@ -89,6 +89,9 @@ affected_scope:
   - internal/cli/flags_test.go
   - internal/pipeline/**
   - internal/expand/**
+  - internal/inject/**
+  - internal/cli/resolve.go
+  - internal/cli/resolve_test.go
   - internal/cli/config.go
   - internal/cli/config_test.go
   - testdata/**
