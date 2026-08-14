@@ -1,0 +1,84 @@
+id: prov-2026-1bbb8e2e
+title: The catalog shows each action's target pattern
+status: open
+created_at: "2026-08-14"
+author: calebcowen@gmail.com
+intent: |
+  Each catalog entry carries its action's injects_into pattern, literally as the
+  package author wrote it. A composite carries one per child, in execution
+  order. The PRD names kwarg schemas and variant lists as the catalog's content
+  and does not name this, so it is an addition and is recorded here.
+
+  It was found by running the thing. Against qwen2.5-coder-14b on a record
+  authorizing app/controllers/users_controller.rb, the model selected the right
+  actions and bound controller to "app/controllers/users_controller.rb" - the
+  file it had been shown. Phase 5 rejected it correctly: the pattern rendered to
+  app/controllers/users_controller_rb_controller.rb, which no record authorized.
+  Every retry made the same mistake, and the model eventually returned an empty
+  list rather than a wrong one.
+
+  The failure is structural rather than a weak model. The catalog said the
+  action takes a kwarg named controller and the file list said a file exists;
+  nothing anywhere connected the two. To bind controller correctly a model has
+  to know that this action's path is app/controllers/{{controller|snake}}
+  _controller.rb, and it was never told. The retry loop could not rescue it
+  either: the violation reports the path that was rendered, and recovering the
+  kwarg from that requires inverting snake and the surrounding literals. The
+  integration surface already states that inversion is not a thing this system
+  does, and it should not be a thing the model is quietly asked to do either.
+
+  With the pattern present, the reasoning is forward and mechanical. The model
+  sees app/controllers/{{controller|snake}}_controller.rb and the authorized
+  file app/controllers/users_controller.rb, matches the literal segments, and
+  binds controller to users. It never chooses a path - the path is still
+  entirely the package's - it only binds an argument such that the package's own
+  pattern lands on a file the record authorized.
+
+  This adds no target knowledge to Sedum. The pattern is the package author's
+  string, passed through, exactly as the kwarg names and the variant list
+  already are. What Sedum contributes is the instruction to match them, which
+  names nothing about any language.
+
+  The transform names inside the pattern are shown as written rather than
+  explained. A model does not need to know what constantize means to see that a
+  segment is derived from one kwarg, and documenting the built-in vocabulary in
+  the prompt would be the first step toward the prompt carrying semantics that
+  belong in the package.
+constraints:
+  - >-
+    The pattern is passed through literally, transform pipes and all. Nothing
+    interprets, expands, or explains it, so no target knowledge enters the
+    prompt.
+  - >-
+    A composite carries one pattern per child, in execution order, because one
+    selection touching two files is the fact the entry has to convey.
+  - >-
+    The model still binds arguments and never chooses a path. The pattern is
+    shown so that its bindings can land on an authorized file, not so that it
+    can name one.
+  - >-
+    Matching is forward - pattern against the authorized file list. Nothing in
+    the catalog or the prompt may imply that a kwarg can be recovered from a
+    rendered path, because the transforms are not invertible.
+affected_scope:
+  - internal/catalog/**
+  - internal/selection/**
+forbidden_scope: []
+type: imprint
+implements: prov-2026-f095e19f
+supersedes: ""
+superseded_by: ""
+related:
+  - prov-2026-21031113
+sealed_at_sha: ""
+associated_specs:
+  - path: internal/catalog/catalog_test.go
+    run_command: go test -count=1 ./$(dirname {{path}})
+  - path: internal/selection/selection_test.go
+    run_command: go test -count=1 ./$(dirname {{path}})
+associated_traces: []
+monitors: []
+tags:
+  - sedum
+  - m6
+  - catalog
