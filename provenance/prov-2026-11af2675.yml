@@ -1,0 +1,67 @@
+id: prov-2026-11af2675
+title: File template contents are paired with patterns by index, so findings name the wrong file
+status: open
+created_at: "2026-08-13"
+author: calebcowen@gmail.com
+intent: |
+  M1 walks files/ collecting two parallel slices - the template patterns and
+  their contents - then sorts the patterns alone, so that findings do not depend
+  on directory iteration order. The contents keep their walk order. Everything
+  downstream pairs them by index.
+
+  The two orders are not the same. WalkDir is depth-first over lexically sorted
+  directory entries; the sort is a flat comparison of slash-joined relative
+  paths. They agree for the fixture packages, which is why this has been
+  invisible, and they disagree as soon as a file and a directory share a prefix,
+  because '.' sorts before '/' but WalkDir descends into the directory first:
+
+    files/app.rb      sorts first, is walked second
+    files/app/x.rb    sorts second, is walked first
+
+  Demonstrated: with an undefined transform in files/app.rb and plain text in
+  files/app/x.rb, load reports the undefined pipeline against files/app/x.rb -
+  a file that does not contain it, while the file that does is reported clean.
+
+  Today this misattributes two load-time checks: the template syntax and
+  transform reference checks in checkTemplates. It is a diagnostic-quality bug
+  rather than a correctness one, and M1's own standard is that a validator
+  reporting the wrong file is not the deliverable.
+
+  It is being fixed now because M3 makes it worse. Phase 3 renders the file
+  template a path matched, so it needs to look up contents by pattern; building
+  that lookup on the existing index pairing would turn a wrong filename in a
+  diagnostic into wrong boilerplate in a generated file - the .rb template
+  rendered into a path that matched a different one.
+
+  The fix removes the pairing rather than aligning the two orders. Contents are
+  keyed by pattern in a map, which is what both the existing checks and Phase 3
+  actually want, and there is no second ordering left to keep in agreement.
+constraints:
+  - >-
+    File template contents are keyed by their pattern. No code pairs the
+    pattern list and the content list by index, because the two are produced by
+    different orderings.
+  - >-
+    A load-time finding about a file template names the file that contains the
+    problem. This is what the regression test asserts, using a package where
+    walk order and sort order provably differ.
+affected_scope:
+  - internal/genpkg/**
+forbidden_scope: []
+type: bug
+extends: prov-2026-8e6dac6c
+supersedes: ""
+superseded_by: ""
+related:
+  - prov-2026-1a1a9b52
+  - prov-2026-4675cebe
+sealed_at_sha: ""
+associated_specs:
+  - path: internal/genpkg/genpkg_test.go
+    run_command: go test -count=1 ./$(dirname {{path}})
+associated_traces: []
+monitors: []
+tags:
+  - sedum
+  - m1
+  - defect
