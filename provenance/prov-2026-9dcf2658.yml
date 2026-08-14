@@ -1,0 +1,79 @@
+id: prov-2026-9dcf2658
+title: Phase 5 orders its checks and shares Phase 6's path resolution
+status: open
+created_at: "2026-08-14"
+author: calebcowen@gmail.com
+intent: |
+  Phase 5 runs six checks. Two facts about how they run are decisions rather
+  than consequences of the list, and both are recorded here.
+
+  First, the checks are ordered, and the path check runs only for an invocation
+  that passed the schema checks. Rendering injects_into against kwargs that are
+  missing or wrongly typed produces a diagnostic about a path when the fault is
+  an argument, and re-prompting with that diagnostic teaches the model the wrong
+  lesson. The order is: the action resolves, its required kwargs are present, no
+  unknown kwarg is bound, every value matches its declared type, the
+  discriminator selects a template - and only then, what file this resolves to.
+
+  Ordering within one invocation does not mean stopping at the first bad
+  invocation. Every invocation in a response is checked, because a response with
+  three faults should re-prompt with three; spending one call per fault is
+  exactly the cost the deterministic-validation design exists to avoid.
+
+  Second, the path check calls the same resolver Phase 6 uses rather than
+  rendering injects_into a second time. This matters more than it looks. Two
+  implementations would eventually disagree, and the direction of disagreement
+  that hurts is Phase 5 accepting what Phase 6 rejects: validation reports
+  success, the retry loop is never entered, and the run halts in expansion with
+  an error no re-prompt was offered for. The failure the loop cannot fix is the
+  one it was never told about.
+
+  Phase 5 asking Phase 6 a question is not a phase-order violation. The answer
+  is a pure function of the packages and the bound kwargs, nothing is written,
+  and no state crosses back. Phase ordering constrains effects, not knowledge.
+
+  A composite resolves to one target per child, so the check covers every file
+  one selection touches. That is the case the ordering earns its keep on: a
+  composite whose header file the record forgot fails here, before a model call
+  is spent, rather than in Phase 7 with half its children already injected.
+constraints:
+  - >-
+    Checks are ordered within an invocation. The rendered-path check runs only
+    after the schema checks pass, so a diagnostic never blames a path for a
+    kwarg's fault.
+  - >-
+    Every invocation in a response is checked. Validation reports all violations
+    at once, because one model call per fault is the cost this design exists to
+    avoid.
+  - >-
+    The rendered-path check and Phase 6 resolve paths through one code path. A
+    second implementation would eventually let Phase 5 accept what Phase 6
+    rejects, which halts the run with no re-prompt offered.
+  - >-
+    A composite is checked against every file its children touch, not against
+    the composite alone.
+  - >-
+    Phase 5 may call into Phase 6's resolution because the answer is a pure
+    function and nothing is written. No state flows back, and no phase after
+    validation consults the model.
+affected_scope:
+  - internal/selection/**
+  - internal/expand/**
+forbidden_scope: []
+type: imprint
+implements: prov-2026-f095e19f
+supersedes: ""
+superseded_by: ""
+related: []
+sealed_at_sha: ""
+associated_specs:
+  - path: internal/selection/selection_test.go
+    run_command: go test -count=1 ./$(dirname {{path}})
+  - path: internal/expand/expand_test.go
+    run_command: go test -count=1 ./$(dirname {{path}})
+associated_traces: []
+monitors: []
+tags:
+  - sedum
+  - m6
+  - validation
