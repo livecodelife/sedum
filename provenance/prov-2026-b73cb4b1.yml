@@ -1,6 +1,6 @@
 id: prov-2026-b73cb4b1
 title: The injection tests are not gofmt-clean
-status: open
+status: implemented
 created_at: "2026-08-14"
 author: calebcowen@gmail.com
 intent: |
@@ -33,7 +33,7 @@ extends: prov-2026-b6fa093c
 supersedes: ""
 superseded_by: ""
 related: []
-sealed_at_sha: ""
+sealed_at_sha: 50dfc3e52481163cb2786964c3e92a525821f7d0
 associated_specs:
   - path: internal/inject/inject_test.go
     run_command: go test -count=1 ./$(dirname {{path}})
