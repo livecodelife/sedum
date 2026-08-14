@@ -1,0 +1,147 @@
+id: prov-2026-369544c1
+title: A template's referenced values are requirements Phase 5 can check
+status: draft
+created_at: "2026-08-14"
+author: calebcowen@gmail.com
+intent: |
+  A kwarg an action's template renders is required for that template, and Sedum
+  already knows which those are. Derive the requirement from the template rather
+  than asking an author to restate it, check it in Phase 5, and show it in the
+  catalog so the model binds it the first time.
+
+  The gap, found by running M6 against two real packages. A discriminated
+  action declares one kwarg schema shared by every variant, so a kwarg that one
+  variant needs and another forbids can only be declared optional. todo-api's
+  chi package says so in a comment beside the declaration:
+
+    # Optional because a delete needs none of them - one kwarg schema covers
+    # every variant, so per-variant requirements cannot be declared here.
+
+  What follows is the failure this design most wants to avoid. The catalog tells
+  the model the kwarg is optional, so it omits it. Phase 5 passes, because by
+  the schema it really is optional. Phase 6 then fails rendering the template,
+  and the run halts with a diagnostic about a template file - after the retry
+  loop was skipped, because nothing was wrong with the selection. That is
+  precisely the shape [[prov-2026-9dcf2658]] named: Phase 5 accepting what a
+  later phase rejects, so the loop that could have fixed it is never entered.
+  That record closed the hole for paths by having Phase 5 resolve them through
+  Phase 6's own resolver. This is the same disease in a different organ.
+
+  It is not confined to discriminated actions. The PRD's own
+  createControllerMethod declared collection optional while every variant
+  template rendered it unconditionally, and that example had been in the
+  document since before any model ran. An author cannot reliably keep a
+  declaration and a template agreeing by hand, which is the argument for not
+  asking them to.
+
+  ## Derivation, not declaration
+
+  The rejected alternative is per-variant requirements in actions.yaml -
+  variants becoming a map of variant to a requires list. It is explicit and
+  machine-checkable, and it is wrong here for two reasons. It restates what the
+  template already says, in a second place, where the two drift the first time
+  a template is edited. And actions.yaml is an artifact users author and commit,
+  so changing its shape is a migration for every package that exists, to add
+  information Sedum can already read.
+
+  Derivation is exact rather than approximate, and that is a property of the
+  template grammar rather than a hope. Sedum's syntax has no conditionals, no
+  loops, and no field access - {{name}} and {{name|op}} are the whole of it - so
+  a value a template references is a value that template unconditionally needs.
+  There is no shape of template for which "referenced" and "required" differ.
+
+  The parsing is already done. Phase 0 reads every file and action template to
+  check the transforms they reference (prov-2026-4675cebe) and already holds the
+  expression list. This blueprint spends that information rather than gathering
+  it.
+
+  ## What changes
+
+  **The effective requirement** for an invocation is the union of the action's
+  declared required kwargs and the values referenced by the template the
+  invocation selects. A declared requirement holds for every variant; a
+  template's holds when that template is chosen. Neither replaces the other.
+
+  **Phase 5** checks the union rather than the declaration, so an omitted kwarg
+  is a re-promptable violation naming the kwarg and the variant that needs it,
+  instead of a Phase 6 halt naming a template file.
+
+  **The catalog** carries each variant's needs, so the model binds them on the
+  first call rather than discovering them through a rejection. This is the same
+  argument the variant list and the injects_into pattern were added under: the
+  retry loop is a backstop, and information the model needed all along belongs
+  in the catalog.
+
+  **Phase 0** errors when a template references a value the action does not
+  declare at all. Today that is a render-time failure, which is late for a
+  typo, and it becomes reachable for free once the references are being read.
+
+  **A load-time warning**, and this is the one debatable piece, when an action
+  with a single template declares a kwarg optional that its template always
+  renders. Such an action could have declared it required and the derivation
+  now covers it either way, so the warning says the declaration understates
+  itself rather than failing the package. A discriminated action never warns:
+  optional is the only thing its schema can say.
+
+  ## What does not change
+
+  No durable artifact changes shape. actions.yaml is authored as it is today,
+  markers are untouched, and recordings are untouched - so there is no
+  migration, and both packages that exposed this gap work correctly without
+  being edited.
+
+  Replay inherits the check unchanged, which is worth stating because it is
+  where the value compounds: a hand-authored recording omitting a kwarg fails
+  in Phase 5 with a diagnostic naming it, terminally and before anything is
+  written, rather than part-way through injection.
+constraints:
+  - >-
+    Requirements are derived from templates, never declared per variant.
+    actions.yaml's shape does not change, so no existing package needs editing
+    and no committed artifact needs migrating.
+  - >-
+    The effective requirement is the union of the declared required kwargs and
+    the selected template's referenced values. A declared requirement applies to
+    every variant; a derived one applies when its template is selected.
+  - >-
+    Derivation is exact because the template grammar has no conditionals, loops,
+    or field access. If that grammar ever gains one, this derivation becomes an
+    approximation and this record has to be revisited before it does.
+  - >-
+    Phase 5 reports a missing derived kwarg as a re-promptable violation naming
+    the kwarg and the variant that needs it. It must not be discovered in Phase
+    6, which is the failure mode this record exists to close.
+  - >-
+    The catalog states each variant's needs, so the first call has what it
+    needs. The retry loop is a backstop for mistakes, not a channel for
+    information the catalog could have carried.
+  - >-
+    A template referencing a value its action does not declare is a load-time
+    error. A single-template action declaring an always-rendered kwarg optional
+    is a load-time warning, never an error.
+  - >-
+    A composite's derived requirements are the union of its children's, resolved
+    per child against the template that child selects.
+affected_scope:
+  - internal/genpkg/**
+  - internal/catalog/**
+  - internal/selection/**
+  - internal/expand/**
+  - testdata/**
+  - PRD.md
+forbidden_scope: []
+type: blueprint
+implements: prov-2026-d554bfc3
+supersedes: ""
+superseded_by: ""
+related:
+  - prov-2026-9dcf2658
+  - prov-2026-1bbb8e2e
+sealed_at_sha: ""
+associated_specs: []
+associated_traces: []
+monitors: []
+tags:
+  - sedum
+  - validation
+  - catalog
