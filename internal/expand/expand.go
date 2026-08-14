@@ -42,7 +42,7 @@ import (
 // produces one per child. They are returned in the order the composite declares
 // them, in the position the invocation held.
 func Expand(recordID string, files []resolve.File, invocations []recording.Invocation) ([]inject.Invocation, error) {
-	packages := packagesOf(files)
+	packages := Packages(files)
 
 	var (
 		out      []inject.Invocation
@@ -342,9 +342,75 @@ func renderTemplate(pkg *genpkg.Package, action *genpkg.Action, template string,
 	return out, nil
 }
 
-// packagesOf returns the distinct packages the record's files resolved to, in
+// Targets renders the files one invocation will inject into, and reports every
+// one this record did not authorize.
+//
+// It is Phase 6's resolution offered to Phase 5, which checks that a selected
+// action lands on a file the run created before anything is expanded or
+// written. Sharing it is the point: two implementations would eventually let
+// validation accept what expansion rejects, and that is the failure the
+// re-prompt loop can never fix, because the loop is never entered
+// (prov-2026-9dcf2658).
+//
+// A composite resolves to one target per child, so the check covers every file
+// one selection touches rather than the composite alone. Nothing is rendered
+// beyond the path and nothing is written.
+func Targets(packages []*genpkg.Package, files []resolve.File, inv recording.Invocation) ([]string, error) {
+	pkg, action, err := lookupAction(packages, inv.Action)
+	if err != nil {
+		return nil, err
+	}
+
+	children := []*genpkg.Action{action}
+	if action.Kind() == genpkg.Composite {
+		children = nil
+		for _, name := range action.Composes {
+			child, ok := pkg.Actions[name]
+			if !ok {
+				return nil, fmt.Errorf(
+					"composite %s composes %q, which package %s does not define; the package should not have loaded",
+					action.Name, name, pkg.Name)
+			}
+			children = append(children, child)
+		}
+	}
+
+	var (
+		paths    []string
+		problems []error
+	)
+	for _, child := range children {
+		kwargs := inv.Kwargs
+		if action.Kind() == genpkg.Composite {
+			kwargs = project(child, inv.Kwargs)
+		}
+
+		path, err := renderPath(pkg, child, kwargs)
+		if err != nil {
+			problems = append(problems, err)
+			continue
+		}
+		if err := authorized(child, files, path); err != nil {
+			problems = append(problems, err)
+			continue
+		}
+		paths = append(paths, path)
+	}
+
+	if len(problems) > 0 {
+		return nil, errors.Join(problems...)
+	}
+	return paths, nil
+}
+
+// Packages returns the distinct packages the record's files resolved to, in
 // name order so that a diagnostic listing them reads the same way twice.
-func packagesOf(files []resolve.File) []*genpkg.Package {
+//
+// It is exported because a record's catalog is drawn from exactly this set -
+// the union of exposed actions across every package its paths resolved to - and
+// Phase 4 has to build that catalog from the same set Phase 6 will resolve
+// against.
+func Packages(files []resolve.File) []*genpkg.Package {
 	seen := map[string]*genpkg.Package{}
 	for _, f := range files {
 		// An unmanaged path resolved to no package, so it contributes

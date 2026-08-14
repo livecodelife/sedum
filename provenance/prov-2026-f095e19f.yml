@@ -88,7 +88,12 @@ affected_scope:
   - internal/cli/actions_test.go
   - internal/cli/flags_test.go
   - internal/pipeline/**
+  - internal/expand/**
+  - internal/cli/config.go
+  - internal/cli/config_test.go
   - testdata/**
+  - go.mod
+  - go.sum
 forbidden_scope: []
 type: blueprint
 implements: prov-2026-d554bfc3

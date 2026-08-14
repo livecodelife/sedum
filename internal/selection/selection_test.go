@@ -1,0 +1,613 @@
+package selection
+
+import (
+	"context"
+	"errors"
+	"fmt"
+	"os"
+	"path/filepath"
+	"slices"
+	"strings"
+	"testing"
+
+	"github.com/calebcowen/sedum/internal/catalog"
+	"github.com/calebcowen/sedum/internal/expand"
+	"github.com/calebcowen/sedum/internal/genpkg"
+	"github.com/calebcowen/sedum/internal/recording"
+	"github.com/calebcowen/sedum/internal/resolve"
+)
+
+// Phase 4 is the only non-deterministic step in Sedum, and Phase 5 is what
+// makes that survivable: every way a response can be wrong is caught by a check
+// specific enough to re-prompt with. These tests are that claim, one rule at a
+// time, plus the loop those rules feed.
+//
+// No model is called. The client is an interface precisely so that the part
+// most worth testing is the part that needs no server.
+
+func generators() map[string]string {
+	return map[string]string{
+		"rails/sedum.yaml": `name: rails
+extensions: [".rb"]
+comment_prefix: "#"
+transforms:
+  constantize: [singular, pascal]
+  instantize: [plural, "prefix:@"]
+`,
+		"rails/files/app/controllers/{name}_controller.rb": "class {{name|constantize}}Controller\n" +
+			"  # sedum:anchor:class_body\nend\n",
+		"rails/files/app/models/{name}.rb": "class {{name|constantize}}\n" +
+			"  # sedum:anchor:class_body\nend\n",
+		"rails/actions/actions.yaml": `actions:
+  createControllerMethod:
+    kwargs:
+      controller: { type: string, required: true }
+      name: { type: string, required: true }
+      collection: { type: string, required: false }
+      cached: { type: bool, required: false }
+      limit: { type: int, required: false }
+      only: { type: list, required: false }
+    discriminator: name
+    variants: [index, show]
+    injects_into: "app/controllers/{{controller|snake}}_controller.rb"
+    anchor: class_body
+
+  createModelClass:
+    kwargs:
+      name: { type: string, required: true }
+    injects_into: "app/models/{{name|snake}}.rb"
+    anchor: class_body
+
+  # No _default template, so a value outside the variant list is a hard error
+  # rather than a stub. It is the case has_default exists to distinguish.
+  addCallback:
+    kwargs:
+      controller: { type: string, required: true }
+      hook: { type: string, required: true }
+    discriminator: hook
+    variants: [before, after]
+    injects_into: "app/controllers/{{controller|snake}}_controller.rb"
+    anchor: class_body
+
+  hiddenHelper:
+    kwargs:
+      controller: { type: string, required: true }
+    injects_into: "app/controllers/{{controller|snake}}_controller.rb"
+    anchor: class_body
+    exposed: false
+`,
+		"rails/actions/createControllerMethod/index.rb": "def index\n" +
+			"  {{collection|instantize}} = {{collection|constantize}}.all\nend\n",
+		"rails/actions/createControllerMethod/show.rb":     "def show\nend\n",
+		"rails/actions/createControllerMethod/_default.rb": "def {{name|snake}}\nend\n",
+		"rails/actions/addCallback/before.rb":              "before_action :x\n",
+		"rails/actions/addCallback/after.rb":               "after_action :x\n",
+		"rails/actions/createModelClass.rb":                "# {{name}}\n",
+		"rails/actions/hiddenHelper.rb":                    "# helper\n",
+
+		// A second package whose one exposed action is a composite spanning
+		// two files. It is what the target check has to cover per child.
+		"cairn/sedum.yaml": `name: cairn
+extensions: [".crn"]
+comment_prefix: ";;"
+transforms:
+  slug: [plural, kebab]
+`,
+		"cairn/files/Units/{name}/Manifest.crn": ";; sedum:anchor:steps\n",
+		"cairn/files/Shared/{name}.crn":         ";; shared\n",
+		"cairn/actions/actions.yaml": `actions:
+  provisionStep:
+    composes: [declareConstant, addStep]
+
+  addStep:
+    kwargs:
+      unit: { type: string, required: true }
+      step: { type: string, required: true }
+    injects_into: "Units/{{unit|slug}}/Manifest.crn"
+    anchor: steps
+    exposed: false
+
+  declareConstant:
+    kwargs:
+      unit: { type: string, required: true }
+      name: { type: string, required: true }
+    injects_into: "Shared/{{name|slug}}.crn"
+    anchor: end_of_file
+    exposed: false
+`,
+		"cairn/actions/addStep.crn":         ";; step {{step}}\n",
+		"cairn/actions/declareConstant.crn": ";; const {{name}}\n",
+	}
+}
+
+func loadSet(t *testing.T, files map[string]string) *genpkg.Set {
+	t.Helper()
+
+	root := t.TempDir()
+	for rel, content := range files {
+		full := filepath.Join(root, filepath.FromSlash(rel))
+		if err := os.MkdirAll(filepath.Dir(full), 0o755); err != nil {
+			t.Fatalf("mkdir for %s: %v", rel, err)
+		}
+		if err := os.WriteFile(full, []byte(content), 0o644); err != nil {
+			t.Fatalf("write %s: %v", rel, err)
+		}
+	}
+
+	set, findings, err := genpkg.Load(root, genpkg.Options{})
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	for _, f := range findings {
+		if f.Kind == genpkg.KindError {
+			t.Fatalf("fixture package does not load: %s", f)
+		}
+	}
+	return set
+}
+
+// created builds the Phase 3 output a record would have produced.
+func created(t *testing.T, set *genpkg.Set, paths ...string) []resolve.File {
+	t.Helper()
+
+	var out []resolve.File
+	for _, spec := range paths {
+		path, pkgName, _ := strings.Cut(spec, "@")
+		pkg, ok := set.Lookup(pkgName)
+		if !ok {
+			t.Fatalf("package %q did not load", pkgName)
+		}
+		out = append(out, resolve.File{
+			Resolution: resolve.Resolution{RecordID: "PR-014", Path: path, Package: pkg},
+		})
+	}
+	return out
+}
+
+func railsRequest(t *testing.T) Request {
+	t.Helper()
+	set := loadSet(t, generators())
+	return Request{
+		RecordID:    "PR-014",
+		Intent:      "Add a read-only users controller.",
+		Constraints: []string{"No writes."},
+		Files:       created(t, set, "app/controllers/users_controller.rb@rails"),
+	}
+}
+
+// stub is a Client that returns canned responses and remembers what it was
+// asked. It is what makes the retry loop testable without a server.
+type stub struct {
+	responses []string
+	err       error
+	seen      [][]Message
+}
+
+func (s *stub) Complete(_ context.Context, messages []Message) (string, error) {
+	s.seen = append(s.seen, slices.Clone(messages))
+	if s.err != nil {
+		return "", s.err
+	}
+	if len(s.seen) > len(s.responses) {
+		return "", fmt.Errorf("called %d times, but only %d responses were staged", len(s.seen), len(s.responses))
+	}
+	return s.responses[len(s.seen)-1], nil
+}
+
+func selectWith(t *testing.T, req Request, retries int, responses ...string) ([]recording.Invocation, *stub, error) {
+	t.Helper()
+	client := &stub{responses: responses}
+	got, err := Select(context.Background(), client, req, Options{Retries: retries})
+	return got, client, err
+}
+
+const validResponse = `{"invocations":[{"action":"createControllerMethod",` +
+	`"kwargs":{"controller":"users","name":"index","collection":"users"}}]}`
+
+// wantViolation asserts a response was rejected and that the diagnostic names
+// the rule and everything the model would need to correct it. A check that does
+// not say what was wrong is a defect: the retry loop's whole value is the
+// specificity of what it re-prompts with.
+func wantViolation(t *testing.T, req Request, response, rule string, needles ...string) {
+	t.Helper()
+
+	_, client, err := selectWith(t, req, 0, response)
+	if err == nil {
+		t.Fatalf("expected %s to be rejected", rule)
+	}
+	msg := err.Error()
+	if !strings.Contains(msg, rule) {
+		t.Errorf("rejection does not name the rule %q:\n%s", rule, msg)
+	}
+	for _, n := range needles {
+		if !strings.Contains(msg, n) {
+			t.Errorf("rejection does not mention %q:\n%s", n, msg)
+		}
+	}
+	if len(client.seen) != 1 {
+		t.Errorf("with no retries the model should be called once, got %d calls", len(client.seen))
+	}
+}
+
+func TestValidOutputPasses(t *testing.T) {
+	got, _, err := selectWith(t, railsRequest(t), 0, validResponse)
+	if err != nil {
+		t.Fatalf("a valid response was rejected: %v", err)
+	}
+	if len(got) != 1 {
+		t.Fatalf("got %d invocations, want 1", len(got))
+	}
+	if got[0].Action != "createControllerMethod" || got[0].Kwargs["controller"] != "users" {
+		t.Errorf("invocation did not survive decoding: %+v", got[0])
+	}
+}
+
+// A record whose intent needs no action is legitimate, and an empty array is a
+// considered answer rather than a failure to answer.
+func TestEmptyInvocationListIsValid(t *testing.T) {
+	got, _, err := selectWith(t, railsRequest(t), 0, `{"invocations": []}`)
+	if err != nil {
+		t.Fatalf("an empty invocation list was rejected: %v", err)
+	}
+	if len(got) != 0 {
+		t.Errorf("got %d invocations, want none", len(got))
+	}
+}
+
+// The PRD describes a bare array and the wire format wraps it, because JSON
+// object mode requires an object at the root. Both are accepted, and both are
+// validated identically (prov-2026-abd43bb4).
+func TestBothEnvelopeShapesAreAccepted(t *testing.T) {
+	bare := `[{"action":"createControllerMethod","kwargs":{"controller":"users","name":"index"}}]`
+
+	got, _, err := selectWith(t, railsRequest(t), 0, bare)
+	if err != nil {
+		t.Fatalf("a bare array was rejected: %v", err)
+	}
+	if len(got) != 1 {
+		t.Fatalf("got %d invocations, want 1", len(got))
+	}
+
+	// Fenced, which is the formatting habit a model asked for JSON falls into.
+	fenced := "```json\n" + validResponse + "\n```"
+	if _, _, err := selectWith(t, railsRequest(t), 0, fenced); err != nil {
+		t.Fatalf("a fenced response was rejected: %v", err)
+	}
+}
+
+// The tolerance stops at formatting. A key beyond the declared schema is the
+// clearest signal that the model has read the task differently, and dropping it
+// silently would discard exactly that (prov-2026-abd43bb4).
+func TestKeysBeyondTheSchemaAreRejected(t *testing.T) {
+	req := railsRequest(t)
+
+	wantViolation(t, req,
+		`{"invocations":[{"action":"createControllerMethod","kwargs":{"controller":"users","name":"index"},"reason":"the intent asks for a list"}]}`,
+		"invocation_shape", "reason")
+
+	wantViolation(t, req,
+		`{"invocations":[],"notes":"nothing to do"}`,
+		"response_shape", "notes")
+
+	wantViolation(t, req, `not json at all`, "response_shape")
+	wantViolation(t, req, ``, "empty_response")
+	wantViolation(t, req, `{"actions":[]}`, "response_shape", "invocations")
+}
+
+// Rule one: the action exists and is exposed. An unexposed action is absent
+// from the catalog, so naming it is indistinguishable from naming something
+// that does not exist - which is the point of the tier.
+func TestUnknownAndUnexposedActionsAreRejected(t *testing.T) {
+	req := railsRequest(t)
+
+	wantViolation(t, req,
+		`{"invocations":[{"action":"createSerializer","kwargs":{}}]}`,
+		"unknown_action", "createSerializer", "createControllerMethod")
+
+	wantViolation(t, req,
+		`{"invocations":[{"action":"hiddenHelper","kwargs":{"controller":"users"}}]}`,
+		"unknown_action", "hiddenHelper")
+}
+
+// Rule two: every required kwarg is bound, and the diagnostic names which.
+func TestMissingRequiredKwargIsRejected(t *testing.T) {
+	wantViolation(t, railsRequest(t),
+		`{"invocations":[{"action":"createControllerMethod","kwargs":{"controller":"users"}}]}`,
+		"missing_kwarg", `"name"`)
+}
+
+// Rule three: no kwarg the action does not declare. The diagnostic lists what
+// it does declare, so the correction does not need another round trip.
+func TestUnknownKwargIsRejected(t *testing.T) {
+	wantViolation(t, railsRequest(t),
+		`{"invocations":[{"action":"createModelClass","kwargs":{"name":"user","table":"users"}}]}`,
+		"unknown_kwarg", `"table"`, `"name"`)
+}
+
+// Rule four: every value matches its declared type, and the diagnostic says
+// what it actually was - "bound to the string \"3\"" is actionable where "wrong
+// type" is not.
+func TestKwargTypeMismatchIsRejected(t *testing.T) {
+	req := railsRequest(t)
+
+	wantViolation(t, req,
+		`{"invocations":[{"action":"createControllerMethod","kwargs":{"controller":"users","name":"index","limit":"3"}}]}`,
+		"kwarg_type", "limit", "int", `"3"`)
+
+	wantViolation(t, req,
+		`{"invocations":[{"action":"createControllerMethod","kwargs":{"controller":"users","name":"index","cached":"yes"}}]}`,
+		"kwarg_type", "cached", "bool")
+
+	wantViolation(t, req,
+		`{"invocations":[{"action":"createControllerMethod","kwargs":{"controller":"users","name":"index","only":"show"}}]}`,
+		"kwarg_type", "only", "list")
+
+	// JSON has one number type, so int means integral rather than differently
+	// encoded.
+	wantViolation(t, req,
+		`{"invocations":[{"action":"createControllerMethod","kwargs":{"controller":"users","name":"index","limit":2.5}}]}`,
+		"kwarg_type", "limit")
+}
+
+// Rule five: a discriminator value with no template is legal when the package
+// ships a fallback and an error when it does not. Both halves are asserted,
+// because the difference between them is the whole reason the catalog reports
+// which is the case (prov-2026-21031113).
+func TestVariantIsCheckedAgainstTheFallback(t *testing.T) {
+	req := railsRequest(t)
+
+	// createControllerMethod ships _default.rb, so an uncovered value is a
+	// knowing fallback rather than a violation.
+	if _, _, err := selectWith(t, req, 0,
+		`{"invocations":[{"action":"createControllerMethod","kwargs":{"controller":"users","name":"search"}}]}`); err != nil {
+		t.Errorf("an uncovered variant with a fallback should be allowed: %v", err)
+	}
+
+	// addCallback ships no _default, so the same shape of answer is an error
+	// naming what it does cover.
+	wantViolation(t, req,
+		`{"invocations":[{"action":"addCallback","kwargs":{"controller":"users","hook":"around"}}]}`,
+		"variant", "around", `"before"`, `"after"`)
+}
+
+// Rule six: the file an action resolves to is one this record authorized. This
+// is where a record that named an implementation file but forgot its companion
+// lands - before a retry is spent, naming the file that is missing.
+func TestActionResolvingToAnUnauthorizedPathIsRejected(t *testing.T) {
+	set := loadSet(t, generators())
+	req := Request{
+		RecordID: "PR-014",
+		Intent:   "Add a users controller.",
+		Files:    created(t, set, "app/controllers/users_controller.rb@rails"),
+	}
+
+	// createModelClass renders app/models/user.rb, which this record did not
+	// authorize.
+	wantViolation(t, req,
+		`{"invocations":[{"action":"createModelClass","kwargs":{"name":"user"}}]}`,
+		"unauthorized_path", "app/models/user.rb")
+}
+
+// A composite is checked against every file its children touch. Omitting one of
+// them from affected_scope fails here rather than halfway through Phase 7.
+func TestCompositeIsCheckedAgainstEveryChildsTarget(t *testing.T) {
+	set := loadSet(t, generators())
+	partial := Request{
+		RecordID: "PR-020",
+		Intent:   "Provision a step.",
+		Files:    created(t, set, "Units/billing-runs/Manifest.crn@cairn"),
+	}
+
+	wantViolation(t, partial,
+		`{"invocations":[{"action":"provisionStep","kwargs":{"unit":"billing-run","step":"charge","name":"retry-limit"}}]}`,
+		"unauthorized_path", "Shared/retry-limits.crn")
+
+	// With both files authorized, the same invocation validates.
+	whole := partial
+	whole.Files = created(t, set,
+		"Units/billing-runs/Manifest.crn@cairn", "Shared/retry-limits.crn@cairn")
+	if _, _, err := selectWith(t, whole, 0,
+		`{"invocations":[{"action":"provisionStep","kwargs":{"unit":"billing-run","step":"charge","name":"retry-limit"}}]}`); err != nil {
+		t.Errorf("a composite whose children are both authorized was rejected: %v", err)
+	}
+}
+
+// A response with three faults re-prompts with three. Spending one model call
+// per fault is precisely the cost deterministic validation exists to avoid.
+func TestEveryInvocationIsChecked(t *testing.T) {
+	_, _, err := selectWith(t, railsRequest(t), 0, `{"invocations":[
+		{"action":"nope","kwargs":{}},
+		{"action":"createControllerMethod","kwargs":{"controller":"users"}},
+		{"action":"createModelClass","kwargs":{"name":"user","table":"users"}}
+	]}`)
+	if err == nil {
+		t.Fatal("expected the response to be rejected")
+	}
+
+	msg := err.Error()
+	for _, rule := range []string{"unknown_action", "missing_kwarg", "unknown_kwarg"} {
+		if !strings.Contains(msg, rule) {
+			t.Errorf("only some faults were reported; %q is missing:\n%s", rule, msg)
+		}
+	}
+}
+
+// A diagnostic must never blame a path for a kwarg's fault. The schema checks
+// run first, so an invocation missing its required argument is told that, not
+// told about the file the unrendered pattern produced (prov-2026-9dcf2658).
+func TestSchemaFaultsAreReportedBeforePathFaults(t *testing.T) {
+	set := loadSet(t, generators())
+	req := Request{
+		RecordID: "PR-014",
+		Intent:   "Add a users controller.",
+		Files:    created(t, set, "app/controllers/users_controller.rb@rails"),
+	}
+
+	_, _, err := selectWith(t, req, 0,
+		`{"invocations":[{"action":"createModelClass","kwargs":{}}]}`)
+	if err == nil {
+		t.Fatal("expected the response to be rejected")
+	}
+	if !strings.Contains(err.Error(), "missing_kwarg") {
+		t.Errorf("the missing kwarg was not reported:\n%s", err)
+	}
+	if strings.Contains(err.Error(), "unauthorized_path") {
+		t.Errorf("a missing kwarg was reported as a path problem:\n%s", err)
+	}
+}
+
+// The loop: a rejected response is re-prompted with what was wrong, and the
+// rejected response stays in the conversation so the correction refers to
+// something the model can still see.
+func TestRejectedResponseIsRePromptedWithItsViolations(t *testing.T) {
+	bad := `{"invocations":[{"action":"createControllerMethod","kwargs":{"controller":"users"}}]}`
+
+	got, client, err := selectWith(t, railsRequest(t), 3, bad, validResponse)
+	if err != nil {
+		t.Fatalf("the retry should have succeeded: %v", err)
+	}
+	if len(got) != 1 {
+		t.Fatalf("got %d invocations, want 1", len(got))
+	}
+	if len(client.seen) != 2 {
+		t.Fatalf("the model was called %d times, want 2", len(client.seen))
+	}
+
+	second := client.seen[1]
+	if len(second) != 4 {
+		t.Fatalf("the retry conversation has %d messages, want the prompt plus the rejected answer and the correction", len(second))
+	}
+	if second[2].Role != RoleAssistant || second[2].Content != bad {
+		t.Errorf("the rejected response was not kept in the conversation: %+v", second[2])
+	}
+	if !strings.Contains(second[3].Content, "name") {
+		t.Errorf("the correction does not say what was missing:\n%s", second[3].Content)
+	}
+}
+
+// Exhaustion reports every attempt, not just the last. A model making a
+// different mistake each time and one making the same mistake three times are
+// different problems with different fixes.
+func TestRetryExhaustionReportsEveryAttempt(t *testing.T) {
+	_, client, err := selectWith(t, railsRequest(t), 2,
+		`{"invocations":[{"action":"nope","kwargs":{}}]}`,
+		`{"invocations":[{"action":"createControllerMethod","kwargs":{"controller":"users"}}]}`,
+		`{"invocations":[{"action":"createModelClass","kwargs":{"name":"user","table":"users"}}]}`,
+	)
+	if err == nil {
+		t.Fatal("expected exhaustion to halt the run")
+	}
+	if len(client.seen) != 3 {
+		t.Fatalf("the model was called %d times, want 3 (the first attempt plus two retries)", len(client.seen))
+	}
+
+	msg := err.Error()
+	for _, want := range []string{"attempt 1", "attempt 2", "attempt 3", "unknown_action", "missing_kwarg", "unknown_kwarg"} {
+		if !strings.Contains(msg, want) {
+			t.Errorf("exhaustion does not report %q:\n%s", want, msg)
+		}
+	}
+}
+
+// A transport failure is not the model's to correct, and retrying it would
+// consume the budget reserved for the mistakes that are.
+func TestTransportFailureIsNotRetried(t *testing.T) {
+	client := &stub{err: errors.New("connection refused")}
+
+	_, err := Select(context.Background(), client, railsRequest(t), Options{Retries: 3})
+	if err == nil {
+		t.Fatal("expected the model call to fail")
+	}
+	if !strings.Contains(err.Error(), "connection refused") {
+		t.Errorf("the transport error was not reported: %v", err)
+	}
+	if len(client.seen) != 1 {
+		t.Errorf("a transport failure was retried %d times", len(client.seen)-1)
+	}
+}
+
+// The prompt carries the record's own words, the files the run created, and the
+// catalog. The catalog is embedded as exactly the bytes sedum actions --json
+// prints, which is what keeps that command evidence rather than a second
+// rendering.
+func TestPromptCarriesTheRecordAndTheCatalogVerbatim(t *testing.T) {
+	req := railsRequest(t)
+	packages := expand.Packages(req.Files)
+	cat := catalog.Build(packages, catalog.Options{})
+
+	messages, err := Prompt(req, cat)
+	if err != nil {
+		t.Fatalf("Prompt: %v", err)
+	}
+	if len(messages) != 2 || messages[0].Role != RoleSystem || messages[1].Role != RoleUser {
+		t.Fatalf("prompt is %d messages in roles %v", len(messages), messages)
+	}
+
+	user := messages[1].Content
+	for _, want := range []string{
+		"Add a read-only users controller.",
+		"No writes.",
+		"app/controllers/users_controller.rb",
+	} {
+		if !strings.Contains(user, want) {
+			t.Errorf("prompt does not carry %q:\n%s", want, user)
+		}
+	}
+
+	payload, err := cat.JSON()
+	if err != nil {
+		t.Fatalf("catalog JSON: %v", err)
+	}
+	if !strings.Contains(user, string(payload)) {
+		t.Errorf("prompt does not embed the catalog payload verbatim:\n%s", user)
+	}
+
+	// An unexposed action must not be visible anywhere in the prompt.
+	if strings.Contains(user, "hiddenHelper") {
+		t.Errorf("an unexposed action reached the prompt:\n%s", user)
+	}
+}
+
+// Sedum's core carries no target knowledge, and the prompt is the place that
+// constraint is easiest to break: one helpful sentence about controllers would
+// put a framework's vocabulary in the binary. Every target-specific word the
+// model sees has to come from the record or the package.
+func TestSystemPromptNamesNoTarget(t *testing.T) {
+	lowered := strings.ToLower(systemPrompt)
+	for _, forbidden := range []string{
+		"rails", "ruby", "golang", "python", "java", "react",
+		"controller", "model class", "header file", "import statement",
+	} {
+		if strings.Contains(lowered, forbidden) {
+			t.Errorf("the system prompt names a target concept (%q), which puts target knowledge in Sedum's core", forbidden)
+		}
+	}
+}
+
+// A path a package declares unmanaged is named rather than hidden. The intent
+// may refer to it, and a model that could not see it would keep reaching for it
+// with an action that cannot get there.
+func TestPromptNamesUnmanagedPathsAsUnreachable(t *testing.T) {
+	set := loadSet(t, generators())
+	req := Request{
+		RecordID: "PR-014",
+		Intent:   "Add a users controller and the dependency it needs.",
+		Files: append(created(t, set, "app/controllers/users_controller.rb@rails"),
+			resolve.File{Resolution: resolve.Resolution{
+				RecordID: "PR-014", Path: "Gemfile", Unmanaged: true, UnmanagedBy: "rails", UnmanagedAs: "Gemfile",
+			}}),
+	}
+
+	messages, err := Prompt(req, catalog.Build(expand.Packages(req.Files), catalog.Options{}))
+	if err != nil {
+		t.Fatalf("Prompt: %v", err)
+	}
+
+	user := messages[1].Content
+	if !strings.Contains(user, "Gemfile") {
+		t.Errorf("prompt does not mention the unmanaged path:\n%s", user)
+	}
+	if !strings.Contains(user, "not written by this tool") {
+		t.Errorf("prompt does not say the unmanaged path is unreachable:\n%s", user)
+	}
+}
