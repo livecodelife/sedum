@@ -1,0 +1,105 @@
+id: prov-2026-df491217
+title: Ownership markers take the indentation of the anchor they land at
+status: open
+created_at: "2026-08-14"
+author: calebcowen@gmail.com
+intent: |
+  M4 wrote every ownership marker at column zero regardless of where its anchor
+  sat. Injecting into a struct body produced this:
+
+    type Todo struct {
+        ID int64 `json:"id"`
+
+        // sedum:anchor:fields
+    // sedum:addModelField {"tier":"owned",...}
+        Title string `json:"title"`
+    // /sedum:addModelField
+    }
+
+  The body is indented because the template author indented it. The markers are
+  not, because nothing indented them. Go survives this and gofmt repairs it, but
+  not every target has a formatter, and the marker is the artifact a human reads
+  in a diff. A generated file that looks broken is a generated file people stop
+  trusting.
+
+  The fix is to give the markers the leading whitespace of the line the anchor
+  sits on, copied verbatim. That is a string operation on the target file, not
+  knowledge of the target language - the same class of act as matching a path
+  against a pattern, and nothing about it knows what a struct is.
+
+  The body is deliberately not touched, and that is the whole decision. The
+  obvious alternative is to indent every line of the rendered template to the
+  anchor's depth, which is what a caller would want if templates were written
+  flush-left. They are not. A single real generator package was found to contain
+  both styles at once: addModelField and addRoute are indented one tab because
+  they are fragments that land inside a struct or a function body, while
+  createQuery and createCRUDHandler start at column zero because they are
+  top-level declarations whose anchors are also at column zero. The author had
+  already solved body indentation by writing each template at the depth its
+  anchor sits at. Indenting bodies would double-indent exactly half of them.
+
+  So the rule is that the author owns the body and Sedum owns its own markers.
+  That also explains why this needs no configuration. It is not a choice between
+  two reasonable layouts; it is Sedum stopping doing something wrong to lines it
+  writes itself, and no package would ever want the markers misaligned.
+
+  Where the indentation comes from, per anchor kind:
+
+    - marker: the line carrying the anchor comment.
+    - region: the line carrying the marker that closes the region, which is
+      where content is inserted.
+    - after_match / before_match: the matched line.
+    - start_of_file / end_of_file: none, because there is no line to match and
+      column zero is what those anchors mean.
+
+  Replacement reads the indentation off the region's own opening marker rather
+  than recomputing it from the anchor. A region that has been moved, or whose
+  anchor has been re-indented since it was written, keeps the shape it has
+  instead of being silently re-laid-out by a run that was only meant to refresh
+  its contents.
+
+  This changes the bytes of every region generated before it. That is not a
+  migration in the sense the marker shape is: the markers still parse, identity
+  is unchanged, and the first rerun replaces each owned region with the aligned
+  form. The diff is one-time and mechanical.
+constraints:
+  - >-
+    An ownership marker is written with the leading whitespace of the line its
+    anchor sits on, copied verbatim rather than normalized to tabs or spaces.
+  - >-
+    The rendered body is never re-indented. The template author writes each
+    template at the depth its anchor sits at, and a package may legitimately mix
+    flush-left and indented templates for different anchors.
+  - >-
+    start_of_file and end_of_file take no indentation, because neither names a
+    line to take it from.
+  - >-
+    Replacing a region takes the indentation from that region's existing opening
+    marker, so a run that refreshes contents does not re-lay-out a region whose
+    surroundings have moved.
+  - >-
+    Marker readers stay indentation-tolerant. A marker is recognized by its
+    trimmed text, so alignment is presentation and never part of identity.
+  - >-
+    This is a string operation on the target file. Nothing here knows what a
+    struct, a function, or a block is, and no formatter is invoked.
+affected_scope:
+  - internal/inject/**
+forbidden_scope: []
+type: imprint
+implements: prov-2026-b6fa093c
+supersedes: ""
+superseded_by: ""
+related:
+  - prov-2026-42f5eedd
+  - prov-2026-36c8a99c
+sealed_at_sha: ""
+associated_specs:
+  - path: internal/inject/inject_test.go
+    run_command: go test -count=1 ./$(dirname {{path}})
+associated_traces: []
+monitors: []
+tags:
+  - sedum
+  - m4
+  - injection
