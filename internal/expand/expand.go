@@ -2,7 +2,8 @@
 // into injections ready to write.
 //
 // It renders every injects_into pattern, requires each to resolve to exactly
-// one file the run created, selects the variant template for a discriminated
+// one file this record authorized and this package manages, selects the variant
+// template for a discriminated
 // action, and applies transforms. It is fully deterministic - the model does not
 // participate, and in this milestone no model has run at all: the invocation
 // list is a hand-written fixture shaped exactly like a recording.
@@ -240,8 +241,15 @@ func renderPath(pkg *genpkg.Package, action *genpkg.Action, kwargs map[string]an
 	return path, nil
 }
 
-// authorized requires a rendered injects_into to name exactly one file the run
-// created.
+// authorized requires a rendered injects_into to name exactly one file this
+// record authorized and this package manages.
+//
+// Authorized and managed, not created. The set is Phase 3's output, which
+// includes a path that was already on disk and left as it was - create-if-
+// absent puts an existing file in the set with Existed set, not out of it. So
+// an action re-invoked against a region in a file an earlier run wrote passes
+// here, which is the case that matters as soon as anything drives Sedum
+// incrementally (prov-2026-72775ae5).
 //
 // Zero is the interesting case. It means the action targets a path no
 // provenance record authorized, which is the failure a record omitting a
@@ -269,11 +277,11 @@ func authorized(action *genpkg.Action, files []resolve.File, path string) error 
 		return nil
 	case 0:
 		return fmt.Errorf(
-			"action %s injects into %q, which is not one of the paths this record created (%s)",
+			"action %s injects into %q, which is not one of the paths this record authorized (%s)",
 			action.Name, path, pathList(files))
 	default:
 		return fmt.Errorf(
-			"action %s injects into %q, which %d created files claim; injects_into must resolve to exactly one file",
+			"action %s injects into %q, which %d authorized files claim; injects_into must resolve to exactly one file",
 			action.Name, path, matches)
 	}
 }

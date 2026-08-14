@@ -4,10 +4,12 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"sort"
 	"strings"
 )
 
-// The ownership marker: the only place idempotency state lives.
+// The ownership marker: the only place idempotency state lives, and a public
+// format.
 //
 // A region is written between a pair of markers naming the action that produced
 // it, the ownership tier, the kwargs it was rendered from, and the record that
@@ -29,6 +31,19 @@ import (
 // make every field added later a migration across every repository that already
 // carries markers; a JSON object makes it an addition.
 //
+// The attribute object is the extension point, and tolerating an unknown key on
+// read is only half of what that requires (prov-2026-72775ae5). A key survives
+// the round trip too: it is retained on the Marker it was read from and
+// re-emitted when the region is rewritten. Sedum is not the only writer a
+// generated codebase sees. A tool built above Sedum annotates a region with its
+// own state - an attempt count, a last-verified spec - and needs that state to
+// be there after the next run; without preservation it would have to petition
+// for a schema change or keep a sidecar file keyed by region, which is exactly
+// the maintained state markers exist to avoid.
+//
+// Preservation is transparent. An unrecognised key is carried, never read,
+// validated, interpreted, or allowed to shadow a key Sedum does model.
+//
 // There is a concrete field waiting: cross-region ordering wants markers to
 // record what a region exposes and what it consumes, so a dependency graph can
 // be built by scanning markers rather than by parsing the target language.
@@ -48,7 +63,22 @@ const (
 // DefaultTier is what an absent tier field means. Only owned is exercised by
 // this milestone; seeded is honored on read so that a region which has stopped
 // being Sedum's to overwrite can say so.
+//
+// The tier on the marker governs a region after its first write. An action's
+// declaration supplies the value written the first time and has no authority
+// over a region that already exists, because a region whose tier was demoted
+// after generation is exactly the region a declaration must not overrule.
 const DefaultTier = TierOwned
+
+// DefaultWriter is what an absent writer field means.
+//
+// Sedum omits the key rather than writing this value, so a marker Sedum wrote
+// is byte-identical to one written before the key existed, and every marker
+// already on disk reads correctly without a migration. A writer that is not
+// Sedum names itself, which is what makes a demoted tier attributable: seeded
+// alone cannot say whether a package author declared it or another tool
+// demoted it.
+const DefaultWriter = "sedum"
 
 const (
 	openKeyword  = "sedum:"
@@ -77,11 +107,20 @@ type Marker struct {
 	// not by who wrote it, so that a later record refining an earlier region
 	// replaces it in place instead of minting a duplicate beside it.
 	Record string
+	// Writer names the tool that last wrote the region. Absent on the marker
+	// means DefaultWriter, so the field distinguishes writers without
+	// asserting anything about the markers written before it existed.
+	Writer string
 	// Kwargs is every kwarg the region was rendered from. All of them are
 	// recorded rather than the subset that currently selects a region,
 	// because deciding today which kwargs select and which parameterize
 	// would be guessing, and recording all of them keeps the question open.
 	Kwargs map[string]any
+	// Extra is every attribute key this version of Sedum does not model,
+	// exactly as it was read. It is carried through the round trip and never
+	// interpreted: Sedum does not know what these keys mean, which is the
+	// point of them.
+	Extra map[string]json.RawMessage
 }
 
 // attrs is the JSON object carried on an opening marker.
@@ -89,11 +128,24 @@ type Marker struct {
 // Decoding is deliberately lenient in both directions: encoding/json ignores a
 // key this struct does not declare, and a key this struct declares but the
 // marker omits keeps its zero value, which normalize turns into the documented
-// default.
+// default. What this struct does not declare is recovered separately into
+// Marker.Extra, because ignoring a key on read and dropping it on write are
+// different promises and only the first one comes free.
 type attrs struct {
 	Tier   Tier           `json:"tier"`
 	Record string         `json:"record,omitempty"`
+	Writer string         `json:"writer,omitempty"`
 	Kwargs map[string]any `json:"kwargs,omitempty"`
+}
+
+// declaredAttrs is the key set attrs models, and so the set an entry in
+// Marker.Extra may not shadow. It is derived from the tags above by hand
+// because there are four of them; a fifth belongs here too.
+var declaredAttrs = map[string]bool{
+	"tier":   true,
+	"record": true,
+	"writer": true,
+	"kwargs": true,
 }
 
 // Label is the action:variant pair as it appears on the marker line.
@@ -113,22 +165,93 @@ func (m Marker) Label() string {
 // correctly, so nothing breaks - but a marker is read by people and by grep,
 // and it should say what the region was rendered from.
 func (m Marker) Open(commentPrefix string) (string, error) {
+	encoded, err := m.encodeAttrs()
+	if err != nil {
+		return "", err
+	}
+	return commentPrefix + " " + openKeyword + m.Label() + " " + encoded, nil
+}
+
+// encodeAttrs renders the attribute object: the keys attrs declares, in the
+// order it declares them, then any carried key that attrs does not.
+//
+// The declared keys keep their struct order rather than being merged into one
+// map and marshalled, because marshalling a map sorts its keys and would
+// reshuffle the attribute object on every marker Sedum has already written.
+// Carried keys are appended in sorted order so that the same marker read and
+// rewritten produces the same bytes.
+func (m Marker) encodeAttrs() (string, error) {
+	declared, err := encodeJSON(attrs{
+		Tier:   m.tierOrDefault(),
+		Record: m.Record,
+		Writer: m.writerIfNamed(),
+		Kwargs: m.Kwargs,
+	})
+	if err != nil {
+		return "", fmt.Errorf("action %s: kwargs cannot be recorded on a marker: %w", m.Label(), err)
+	}
+
+	carried := m.carriedNames()
+	if len(carried) == 0 {
+		return declared, nil
+	}
+
+	// The declared object is never empty - tier always has a value - so a
+	// separator is always needed between it and the first carried key.
+	var b strings.Builder
+	b.WriteString(strings.TrimSuffix(declared, "}"))
+	for _, name := range carried {
+		key, err := encodeJSON(name)
+		if err != nil {
+			return "", fmt.Errorf("action %s: marker attribute %q cannot be recorded: %w", m.Label(), name, err)
+		}
+
+		// The value is written back exactly as it was read. Sedum does not
+		// know what it means, so re-encoding it could only change it.
+		var value bytes.Buffer
+		if err := json.Compact(&value, m.Extra[name]); err != nil {
+			return "", fmt.Errorf("action %s: marker attribute %q cannot be recorded: %w", m.Label(), name, err)
+		}
+
+		b.WriteString(",")
+		b.WriteString(key)
+		b.WriteString(":")
+		b.Write(value.Bytes())
+	}
+	b.WriteString("}")
+	return b.String(), nil
+}
+
+// carriedNames returns the Extra keys to re-emit, sorted.
+//
+// A carried key that attrs declares is dropped rather than written twice. It
+// cannot arise from a marker Sedum parsed, which routes every declared key to
+// its field, but Marker is an ordinary struct any caller may build, and one
+// object carrying "tier" twice is worse than one carrying it once.
+func (m Marker) carriedNames() []string {
+	var out []string
+	for name := range m.Extra {
+		if declaredAttrs[name] {
+			continue
+		}
+		out = append(out, name)
+	}
+	sort.Strings(out)
+	return out
+}
+
+// encodeJSON marshals one value with HTML escaping turned off, and without the
+// trailing newline Encode terminates a value with - which would split a marker
+// across two lines.
+func encodeJSON(value any) (string, error) {
 	var buf bytes.Buffer
 
 	encoder := json.NewEncoder(&buf)
 	encoder.SetEscapeHTML(false)
-	if err := encoder.Encode(attrs{
-		Tier:   m.tierOrDefault(),
-		Record: m.Record,
-		Kwargs: m.Kwargs,
-	}); err != nil {
-		return "", fmt.Errorf("action %s: kwargs cannot be recorded on a marker: %w", m.Label(), err)
+	if err := encoder.Encode(value); err != nil {
+		return "", err
 	}
-
-	// Encode terminates the value with a newline, which would split the
-	// marker across two lines.
-	encoded := strings.TrimRight(buf.String(), "\n")
-	return commentPrefix + " " + openKeyword + m.Label() + " " + encoded, nil
+	return strings.TrimRight(buf.String(), "\n"), nil
 }
 
 // Close renders the closing marker line, without a trailing newline.
@@ -141,6 +264,21 @@ func (m Marker) tierOrDefault() Tier {
 		return DefaultTier
 	}
 	return m.Tier
+}
+
+// writerIfNamed returns the writer to record, which is nothing when the writer
+// is Sedum.
+//
+// Omitting rather than writing the default keeps a marker Sedum wrote
+// byte-identical to one written before the key existed, so introducing the
+// field rewrites nothing. It also means a marker read and written back
+// unchanged stays unchanged, because parseOpen fills the absent key with the
+// same default this drops.
+func (m Marker) writerIfNamed() string {
+	if m.Writer == DefaultWriter {
+		return ""
+	}
+	return m.Writer
 }
 
 // parseOpen reads an opening marker from one line, reporting whether the line
@@ -163,7 +301,7 @@ func parseOpen(commentPrefix, line string) (Marker, bool, error) {
 		return Marker{}, false, nil
 	}
 
-	marker := Marker{Action: action, Variant: variant, Tier: DefaultTier}
+	marker := Marker{Action: action, Variant: variant, Tier: DefaultTier, Writer: DefaultWriter}
 
 	encoded = strings.TrimSpace(encoded)
 	if encoded == "" {
@@ -173,16 +311,39 @@ func parseOpen(commentPrefix, line string) (Marker, bool, error) {
 		return marker, true, nil
 	}
 
+	// Two passes over the same bytes: one binding the keys this version
+	// models, one recovering the keys it does not. The second is what makes
+	// tolerating an unknown key on read into preserving it, rather than
+	// ignoring it right up until the region is rewritten.
 	var a attrs
 	if err := json.Unmarshal([]byte(encoded), &a); err != nil {
 		return Marker{}, false, fmt.Errorf(
 			"marker for %s carries attributes that are not readable as JSON: %w", marker.Label(), err)
 	}
+	var all map[string]json.RawMessage
+	if err := json.Unmarshal([]byte(encoded), &all); err != nil {
+		return Marker{}, false, fmt.Errorf(
+			"marker for %s carries attributes that are not readable as JSON: %w", marker.Label(), err)
+	}
+
 	if a.Tier != "" {
 		marker.Tier = a.Tier
 	}
+	if a.Writer != "" {
+		marker.Writer = a.Writer
+	}
 	marker.Record = a.Record
 	marker.Kwargs = a.Kwargs
+
+	for name, value := range all {
+		if declaredAttrs[name] {
+			continue
+		}
+		if marker.Extra == nil {
+			marker.Extra = map[string]json.RawMessage{}
+		}
+		marker.Extra[name] = value
+	}
 	return marker, true, nil
 }
 
@@ -220,6 +381,11 @@ func splitLabel(label string) (action, variant string) {
 }
 
 // Identity is what makes two invocations the same region.
+//
+// Neither the writer nor any carried attribute takes part in it. A region is
+// identified by what it is, and a key Sedum does not model cannot be allowed to
+// decide whether two invocations are the same thing - if it could, a tool
+// annotating a region would silently split it in two.
 //
 // The record ID takes no part in it. Under record-scoped identity a later
 // record could never claim a region an earlier one wrote - it would always mint

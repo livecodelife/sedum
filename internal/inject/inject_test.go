@@ -393,6 +393,64 @@ func TestRerunReplacesOwnedRegionRatherThanDuplicating(t *testing.T) {
 	}
 }
 
+// Sedum is not the only writer a generated codebase sees. A tool built above it
+// annotates a region with its own state, and the next run has to hand that state
+// back rather than eat it (prov-2026-72775ae5).
+//
+// This is the case retention alone does not cover: applyOne builds a fresh
+// marker from the invocation, so unless the replacement path carries the old
+// marker's unrecognised keys forward, they are read correctly and then written
+// away on the very next rerun.
+func TestReplacementPreservesAnotherWritersAttributes(t *testing.T) {
+	pkg := loadPackage(t)
+	root := output(t)
+
+	kwargs := map[string]any{"controller": "users", "name": "index", "collection": "users"}
+	first := invocation(t, pkg, "createControllerMethod", "index", "def index\n  User.all\nend\n", "PR-014", kwargs)
+
+	if _, err := Apply([]Invocation{first}, Options{Output: root}); err != nil {
+		t.Fatalf("first Apply: %v", err)
+	}
+
+	// Another tool annotates the region with state Sedum has never heard of.
+	full := filepath.Join(root, filepath.FromSlash(controllerPath))
+	annotated := strings.Replace(read(t, root),
+		`"kwargs":`, `"harness_attempts":2,"verified_by":"spec/users.linespec","kwargs":`, 1)
+	if err := os.WriteFile(full, []byte(annotated), 0o644); err != nil {
+		t.Fatalf("write: %v", err)
+	}
+	if !strings.Contains(annotated, "harness_attempts") {
+		t.Fatal("the fixture did not actually annotate the marker")
+	}
+
+	refined := invocation(t, pkg, "createControllerMethod", "index",
+		"def index\n  User.where(active: true)\nend\n", "PR-092", kwargs)
+
+	results, err := Apply([]Invocation{refined}, Options{Output: root})
+	if err != nil {
+		t.Fatalf("second Apply: %v", err)
+	}
+	if len(results) != 1 || !results[0].Replaced {
+		t.Fatalf("results = %+v, want the region reported as replaced", results)
+	}
+
+	got := read(t, root)
+	for _, want := range []string{`"harness_attempts":2`, `"verified_by":"spec/users.linespec"`} {
+		if !strings.Contains(got, want) {
+			t.Errorf("rewriting the region dropped %s:\n%s", want, got)
+		}
+	}
+
+	// The keys Sedum does model still describe the region as it is now, not as
+	// the annotating tool found it.
+	if !strings.Contains(got, `"record":"PR-092"`) {
+		t.Errorf("marker does not name the record that last wrote the region:\n%s", got)
+	}
+	if !strings.Contains(got, "User.where(active: true)") {
+		t.Errorf("the refined body is not in the file:\n%s", got)
+	}
+}
+
 // Two invocations of one action whose selecting kwargs differ are different
 // regions and coexist.
 func TestDistinctRegionsCoexist(t *testing.T) {

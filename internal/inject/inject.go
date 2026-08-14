@@ -210,10 +210,22 @@ func applyOne(inv Invocation, content string) (string, Result, error) {
 			return content, result, nil
 		}
 
+		// The marker written back carries whatever attributes this version
+		// of Sedum does not model, taken from the marker being replaced.
+		// Retaining them on read is only half of the promise: this is the
+		// write, and without it every annotation another tool left on the
+		// region would disappear on the first rerun (prov-2026-72775ae5).
+		//
+		// Nothing else is taken from the old marker. Tier, record, kwargs and
+		// writer describe what the region is now, and this invocation is what
+		// it is now.
+		refreshed := marker
+		refreshed.Extra = region.Marker.Extra
+
 		// Alignment comes from the region's own opening marker rather than
 		// from the anchor, so a run refreshing a region's contents does not
 		// silently re-lay-out one whose surroundings have moved.
-		rendered, err := renderRegion(inv, marker, indentAt(content, region.Start))
+		rendered, err := renderRegion(inv, refreshed, indentAt(content, region.Start))
 		if err != nil {
 			return "", result, err
 		}
