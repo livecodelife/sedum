@@ -1,0 +1,74 @@
+id: prov-2026-5696ff65
+title: Template matching belongs to Phase 2, not Phase 3
+status: open
+created_at: "2026-08-13"
+author: calebcowen@gmail.com
+intent: |
+  The PRD describes file template matching twice, in two places that cannot both
+  be implemented.
+
+  Phase 3 is written as "match it against its package's files/ tree, bind
+  captured segments, render the matched template, and write the file" - all four
+  steps in one phase. But the stop-point table says that halting at
+  `resolution`, which is after Phase 2, makes available "every authorized path
+  with its resolved package, matched file template, and bound captures. Nothing
+  written."
+
+  If matching happens in Phase 3, stopping after Phase 2 cannot report a matched
+  template, and `--stop-after resolution` loses most of what it exists to show.
+  So the table decides it: matching is Phase 2's.
+
+  This is the better boundary independently of which sentence came first.
+  Resolving a path to a package and resolving it to a template are the same kind
+  of work - pure functions over the loaded packages and the authorized path set,
+  producing decisions and touching nothing. Splitting them puts half the pure
+  work on the far side of the only phase that writes to disk. Keeping them
+  together leaves Phase 3 with exactly one job, rendering and creating, which
+  makes "nothing written before this point" a property of the phase boundary
+  rather than of a flag.
+
+  It is also what makes `sedum resolve` a read-only inspection tool over the
+  same code path a real run takes, rather than a second implementation of
+  matching that reports what the real one would have done.
+
+  M3's blueprint (prov-2026-1a1a9b52) restates the PRD's Phase 3 wording and is
+  superseded on this point by this imprint. The phases keep their names and
+  their order; what moves is one step across the boundary between them.
+
+  Rendering stays in Phase 3, including for --show-template. A rendered template
+  is what would be written, so producing it is the writing phase's business run
+  with writing suppressed.
+constraints:
+  - >-
+    Phase 2 resolves each authorized path to a package, to a file template, and
+    to the captures that template binds. It is pure: no file is read from the
+    output tree and none is written.
+  - >-
+    Phase 3 renders and creates. It is the only phase in this milestone that
+    touches the output tree.
+  - >-
+    Everything --stop-after resolution promises to show is available without
+    running Phase 3 at all.
+  - >-
+    Rendering remains Phase 3's, run with writing suppressed when the caller
+    only wants to see the output.
+affected_scope:
+  - internal/resolve/**
+forbidden_scope: []
+type: imprint
+implements: prov-2026-1a1a9b52
+supersedes: ""
+superseded_by: ""
+related:
+  - prov-2026-86a21f53
+  - prov-2026-f51f04b2
+sealed_at_sha: ""
+associated_specs:
+  - path: internal/resolve/resolve_test.go
+    run_command: go test -count=1 ./$(dirname {{path}})
+associated_traces: []
+monitors: []
+tags:
+  - sedum
+  - m3
+  - resolution
