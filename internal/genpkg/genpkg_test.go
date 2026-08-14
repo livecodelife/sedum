@@ -671,3 +671,53 @@ func TestTestdataGeneratorsAreValid(t *testing.T) {
 		t.Errorf("testdata/generators holds %d packages, want at least 2 so that more than one stack is exercised", len(set.Packages))
 	}
 }
+
+// A finding about a file template must name the file that contains the problem.
+// Sorting the patterns while leaving the contents in walk order paired them by
+// index across two different orderings, which agree until a file and a
+// directory share a prefix: '.' sorts before '/', but a walk descends into the
+// directory first (prov-2026-11af2675).
+func TestFileTemplateFindingsNameTheFileTheyCameFrom(t *testing.T) {
+	files := validPackage()
+	files["rails/files/app.rb"] = "{{name|nosuchpipeline}}\n"
+	files["rails/files/app/x.rb"] = "plain text with no expressions\n"
+
+	_, findings := loadTree(t, files)
+
+	var named []string
+	for _, f := range findings {
+		if strings.Contains(f.Message, "nosuchpipeline") {
+			named = append(named, f.File)
+		}
+	}
+	if len(named) == 0 {
+		t.Fatalf("the undefined pipeline went unreported: %v", findings)
+	}
+	for _, file := range named {
+		if file != "files/app.rb" {
+			t.Errorf("undefined pipeline in files/app.rb reported against %s", file)
+		}
+	}
+}
+
+// Phase 3 renders the template a path matched, so it looks contents up by
+// pattern rather than by position.
+func TestFileTemplateContentsAreAddressableByPattern(t *testing.T) {
+	set, findings := loadTree(t, validPackage())
+	if len(findings) != 0 {
+		t.Fatalf("valid package reported findings: %v", findings)
+	}
+
+	pkg, ok := set.Lookup("rails")
+	if !ok {
+		t.Fatal("rails did not load")
+	}
+	for _, pattern := range pkg.FileTemplates {
+		if _, ok := pkg.FileTemplate(pattern); !ok {
+			t.Errorf("file template %q has no contents", pattern)
+		}
+	}
+	if _, ok := pkg.FileTemplate("files/does/not/exist.rb"); ok {
+		t.Error("a pattern the package does not ship reported contents")
+	}
+}

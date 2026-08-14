@@ -144,6 +144,20 @@ type Package struct {
 	// relative to files/. Each template's own path is its pattern. They are
 	// not part of the action catalog and are never loaded as actions.
 	FileTemplates []string
+
+	// fileContents holds what each of those templates contains, keyed by
+	// pattern. Loading has already read every one of them to check the
+	// transforms they reference, and Phase 3 renders them; re-reading at
+	// generation time would mean a package could change shape between the
+	// point it was declared valid and the point it was used.
+	fileContents map[string]string
+}
+
+// FileTemplate returns the contents of the file template with the given
+// pattern.
+func (p *Package) FileTemplate(pattern string) (string, bool) {
+	content, ok := p.fileContents[pattern]
+	return content, ok
 }
 
 // Exposed returns the actions a catalog may show, in no particular order.

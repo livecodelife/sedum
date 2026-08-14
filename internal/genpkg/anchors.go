@@ -43,17 +43,36 @@ func markerDecl(commentPrefix, name string) string {
 	return commentPrefix + " sedum:anchor:" + name
 }
 
-// plantedMarkers returns every marker name planted across the package's file
-// template contents.
-func plantedMarkers(commentPrefix string, contents []string) map[string]bool {
+// MarkersIn returns the marker names planted in one piece of template text,
+// in the order they appear, without repeats.
+//
+// It is exported because Phase 3 reads it back: a file that already exists is
+// checked for the markers its template plants rather than re-rendered over. The
+// marker's shape is declared here and nowhere else, so that a change to it
+// cannot leave the writer and the reader disagreeing.
+func MarkersIn(commentPrefix, content string) []string {
 	// The prefix is author-supplied, so it is escaped rather than
 	// interpolated into a pattern.
 	re := regexp.MustCompile(regexp.QuoteMeta(markerDecl(commentPrefix, "")) + `([A-Za-z0-9_.-]+)`)
 
+	var out []string
+	seen := map[string]bool{}
+	for _, m := range re.FindAllStringSubmatch(content, -1) {
+		if !seen[m[1]] {
+			seen[m[1]] = true
+			out = append(out, m[1])
+		}
+	}
+	return out
+}
+
+// plantedMarkers returns every marker name planted across the package's file
+// template contents.
+func plantedMarkers(commentPrefix string, contents []string) map[string]bool {
 	out := map[string]bool{}
 	for _, c := range contents {
-		for _, m := range re.FindAllStringSubmatch(c, -1) {
-			out[m[1]] = true
+		for _, name := range MarkersIn(commentPrefix, c) {
+			out[name] = true
 		}
 	}
 	return out

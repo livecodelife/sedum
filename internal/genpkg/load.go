@@ -195,6 +195,7 @@ func loadPackage(dir, dirName string) (*Package, Findings, error) {
 		return nil, nil, err
 	}
 	pkg.FileTemplates = fileTemplates.patterns
+	pkg.fileContents = fileTemplates.contents
 
 	// Actions are built before their templates are resolved, because the
 	// declared shape is what says where to look.
@@ -206,7 +207,7 @@ func loadPackage(dir, dirName string) (*Package, Findings, error) {
 	}
 
 	checkTemplates(pkg, fileTemplates.contents, actionTemplates, r)
-	checkMarkerAnchors(pkg, fileTemplates.contents, r)
+	checkMarkerAnchors(pkg, fileTemplates.bodies(), r)
 	checkDeadConfig(pkg, r)
 
 	if r.hasErrors() {
@@ -276,15 +277,30 @@ func strictUnmarshal(data []byte, into any) error {
 }
 
 // fileTemplateSet is the patterns under files/ and the contents behind them.
-// The contents are kept because two checks read them: transform references and
-// planted markers.
+// The contents are kept because two checks read them - transform references and
+// planted markers - and because Phase 3 renders them.
+//
+// Contents are keyed by pattern rather than held in a parallel slice. The
+// patterns are sorted so findings do not depend on directory order, while a
+// walk is depth-first over each directory's entries, and the two orders diverge
+// as soon as a file and a directory share a prefix (prov-2026-11af2675).
 type fileTemplateSet struct {
 	patterns []string
-	contents []string
+	contents map[string]string
+}
+
+// bodies returns the template contents in pattern order, for the checks that
+// read every template without caring which is which.
+func (s fileTemplateSet) bodies() []string {
+	out := make([]string, 0, len(s.patterns))
+	for _, p := range s.patterns {
+		out = append(out, s.contents[p])
+	}
+	return out
 }
 
 func loadFileTemplates(dir string, r *reporter) (fileTemplateSet, error) {
-	var out fileTemplateSet
+	out := fileTemplateSet{contents: map[string]string{}}
 
 	root := filepath.Join(dir, filesDirName)
 	if _, err := os.Stat(root); errors.Is(err, fs.ErrNotExist) {
@@ -308,8 +324,9 @@ func loadFileTemplates(dir string, r *reporter) (fileTemplateSet, error) {
 		if err != nil {
 			return err
 		}
-		out.patterns = append(out.patterns, filepath.ToSlash(rel))
-		out.contents = append(out.contents, string(data))
+		pattern := filepath.ToSlash(rel)
+		out.patterns = append(out.patterns, pattern)
+		out.contents[pattern] = string(data)
 		return nil
 	})
 	if err != nil {

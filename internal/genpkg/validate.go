@@ -237,7 +237,7 @@ func checkFileTemplatePatterns(patterns []string, r *reporter) {
 // A well-formed reference to a transform that does not exist is the other. That
 // is a hard error at load rather than at render because a package that cannot
 // render is broken whether or not a given run happens to reach the template.
-func checkTemplates(pkg *Package, fileTemplates []string, actionTemplates map[string]string, r *reporter) {
+func checkTemplates(pkg *Package, fileTemplates map[string]string, actionTemplates map[string]string, r *reporter) {
 	report := func(file string, source string, text string) {
 		exprs, problems := render.Parse(text)
 		for _, problem := range problems {
@@ -267,9 +267,9 @@ func checkTemplates(pkg *Package, fileTemplates []string, actionTemplates map[st
 	for _, path := range sortedKeys(actionTemplates) {
 		report(path, "template "+path, actionTemplates[path])
 	}
-	for i, pattern := range pkg.FileTemplates {
+	for _, pattern := range pkg.FileTemplates {
 		rel := filepath.ToSlash(filepath.Join(filesDirName, pattern))
-		report(rel, "file template "+pattern, fileTemplates[i])
+		report(rel, "file template "+pattern, fileTemplates[pattern])
 		// The pattern itself may carry transforms in its segments.
 		report(rel, "file template path "+pattern, pattern)
 	}
