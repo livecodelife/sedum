@@ -205,6 +205,7 @@ func loadPackage(dir, dirName string) (*Package, Findings, error) {
 	if err != nil {
 		return nil, nil, err
 	}
+	pkg.actionContents = actionTemplates
 
 	checkTemplates(pkg, fileTemplates.contents, actionTemplates, r)
 	checkMarkerAnchors(pkg, fileTemplates.bodies(), r)

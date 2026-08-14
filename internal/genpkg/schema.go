@@ -151,12 +151,27 @@ type Package struct {
 	// generation time would mean a package could change shape between the
 	// point it was declared valid and the point it was used.
 	fileContents map[string]string
+
+	// actionContents holds what each action template contains, keyed by its
+	// path relative to the package directory - the same key Action.Template
+	// and Action.Templates carry. It is kept for the same reason
+	// fileContents is: Phase 6 renders these, loading has already read them,
+	// and re-reading would reopen the window between validation and use.
+	actionContents map[string]string
 }
 
 // FileTemplate returns the contents of the file template with the given
 // pattern.
 func (p *Package) FileTemplate(pattern string) (string, bool) {
 	content, ok := p.fileContents[pattern]
+	return content, ok
+}
+
+// ActionTemplate returns the contents of the action template at the given path,
+// which is what Action.Template holds for a simple action and what an entry of
+// Action.Templates holds for a discriminated one.
+func (p *Package) ActionTemplate(path string) (string, bool) {
+	content, ok := p.actionContents[path]
 	return content, ok
 }
 
