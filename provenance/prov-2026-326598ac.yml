@@ -1,6 +1,6 @@
 id: prov-2026-326598ac
 title: The _default file template is chosen by the target path's extension
-status: open
+status: implemented
 created_at: "2026-08-13"
 author: calebcowen@gmail.com
 intent: |
@@ -59,7 +59,7 @@ supersedes: ""
 superseded_by: ""
 related:
   - prov-2026-f51f04b2
-sealed_at_sha: ""
+sealed_at_sha: 5f71172e23309217c67b0fe975d6db8457ef708f
 associated_specs:
   - path: internal/resolve/resolve_test.go
     run_command: go test -count=1 ./$(dirname {{path}})
