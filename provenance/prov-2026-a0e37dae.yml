@@ -1,0 +1,88 @@
+id: prov-2026-a0e37dae
+title: An expanded child owns its region under its own name
+status: draft
+created_at: "2026-08-14"
+author: calebcowen@gmail.com
+intent: |
+  M5's blueprint says that after expansion a composite is indistinguishable from
+  a list of simple invocations and that downstream phases contain no
+  composite-aware branches. It does not say what the resulting regions are called
+  on disk, and the marker is the one artifact this project cannot revise later
+  without migrating generated codebases (prov-2026-36c8a99c). So it is decided
+  here rather than falling out of whichever field the expansion code happens to
+  copy.
+
+  A child's ownership marker names the child. The composite's name is not written
+  anywhere in the generated file.
+
+  The rejected alternative is to name the composite as the action and the child
+  as the variant. It reads well - the region says which selection produced it -
+  and it is wrong three times over. A marker would name an action that has no
+  template, so a reader who went looking for the source of a region would find
+  nothing. Variant would mean a discriminator value in one region and a child
+  name in another, which forecloses composing a discriminated child, where the
+  slot is already spoken for. And matching would need to know whether an action
+  is a composite before it could decide what a region's identity is, which is the
+  composite-aware downstream branch the blueprint rules out.
+
+  What naming the child buys, given that identity is the action, the variant, and
+  the selecting kwargs:
+
+    - Two composites sharing a child, invoked with the same selecting kwargs,
+      address the same region rather than minting two. That is correct, not a
+      collision: content is a pure function of template and kwargs, so both
+      would have written the same bytes. The second replaces the first in place
+      exactly as a repeated simple invocation does.
+    - Moving a child out of a composite and invoking it directly - or the
+      reverse - lands on the region that is already there. Reorganizing a
+      package's composites does not orphan regions or duplicate them, because
+      the composite was never part of what the region is.
+    - A child that is also exposed, which the PRD permits, cannot produce a
+      different region depending on which way it was reached.
+
+  Selection is still recorded, just not in the generated file. A recording holds
+  invocations pre-expansion, so the composite is what an author reads and edits
+  in M7, while the file records what was rendered into it. The two artifacts
+  answer different questions and neither needs to carry the other's answer.
+
+  Diagnostics are the one place both names appear. An expansion failure names
+  the composite and the child, because the child is where the defect is and the
+  composite is the invocation the author has to fix - the child may not even be
+  exposed, so naming it alone would report a fault in something the author
+  cannot see having invoked. This is not in tension with the marker: one
+  explains a failure to a person reading it now, the other is a durable fact
+  about a file.
+constraints:
+  - >-
+    A child's ownership marker names the child action. The composite's name is
+    never written into a generated file.
+  - >-
+    Region identity is unchanged by expansion: the action, the variant, and the
+    selecting kwargs, per prov-2026-36c8a99c. Whether an invocation arrived
+    directly or through a composite takes no part in matching.
+  - >-
+    Variant on a marker always means a discriminator value. A child's position
+    in a composite is not a variant.
+  - >-
+    An expansion diagnostic names both the composite and the child, because the
+    invocation the author must fix is the composite and the child may be
+    unexposed.
+affected_scope:
+  - internal/expand/**
+forbidden_scope: []
+type: imprint
+implements: prov-2026-fef25a79
+supersedes: ""
+superseded_by: ""
+related:
+  - prov-2026-36c8a99c
+sealed_at_sha: ""
+associated_specs:
+  - path: internal/expand/expand_test.go
+    run_command: go test -count=1 ./$(dirname {{path}})
+associated_traces: []
+monitors: []
+tags:
+  - sedum
+  - m5
+  - composites
