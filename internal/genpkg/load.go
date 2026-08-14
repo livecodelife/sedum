@@ -209,6 +209,7 @@ func loadPackage(dir, dirName string) (*Package, Findings, error) {
 
 	checkTemplates(pkg, fileTemplates.contents, actionTemplates, r)
 	checkMarkerAnchors(pkg, fileTemplates.bodies(), r)
+	checkMarkersFilled(pkg, fileTemplates.bodies(), r)
 	checkDeadConfig(pkg, r)
 
 	if r.hasErrors() {

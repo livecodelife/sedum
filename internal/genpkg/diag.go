@@ -56,6 +56,7 @@ const (
 	RuleActionNameReserved = "action_name_reserved"
 
 	RuleAnchorUnplanted       = "anchor_marker_unplanted"
+	RuleMarkerUnfilled        = "anchor_marker_unfilled"
 	RuleAnchorPatternLineMode = "anchor_pattern_line_mode"
 	RuleActionDead            = "action_dead"
 )

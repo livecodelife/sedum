@@ -24,3 +24,11 @@ actions:
       name: { type: string, required: true }
     injects_into: "app/models/{{name|snake}}.rb"
     anchor: class_body
+
+  # _default.rb plants start_of_body, so something has to be able to fill it.
+  addFileHeader:
+    kwargs:
+      name: { type: string, required: true }
+      note: { type: string, required: true }
+    injects_into: "config/initializers/{{name|snake}}.rb"
+    anchor: start_of_body

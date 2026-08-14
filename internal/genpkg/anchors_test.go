@@ -183,3 +183,87 @@ func TestLineAnchorDetection(t *testing.T) {
 		}
 	}
 }
+
+// The mirror of the check above: an action naming a marker nothing plants is a
+// typo, and a marker nothing names is an injection point nothing can reach
+// (prov-2026-a9e59197). Both are dead configuration, and both warn.
+func TestMarkerNoActionTargetsWarns(t *testing.T) {
+	// class_body_top is planted by the controller template and targeted by
+	// addBeforeFilter. Dropping that action leaves the marker with nothing
+	// that can fill it.
+	files := mutated(map[string]*string{
+		"rails/actions/actions.yaml": text(`actions:
+  createControllerMethod:
+    kwargs:
+      controller: { type: string, required: true }
+      name: { type: string, required: true }
+      collection: { type: string, required: false }
+    discriminator: name
+    variants: [index, show]
+    injects_into: "app/controllers/{{controller|snake}}_controller.rb"
+    anchor: class_body
+`),
+		"rails/actions/addBeforeFilter.rb": nil,
+	})
+
+	_, findings := loadTree(t, files)
+
+	f := findingFor(t, findings, RuleMarkerUnfilled)
+	if f.Kind != KindWarning {
+		t.Errorf("unfilled marker reported as %s, want warning", f.Kind)
+	}
+	if !strings.Contains(f.Message, "class_body_top") {
+		t.Errorf("diagnostic does not name the marker: %s", f.Message)
+	}
+	if findings.HasErrors() {
+		t.Error("an unfilled marker rejected the package; it is usable and the author may be mid-edit")
+	}
+	// --strict is the existing answer for a team that wants it enforced,
+	// which is why the check ships without a suppression list.
+	if !findings.Strict().HasErrors() {
+		t.Error("--strict did not promote the unfilled marker to an error")
+	}
+}
+
+// A region anchor names its markers through anchor_start and anchor_end. Not
+// reading those would report both endpoints of every region as unfilled, which
+// would train authors to ignore the warning.
+func TestRegionEndpointsCountAsTargeted(t *testing.T) {
+	files := mutated(map[string]*string{
+		"rails/actions/actions.yaml": text(`actions:
+  addBetween:
+    kwargs:
+      controller: { type: string, required: true }
+    injects_into: "app/controllers/{{controller|snake}}_controller.rb"
+    anchor: region
+    anchor_start: class_body_top
+    anchor_end: class_body
+`),
+		"rails/actions/addBetween.rb":                      text("# between\n"),
+		"rails/actions/addBeforeFilter.rb":                 nil,
+		"rails/actions/createControllerMethod/index.rb":    nil,
+		"rails/actions/createControllerMethod/show.rb":     nil,
+		"rails/actions/createControllerMethod/_default.rb": nil,
+	})
+
+	_, findings := loadTree(t, files)
+
+	for _, f := range findings {
+		if f.Rule == RuleMarkerUnfilled {
+			t.Errorf("a marker reached through a region anchor was reported unfilled: %s", f.Message)
+		}
+	}
+}
+
+// The valid package plants nothing it cannot fill, so the check is silent on
+// it. This is what keeps the warning meaningful: it fires on a real gap rather
+// than on every package that ships a _default template.
+func TestFilledMarkersAreSilent(t *testing.T) {
+	_, findings := loadTree(t, validPackage())
+
+	for _, f := range findings {
+		if f.Rule == RuleMarkerUnfilled {
+			t.Errorf("a package whose markers are all targeted warned: %s", f.Message)
+		}
+	}
+}

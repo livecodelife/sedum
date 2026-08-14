@@ -34,7 +34,10 @@ transforms:
 		"rails/files/app/controllers/{name}_controller.rb": "class {{name|constantize}}Controller\n" +
 			"  # sedum:anchor:class_body_top\n\n  # sedum:anchor:class_body\nend\n",
 		"rails/files/app/models/{name}.rb": "class {{name|constantize}}\nend\n",
-		"rails/files/_default.rb":          "# sedum:anchor:top\n",
+		// No anchor: a _default template is boilerplate for paths no other
+		// template claims, and a marker here would be an injection point no
+		// action in this package targets.
+		"rails/files/_default.rb": "# generated\n",
 		"rails/actions/actions.yaml": `actions:
   addBeforeFilter:
     kwargs:
@@ -204,7 +207,7 @@ func TestExtensionMap(t *testing.T) {
 	// --lang flag disambiguates, which is a resolution concern, not a
 	// loading one.
 	files["sinatra/sedum.yaml"] = "name: sinatra\nextensions: [\".rb\"]\ncomment_prefix: \"#\"\n"
-	files["sinatra/files/_default.rb"] = "# sedum:anchor:top\n"
+	files["sinatra/files/_default.rb"] = "# generated\n"
 	files["sinatra/actions/actions.yaml"] = "actions: {}\n"
 
 	set, findings := loadTree(t, files)

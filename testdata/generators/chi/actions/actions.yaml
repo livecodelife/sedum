@@ -19,3 +19,14 @@ actions:
     injects_into: "internal/handlers/{{resource|snake}}.go"
     anchor: end_of_file
     exposed: false
+
+  # The imports anchor a file template plants has to have an action that fills
+  # it, or the marker is an injection point nothing can reach. The import path
+  # is the argument: which files exist is the package's business, which package
+  # to import is the caller's.
+  addImport:
+    kwargs:
+      resource: { type: string, required: true }
+      path: { type: string, required: true }
+    injects_into: "internal/handlers/{{resource|snake}}.go"
+    anchor: imports

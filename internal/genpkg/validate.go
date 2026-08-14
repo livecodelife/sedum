@@ -371,6 +371,52 @@ func checkMarkerAnchors(pkg *Package, fileTemplates []string, r *reporter) {
 	}
 }
 
+// checkMarkersFilled warns when a file template plants a marker no action in
+// the package targets.
+//
+// It is the mirror of checkMarkerAnchors, and the same defect checkDeadConfig
+// reports about actions: an action nothing can invoke is dead configuration,
+// and so is an injection point nothing can fill. A file generated from such a
+// template carries a hole where an action was expected, and the package
+// validates clean, so the gap surfaces wherever the generated code is first
+// built or run - which is the expensive place.
+//
+// Unlike checkMarkerAnchors this check is complete. Verifying that an action's
+// marker exists cannot be, because template selection is path-dependent and the
+// template carrying the marker may never be chosen. Verifying that a marker is
+// targeted compares two sets that are both fully known at load, with no path
+// involved.
+//
+// A warning rather than an error, with no way to suppress it, for the reasons
+// the dead-action warning has neither: the package is usable, the author may be
+// mid-edit, and the way to silence it is to write the action - the same answer
+// Sedum gives everywhere it asks for a declaration rather than inferring one.
+func checkMarkersFilled(pkg *Package, fileTemplates []string, r *reporter) {
+	targeted := map[string]bool{}
+	for _, action := range pkg.Actions {
+		if marker, ok := action.MarkerAnchor(); ok {
+			targeted[marker] = true
+		}
+		// A region anchor names its endpoints through anchor_start and
+		// anchor_end rather than anchor. Missing them would report every
+		// region's endpoints as unfilled.
+		if action.Anchor == AnchorRegion {
+			targeted[action.AnchorStart] = true
+			targeted[action.AnchorEnd] = true
+		}
+	}
+
+	planted := plantedMarkers(pkg.CommentPrefix, fileTemplates)
+	for _, marker := range sortedKeys(planted) {
+		if targeted[marker] {
+			continue
+		}
+		r.warnf(filesDirName, RuleMarkerUnfilled,
+			"file templates plant marker %q, which no action in this package targets; nothing can inject there, so every file carrying it is generated with the anchor unused",
+			marker)
+	}
+}
+
 // checkDeadConfig warns about an action that is neither exposed to the model
 // nor reachable through a composite, which is almost always a rename that
 // missed a call site.
