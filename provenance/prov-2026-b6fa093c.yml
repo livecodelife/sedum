@@ -22,11 +22,24 @@ intent: |
   comment_prefix, since #, //, and -- all appear across targets.
 
   Every injected region is wrapped in ownership markers naming the action that
-  produced it, the ownership tier, and the kwargs it was rendered from:
+  produced it, the ownership tier, the record that last parameterized it, and
+  the kwargs it was rendered from:
 
-    # sedum:createControllerMethod:index owned {"controller":"users"}
+    # sedum:createControllerMethod:index {"tier":"owned","record":"PR-014","kwargs":{"controller":"users"}}
     ...
     # /sedum:createControllerMethod:index
+
+  The action and variant stay literal on the line because they are the audit
+  trail, and grepping only works if it is grep rather than a parser. Everything
+  else is one JSON object rather than positional fields, because the parser has
+  to ignore fields it does not recognize and default the ones that are absent
+  (prov-2026-36c8a99c). Positional slots would make every field added later a
+  migration across every repository already carrying markers; an object makes
+  it an addition, which is the whole reason tier and kwargs are front-loaded.
+
+  Anchor declarations planted by file templates share the "sedum:" namespace
+  with ownership markers, so the reader tells the two apart. The consequence is
+  that "anchor" is not available as an action name.
 
   Re-running replaces the region an action owns rather than appending beside it,
   which makes reruns and partial regeneration safe with no sidecar cache and no
