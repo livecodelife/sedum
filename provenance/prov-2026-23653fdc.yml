@@ -1,0 +1,73 @@
+id: prov-2026-23653fdc
+title: A dry run injects into what Phase 3 would have written
+status: open
+created_at: "2026-08-14"
+author: calebcowen@gmail.com
+intent: |
+  --dry-run runs every phase and writes nothing. Until the pipeline reached
+  Phase 7 that was almost free, because the phases that decide things do not
+  touch disk. Phase 7 does: it reads the file it is injecting into, and under a
+  dry run that file was never created.
+
+  Reading it and failing would make --dry-run report a missing file for every
+  path the same run just said it would create, which is not a dry run of
+  anything. The fix is to give Phase 7 what Phase 3 rendered: the pipeline
+  passes the template output for the files it did not write, and injection
+  consults it only for a path that is not on disk.
+
+  Consulted only when the path is absent, which is the part worth stating. A
+  real run has every created file on disk, so the map is never read and the two
+  runs execute the same code. A dry run against a tree where some files already
+  exist reads those from disk and takes the rendered template for the rest,
+  which is what makes its report accurate: a file carrying regions from an
+  earlier run reports a replacement, and a file that would be new reports a
+  first injection. Preferring the rendered template would erase the existing
+  regions from the report and describe a run nobody asked for.
+
+  A path in neither place is still a hard error, unchanged. That is the case
+  where a record named an implementation file and forgot its companion, and a
+  dry run should fail on it exactly as a real run does - it is most of the value
+  of running one.
+
+  The alternative was to write to a temporary tree and inject there. It gets the
+  same answer, and it means a dry run's correctness depends on cleanup, on
+  filesystem permissions, and on a path the diagnostics would then have to
+  translate back. Passing the content Phase 3 already has in memory has none of
+  that, and it keeps "write nothing" literally true.
+constraints:
+  - >-
+    Injection consults the unwritten-content map only for a path that is not on
+    disk. An existing file is always read from disk, so a dry run reports
+    replacements against what is really there.
+  - >-
+    A path in neither the map nor on disk remains a hard error naming the file.
+    A record that forgot a companion file must fail a dry run exactly as it
+    fails a real one.
+  - >-
+    A real run never reads the map, because every file it created is on disk.
+    Dry and wet runs execute one code path, and the map is what changes rather
+    than the logic around it.
+  - >-
+    Nothing is written under --dry-run, including temporary trees. "Write
+    nothing" is literal.
+affected_scope:
+  - internal/inject/**
+  - internal/pipeline/**
+forbidden_scope: []
+type: imprint
+implements: prov-2026-f095e19f
+supersedes: ""
+superseded_by: ""
+related: []
+sealed_at_sha: ""
+associated_specs:
+  - path: internal/inject/inject_test.go
+    run_command: go test -count=1 ./$(dirname {{path}})
+  - path: internal/pipeline/pipeline_test.go
+    run_command: go test -count=1 ./$(dirname {{path}})
+associated_traces: []
+monitors: []
+tags:
+  - sedum
+  - m6
+  - dry-run
