@@ -57,6 +57,44 @@ func TestMarkerRoundTrips(t *testing.T) {
 	}
 }
 
+// A marker records what the region was rendered from, verbatim. encoding/json
+// escapes &, < and > by default, which would record a Go address-of expression
+// or a C++ template argument as a run of escapes on a line meant to be read.
+func TestKwargsAreRecordedUnescaped(t *testing.T) {
+	m := Marker{Action: "createQuery", Variant: "insert", Kwargs: map[string]any{
+		"scan_targets": "&t.ID, &t.Title",
+		"bound":        "map[string]Handler<T>",
+	}}
+
+	open, err := m.Open("//")
+	if err != nil {
+		t.Fatalf("Open: %v", err)
+	}
+
+	for _, want := range []string{`&t.ID, &t.Title`, `map[string]Handler<T>`} {
+		if !strings.Contains(open, want) {
+			t.Errorf("marker does not carry %q verbatim:\n%s", want, open)
+		}
+	}
+	for _, escape := range []string{`\u0026`, `\u003c`, `\u003e`} {
+		if strings.Contains(open, escape) {
+			t.Errorf("marker carries the HTML escape %s:\n%s", escape, open)
+		}
+	}
+
+	// The marker still has to be one line, and still has to read back.
+	if strings.Contains(open, "\n") {
+		t.Errorf("marker spans more than one line:\n%s", open)
+	}
+	parsed, ok, err := parseOpen("//", open)
+	if err != nil || !ok {
+		t.Fatalf("parseOpen = %v, %v", ok, err)
+	}
+	if parsed.Kwargs["scan_targets"] != "&t.ID, &t.Title" {
+		t.Errorf("kwargs did not round-trip: %v", parsed.Kwargs)
+	}
+}
+
 // A simple action has no variant, so its label is the action alone rather than
 // an action with an empty variant hanging off it.
 func TestMarkerWithoutVariant(t *testing.T) {

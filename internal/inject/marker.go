@@ -105,16 +105,30 @@ func (m Marker) Label() string {
 }
 
 // Open renders the opening marker line, without a trailing newline.
+//
+// HTML escaping is turned off. encoding/json escapes &, < and > by default,
+// which is meant for JSON embedded in a web page and is wrong here: a kwarg
+// holding "&t.ID" would be recorded as a & escape, and a Go generic bound
+// or a C++ template argument would fare worse. The escaped form round-trips
+// correctly, so nothing breaks - but a marker is read by people and by grep,
+// and it should say what the region was rendered from.
 func (m Marker) Open(commentPrefix string) (string, error) {
-	encoded, err := json.Marshal(attrs{
+	var buf bytes.Buffer
+
+	encoder := json.NewEncoder(&buf)
+	encoder.SetEscapeHTML(false)
+	if err := encoder.Encode(attrs{
 		Tier:   m.tierOrDefault(),
 		Record: m.Record,
 		Kwargs: m.Kwargs,
-	})
-	if err != nil {
+	}); err != nil {
 		return "", fmt.Errorf("action %s: kwargs cannot be recorded on a marker: %w", m.Label(), err)
 	}
-	return commentPrefix + " " + openKeyword + m.Label() + " " + string(encoded), nil
+
+	// Encode terminates the value with a newline, which would split the
+	// marker across two lines.
+	encoded := strings.TrimRight(buf.String(), "\n")
+	return commentPrefix + " " + openKeyword + m.Label() + " " + encoded, nil
 }
 
 // Close renders the closing marker line, without a trailing newline.
