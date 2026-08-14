@@ -555,6 +555,62 @@ Both modes are legitimate. A team replaying a recording against the records that
 
 ---
 
+## The Integration Surface
+
+Sedum is a component. Tools will be built on top of it — a loop that drives generation, verifies the result, and repairs what did not converge is the obvious one, and Sedum is deliberately not that tool.
+
+This section states what such a tool may depend on.
+
+> **Everything a tool built on Sedum needs is derivable from artifacts on disk. Sedum exposes no runtime API, and nothing links against Sedum.**
+
+### The supported surface
+
+Four things, three of them file formats and one a command.
+
+| Surface | Direction | Who else authors it |
+|---|---|---|
+| **Ownership markers** | read; written within the rules below | Sedum writes them |
+| **Generator package** (`sedum.yaml`, `actions.yaml`, templates) | read | users author them |
+| **Recording** (JSON) | **written** and read | Sedum can write them too |
+| **`sedum grow --execute`** | invoked | — |
+
+Everything else — Sedum's packages, its internal vocabulary, the run log's shape, the `--stop-after` phase names — is internal and may change.
+
+Four questions, and what answers each:
+
+**"What exists?"** Grep the markers. Enumerating what has been generated, with which action, variant, and arguments, is a filesystem walk that requires nothing from Sedum's process.
+
+**"Could this be fixed deterministically?"** Read `actions.yaml`, render each action's `injects_into` against the kwargs already recorded on the marker, and compare the result to the region in the file. Forward rendering and comparison, never inversion — `snake` and `plural` are not invertible, and no part of this surface may imply otherwise. It works only because the kwargs are recorded on the marker, which is what makes that decision load-bearing rather than merely convenient.
+
+**"Do it."** Synthesise a recording containing exactly the invocations wanted and `--execute` it. A caller doing its own selection never touches Phase 4 at all. `--record --dry-run` gives the other direction: Sedum's selection, captured, with nothing written.
+
+**"What did Sedum decline to do?"** The `unmanaged` patterns are in `sedum.yaml`, which is already being read. A path Sedum skipped is reported by the run and derivable from the package.
+
+### The recording is an input format
+
+The recording is not only a capture artifact. It is the way a caller tells Sedum what to do without a model in the loop, and replay's semantics are already right for that: **validation is identical to model-output validation, but failures are terminal.** A recording naming an action that does not exist, omitting a required kwarg, or targeting an unauthorized path fails exactly the checks a model response would fail, and the run halts rather than re-prompting — because there is nothing to re-prompt.
+
+That is a submission protocol, not merely a convenience for hand-editing.
+
+### Direction of control
+
+A tool built on Sedum sits **above** it, not after it. It calls Sedum; Sedum never calls it.
+
+There is no callback, no hook, and no plugin point anywhere in the pipeline. Adding one would invert the direction and make Sedum's guarantees depend on code it does not control — every phase after model invocation is deterministic precisely because nothing foreign runs inside it.
+
+This is also what keeps Sedum independently runnable. Committing a recording as a standard service scaffold and replaying it needs no harness, no container, and no model server, and nothing in this section may make one a precondition.
+
+### What a foreign writer may not do
+
+Sedum tolerates other writers in the files it generates. The tolerance has limits, and they are stated here rather than discovered, because an unwritten constraint's first breakage looks like a Sedum bug.
+
+- **Do not remove or relocate a marker a file template planted.** Anchors exist because a template created them; moving one breaks the injection that targets it, and Phase 7 reports a missing anchor rather than guessing.
+- **Do not reorder regions within a file.** Repeated injections at one anchor accumulate in invocation order, and reordering them makes a rerun's output differ from its input for reasons Sedum cannot see.
+- **Preserve unknown marker attributes in both directions.** This is the same promise Sedum makes, and it is symmetric: a writer that drops the keys it does not recognise destroys the state of every other writer, Sedum included.
+- **Do not edit an `owned` region and expect the edit to survive.** Demote the region to `seeded` if it has stopped being Sedum's to overwrite. That is what the tier is for, and what the `writer` attribute makes attributable.
+
+---
+
 ## CLI Surface
 
 ### `sedum grow`
@@ -685,9 +741,11 @@ The run log records package resolution, file template matches and captures, the 
 
 **Cross-action value flow.** No action's template may depend on a value produced by another action. Every value comes from the model's bound kwargs or from transforms over them. If this constraint becomes limiting, it is a signal that a planning layer is warranted — a substantially different architecture, not an increment on this one.
 
-**Scanning existing codebases.** Sedum generates into paths it creates. Deriving state from a pre-existing project is out of scope.
+**Structure inference from unmarked source.** Sedum reads structure only where a file template planted a marker. It does not parse a target language, and it does not derive regions, conventions, or injection points from source it did not shape. This is what makes "no parsers anywhere" hold.
 
-**Behavioral verification.** Sedum does not run or grade the code it generates.
+Reading is not inference. Phase 3 reads an existing file to verify its markers are present, and enumerating what has been generated by grepping markers is a supported operation — both read what Sedum wrote, which is the distinction that matters.
+
+**Behavioral verification.** Sedum does not run or grade the code it generates, and does not know whether the result works. A loop that generates, verifies, and repairs is a different tool that calls this one; see *The Integration Surface*.
 
 ---
 
