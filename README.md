@@ -10,16 +10,35 @@ A provenance record declares intent, constraints, and the files a change is auth
 
 ## Status
 
-Sedum is under active development. Package loading, validation, transforms, and template rendering have landed; path resolution, injection, and model invocation have not.
+Sedum is under active development. Everything up to and including file creation
+has landed: package loading and validation, transforms and template rendering,
+record ingestion, path resolution, and scaffolding files from templates.
+Injection and model invocation have not.
 
 | Command | State |
 |---|---|
 | `sedum validate` | Working |
-| `sedum resolve` | Stubbed — exits with a diagnostic naming the milestone that will deliver it |
-| `sedum grow` | Stubbed — flag validation runs, the pipeline does not |
+| `sedum resolve` | Working |
+| `sedum grow` | Working through `--stop-after resolution` and `--stop-after files`. Without a stop point it refuses before touching disk, naming the milestone it is waiting on. |
 | `sedum actions` | Stubbed |
 
-Flag parsing and flag-interdependence checks are live for every command, so an unusable flag combination is rejected today even where the underlying phase is not built. An unimplemented command fails loudly rather than exiting zero on a run that did nothing.
+| Phase | State |
+|---|---|
+| 0 — Load and validate generator packages | Working |
+| 1 — Ingest provenance records | Working |
+| 2 — Resolve paths to packages and templates | Working |
+| 3 — Create files from templates | Working |
+| 4–5 — Model invocation and validation | Not built |
+| 6–7 — Expand and inject | Not built |
+
+So today Sedum will scaffold the files a record authorizes, with their
+boilerplate rendered and their anchors planted, and stop there. The regions
+those anchors mark stay empty until injection lands.
+
+Flag parsing and flag-interdependence checks are live for every command, so an
+unusable flag combination is rejected today even where the underlying phase is
+not built. An unimplemented command fails loudly rather than exiting zero on a
+run that did nothing.
 
 ---
 
@@ -46,7 +65,7 @@ go test ./...
 ```
 
 ```
-2 package(s) loaded, 0 error(s), 0 warning(s)
+3 package(s) loaded, 0 error(s), 0 warning(s)
 ```
 
 Validate a single package, and treat warnings as failures:
@@ -55,6 +74,35 @@ Validate a single package, and treat warnings as failures:
 ./sedum validate --generators ./testdata/generators --package rails --strict
 ```
 
+**See what each authorized path resolves to** — the generator package that
+claims it, the file template that matched, and the captures that template bound.
+Writes nothing.
+
+```sh
+./sedum resolve --generators ./testdata/generators --records ./your-records
+./sedum resolve --generators ./testdata/generators --records ./your-records --show-template
+```
+
+```
+prov-2026-aaaaaaaa
+  app/controllers/users_controller.rb
+    package   rails
+    template  app/controllers/{name}_controller.rb
+    captures  name=users
+```
+
+**Scaffold the files a record authorizes** — every path created with its
+boilerplate rendered and its anchors planted, then stop.
+
+```sh
+./sedum grow --generators ./testdata/generators --records ./your-records \
+             --output ./build --stop-after files
+```
+
+Rerunning is safe and is the ordinary way to resume: Phase 3 is
+create-if-absent, so a second run reports every path as already present and
+rewrites nothing.
+
 **Inspect the command surface** — every command, its flags, and its documented behavior:
 
 ```sh
@@ -62,7 +110,13 @@ Validate a single package, and treat warnings as failures:
 ./sedum grow --help
 ```
 
-`testdata/generators` holds two worked example packages, `rails` and `chi`, covering file templates, discriminated actions, declarative transform pipelines, and exception tables. They are the fastest way to see what a generator package looks like.
+`testdata/generators` holds three worked example packages covering file
+templates, discriminated actions, composites, declarative transform pipelines,
+and exception tables. `rails` and `chi` are the familiar cases. `cairn` is a
+package for a target that does not exist — its own extension, comment prefix,
+pipeline vocabulary, and directory shape, sharing none of them with the others.
+It is there so that "no language knowledge in the core" is a thing the test
+suite checks rather than a thing the README claims.
 
 ---
 
@@ -366,13 +420,17 @@ Packages are wholly valid or rejected. No partial loads.
 
 Read the provenance directory. Parse each record: `intent`, `constraints`, `affected_scope`, `forbidden_scope`. Validate schema conformance. Collect the authorized path set.
 
-### Phase 2 — Resolve paths to packages
+### Phase 2 — Resolve paths to packages and templates
 
 For each authorized path, resolve its extension to a generator package, applying `--lang` where the extension is contested. A path whose extension no package claims is a hard error. A contested extension with no disambiguating flag is a hard error naming both candidate packages.
 
+Then match the path against that package's `files/` tree and bind the captured segments. Matching lives here rather than in Phase 3 because it is pure — it reads the loaded packages and decides, touching nothing — which is what lets `--stop-after resolution` report a matched template and its captures without any phase having written or read a file.
+
 ### Phase 3 — Create files from templates
 
-For each authorized path: match it against its package's `files/` tree, bind captured segments, render the matched template, and write the file. Fall back to `_default`, then to an empty file with a log line.
+For each resolved path: render the matched template against its captures and write the file. Fall back to the package's `_default` for that path's extension, then to an empty file with a log line.
+
+Phase 3 is the only phase in this half of the pipeline that touches the output tree.
 
 **Phase 3 is create-if-absent.** If a path already exists, Sedum does not re-render its template over it — doing so would destroy any injected regions the file already carries. It verifies that the markers the matched template declares are present and moves on. A file that exists but lacks its template's markers is a hard error: something other than Sedum wrote it, or a template changed shape after the file was generated.
 
@@ -464,7 +522,9 @@ The kwargs serialized on the opening marker make a region self-describing. A rea
 
 Nothing currently reads them back. They are written for the same reason the tier field is: markers are durable artifacts, and changing their shape after generated codebases exist is expensive.
 
-Multiple records injecting into the same file is out of scope. If it becomes necessary, the marker gains the record ID and nothing else changes.
+Multiple records injecting into the same file is out of scope for what the current milestones exercise, but the marker carries the record ID from the first generated file — as an attribute, not as part of a region's identity. A region is identified by its action, its variant, and the kwargs it was rendered from; the record ID records who last wrote it. That distinction is what lets a later record refine a region an earlier one produced, rather than minting a second region beside it.
+
+For the same reason the marker parser tolerates fields it does not recognize, and defaults ones that are absent. Sedum owns the marker schema but not time: a marker sits in a generated codebase long after the version that wrote it is gone, so a reader and a writer of the same marker are routinely different versions.
 
 ---
 
@@ -626,7 +686,9 @@ sedum validate --generators ./generators
 
 ### `sedum resolve`
 
-Runs Phases 0 through 3 without invoking the model, and reports what each authorized path resolved to: its package, the file template that matched, and the captures bound. The primary debugging tool for package resolution and template specificity.
+Reports what each authorized path resolved to: its package, the file template that matched, and the captures bound. The primary debugging tool for package resolution and template specificity.
+
+It consults **no output tree**. The only directories it reads are the two it is pointed at, so its answer never depends on where you run it from. `--show-template` renders each matched template, which needs nothing but the template and its captures. To ask instead whether a particular output tree already holds these files and whether their markers are intact, use `grow --stop-after files --dry-run --output <dir>`.
 
 ```
 sedum resolve --generators ./generators --records ./provenance
@@ -684,15 +746,25 @@ The run log records package resolution, file template matches and captures, the 
 ```
 cmd/sedum/            Entry point.
 internal/cli/         Command surface: flags, interdependence checks, config structs.
+internal/pipeline/    Phase ordering and stop points.
 internal/genpkg/      Package loading and every Phase 0 check.
+internal/record/      Provenance record ingestion and the authorized path set.
+internal/resolve/     Path-to-package resolution, template matching, file creation.
 internal/transform/   Built-in operations, declarative pipelines, inflection.
 internal/filetmpl/    File template patterns, matching, and specificity ranking.
 internal/render/      Template rendering with transform pipes.
 internal/runlog/      Run log.
-testdata/generators/  Worked example packages: rails, chi.
+testdata/generators/  Worked example packages: rails, chi, cairn.
 provenance/           Provenance records governing Sedum's own development.
 PRD.md                Product requirements, including the milestone plan.
+OPEN_QUESTIONS.md     Design directions explored but deliberately out of scope.
 ```
+
+Sedum's own development is governed by the provenance records in `provenance/`.
+Every design decision behind the code — including the ones that were considered
+and rejected — is recorded there rather than in commit messages, so
+`linespec provenance status` is the fastest way to see why something is the way
+it is.
 
 ---
 
