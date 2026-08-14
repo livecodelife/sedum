@@ -1,6 +1,6 @@
 id: prov-2026-e8671c88
 title: A pattern in affected_scope authorizes without naming a file
-status: open
+status: implemented
 created_at: "2026-08-13"
 author: calebcowen@gmail.com
 intent: |
@@ -84,7 +84,7 @@ implements: prov-2026-1a1a9b52
 supersedes: ""
 superseded_by: ""
 related: []
-sealed_at_sha: ""
+sealed_at_sha: 45323642560d2d2d159641d7b75cbcf0a7a40399
 associated_specs:
   - path: internal/record/record_test.go
     run_command: go test -count=1 ./$(dirname {{path}})
