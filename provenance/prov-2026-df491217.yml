@@ -1,6 +1,6 @@
 id: prov-2026-df491217
 title: Ownership markers take the indentation of the anchor they land at
-status: open
+status: implemented
 created_at: "2026-08-14"
 author: calebcowen@gmail.com
 intent: |
@@ -93,7 +93,7 @@ superseded_by: ""
 related:
   - prov-2026-42f5eedd
   - prov-2026-36c8a99c
-sealed_at_sha: ""
+sealed_at_sha: dcfe8a9e3f39970aa23b72b9fdbe47e01a800a07
 associated_specs:
   - path: internal/inject/inject_test.go
     run_command: go test -count=1 ./$(dirname {{path}})
