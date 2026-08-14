@@ -1,6 +1,6 @@
 id: prov-2026-43808a47
 title: sedum resolve consults no output tree
-status: open
+status: implemented
 created_at: "2026-08-13"
 author: calebcowen@gmail.com
 intent: |
@@ -72,7 +72,7 @@ supersedes: ""
 superseded_by: ""
 related:
   - prov-2026-5696ff65
-sealed_at_sha: ""
+sealed_at_sha: e5400cc9e3d36979f571579f57d6b866de8294c9
 associated_specs:
   - path: internal/cli/resolve_test.go
     run_command: go test -count=1 ./$(dirname {{path}})
