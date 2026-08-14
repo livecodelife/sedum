@@ -1,6 +1,6 @@
 id: prov-2026-1a1a9b52
 title: M3 - Path resolution and file creation from file templates (sedum resolve)
-status: open
+status: implemented
 created_at: "2026-08-07"
 author: calebcowen@gmail.com
 intent: |
@@ -123,7 +123,7 @@ implements: prov-2026-d554bfc3
 supersedes: ""
 superseded_by: ""
 related: []
-sealed_at_sha: ""
+sealed_at_sha: 649f1e415cecdc666707e51bc03534ecc521aa6f
 associated_specs:
   - path: internal/record/record_test.go
     run_command: go test -count=1 ./$(dirname {{path}})
