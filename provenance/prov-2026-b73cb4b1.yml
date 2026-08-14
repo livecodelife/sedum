@@ -1,0 +1,44 @@
+id: prov-2026-b73cb4b1
+title: The injection tests are not gofmt-clean
+status: draft
+created_at: "2026-08-14"
+author: calebcowen@gmail.com
+intent: |
+  internal/inject/inject_test.go landed from M4 with one struct literal whose
+  field values gofmt aligns differently, so `gofmt -l ./internal` names the file.
+  Nothing about the tests is wrong and they pass; the file is simply not in the
+  form the toolchain writes.
+
+  It is recorded rather than folded into whatever milestone touched the file next
+  because M5's scope is internal/expand and testdata, and widening a milestone's
+  scope to reach a formatting fix in a neighbouring package would make that
+  record's affected_scope a poorer description of what it did. A one-line
+  correction to delivered work is what a bug record extending that work is for.
+
+  The fix is `gofmt -w` and nothing else. No test is added, renamed, or changed
+  in what it asserts.
+constraints:
+  - >-
+    Formatting only. If the diff changes what any test asserts, it is the wrong
+    diff.
+  - >-
+    gofmt -l over internal/ reports nothing afterwards. The testdata action
+    templates stay unparseable on purpose - they are bare function bodies with
+    no package clause, which is what the target's convention is.
+affected_scope:
+  - internal/inject/inject_test.go
+forbidden_scope: []
+type: bug
+extends: prov-2026-b6fa093c
+supersedes: ""
+superseded_by: ""
+related: []
+sealed_at_sha: ""
+associated_specs:
+  - path: internal/inject/inject_test.go
+    run_command: go test -count=1 ./$(dirname {{path}})
+associated_traces: []
+monitors: []
+tags:
+  - sedum
+  - housekeeping
