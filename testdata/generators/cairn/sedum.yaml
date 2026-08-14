@@ -10,6 +10,13 @@ name: cairn
 extensions: [".crn"]
 comment_prefix: ";;"
 
+# Paths this package declares Sedum does not write. A record may still name
+# them - they are part of a change - but something other than Sedum is what
+# changes them, and the run reports them as work it left alone.
+unmanaged:
+  - Cairnfile
+  - "Vault/"
+
 transforms:
   unitname: [singular, pascal]
   slug: [plural, kebab]

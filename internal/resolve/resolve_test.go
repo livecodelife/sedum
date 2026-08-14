@@ -557,3 +557,102 @@ func equal(a, b []string) bool {
 	}
 	return true
 }
+
+// A package declares the paths it does not write, so a record can name a file
+// that is genuinely part of a change without the run halting on it
+// (prov-2026-529954ab). What it buys is a record that describes the work rather
+// than one trimmed to what the generator happens to reach.
+func TestUnmanagedPathsAreSkippedRatherThanHalted(t *testing.T) {
+	files := generators()
+	files["rails/sedum.yaml"] += "unmanaged:\n  - Gemfile\n  - \"config/credentials/\"\n"
+
+	set := loadPackages(t, files)
+
+	res, _, err := Paths(set, records(t,
+		"Gemfile",
+		"config/credentials/production.key",
+		"app/models/user.rb",
+	), nil)
+	if err != nil {
+		t.Fatalf("Paths: %v", err)
+	}
+	if len(res) != 3 {
+		t.Fatalf("resolved %d paths, want all 3 reported", len(res))
+	}
+
+	byPath := map[string]Resolution{}
+	for _, r := range res {
+		byPath[r.Path] = r
+	}
+
+	// Gemfile has no extension at all. That is the case the check exists
+	// for, and the reason it runs before extension resolution rather than
+	// after: nothing about a Gemfile can reach the package that disowns it.
+	gemfile := byPath["Gemfile"]
+	if !gemfile.Unmanaged {
+		t.Error("an extensionless declared path was not reported unmanaged")
+	}
+	if gemfile.UnmanagedBy != "rails" || gemfile.UnmanagedAs != "Gemfile" {
+		t.Errorf("declared by %q as %q; want the package and entry that matched",
+			gemfile.UnmanagedBy, gemfile.UnmanagedAs)
+	}
+	if gemfile.Package != nil {
+		t.Error("an unmanaged path resolved to a package; it takes no further part in the run")
+	}
+
+	if key := byPath["config/credentials/production.key"]; !key.Unmanaged {
+		t.Error("a path under a declared subtree was not reported unmanaged")
+	}
+	// Everything else resolves exactly as it did before.
+	if model := byPath["app/models/user.rb"]; model.Unmanaged || model.Package == nil {
+		t.Error("a path the package does write was affected by the declaration")
+	}
+}
+
+// Phase 3 does not create an unmanaged path, and carries it through so a later
+// phase can say the path was declared unmanaged rather than only that it was
+// never created. The two have different fixes.
+func TestUnmanagedPathsAreNotCreated(t *testing.T) {
+	files := generators()
+	files["rails/sedum.yaml"] += "unmanaged:\n  - Gemfile\n"
+
+	set := loadPackages(t, files)
+	res, _, err := Paths(set, records(t, "Gemfile", "app/models/user.rb"), nil)
+	if err != nil {
+		t.Fatalf("Paths: %v", err)
+	}
+
+	out := t.TempDir()
+	created, err := Create(res, Options{Output: out})
+	if err != nil {
+		t.Fatalf("Create: %v", err)
+	}
+
+	if _, err := os.Stat(filepath.Join(out, "Gemfile")); err == nil {
+		t.Error("an unmanaged path was created")
+	}
+	if _, err := os.Stat(filepath.Join(out, "app/models/user.rb")); err != nil {
+		t.Errorf("the managed path was not created: %v", err)
+	}
+
+	var carried bool
+	for _, f := range created {
+		if f.Path == "Gemfile" {
+			carried = f.Unmanaged
+		}
+	}
+	if !carried {
+		t.Error("the unmanaged path was dropped rather than carried through Phase 3")
+	}
+}
+
+// An unclaimed extension is still a hard error. Declaring a path unmanaged is
+// how a package says a file is somebody else's; saying nothing at all is still
+// a package that cannot generate a path a record authorized.
+func TestUndeclaredUnclaimedExtensionStillHalts(t *testing.T) {
+	set := loadPackages(t, generators())
+
+	if _, _, err := Paths(set, records(t, "Gemfile"), nil); err == nil {
+		t.Fatal("a path no package claims and none disowns resolved cleanly")
+	}
+}

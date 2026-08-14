@@ -59,6 +59,11 @@ type Result struct {
 	// Files is nil when the run stopped before Phase 3.
 	Files []resolve.File
 
+	// Unmanaged are the authorized paths a generator package declared Sedum
+	// does not write. They are the run's handoff: authorized work that
+	// something other than Sedum has to do.
+	Unmanaged []resolve.Resolution
+
 	// Warnings are collected from every phase. Where they go is the command's
 	// decision, not this package's.
 	Warnings []string
@@ -121,6 +126,15 @@ func Run(cfg Config) (*Result, error) {
 	}
 	result.Resolutions = resolutions
 	for _, r := range resolutions {
+		// An unmanaged path resolved to no package, by design: the check
+		// runs before extension resolution so that a path no extension can
+		// reach is still reportable.
+		if r.Unmanaged {
+			result.Unmanaged = append(result.Unmanaged, r)
+			log.Info("left unmanaged", "path", r.Path,
+				"declared_by", r.UnmanagedBy, "entry", r.UnmanagedAs)
+			continue
+		}
 		log.Info("resolved path", "path", r.Path, "package", r.Package.Name,
 			"template", r.Template, "default", r.Default, "captures", r.Captures)
 	}

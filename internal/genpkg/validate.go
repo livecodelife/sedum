@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/calebcowen/sedum/internal/filetmpl"
+	"github.com/calebcowen/sedum/internal/pathpat"
 	"github.com/calebcowen/sedum/internal/render"
 )
 
@@ -437,5 +438,54 @@ func checkDeadConfig(pkg *Package, r *reporter) {
 		}
 		r.warnf(actionsRel, RuleActionDead,
 			"action %s is not exposed and no composite references it, so nothing can invoke it", name)
+	}
+}
+
+// checkUnmanaged validates a package's unmanaged declarations and rejects the
+// two ways a package can contradict itself about them.
+//
+// An unreadable pattern is an error for the same reason an unreadable scope
+// entry is: left alone it matches nothing, so a declaration meant to keep Sedum
+// out of a file would quietly keep it out of nothing.
+//
+// The contradictions are errors rather than warnings because neither has a
+// sensible outcome. A package that ships a file template for a path it also
+// disowns has said both that it knows how to write the file and that it will
+// not; an action whose injects_into names one has been pointed at a file its own
+// package says nothing writes. Picking a winner would mean deciding which half
+// of the package to believe.
+func checkUnmanaged(pkg *Package, r *reporter) {
+	for _, entry := range pkg.Unmanaged {
+		if strings.TrimSpace(entry) == "" {
+			r.errorf(manifestFile, RuleUnmanagedInvalid,
+				"unmanaged carries an empty entry; an entry that names nothing keeps Sedum out of nothing")
+			continue
+		}
+		if err := pathpat.Check(entry); err != nil {
+			r.errorf(manifestFile, RuleUnmanagedInvalid, "unmanaged entry %v", err)
+		}
+	}
+
+	for _, pattern := range pkg.FileTemplates {
+		if entry, ok := pathpat.MatchAny(pkg.Unmanaged, pattern); ok {
+			r.errorf(filesDirName, RuleUnmanagedContradiction,
+				"file template %s matches unmanaged entry %q; the package both declares how to write this path and declares that it does not write it",
+				pattern, entry)
+		}
+	}
+
+	// Only a literal injects_into can be checked here. One carrying
+	// placeholders renders per invocation, so Phase 6 is where it is caught,
+	// and catching it there costs a run rather than a load.
+	for _, name := range sortedKeys(pkg.Actions) {
+		target := pkg.Actions[name].InjectsInto
+		if target == "" || strings.Contains(target, "{{") {
+			continue
+		}
+		if entry, ok := pathpat.MatchAny(pkg.Unmanaged, target); ok {
+			r.errorf(actionsRel, RuleUnmanagedContradiction,
+				"action %s injects into %s, which matches unmanaged entry %q; the package declares that it does not write that file",
+				name, target, entry)
+		}
 	}
 }

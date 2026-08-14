@@ -267,3 +267,101 @@ func TestFilledMarkersAreSilent(t *testing.T) {
 		}
 	}
 }
+
+// A package declares the paths it does not write, so a record can name a file
+// that is part of a change without Sedum halting on it (prov-2026-529954ab).
+func TestUnmanagedDeclarationsAreValidated(t *testing.T) {
+	withUnmanaged := func(entries string) map[string]string {
+		return mutated(map[string]*string{
+			"rails/sedum.yaml": text(`name: rails
+extensions: [".rb"]
+comment_prefix: "#"
+transforms:
+  constantize: [singular, pascal]
+  instantize: [plural, "prefix:@"]
+unmanaged:
+` + entries),
+		})
+	}
+
+	// An unreadable pattern would match nothing at all, so a declaration
+	// meant to keep Sedum out of a directory would keep it out of nothing.
+	t.Run("unreadable pattern is rejected", func(t *testing.T) {
+		_, findings := loadTree(t, withUnmanaged("  - \"config/[unclosed.rb\"\n"))
+
+		f := findingFor(t, findings, RuleUnmanagedInvalid)
+		if f.Kind != KindError {
+			t.Errorf("unreadable unmanaged entry reported as %s, want error", f.Kind)
+		}
+	})
+
+	t.Run("empty entry is rejected", func(t *testing.T) {
+		_, findings := loadTree(t, withUnmanaged("  - \"\"\n"))
+
+		if f := findingFor(t, findings, RuleUnmanagedInvalid); f.Kind != KindError {
+			t.Errorf("empty unmanaged entry reported as %s, want error", f.Kind)
+		}
+	})
+
+	// A package that ships a template for a path it also disowns has said
+	// both that it knows how to write the file and that it does not.
+	t.Run("templating a disowned path is rejected", func(t *testing.T) {
+		_, findings := loadTree(t, withUnmanaged("  - \"app/models/**\"\n"))
+
+		f := findingFor(t, findings, RuleUnmanagedContradiction)
+		if f.Kind != KindError {
+			t.Errorf("contradiction reported as %s, want error", f.Kind)
+		}
+		if !strings.Contains(f.Message, "app/models/{name}.rb") {
+			t.Errorf("diagnostic does not name the template: %s", f.Message)
+		}
+	})
+
+	// An action pointed at a file its own package says nothing writes.
+	t.Run("action injecting into a disowned path is rejected", func(t *testing.T) {
+		files := withUnmanaged("  - \"config/routes.rb\"\n")
+		files["rails/actions/actions.yaml"] = `actions:
+  addRoute:
+    kwargs:
+      name: { type: string, required: true }
+    injects_into: "config/routes.rb"
+    anchor: class_body
+`
+		delete(files, "rails/actions/addBeforeFilter.rb")
+		delete(files, "rails/actions/createControllerMethod/index.rb")
+		delete(files, "rails/actions/createControllerMethod/show.rb")
+		delete(files, "rails/actions/createControllerMethod/_default.rb")
+		files["rails/actions/addRoute.rb"] = "get \"/{{name}}\"\n"
+
+		_, findings := loadTree(t, files)
+
+		f := findingFor(t, findings, RuleUnmanagedContradiction)
+		if !strings.Contains(f.Message, "addRoute") {
+			t.Errorf("diagnostic does not name the action: %s", f.Message)
+		}
+	})
+
+	// A declaration that contradicts nothing is silent, and the package is
+	// usable with it.
+	t.Run("a declaration naming nothing the package writes is accepted", func(t *testing.T) {
+		set, findings := loadTree(t, withUnmanaged("  - Gemfile\n  - \"config/credentials/\"\n"))
+
+		if findings.HasErrors() {
+			t.Fatalf("a legal unmanaged declaration rejected the package: %v", findings)
+		}
+		pkg, _ := set.Lookup("rails")
+		if len(pkg.Unmanaged) != 2 {
+			t.Errorf("loaded %d unmanaged entries, want 2", len(pkg.Unmanaged))
+		}
+
+		// The union is what Phase 2 consults, since it runs before a path
+		// has been resolved to any package.
+		declarer, entry, ok := set.Unmanaged("Gemfile")
+		if !ok || declarer != "rails" || entry != "Gemfile" {
+			t.Errorf("Set.Unmanaged(Gemfile) = %q, %q, %v; want rails, Gemfile, true", declarer, entry, ok)
+		}
+		if _, _, ok := set.Unmanaged("app/models/todo.rb"); ok {
+			t.Error("a path the package does write reported as unmanaged")
+		}
+	})
+}

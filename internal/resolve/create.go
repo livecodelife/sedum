@@ -72,6 +72,15 @@ func Create(resolutions []Resolution, opts Options) ([]File, error) {
 func createOne(res Resolution, opts Options, log *runlog.Log) (File, error) {
 	file := File{Resolution: res}
 
+	// An unmanaged path is carried through rather than dropped, so that a
+	// later phase can say the path was declared unmanaged instead of only
+	// that it was never created. The two have different fixes.
+	if res.Unmanaged {
+		log.Info("left unmanaged",
+			"path", res.Path, "declared_by", res.UnmanagedBy, "entry", res.UnmanagedAs)
+		return file, nil
+	}
+
 	rendered, err := Render(res)
 	if err != nil {
 		return File{}, err

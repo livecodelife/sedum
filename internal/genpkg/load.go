@@ -26,6 +26,7 @@ import (
 
 	"gopkg.in/yaml.v3"
 
+	"github.com/calebcowen/sedum/internal/pathpat"
 	"github.com/calebcowen/sedum/internal/transform"
 )
 
@@ -151,6 +152,7 @@ func loadPackage(dir, dirName string) (*Package, Findings, error) {
 		CommentPrefix: man.CommentPrefix,
 		Transforms:    man.Transforms,
 		OpExceptions:  man.OpExceptions,
+		Unmanaged:     man.Unmanaged,
 		Actions:       map[string]*Action{},
 	}
 
@@ -210,6 +212,7 @@ func loadPackage(dir, dirName string) (*Package, Findings, error) {
 	checkTemplates(pkg, fileTemplates.contents, actionTemplates, r)
 	checkMarkerAnchors(pkg, fileTemplates.bodies(), r)
 	checkMarkersFilled(pkg, fileTemplates.bodies(), r)
+	checkUnmanaged(pkg, r)
 	checkDeadConfig(pkg, r)
 
 	if r.hasErrors() {
@@ -517,4 +520,26 @@ func sortedKeys[V any](m map[string]V) []string {
 	}
 	sort.Strings(out)
 	return out
+}
+
+// Unmanaged reports whether any loaded package declares this path one Sedum
+// does not write, returning the package that declared it and the entry that
+// matched.
+//
+// The union across packages rather than one package's list, because the check
+// runs before a path has been resolved to a package - which is the point, since
+// a path with no extension can never reach the package that disowns it.
+//
+// Two packages declaring the same path do not conflict; they agree. A path one
+// package disowns and another would claim by extension is unmanaged, because a
+// declaration that a file is hand-owned is a statement about the file, and the
+// alternative is a run whose behavior depends on which package was consulted
+// first.
+func (s *Set) Unmanaged(target string) (pkg, entry string, ok bool) {
+	for _, p := range s.Packages {
+		if entry, ok := pathpat.MatchAny(p.Unmanaged, target); ok {
+			return p.Name, entry, true
+		}
+	}
+	return "", "", false
 }

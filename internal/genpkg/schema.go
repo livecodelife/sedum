@@ -21,6 +21,7 @@ type manifest struct {
 	CommentPrefix string                       `yaml:"comment_prefix"`
 	Transforms    map[string][]string          `yaml:"transforms"`
 	OpExceptions  map[string]map[string]string `yaml:"op_exceptions"`
+	Unmanaged     []string                     `yaml:"unmanaged"`
 }
 
 // actionsFile is actions/actions.yaml.
@@ -133,6 +134,13 @@ type Package struct {
 	// built-in operation set.
 	Transforms   map[string][]string
 	OpExceptions map[string]map[string]string
+
+	// Unmanaged are the paths this package declares Sedum will not create,
+	// render, or inject into, in the grammar scope entries already use. It
+	// authorizes nothing: a record still decides what may be touched, and
+	// this says only that Sedum is not what touches it. The usual reason is
+	// a file a person or another tool owns - a Gemfile, a lockfile, a key.
+	Unmanaged []string
 	// Engine applies this package's transforms. It is built from the two
 	// fields above at load, so that a pipeline which cannot be built rejects
 	// the package instead of failing mid-render (prov-2026-4675cebe). It is

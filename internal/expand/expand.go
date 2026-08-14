@@ -250,9 +250,18 @@ func renderPath(pkg *genpkg.Package, action *genpkg.Action, kwargs map[string]an
 func authorized(action *genpkg.Action, files []resolve.File, path string) error {
 	var matches int
 	for _, f := range files {
-		if f.Path == path {
-			matches++
+		if f.Path != path {
+			continue
 		}
+		// Authorized, but declared not-ours by a package. The record did its
+		// job and the file is somebody else's, so the diagnostic says that
+		// rather than reporting a path the record forgot.
+		if f.Unmanaged {
+			return fmt.Errorf(
+				"action %s injects into %q, which package %s declares unmanaged (matching %q); that file is not written by Sedum",
+				action.Name, path, f.UnmanagedBy, f.UnmanagedAs)
+		}
+		matches++
 	}
 
 	switch matches {
@@ -330,6 +339,11 @@ func renderTemplate(pkg *genpkg.Package, action *genpkg.Action, template string,
 func packagesOf(files []resolve.File) []*genpkg.Package {
 	seen := map[string]*genpkg.Package{}
 	for _, f := range files {
+		// An unmanaged path resolved to no package, so it contributes
+		// nothing to the record's catalog.
+		if f.Unmanaged {
+			continue
+		}
 		seen[f.Package.Name] = f.Package
 	}
 
@@ -357,7 +371,13 @@ func pathList(files []resolve.File) string {
 	}
 	paths := make([]string, 0, len(files))
 	for _, f := range files {
+		if f.Unmanaged {
+			continue
+		}
 		paths = append(paths, strconv.Quote(f.Path))
+	}
+	if len(paths) == 0 {
+		return "none"
 	}
 	sort.Strings(paths)
 	return strings.Join(paths, ", ")

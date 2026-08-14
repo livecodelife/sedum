@@ -470,3 +470,37 @@ func TestUnboundKwargIsAnError(t *testing.T) {
 		t.Errorf("error does not name the value nothing bound: %v", err)
 	}
 }
+
+// A path a package declares unmanaged is authorized and deliberately not
+// written by Sedum, so an action targeting one is a mistake in the package
+// rather than a record that forgot a file. The diagnostic says which
+// (prov-2026-529954ab), because "declared unmanaged" and "never created" have
+// different fixes.
+func TestActionTargetingAnUnmanagedPathSaysSo(t *testing.T) {
+	files := generators()
+	files["rails/sedum.yaml"] += "unmanaged:\n  - \"app/controllers/*_helper.rb\"\n"
+	set := loadSet(t, files)
+
+	resolved := created(t, set, map[string]string{"app/controllers/users_controller.rb": "rails"})
+	pkg, _ := set.Lookup("rails")
+	resolved = append(resolved, resolve.File{Resolution: resolve.Resolution{
+		RecordID:    "PR-014",
+		Path:        "app/controllers/users_helper.rb",
+		Unmanaged:   true,
+		UnmanagedBy: pkg.Name,
+		UnmanagedAs: "app/controllers/*_helper.rb",
+	}})
+
+	_, err := Expand("PR-014", resolved, []recording.Invocation{{
+		Action: "createMissingFile",
+		Kwargs: map[string]any{"controller": "users"},
+	}})
+	if err == nil {
+		t.Fatal("an action injecting into an unmanaged path was expanded")
+	}
+	for _, want := range []string{"createMissingFile", "users_helper.rb", "unmanaged", "rails"} {
+		if !strings.Contains(err.Error(), want) {
+			t.Errorf("error does not name %q: %v", want, err)
+		}
+	}
+}

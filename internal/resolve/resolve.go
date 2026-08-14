@@ -41,6 +41,17 @@ type Resolution struct {
 	// Template is the file template that matched, as a pattern relative to
 	// the package's files/ directory. Empty when nothing matched and the
 	// package ships no default for the path's extension.
+	// Unmanaged reports that a generator package declared this path one
+	// Sedum does not write. It is not an error and not a failure to resolve:
+	// the record still authorizes the path, and something other than Sedum
+	// is what changes it.
+	Unmanaged bool
+	// UnmanagedBy is the package that declared it, and UnmanagedAs the entry
+	// that matched, so a report names the declaration rather than only the
+	// path.
+	UnmanagedBy string
+	UnmanagedAs string
+
 	Template string
 	// Captures are the values Template's captures bound. Empty, never nil.
 	Captures map[string]string
@@ -68,6 +79,20 @@ func Paths(set *genpkg.Set, records *record.Set, prefer []string) ([]Resolution,
 
 	for _, rec := range records.Records {
 		for _, p := range rec.Paths {
+			// Before extension resolution, not after: the paths a package
+			// most often disowns are the ones no extension can reach, and
+			// resolution is exactly what a Gemfile does not survive.
+			if declarer, entry, ok := set.Unmanaged(p); ok {
+				out = append(out, Resolution{
+					RecordID:    rec.ID,
+					Path:        p,
+					Unmanaged:   true,
+					UnmanagedBy: declarer,
+					UnmanagedAs: entry,
+				})
+				continue
+			}
+
 			pkg, err := packageFor(set, p, prefer)
 			if err != nil {
 				problems = append(problems, err)

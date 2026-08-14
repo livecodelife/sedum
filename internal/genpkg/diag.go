@@ -59,6 +59,9 @@ const (
 	RuleMarkerUnfilled        = "anchor_marker_unfilled"
 	RuleAnchorPatternLineMode = "anchor_pattern_line_mode"
 	RuleActionDead            = "action_dead"
+
+	RuleUnmanagedInvalid       = "unmanaged_invalid"
+	RuleUnmanagedContradiction = "unmanaged_contradiction"
 )
 
 // Finding is one load-time diagnostic.

@@ -71,6 +71,32 @@ The `--lang` flag names a package to prefer. It may be repeated. Sedum infers wh
 
 A path whose extension no package claims is a hard error. Sedum does not guess.
 
+### Unmanaged paths
+
+A package may declare paths it does not write:
+
+```yaml
+unmanaged:
+  - Gemfile
+  - config/credentials/
+```
+
+Entries use the same grammar as a record's `affected_scope` — `**`, `*`, `?`, `[…]`, and a trailing slash for a subtree.
+
+An authorized path matching one is skipped, reported, and the run continues. It is not created, not rendered, and not injected into.
+
+This exists because a record must be free to describe the whole change. Moving a Rails service to PostgreSQL means adding the `pg` gem, so `Gemfile` belongs in `affected_scope` — and `Gemfile` has no extension, so without a declaration the run halts on it. The alternative is trimming records down to what a generator happens to reach, which makes the record a description of the tool rather than of the work.
+
+**It authorizes nothing.** `affected_scope` still decides what may be touched; `unmanaged` says only that Sedum is not what touches it. The usual reason is that a person will, or that another tool will be pointed at it, so a run reports these paths as a list rather than passing over them silently. The handoff is the point.
+
+The declaration belongs to the package rather than to a flag: which files a human owns is a property of a stack, not of an invocation. Every Rails service has a Gemfile someone edits; a run that had to remember that would eventually forget.
+
+It is not a step toward structured-document editing. Appending a gem to a `Gemfile` needs a format-aware primitive with merge semantics, which is a non-goal. Declaring the path unmanaged is how a package says so out loud.
+
+Two contradictions are load-time errors: a file template whose own path is declared unmanaged, and an action whose literal `injects_into` names one. An `injects_into` carrying placeholders is caught in Phase 6 instead, with a diagnostic that distinguishes *declared unmanaged* from *never created* — the two have different fixes.
+
+Two packages declaring the same path do not conflict; they agree. A path one package disowns and another would claim by extension is unmanaged, because the alternative is behavior that depends on which package was consulted first.
+
 ---
 
 ## File Templates
@@ -316,7 +342,9 @@ Read the provenance directory. Parse each record: `intent`, `constraints`, `affe
 
 ### Phase 2 — Resolve paths to packages
 
-For each authorized path, resolve its extension to a generator package, applying `--lang` where the extension is contested. A path whose extension no package claims is a hard error. A contested extension with no disambiguating flag is a hard error naming both candidate packages.
+For each authorized path, first check it against the union of every package's `unmanaged` patterns; a match is recorded and skipped. Then resolve its extension to a generator package, applying `--lang` where the extension is contested. A path whose extension no package claims is a hard error. A contested extension with no disambiguating flag is a hard error naming both candidate packages.
+
+The unmanaged check runs *before* extension resolution, not after, because the paths most often declared unmanaged are the ones no extension can reach.
 
 ### Phase 3 — Create files from templates
 

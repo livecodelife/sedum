@@ -95,6 +95,14 @@ func printResolutions(out io.Writer, result *pipeline.Result, rendered map[strin
 		fmt.Fprintf(out, "%s\n", id)
 		for _, r := range byRecord[id] {
 			fmt.Fprintf(out, "  %s\n", r.Path)
+			if r.Unmanaged {
+				// Named, not passed over in silence: the record
+				// authorized this path and something other than Sedum
+				// is what changes it.
+				fmt.Fprintf(out, "    unmanaged %s declares %q; left for a person or another tool\n",
+					r.UnmanagedBy, r.UnmanagedAs)
+				continue
+			}
 			fmt.Fprintf(out, "    package   %s\n", r.Package.Name)
 			fmt.Fprintf(out, "    template  %s\n", describeTemplate(r))
 			if len(r.Captures) > 0 {
@@ -106,8 +114,24 @@ func printResolutions(out io.Writer, result *pipeline.Result, rendered map[strin
 		}
 	}
 
+	var unmanaged []resolve.Resolution
+	for _, r := range result.Resolutions {
+		if r.Unmanaged {
+			unmanaged = append(unmanaged, r)
+		}
+	}
+
 	fmt.Fprintf(out, "\n%d record(s), %d path(s) resolved across %d package(s)\n",
-		len(result.Records.Records), len(result.Resolutions), len(result.Packages.Packages))
+		len(result.Records.Records), len(result.Resolutions)-len(unmanaged), len(result.Packages.Packages))
+
+	// The handoff, gathered rather than scattered through the listing: these
+	// are authorized paths this run did not touch and something else must.
+	if len(unmanaged) > 0 {
+		fmt.Fprintf(out, "\n%d path(s) left unmanaged, for a person or another tool:\n", len(unmanaged))
+		for _, r := range unmanaged {
+			fmt.Fprintf(out, "  %s (%s declares %q)\n", r.Path, r.UnmanagedBy, r.UnmanagedAs)
+		}
+	}
 }
 
 func describeTemplate(r resolve.Resolution) string {
