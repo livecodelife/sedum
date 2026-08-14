@@ -1,6 +1,6 @@
 id: prov-2026-f095e19f
 title: M6 - Model invocation and output validation (sedum grow, sedum actions)
-status: open
+status: implemented
 created_at: "2026-08-07"
 author: calebcowen@gmail.com
 intent: |
@@ -104,7 +104,7 @@ implements: prov-2026-d554bfc3
 supersedes: ""
 superseded_by: ""
 related: []
-sealed_at_sha: ""
+sealed_at_sha: 566f30574b7a4cfcd275afc712bb9f3b6b3a8273
 associated_specs:
   - path: internal/catalog/catalog_test.go
     run_command: go test -count=1 ./$(dirname {{path}})
