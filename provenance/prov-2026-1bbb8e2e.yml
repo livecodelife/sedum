@@ -1,6 +1,6 @@
 id: prov-2026-1bbb8e2e
 title: The catalog shows each action's target pattern
-status: implemented
+status: superseded
 created_at: "2026-08-14"
 author: calebcowen@gmail.com
 intent: |
@@ -67,7 +67,7 @@ forbidden_scope: []
 type: imprint
 implements: prov-2026-f095e19f
 supersedes: ""
-superseded_by: ""
+superseded_by: prov-2026-14c832bf
 related:
   - prov-2026-21031113
 sealed_at_sha: 603d76cb9f2c55e7fef5ed08f8c3c1c4e7cbd7c1
