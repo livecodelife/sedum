@@ -1,0 +1,135 @@
+id: prov-2026-6d87dc11
+title: Phase 5 can see what the model left out
+status: draft
+created_at: "2026-08-14"
+author: calebcowen@gmail.com
+intent: |
+  Phase 5 validates what the model returned. It cannot see what the model did
+  not return, and a short list is valid output, so under-selection is the one
+  failure class this design is structurally blind to. Close it by comparing the
+  anchors a run planted against the anchors its selections fill, and re-prompting
+  once about the difference.
+
+  ## Measured, not guessed
+
+  M6 running against a real package drops one action reliably. A record naming a
+  migration, a controller, a model and their tests produced 14 invocations
+  covering every file except the migration: five createEndpoint, five
+  addControllerTest, two addModelTest, addValidation, definePermittedParams, and
+  no addColumn. One call, validated first try, no retry - because there was
+  nothing invalid about it.
+
+  Four explanations were tested and none held:
+
+  - Phrasing. The record's column constraint led with a prohibition, so it was
+    rewritten as a plain statement of what the migration declares. Still dropped.
+  - Binding cost. addColumn took six kwargs, more than any other action; it was
+    cut to four. Still dropped.
+  - Catalog position. It is the first entry, alphabetically. Not a tail effect.
+  - Missing information. The prompt was dumped and read: the migration is in the
+    file list, the entry carries its injects_into pattern, and the record's
+    constraint names both columns explicitly.
+
+  Both local models behave the same way, and an earlier schema of the same action
+  was selected freely - over-selected, in fact, producing four columns where two
+  were wanted. So the action is selectable, the information is present, and what
+  is missing is the model's judgment on one item out of fourteen.
+
+  That is the finding, and it is what sets the direction: this is not an
+  information gap, so enriching the catalog further will not reliably fix it.
+  [[prov-2026-369544c1]] and [[prov-2026-c5697387]] both make the catalog say
+  more and both are worth having on their own merits, but neither addresses a
+  model that already has what it needs and does not act on it.
+
+  ## The mechanism
+
+  A file template plants the markers an action's anchor targets. That is already
+  the whole basis of injection, and it means a created file states, on disk, what
+  work it expects. If a run creates a file carrying a "columns" anchor and
+  nothing the model selected fills it, the run can say so.
+
+  Everything needed exists and nothing new has to be derived:
+
+  - resolve.File.Rendered is what Phase 3 wrote, and its package carries the
+    comment prefix
+  - genpkg.MarkersIn(commentPrefix, content) is the markers a file plants
+  - Action.MarkerAnchor() is the marker an action fills
+  - expand.Targets resolves which file an invocation writes to, which Phase 5
+    already calls for its unauthorized-path check ([[prov-2026-9dcf2658]])
+
+  Planted, minus filled, is the unfilled set. For the case above it names the
+  file and the anchor: the migration plants "columns" and nothing selected fills
+  it. That is specific enough to re-prompt with, which is the bar every Phase 5
+  check is held to.
+
+  There is a direct precedent. Phase 0 already warns when a package's file
+  templates plant a marker no action in that package targets
+  ([[prov-2026-a9e59197]]) - the same relationship, checked statically across a
+  package. This is its per-run counterpart, checked against one record's actual
+  selections rather than against what the package could theoretically reach.
+
+  ## Re-prompt once, then accept
+
+  This must not be a hard error, and the reason is the same one that made the
+  static version a warning. An anchor with nothing in it is not necessarily a
+  mistake: a template may plant a region for an action a later record will fill,
+  or for one this change legitimately does not need. A run that refused to
+  proceed would make every such template a liability.
+
+  So the observation is fed back once, and if the model still declines, the
+  answer stands and the run continues. The model keeps the judgment; it simply
+  stops making it blind. That also bounds the cost at one extra call in the case
+  where the first answer was already complete - and that case can be detected
+  before paying for it, since a response leaving nothing unfilled is never
+  re-prompted at all.
+
+  The distinction from a retry matters and is worth stating: a retry says the
+  answer was wrong, and this says the answer may be incomplete. They must not be
+  reported the same way, and exhausting one must not consume the other.
+constraints:
+  - >-
+    Unfilled anchors are computed from the markers Phase 3 actually planted and
+    the anchors the validated invocations actually fill. Nothing is inferred
+    from a package's declarations about what a file ought to contain.
+  - >-
+    An unfilled anchor is never a hard error. A template may plant a region a
+    given change does not need, and a run that refused to proceed would make
+    every such template a liability.
+  - >-
+    The observation is fed back at most once per record. If the model declines
+    again, its answer stands and the run continues - the judgment stays the
+    model's.
+  - >-
+    A completeness re-prompt is not a validation retry. It is reported
+    differently and drawn from a separate budget, because one says the answer was
+    wrong and the other says it may be incomplete.
+  - >-
+    A response that leaves no anchor unfilled is never re-prompted, so the common
+    case costs nothing.
+  - >-
+    Only marker anchors participate. start_of_file, end_of_file and the match
+    anchors name no region a file can be observed to be missing.
+affected_scope:
+  - internal/selection/**
+  - internal/pipeline/**
+  - internal/genpkg/**
+  - testdata/**
+  - PRD.md
+forbidden_scope: []
+type: blueprint
+implements: prov-2026-d554bfc3
+supersedes: ""
+superseded_by: ""
+related:
+  - prov-2026-a9e59197
+  - prov-2026-9dcf2658
+  - prov-2026-369544c1
+  - prov-2026-c5697387
+sealed_at_sha: ""
+associated_specs: []
+associated_traces: []
+monitors: []
+tags:
+  - sedum
+  - selection
+  - validation
