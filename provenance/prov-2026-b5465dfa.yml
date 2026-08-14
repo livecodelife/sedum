@@ -1,0 +1,162 @@
+id: prov-2026-b5465dfa
+title: The integration surface must be sufficient without linking
+status: draft
+created_at: "2026-08-14"
+author: calebcowen@gmail.com
+intent: |
+  Two sentences in the same family of documents disagree about the same rule.
+  The PRD and the README say "nothing links against Sedum". TOOL_BOUNDARIES §4
+  says "a harness never links against Sedum". The second permits a standalone
+  format module that Sedum and a harness both link against; the first does not.
+  Left as it is, the rule is whichever a future implementer reads first.
+
+  ## The decision
+
+  The strict reading governs. Nothing links against Sedum, the first-party
+  harness included.
+
+  Two cheap arguments and one real one. The PRD is authoritative - this
+  document opens by saying it does not supersede the PRD - and two of the three
+  statements already read strictly, so the edit is to TOOL_BOUNDARIES. The real
+  argument appears in none of the three, and is the reason this is a record
+  rather than a typo fix:
+
+  **The file-format-only constraint is what forces the formats to be
+  sufficient.** Once a first-party harness can link Go, every awkward format is
+  cheaper to route around with one more exported helper than to fix. Third-party
+  harnesses inherit the gap, and the gap is invisible to the party best placed
+  to notice it, because that party is not experiencing it. This matters here
+  more than it would elsewhere: the same party authors the formats and is their
+  most privileged consumer, so the only thing standing between the surface and
+  quiet insufficiency is the rule that we have to eat the same food.
+
+  ## The hole this has already produced
+
+  §4's second question - "Could this be fixed deterministically?" - is answered
+  with an instruction: read actions.yaml, render each action's injects_into
+  against the kwargs already recorded on the marker, and compare the result to
+  the region in the file. The PRD carries the same instruction.
+
+  A caller cannot execute it from artifacts on disk. sedum.yaml carries the
+  declarative pipelines and the op_exceptions table, so those are derivable.
+  The inflection table is not: internal/transform/inflect.go embeds
+  inflections/*.yaml into the binary, and the PRD states this as intent rather
+  than accident - the rule table ships "per language rather than per package".
+  Neither are the word-splitting semantics the case operations share, nor the
+  leading-case match applied to an inflected word.
+
+  So a caller answering §4's own question must reimplement plural. It diverges
+  on the first irregular, renders a path that does not match the region, and
+  concludes that no deterministic fix exists when one does - a wrong answer
+  wearing the shape of a correct refusal, which is worse than an error because
+  nothing reports it.
+
+  "Everything a tool built on Sedum needs is derivable from artifacts on disk"
+  is therefore false today for the second of the four questions the section
+  itself poses. That is not a missing feature next to the claim; it is the claim.
+
+  This is the evidence for the decision above rather than a defect found near
+  it. Under the permissive reading the fix is to export the transform package -
+  one helper, an afternoon - and the format stays insufficient permanently.
+  That failure mode presented itself before the first foreign consumer existed,
+  which is about as clear a demonstration as the argument is going to get.
+
+  ## Closing it
+
+  Two candidates.
+
+  **A command.** Render an action's injects_into against supplied kwargs -
+  either its own query command or an extension to sedum actions --json, which
+  already carries the raw pattern, so the increment is rendering rather than
+  plumbing. It keeps the answer inside the four-surface model and available to
+  third parties on identical terms.
+
+  **Replay as the oracle.** Once M7 lands, a caller synthesises a candidate
+  recording and runs --execute --dry-run, letting Sedum render the pattern and
+  report. prov-2026-dc227be7 already requires replay's diagnostics to be good
+  enough to author against. This adds no surface at all.
+
+  Preferred: the command. The caller's question is "which action and kwargs land
+  on this file", asked speculatively across candidates; a process launch per
+  candidate that answers in prose is the wrong shape for a lookup. Replay stays
+  the right way to ask "is this invocation valid", which is a different question
+  and is already answered. Settling which of the two ships is in this record's
+  scope, and the alternative is written here so that the choice is a decision
+  rather than an omission.
+
+  A conformance corpus was considered as the answer and rejected. A corpus
+  specifies formats well and behavior badly: it would have to enumerate every
+  irregular and grow whenever the inflection table does. Whether a corpus is
+  worth having for the marker format is a separate and live question - it
+  answers whether a foreign *writer* is compliant - and is not settled here.
+
+  ## What changes
+
+  TOOL_BOUNDARIES §4's blockquote is restated to match the PRD, with the
+  sufficiency argument written beneath it rather than left implicit, and §4's
+  second question is corrected to name the mechanism instead of instructing a
+  caller to do something it cannot do. The PRD's integration surface section
+  gains the same argument and the same correction. The mechanism's
+  implementation lands under an imprint that declares its own code scope, once
+  the choice between the two candidates is made.
+constraints:
+  - >-
+    The strict reading governs: nothing links against Sedum, the first-party
+    harness included. A shared module that both sides link against is not an
+    available answer to any gap in the formats, and proposing one is a signal
+    that a format is insufficient.
+  - >-
+    The reason travels with the rule. Wherever the rule is stated, the
+    sufficiency argument is stated with it - a constraint recorded without its
+    justification reads as fastidiousness and is relaxed by whoever first finds
+    it inconvenient.
+  - >-
+    The section's claim must hold for the section's own questions. Any question
+    the integration surface answers with an instruction must be executable from
+    the artifacts and commands that section names. Where it is not, the
+    instruction is corrected rather than the shortfall left to be discovered.
+  - >-
+    Forward rendering only. Whatever ships renders injects_into against supplied
+    kwargs and never inverts it. snake and plural are not invertible and no part
+    of this surface may imply otherwise.
+  - >-
+    Transform behavior is exposed as behavior, not as a data dump. Publishing
+    the inflection table would sanction a caller's reimplementation of every
+    rule around it, which is the divergence this record exists to prevent.
+  - >-
+    The mechanism stays inside the four-surface model - a command or an
+    extension of one, on identical terms for a third party and for ours. It adds
+    no runtime API, no hook, and no callback, and does not make Sedum callable
+    as a library by another name.
+  - >-
+    This record settles the linking decision and the injects_into rendering
+    hole. The marker conformance corpus, test_paths on the manifest, reasons on
+    unmanaged entries, and the replay duplicate-path check are separate
+    questions and are not settled here.
+affected_scope:
+  - PRD.md
+  - TOOL_BOUNDARIES.md
+forbidden_scope: []
+type: blueprint
+implements: prov-2026-d554bfc3
+supersedes: ""
+superseded_by: ""
+related:
+  - prov-2026-59535684
+  - prov-2026-72775ae5
+  - prov-2026-dc227be7
+sealed_at_sha: ""
+associated_specs:
+  # Docs-only record, following prov-2026-59535684: the proof asserts the
+  # claims landed rather than that the files exist. A rewording that drops one
+  # of these statements fails here.
+  - path: TOOL_BOUNDARIES.md
+    run_command: grep -q "nothing links against Sedum" {{path}}
+  - path: PRD.md
+    run_command: grep -q "sufficient without linking" {{path}}
+associated_traces: []
+monitors: []
+tags:
+  - sedum
+  - integration-surface
+  - transforms
