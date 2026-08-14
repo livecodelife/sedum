@@ -234,7 +234,12 @@ func TestLegalFlagCombinations(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			_, err := exec(t, tc.args...)
+			// A run that gets past flag validation opens its run log, so it
+			// is pointed somewhere disposable rather than at the working
+			// directory these tests run in.
+			args := append(tc.args, "--log", filepath.Join(t.TempDir(), "run.log"))
+
+			_, err := exec(t, args...)
 			if err == nil {
 				t.Fatalf("expected an error, got nil")
 			}

@@ -70,23 +70,22 @@ func NewOpenAI(model string) (*OpenAI, error) {
 // same record and the same packages would make the recording's promise of
 // reproducibility harder to reason about than it needs to be.
 //
-// The response format is JSON object mode, which is why the requested envelope
-// wraps the invocation array rather than being it: that mode requires the
-// document's root to be an object (prov-2026-abd43bb4). It is not tool calling,
-// and it must never become tool calling - most of the open-weight range worth
+// Structured output, never tool calling. Most of the open-weight range worth
 // evaluating has no tool support, and requiring it would exclude exactly the
 // models this design exists to accommodate.
+//
+// No response_format is sent. Asking a server to constrain the envelope made
+// the model stop selecting: grammar-constrained decoding takes the shortest
+// legal completion at the array's first token, and an empty array is legal, so
+// the same prompt that produced three correct invocations produced none
+// (prov-2026-4bcabb2f). The contract lives in the prompt and in Phase 5, which
+// is where it can be enforced specifically enough to re-prompt with.
 func (o *OpenAI) Complete(ctx context.Context, messages []Message) (string, error) {
-	req := openai.ChatCompletionRequest{
+	resp, err := o.client.CreateChatCompletion(ctx, openai.ChatCompletionRequest{
 		Model:       o.model,
 		Temperature: 0,
 		Messages:    wire(messages),
-		ResponseFormat: &openai.ChatCompletionResponseFormat{
-			Type: openai.ChatCompletionResponseFormatTypeJSONObject,
-		},
-	}
-
-	resp, err := o.client.CreateChatCompletion(ctx, req)
+	})
 	if err != nil {
 		return "", fmt.Errorf("model %s: %w", o.model, err)
 	}

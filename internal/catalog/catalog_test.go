@@ -210,6 +210,44 @@ func TestCompositeEntryShowsItsChildrenAndUnionSchema(t *testing.T) {
 	}
 }
 
+// Without the target pattern a model has a kwarg named controller, a file named
+// app/controllers/users_controller.rb, and nothing connecting the two - so it
+// binds the path to the kwarg and every retry repeats the mistake. The pattern
+// is what makes the binding derivable forwards (prov-2026-1bbb8e2e).
+func TestEntryCarriesItsTargetPattern(t *testing.T) {
+	packages := loadPackages(t, generators(), "rails", "chi")
+	c := Build(packages, Options{})
+
+	entry := find(t, c, "createControllerMethod")
+	want := []string{"app/controllers/{{controller|snake}}_controller.rb"}
+	if !slices.Equal(entry.InjectsInto, want) {
+		t.Errorf("injects_into is %v, want %v", entry.InjectsInto, want)
+	}
+
+	// A composite has no pattern of its own and takes its children's, in
+	// execution order, because one selection touching two files is the fact
+	// the entry has to convey.
+	composite := find(t, c, "createHandler")
+	if len(composite.InjectsInto) != 2 {
+		t.Fatalf("the composite carries %v, want one pattern per child", composite.InjectsInto)
+	}
+	for _, pattern := range composite.InjectsInto {
+		if !strings.Contains(pattern, "internal/handlers/") {
+			t.Errorf("a child's pattern is missing from the composite entry: %v", composite.InjectsInto)
+		}
+	}
+
+	// The pattern is passed through as the author wrote it. Interpreting or
+	// expanding it here would put target knowledge in Sedum's core.
+	payload, err := c.JSON()
+	if err != nil {
+		t.Fatalf("JSON: %v", err)
+	}
+	if !strings.Contains(string(payload), "{{controller|snake}}") {
+		t.Errorf("the transform pipe did not survive into the payload:\n%s", payload)
+	}
+}
+
 // A record's paths may resolve to more than one package, and its catalog is
 // their union. Entries are ordered so that the same packages produce the same
 // bytes every time - the prompt embeds this, and an option set that reordered

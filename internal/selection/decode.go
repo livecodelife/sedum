@@ -71,7 +71,7 @@ func decode(raw string) ([]recording.Invocation, []Violation) {
 				Rule:  "invocation_shape",
 				Detail: fmt.Sprintf(
 					"invocation %d is not readable as {\"action\": ..., \"kwargs\": {...}}: %s; it was %s",
-					i+1, err, string(entry)),
+					i+1, err, truncate(string(entry))),
 			})
 			continue
 		}

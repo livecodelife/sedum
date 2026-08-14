@@ -13,7 +13,11 @@ actions:
     kwargs:
       controller: { type: string, required: true }
       name: { type: string, required: true }
-      collection: { type: string, required: false }
+      # Required, because every variant template renders it unconditionally.
+      # An optional kwarg a template always references fails at render with a
+      # diagnostic about the template, after Phase 5 has already passed the
+      # invocation - the schema is what has to say it is needed.
+      collection: { type: string, required: true }
     discriminator: name
     variants: [index, show, create]
     injects_into: "app/controllers/{{controller|snake}}_controller.rb"

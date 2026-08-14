@@ -105,6 +105,12 @@ func Select(ctx context.Context, client Client, req Request, opts Options) ([]re
 	for i := 0; i <= opts.Retries; i++ {
 		log.Info("invoking model", "record", req.RecordID, "attempt", i+1,
 			"actions", len(cat.Actions), "files", len(req.Files))
+		// The prompt is logged as well as the response. "Why did the model
+		// pick nothing?" is the question a package author asks most, and it
+		// is unanswerable from the response alone - the catalog it was shown
+		// is usually where the answer is.
+		log.Info("model prompt", "record", req.RecordID, "attempt", i+1,
+			"prompt", messages[len(messages)-1].Content)
 
 		raw, err := client.Complete(ctx, messages)
 		if err != nil {

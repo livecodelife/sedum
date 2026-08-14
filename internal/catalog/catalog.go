@@ -66,6 +66,19 @@ type Action struct {
 	// that one selection touches two files rather than guessing from the name.
 	Composes []string `json:"composes,omitempty"`
 
+	// InjectsInto is the action's target pattern, exactly as the package
+	// author wrote it, one entry per file the action touches - so a composite
+	// carries its children's, in execution order.
+	//
+	// Without it a model has a kwarg named controller and a file named
+	// app/controllers/users_controller.rb and nothing connecting them, and it
+	// binds the file's path to the kwarg. With it the reasoning is forward and
+	// mechanical: match the pattern's literal segments against the authorized
+	// file and bind what is left. The model still never chooses a path - the
+	// path is the package's - it binds arguments so the package's own pattern
+	// lands somewhere the record authorized (prov-2026-1bbb8e2e).
+	InjectsInto []string `json:"injects_into,omitempty"`
+
 	// Exposed is nil for an exposed action and false for a hidden one, so
 	// that it appears only where it says something. Only sedum actions --all
 	// ever produces an entry carrying it; the catalog the model receives has
@@ -136,9 +149,36 @@ func entry(pkg *genpkg.Package, action *genpkg.Action, opts Options) Action {
 		_, out.HasDefault = action.Templates[genpkg.DefaultVariant]
 	}
 
+	out.InjectsInto = targets(pkg, action)
+
 	if opts.IncludeUnexposed && !action.Exposed {
 		hidden := false
 		out.Exposed = &hidden
+	}
+	return out
+}
+
+// targets collects the patterns an action's invocation will render.
+//
+// A composite has none of its own and takes its children's, in execution order,
+// because that is what makes one selection visibly touch two files. A child a
+// package does not define cannot reach here - load rejects the package - so the
+// lookup is a filter rather than a check restated.
+func targets(pkg *genpkg.Package, action *genpkg.Action) []string {
+	if action.Kind() != genpkg.Composite {
+		if action.InjectsInto == "" {
+			return nil
+		}
+		return []string{action.InjectsInto}
+	}
+
+	var out []string
+	for _, name := range action.Composes {
+		child, ok := pkg.Actions[name]
+		if !ok || child.InjectsInto == "" {
+			continue
+		}
+		out = append(out, child.InjectsInto)
 	}
 	return out
 }

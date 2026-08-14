@@ -84,9 +84,20 @@ func runGrow(ctx context.Context, out, errOut io.Writer, cfg GrowConfig) error {
 		stopAfter, name = sp.afterPhase, sp.name
 	}
 
+	log, err := runlog.New(cfg.LogPath, cfg.Verbose)
+	if err != nil {
+		return err
+	}
+	defer log.Close()
+
 	// A run halting before Phase 4 never consults a model, so it never needs
 	// one configured. That is what makes --stop-after resolution and
 	// --stop-after files usable with no endpoint at all.
+	//
+	// The client is built before any phase runs. A run that cannot reach a
+	// model fails while nothing has been written, rather than creating files
+	// and then failing at the call for a reason the user could have been told
+	// first.
 	var client selection.Client
 	if stopAfter == 0 || stopAfter >= pipeline.PhaseSelect {
 		built, err := selection.NewOpenAI(cfg.Model)
@@ -95,12 +106,6 @@ func runGrow(ctx context.Context, out, errOut io.Writer, cfg GrowConfig) error {
 		}
 		client = built
 	}
-
-	log, err := runlog.New(cfg.LogPath, cfg.Verbose)
-	if err != nil {
-		return err
-	}
-	defer log.Close()
 
 	result, err := pipeline.Run(ctx, pipeline.Config{
 		Generators:     cfg.Generators,

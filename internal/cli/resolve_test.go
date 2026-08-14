@@ -179,7 +179,8 @@ func TestGrowRefusesBeforeWritingWhenItCannotReachAModel(t *testing.T) {
 	_, err := exec(t, "grow",
 		"--generators", fixtureGenerators(),
 		"--records", fixtureRecords(t),
-		"--output", dir)
+		"--output", dir,
+		"--log", filepath.Join(t.TempDir(), "run.log"))
 
 	wantErr(t, err, "--model is required")
 	if entries, _ := os.ReadDir(dir); len(entries) != 0 {

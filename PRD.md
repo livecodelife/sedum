@@ -169,7 +169,7 @@ actions:
     kwargs:
       controller: { type: string, required: true }
       name:       { type: string, required: true }
-      collection: { type: string, required: false }
+      collection: { type: string, required: true }
     discriminator: name
     variants: [index, show, create, update, destroy]
     injects_into: "app/controllers/{{controller|snake}}_controller.rb"
@@ -177,6 +177,8 @@ actions:
 ```
 
 `kwargs` is the schema the model is held to. Types come from a closed set — `string`, `int`, `bool`, `list` — sufficient for argument binding and nothing more.
+
+A kwarg every one of an action's templates renders unconditionally must be declared `required`, as `collection` is above. Marking it optional passes Phase 5 — the argument really is absent-able as far as the schema knows — and then fails in Phase 6 with a diagnostic about a template, after the retry loop has been skipped because nothing was wrong with the selection. The schema is where "this is needed" has to be said.
 
 `discriminator` names the kwarg whose value selects a template. `variants` enumerates the values that have dedicated templates. Both are declared explicitly rather than inferred from directory structure, so that specializing on a second argument later cannot create an undocumented precedence rule, and so a misspelled variant filename fails at load rather than silently falling through to `_default`.
 
@@ -360,11 +362,15 @@ This is a governance position. `forbidden_scope` means Sedum does not touch what
 
 ### Phase 4 — Model invocation
 
-One call per provenance record. The prompt contains the record's `intent`, its `constraints`, the paths created for it in Phase 3, and the action catalog — the **union of exposed actions across every package the record's paths resolved to**, with their kwarg schemas and variant lists.
+One call per provenance record. The prompt contains the record's `intent`, its `constraints`, the paths created for it in Phase 3, and the action catalog — the **union of exposed actions across every package the record's paths resolved to**, with their kwarg schemas, variant lists, and `injects_into` patterns.
 
-Variant lists are included deliberately. Without them there is an invisible cliff: `name: index` gets a full implementation while `name: search` falls to `_default`, and the model has no way to know it fell off. Exposing the list lets it prefer covered values where intent maps cleanly, and take the fallback knowingly where it does not.
+Variant lists are included deliberately. Without them there is an invisible cliff: `name: index` gets a full implementation while `name: search` falls to `_default`, and the model has no way to know it fell off. Exposing the list lets it prefer covered values where intent maps cleanly, and take the fallback knowingly where it does not. Whether a `_default` exists is carried alongside, because *knowingly* is not available to a model that cannot see whether there is a fallback to take.
 
-The response is **structured output, not tool calls** — a JSON array of `{action, kwargs}` objects. This keeps the mechanism working with models that lack tool-calling support, which is most of the open-weight range worth evaluating.
+`injects_into` patterns are included for a harder reason. Without them the catalog names a kwarg and the file list names a path, and nothing connects the two, so a model asked to bind `controller` binds the path it was shown. Recovering the kwarg from a rendered path would require inverting `snake` and `plural`, which is precisely what nothing in this system does. With the pattern present the reasoning runs forwards: match its literal segments against an authorized file and bind what is left. The model still never chooses a path — it binds arguments such that the package's own pattern lands on a file the record authorized.
+
+The response is **structured output, not tool calls** — a JSON array of `{action, kwargs}` objects, wrapped as `{"invocations": [...]}` so that the document's root is an object. This keeps the mechanism working with models that lack tool-calling support, which is most of the open-weight range worth evaluating.
+
+Sedum does not ask the server to constrain the response. Grammar-constrained decoding takes the shortest legal completion at the array's first token, and an empty array is legal, so requesting a schema made a model that had been selecting three correct invocations select none. The contract lives in the prompt and in Phase 5, where a violation can be stated specifically enough to re-prompt with.
 
 ### Phase 5 — Validate the model's output
 

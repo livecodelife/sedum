@@ -41,9 +41,15 @@ Rules:
 - Where an action lists variants, prefer one of them when the change maps
   cleanly onto it. A value outside the list is allowed only when the action
   reports a fallback, and it renders a stub rather than a full implementation.
-- You do not choose which file an action writes to. Each action's configuration
-  decides that from the arguments you bind, so bind them to match the files
-  listed below.
+- You do not choose which file an action writes to. Each action lists its
+  injects_into patterns: the file it writes to, with {{...}} standing for a
+  value derived from one of your arguments. Bind your arguments so that each
+  pattern lands on one of the files listed below.
+
+  Read a pattern forwards. Match its fixed text against a listed file and bind
+  the argument to the part left over - not to the file's path, and not to the
+  whole filename. If no binding can make an action's pattern reach a listed
+  file, that action does not apply to this change.
 - An action may be selected more than once with different arguments.
 
 Respond with JSON and nothing else - no prose, no explanation, no fields beyond

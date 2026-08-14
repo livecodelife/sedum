@@ -525,10 +525,13 @@ func TestEachRecordGetsItsOwnCall(t *testing.T) {
 	if client.calls != 2 {
 		t.Fatalf("two records cost %d model calls, want 2", client.calls)
 	}
+	// The catalog names paths too, in its injects_into patterns, so the file
+	// list is what is counted rather than the prompt as a whole.
 	for i, prompt := range client.prompts {
 		user := prompt[len(prompt)-1].Content
-		if strings.Count(user, "app/models/") != 1 {
-			t.Errorf("call %d saw more than its own record's files:\n%s", i+1, user)
+		files, _, _ := strings.Cut(user, "## Actions")
+		if strings.Count(files, "app/models/") != 1 {
+			t.Errorf("call %d saw more than its own record's files:\n%s", i+1, files)
 		}
 	}
 }
