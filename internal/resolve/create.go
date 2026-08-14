@@ -72,7 +72,7 @@ func Create(resolutions []Resolution, opts Options) ([]File, error) {
 func createOne(res Resolution, opts Options, log *runlog.Log) (File, error) {
 	file := File{Resolution: res}
 
-	rendered, err := renderTemplate(res)
+	rendered, err := Render(res)
 	if err != nil {
 		return File{}, err
 	}
@@ -127,9 +127,14 @@ func createOne(res Resolution, opts Options, log *runlog.Log) (File, error) {
 	return file, nil
 }
 
-// renderTemplate renders the file template a path matched, against the captures
-// its pattern bound.
-func renderTemplate(res Resolution) (string, error) {
+// Render renders the file template a path matched, against the captures its
+// pattern bound. It returns the empty string for a path that matched nothing.
+//
+// This is the half of Phase 3 that touches no filesystem, and it is exported so
+// that a caller wanting to see what would be written does not have to run the
+// half that does. `sedum resolve` is that caller: it reads the generators
+// directory and the records directory and nothing else (prov-2026-43808a47).
+func Render(res Resolution) (string, error) {
 	if res.Template == "" {
 		return "", nil
 	}

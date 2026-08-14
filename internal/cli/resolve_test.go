@@ -184,3 +184,64 @@ func TestGrowWithNoStopPointRefusesBeforeWriting(t *testing.T) {
 		t.Errorf("a refused run wrote %d entries", len(entries))
 	}
 }
+
+// resolve reads the generators directory and the records directory and nothing
+// else, so it must answer identically from anywhere. It used to run the
+// filesystem half of Phase 3 against the working directory, which meant an
+// unrelated file that merely shared a relative path with an authorized one
+// halted the command (prov-2026-43808a47).
+func TestResolveDoesNotConsultTheWorkingDirectory(t *testing.T) {
+	generators, err := filepath.Abs(fixtureGenerators())
+	if err != nil {
+		t.Fatal(err)
+	}
+	records := fixtureRecords(t)
+
+	// A file standing exactly where an authorized path would go, carrying
+	// none of the markers its template plants.
+	occupied := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(occupied, "app", "controllers"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(occupied, "app", "controllers", "users_controller.rb"),
+		[]byte("class SomethingElse\nend\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	fromEmpty, err := exec(t, "resolve", "--generators", generators, "--records", records)
+	if err != nil {
+		t.Fatalf("resolve from an empty directory: %v\n%s", err, fromEmpty)
+	}
+
+	t.Chdir(occupied)
+	fromOccupied, err := exec(t, "resolve", "--generators", generators, "--records", records)
+	if err != nil {
+		t.Fatalf("resolve reported on a file in the working directory: %v\n%s", err, fromOccupied)
+	}
+
+	if fromEmpty != fromOccupied {
+		t.Errorf("resolve gave two answers for the same inputs:\n--- from an empty directory:\n%s\n--- from an occupied one:\n%s",
+			fromEmpty, fromOccupied)
+	}
+}
+
+// grow keeps the check, because it has an --output flag to aim it with.
+func TestGrowStillReportsAFileMissingItsMarkers(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(dir, "app", "controllers"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "app", "controllers", "users_controller.rb"),
+		[]byte("class SomethingElse\nend\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	_, err := exec(t, "grow",
+		"--generators", fixtureGenerators(),
+		"--records", fixtureRecords(t),
+		"--output", dir,
+		"--log", filepath.Join(t.TempDir(), "run.log"),
+		"--stop-after", "files")
+
+	wantErr(t, err, "users_controller.rb", "class_body")
+}

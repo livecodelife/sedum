@@ -93,7 +93,7 @@ func runGrow(out, errOut io.Writer, cfg GrowConfig) error {
 
 	printWarnings(errOut, result.Warnings)
 	if sp.afterPhase == pipeline.PhaseResolve {
-		printResolutions(out, result, false)
+		printResolutions(out, result, nil, false)
 	} else {
 		printFiles(out, result, cfg.DryRun)
 	}

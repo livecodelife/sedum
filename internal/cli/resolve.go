@@ -42,35 +42,44 @@ specificity.`,
 	return cmd
 }
 
-// runResolve is the read-only half of a run. It takes the same path a real run
-// takes and suppresses the writing, rather than reimplementing what the real
-// one would have decided.
+// runResolve reports what every authorized path resolved to.
+//
+// It halts at the resolution boundary, so it consults no output tree: the only
+// directories it reads are the two it was pointed at, and its answer does not
+// depend on where it was run from (prov-2026-43808a47). Rendering for
+// --show-template is Phase 3's, but it is the half that touches nothing.
 func runResolve(out, errOut io.Writer, cfg ResolveConfig) error {
 	result, err := pipeline.Run(pipeline.Config{
-		Generators: cfg.Generators,
-		Records:    cfg.Records,
-		Lang:       cfg.Lang,
-		Only:       cfg.Only,
-		DryRun:     true,
-		Log:        runlog.Discard(),
+		Generators:     cfg.Generators,
+		Records:        cfg.Records,
+		Lang:           cfg.Lang,
+		Only:           cfg.Only,
+		StopAfterPhase: pipeline.PhaseResolve,
+		Log:            runlog.Discard(),
 	})
 	if err != nil {
 		return err
 	}
 
+	rendered := map[string]string{}
+	if cfg.ShowTemplate {
+		for _, r := range result.Resolutions {
+			text, err := resolve.Render(r)
+			if err != nil {
+				return err
+			}
+			rendered[r.Path] = text
+		}
+	}
+
 	printWarnings(errOut, result.Warnings)
-	printResolutions(out, result, cfg.ShowTemplate)
+	printResolutions(out, result, rendered, cfg.ShowTemplate)
 	return nil
 }
 
 // printResolutions reports every authorized path grouped under the record that
 // authorized it, since a record is the unit a reader is reasoning about.
-func printResolutions(out io.Writer, result *pipeline.Result, showTemplate bool) {
-	rendered := map[string]string{}
-	for _, f := range result.Files {
-		rendered[f.Path] = f.Rendered
-	}
-
+func printResolutions(out io.Writer, result *pipeline.Result, rendered map[string]string, showTemplate bool) {
 	byRecord := map[string][]resolve.Resolution{}
 	for _, r := range result.Resolutions {
 		byRecord[r.RecordID] = append(byRecord[r.RecordID], r)
