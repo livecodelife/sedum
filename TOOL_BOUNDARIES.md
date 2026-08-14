@@ -16,6 +16,11 @@ could co-evolve with Sedum, a public one cannot.
 were already settled in code, and one of them (a marker version token) was
 misjudged. What survives is smaller and sharper.
 
+**Landed under `prov-2026-72775ae5` (Record A) and `prov-2026-59535684`
+(Record B).** Everything in §7 is done, and implementing it corrected three
+things this document got wrong; those are marked ⚠︎ inline below. §8's writer-key
+and version-token questions are answered. What remains open is listed in §8.
+
 ---
 
 ## 1. The decision
@@ -169,6 +174,11 @@ this a spec bug that would block the harness. It does not — but the phrasing w
 mislead a harness author reading the source, which under an open-source release is
 the same cost more slowly.
 
+⚠︎ **Correction — the `actions.yaml` tier key does not exist yet.** Strict
+decoding rejects it, so "the declaration is the value used at first write" is
+the rule for when the key lands, not a description of today. Today the marker is
+the only source of a region's tier. Stated that way in both the PRD and README.
+
 ### 5.2 The one real gap: unknown keys survive decoding but not the round trip
 
 `attrs` is a fixed struct — `Tier`, `Record`, `Kwargs`. Decoding tolerates keys it
@@ -195,6 +205,24 @@ annotations start disappearing.
 
 **This is the single item most worth doing before M6.**
 
+⚠︎ **Correction — retention and re-emission are not sufficient.** `applyOne`
+builds a *fresh* `Marker` from the invocation and renders it over the region,
+using the parsed `region.Marker` only for identity and tier before discarding
+it. So `Extra` never reaches the writer, and a catch-all retained on `Marker`
+and re-emitted by `Open` would read correctly and still drop every annotation on
+the first rerun — worse than not doing it, because it would look done.
+
+The replacement path has to carry the parsed region's unknown keys forward onto
+the marker it writes. Shipped as a two-pass decode plus that carry-forward, with
+a test that fails when the carry-forward line is removed.
+
+Two details settled in implementation. Declared keys keep their struct order and
+carried keys are appended sorted, rather than merging everything into one map
+and marshalling — a map sorts its keys and would have reshuffled the attribute
+object on every marker already written. And a carried key may not shadow a
+declared one, which cannot arise from a marker Sedum parsed but can from a
+`Marker` a caller builds.
+
 ### 5.3 The writer field is still absent
 
 `attrs` has no writer or authority. Without it:
@@ -206,9 +234,16 @@ annotations start disappearing.
 
 Cheap now for the same reason record was: one key in an object that already exists.
 
+**Shipped** as one free-form string naming the tool that last wrote the region,
+omitted when that tool is Sedum. Omitting rather than writing `"sedum"` keeps a
+marker Sedum writes byte-identical to one written before the key existed, so
+introducing it rewrites nothing and no marker on disk needs migrating. A
+writer/authority pair was considered and rejected: authority has no consumer
+yet, and its vocabulary would have been guessed now rather than learned from use.
+
 Lower-priority companion: **package** on the marker. Derivable from the extension
 map, ambiguous only where two packages contest an extension and the run's `--lang`
-choice is not recoverable from disk.
+choice is not recoverable from disk. Still open.
 
 ### 5.4 What a foreign writer may not do is unwritten
 
@@ -226,6 +261,21 @@ these become discovered constraints, and the first breakage looks like a Sedum b
 
 **2. "Multiple records injecting into the same file is out of scope."** Contradicted
 by the shipped `record` field. PRD is stale.
+
+⚠︎ **Correction — stale in one direction only.** `record.checkDuplicatePaths`
+still rejects a path named by two records at ingestion, on the grounds that
+Phase 4 makes one model call per record. So refinement of a region across
+records and across runs is shipped and is what the `record` attribute exists
+for; two records naming one path *in one run* still halts, and records sharing a
+file are generated one at a time with `--only`. Replacing the sentence with
+"multiple records are supported" would have handed a harness author a guarantee
+that is not there, so the PRD and README now state both halves.
+
+This has a consequence for M7, folded into `prov-2026-dc227be7`: under
+`--execute` there is no model call, so the check's justification does not hold
+on the replay path — yet a caller supplying records purely for scope validation
+routes through the same ingestion and would halt. Whether the check is skipped
+under replay or moved to where its justification lives is M7's to settle.
 
 **3. Phase 3's "something other than Sedum wrote it."** Survives only via a
 constraint written down nowhere. See 5.3, 5.4.
@@ -274,55 +324,60 @@ tension: pass sets are the harness's artifact.
 
 ---
 
-## 7. Edits to make
+## 7. Edits to make — done
 
-Grouped as they would be governed. Both PRD blueprints touch `PRD.md`, which is
-already in `prov-2026-529954ab`'s `affected_scope` — worth sequencing so the
-unmanaged draft is not left straddling them.
+Grouped as they were governed. Both records are `implemented`.
 
-### Record A — the marker is a public format
+### Record A — the marker is a public format — `prov-2026-72775ae5`
 
-*Mostly PRD catching up to code, plus two small changes in `internal/inject`.*
+*Mostly PRD catching up to code, plus three small changes in `internal/inject`
+and `internal/expand`.*
 
-| Change | Where |
-|---|---|
-| Retain and re-emit unrecognised attribute keys (5.2) | `marker.go` |
-| Add the writer/authority key (5.3) | `marker.go`, PRD |
-| State that the marker's tier governs after first write; the `actions.yaml` declaration is the value used at first write only | PRD, *Ownership tiers* |
-| Replace "multiple records… out of scope" with the `record` attribute as shipped | PRD, *Ownership and Idempotency* |
-| Restate `owned`'s "hand edits are lost" as edits by any writer | PRD |
-| State the attribute object as the extension point, and unrecognised-key preservation as a promise | PRD |
-| Fix `authorized()`'s comment and error text: authorized and managed, not created | `expand.go` |
+| Change | Where | |
+|---|---|---|
+| Retain and re-emit unrecognised attribute keys (5.2) | `marker.go` | ✅ |
+| Carry them forward through the replacement path (5.2 ⚠︎) | `inject.go` | ✅ |
+| Add the writer key (5.3) | `marker.go`, PRD | ✅ |
+| State that the marker's tier governs after first write; the `actions.yaml` declaration is the value used at first write only — *scoped as the rule for when that key lands* (5.1 ⚠︎) | PRD, *Ownership tiers* | ✅ |
+| Replace "multiple records… out of scope" with the `record` attribute as shipped — *stating both halves* (§6.2 ⚠︎) | PRD, *Ownership and Idempotency* | ✅ |
+| Restate `owned`'s "hand edits are lost" as edits by any writer | PRD | ✅ |
+| State the attribute object as the extension point, and unrecognised-key preservation as a promise | PRD | ✅ |
+| Fix `authorized()`'s comment and error text: authorized and managed, not created | `expand.go` | ✅ |
 
-### Record B — the integration surface
+### Record B — the integration surface — `prov-2026-59535684`
 
 *New PRD section. No code.*
 
-- The three formats and one command that constitute the supported surface (§4)
-- No runtime API, no hooks, no callbacks — with the reason (§3)
-- The recording is an input format, not only a capture artifact
-- What a foreign writer may not do (5.4)
-- Restate the "scanning existing codebases" non-goal as no structure inference from
-  unmarked source
+- ✅ The three formats and one command that constitute the supported surface (§4)
+- ✅ No runtime API, no hooks, no callbacks — with the reason (§3)
+- ✅ The recording is an input format, not only a capture artifact
+- ✅ What a foreign writer may not do (5.4)
+- ✅ Restate the "scanning existing codebases" non-goal as no structure inference
+  from unmarked source
 
 ### Open Questions edits
 
-1. **Reframe the preamble.** It currently presents §1–§15 as directions "kept out
-   of the PRD because most of them depend on answers M1–M7 will produce," which
-   implies they return to Sedum. §4–§14 do not. Note also that the split is not
-   clean by section: §1, §2, and §3 each have a Sedum half and a harness half.
-2. **Extend the pulled-forward list** — it names ownership tiers, recorded kwargs,
-   and the `phases` grouping. Add the record attribute (`prov-2026-36c8a99c`) and
-   whatever lands from Record A.
-3. **§4** — mark the "third state" resolved by deferral. With unrecognised-key
-   preservation, a harness expresses it in its own keys, and it can be standardised
-   later once its shape is known from use rather than guessed now.
-4. **§13** — fold in the beat-one break (§6, finding 4).
-5. **§3** — note that in-parameter-space re-invocation against an existing file
-   already validates correctly; the constraint is the marker round trip, not path
+1. ✅ **Reframe the preamble.** It presented §1–§15 as directions "kept out of
+   the PRD because most of them depend on answers M1–M7 will produce," which
+   implies they return to Sedum. §4–§14 do not. The split is also not clean by
+   section — §1, §2, §3 and §12 are marked inline where the halves diverge.
+2. ✅ **Extend the pulled-forward list** with the record attribute
+   (`prov-2026-36c8a99c`) and the marker extension point (`prov-2026-72775ae5`).
+3. ✅ **§4** — the "third state" resolved by deferral.
+4. ✅ **§13** — the beat-one break (§6, finding 4).
+5. ✅ **§3** — in-parameter-space re-invocation against an existing file already
+   validates correctly; the constraint is the marker round trip, not path
    validation.
-6. **§15** — `forbidden_scope` becomes load-bearing not only when Sedum edits an
-   existing repository but as soon as a harness does.
+6. ✅ **§15** — `forbidden_scope` becomes load-bearing as soon as anything working
+   under a record edits an existing repository, not only when Sedum does.
+
+### Also carried out
+
+- **README** mirrored on both records. It was ahead of the PRD on the record
+  attribute and marker tolerance, behind on everything else.
+- **M7's blueprint** (`prov-2026-dc227be7`, still `draft`) gained the replay
+  duplicate-path question from §6.2's correction, and the recording-as-input
+  constraint.
 
 ---
 
@@ -330,15 +385,30 @@ unmanaged draft is not left straddling them.
 
 **Naming the harness.**
 
-**Whether a marker version token is worth adding anyway.** Not needed for additive
-evolution (5.1). The question is whether any field's *meaning* is likely to change.
+~~**Whether a marker version token is worth adding anyway.**~~ **Decided: no.**
+Additive evolution is free under the object, and unrecognised-key preservation
+now makes it free for foreign keys too. A token earns its place only for a
+breaking change — an existing field whose *meaning* changes — and nothing on the
+horizon is one. Recorded as a constraint on Record A so it is a decision rather
+than an omission.
 
 **Whether `--only` needs region granularity.** A harness can synthesise a
 single-invocation recording today, which may be sufficient and avoids a new
 selector vocabulary. Confirm before M7.
 
+**Whether the duplicate-path check applies under `--execute`** (§6.2 ⚠︎). In
+M7's scope, in `prov-2026-dc227be7`.
+
 **Where `adopt` lives** (ODQ §3).
 
 **Whether `unmanaged` entries should carry a reason** — not for the human/agent
 distinction, which rarely matters, but a harness deciding whether to queue a path
-or halt on it may want more than the pattern.
+or halt on it may want more than the pattern. ODQ §13's beat-one break makes this
+sharper than it was: an unmanaged path is a *precondition* of beat two, and a
+caller that must decide whether to block on one has only the pattern to go on.
+
+**Whether `package` belongs on the marker** (5.3).
+
+**Whether `forbidden_scope` should be checkable independently of who is acting**
+(ODQ §15). Sedum enforces it over what Sedum does; nothing enforces it over what
+a tool above Sedum does except that tool.
