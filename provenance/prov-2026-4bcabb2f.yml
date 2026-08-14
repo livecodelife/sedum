@@ -1,69 +1,71 @@
 id: prov-2026-4bcabb2f
-title: Response format is negotiated down, not assumed
+title: No response_format is sent, because constraining it collapsed selection
 status: open
 created_at: "2026-08-14"
 author: calebcowen@gmail.com
 intent: |
-  Sedum asks for json_schema response formatting, and falls back to sending no
-  response_format at all when the server rejects the field. The fallback is
-  logged and remembered for the rest of the run.
+  Sedum sends no response_format field. The response contract lives in the
+  prompt, in the decoder's tolerance, and in Phase 5. This reverses the position
+  this record was opened with, and the measurement that reversed it is the
+  reason to keep the record rather than delete it.
 
-  There is no response_format value every OpenAI-compatible server accepts. The
-  first implementation sent {"type": "json_object"}, which is what the API
-  documents and what hosted OpenAI accepts, and LM Studio - the reference local
-  server for exactly the open-weight range this design exists to serve - refuses
-  it outright: 'response_format.type' must be 'json_schema' or 'text'. Picking
-  either value and calling it the contract would make Sedum work against one
-  half of its intended targets and fail on the other, for a field that is a
-  transport detail rather than anything the model is being asked.
+  The original plan was to ask for the strictest structured-output mode
+  available. That ran into two things in order.
 
-  So the strictest available mode is asked for first. json_schema is better than
-  json_object on the merits: it constrains the envelope rather than merely
-  requiring valid JSON, and the difference is large for the small models most
-  worth being compatible with, which will happily return well-formed JSON of
-  entirely the wrong shape. Sedum sends the invocation envelope as the schema,
-  which is the same shape the decoder accepts, so the constraint and the parser
-  cannot disagree.
+  First, there is no value every OpenAI-compatible server accepts.
+  {"type": "json_object"} is what the API documents and what hosted OpenAI
+  takes; LM Studio - the reference local server for exactly the open-weight
+  range this design exists to serve - refuses it outright with
+  'response_format.type' must be 'json_schema' or 'text'. That alone only
+  argued for negotiating between the two.
 
-  When the server rejects the field, the run continues without it rather than
-  halting. This is the one place Sedum degrades rather than failing loudly, and
-  it is worth defending: the fallback loses a guarantee Sedum never depended on.
-  Phase 5 validates every response whether or not the server constrained it, the
-  decoder already tolerates a fence and both envelope shapes, and the retry loop
-  already exists for output that arrives wrong. Constrained decoding makes a
-  good response likelier; nothing downstream assumes it happened. Halting
-  instead would refuse to run against a server whose only fault is an older
-  API surface, while a mechanism that handles bad output correctly sits unused.
+  Second, and decisively: constraining the response made the model stop
+  selecting. Against qwen2.5-coder-14b with the invocation envelope as a
+  json_schema, the same prompt that produced three correct invocations
+  unconstrained produced {"invocations": []} every time. It was not the strict
+  flag - strict true and false behaved identically - and it was not the kwargs
+  object being open, since loosening it to additionalProperties: true changed
+  nothing. Adding minItems: 1 restored the full answer immediately, which
+  identifies the mechanism: grammar-constrained decoding takes the shortest
+  legal completion available at the array's first token, and an empty array is
+  legal.
 
-  The degradation is not silent. It is logged as a warning naming the server's
-  own message, so a run that is quietly getting worse output has said why. And
-  it is remembered: once a server has rejected the field, every later call in
-  that run omits it rather than paying a failed request per record.
+  minItems: 1 is not available as a fix. A record whose intent needs no action
+  is legitimate, and a schema that forbids saying so would trade a model
+  returning nothing for a model forced to invent something - which is far worse,
+  because Phase 5 cannot catch a plausible wrong answer and can catch an empty
+  one trivially.
 
-  What is not negotiated is the response itself. A model that cannot be
-  constrained is still held to exactly the same checks, and no leniency is added
-  to compensate. The fallback changes what Sedum asks for, never what it
-  accepts.
+  So the constraint is dropped. What is lost is insurance Sedum never relied on:
+  the decoder already tolerates a code fence and both envelope shapes, Phase 5
+  validates every response identically whether or not a server shaped it, and
+  the retry loop already exists for output that arrives wrong. What is gained is
+  that every OpenAI-compatible server behaves the same way, and that the model
+  answers the question it was asked.
+
+  Worth naming for whoever revisits this: the failure was invisible from the
+  response alone. {"invocations": []} is a valid answer, the run reported
+  success, and it created the file and injected nothing. Only comparing against
+  an unconstrained call showed it. Any future attempt to reintroduce constrained
+  decoding has to be measured against selection quality on a record that should
+  produce invocations, not against whether the output parses.
 constraints:
   - >-
-    json_schema is requested first, carrying the invocation envelope as its
-    schema. The constraint sent to the server and the shape the decoder accepts
-    are the same shape.
+    No response_format is sent. The response contract is stated in the prompt
+    and enforced by Phase 5, which is where it can be enforced specifically
+    enough to re-prompt with.
   - >-
-    A server rejecting response_format causes the request to be retried once
-    without the field, not to halt. Nothing downstream assumes the output was
-    constrained.
+    Any reintroduction of constrained decoding must be measured against
+    selection quality on a record that should produce invocations. Whether the
+    output parses is not the test - an empty array parses.
   - >-
-    The fallback is logged as a warning quoting the server's message, and is
-    remembered for the rest of the run so that at most one request pays for the
-    discovery.
+    A schema forcing at least one invocation is not an option. A record whose
+    intent needs no action is legitimate, and forcing the model to invent one
+    trades a failure Phase 5 catches for one it cannot.
   - >-
-    Falling back changes what Sedum asks for and never what it accepts. Phase 5
-    runs identically against a constrained and an unconstrained response.
-  - >-
-    This is a transport concern. It must not reach the prompt, the catalog, or
-    the validation rules, and no generator package or provenance record may
-    influence it.
+    This is a transport concern. It must not reach the prompt's content, the
+    catalog, or the validation rules, and no generator package or provenance
+    record may influence it.
 affected_scope:
   - internal/selection/**
 forbidden_scope: []
