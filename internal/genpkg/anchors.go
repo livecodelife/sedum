@@ -66,6 +66,28 @@ func MarkersIn(commentPrefix, content string) []string {
 	return out
 }
 
+// MissingMarkers returns the markers a template plants that content does not
+// carry, in template order.
+//
+// Phase 3 asks this of a file that already exists. A file missing the markers
+// its template declares was written by something other than Sedum, or its
+// template changed shape after it was generated; either way the injections
+// aimed at it have nowhere to land.
+func MissingMarkers(commentPrefix, template, content string) []string {
+	present := map[string]bool{}
+	for _, name := range MarkersIn(commentPrefix, content) {
+		present[name] = true
+	}
+
+	var out []string
+	for _, name := range MarkersIn(commentPrefix, template) {
+		if !present[name] {
+			out = append(out, name)
+		}
+	}
+	return out
+}
+
 // plantedMarkers returns every marker name planted across the package's file
 // template contents.
 func plantedMarkers(commentPrefix string, contents []string) map[string]bool {

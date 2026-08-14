@@ -1,0 +1,16 @@
+# A generator package for a target that does not exist.
+#
+# It exists to prove the milestone constraint that no target knowledge is in
+# Sedum's core: it shares no extension, comment prefix, pipeline name, or
+# directory convention with any other fixture, and it is not a real language, so
+# nothing Sedum could plausibly know about it can be doing the work. If paths
+# resolve and files are created here on the same terms as for rails and chi,
+# configuration is carrying all of it.
+name: cairn
+extensions: [".crn"]
+comment_prefix: ";;"
+
+transforms:
+  unitname: [singular, pascal]
+  slug: [plural, kebab]
+  shout: [snake, upper]

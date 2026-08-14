@@ -1,0 +1,6 @@
+unit {{name|unitname}}
+  handle {{name|slug}}
+
+  ;; sedum:anchor:steps
+
+end

@@ -1,0 +1,14 @@
+actions:
+  addStep:
+    kwargs:
+      unit: { type: string, required: true }
+      step: { type: string, required: true }
+    injects_into: "Units/{{unit|slug}}/Manifest.crn"
+    anchor: steps
+
+  declareConstant:
+    kwargs:
+      unit: { type: string, required: true }
+      name: { type: string, required: true }
+    injects_into: "Shared/{{name|slug}}.crn"
+    anchor: end_of_file
