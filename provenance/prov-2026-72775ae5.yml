@@ -1,0 +1,148 @@
+id: prov-2026-72775ae5
+title: The ownership marker is a public format
+status: draft
+created_at: "2026-08-14"
+author: calebcowen@gmail.com
+intent: |
+  The ownership marker stops being Sedum's private idempotency state and becomes
+  a format other tools read and write. Three code changes make that true, and the
+  PRD catches up to what the marker already does.
+
+  The reason is the boundary recorded in TOOL_BOUNDARIES.md: Sedum is open
+  source, the convergence harness above it is not, and third-party harnesses are
+  supported. A private harness could co-evolve with Sedum. A public one cannot -
+  it has to be able to build on the artifacts Sedum leaves on disk without
+  petitioning for a schema change every time it needs to remember something.
+
+  The marker design already anticipated most of this. Attributes are a JSON
+  object rather than positional fields precisely so a field added later is an
+  addition rather than a migration across every repository already carrying
+  markers, and parseOpen already tolerates keys it does not declare. What is
+  missing is the other half of the promise.
+
+  The round trip, not the read. attrs is a fixed struct - Tier, Record, Kwargs.
+  Decoding tolerates an unknown key because encoding/json ignores it, but Marker
+  does not retain it and Open re-encodes a fresh attrs. So a key Sedum does not
+  recognize survives being read and is silently dropped the next time the region
+  is rewritten. The doc comment's promise - that a marker's reader and writer are
+  routinely different versions - holds for reads and fails for round trips.
+
+  Today the only cost is skew between Sedum versions. Under a third-party harness
+  it is the difference between the marker being an extension point and not. With
+  preservation, a harness annotates a region with its own state - escalation
+  attempt count, last-verified spec, the record that modified it - and has a
+  private extension point that needs no cooperation from Sedum, ever. Without it,
+  every harness needing per-region state must either petition for a schema change
+  or keep a sidecar file keyed by region, which reintroduces exactly the
+  maintained state the marker design exists to avoid.
+
+  The fix has two halves, and the second is the one easy to miss. A catch-all
+  retained on Marker and re-emitted by Open is necessary but not sufficient:
+  applyOne builds a fresh Marker from the invocation and renders it over the
+  region, using the parsed region's marker only for identity and tier before
+  discarding it. Extra never reaches the writer. The replacement path has to
+  carry the parsed region's unknown keys forward onto the marker it writes.
+  Retention without carry-forward would read as done while still losing every
+  annotation on the first rerun, which is worse than not doing it.
+
+  The writer key. attrs carries no writer and no authority. Without one, Phase
+  3's diagnostic - "something other than Sedum wrote it" - is not merely wrong in
+  a two-writer world but undiagnosable, and a tier demotion is unattributable: a
+  region reading seeded gives no way to tell whether a package author declared it
+  or a harness demoted it. One free-form string naming the tool that last wrote
+  the region, absent meaning sedum so that every marker already on disk reads
+  correctly. Not a writer/authority pair: authority has no consumer yet, and its
+  vocabulary would be guessed now rather than learned from use.
+
+  Phase 5's path check is right and its wording is wrong. expand.authorized
+  matches against []resolve.File and resolve.File carries Existed, so a
+  pre-existing file is in the set and an incremental re-invocation against one
+  validates correctly. But the comment says "exactly one file the run created"
+  and the error says "not one of the paths this record created." A harness author
+  reading the source concludes that re-invocation against an existing file is
+  unsupported and works around a restriction that does not exist. Under an
+  open-source release that is the same cost as a real bug, paid more slowly. The
+  check is authorized-and-managed, and it should say so.
+
+  Three PRD statements are stale rather than wrong, and each misleads in a
+  direction that matters once a second tool reads the marker:
+
+  Tier precedence is unstated. The marker carries the tier and seeded is honored
+  on read, so that a region which has stopped being Sedum's to overwrite can say
+  so. That is marker-governs in behavior, but the rule is written down nowhere,
+  and a future implementer could "correct" it back toward the actions.yaml
+  declaration and silently start overwriting demoted regions. The rule to state
+  is that the marker's tier governs after the first write and the declaration
+  supplies the value at first write only - stated as the rule for when the
+  actions.yaml key lands, since strict decoding rejects it today.
+
+  "Multiple records injecting into the same file is out of scope" is stale in one
+  direction and accurate in another, and the PRD must say which. The marker
+  carries the record ID as an attribute rather than as part of a region's
+  identity, which is what lets a later record refine a region in place instead of
+  minting a duplicate beside it - that is shipped. But ingestion still rejects a
+  path named by two records in one run, because Phase 4 makes one model call per
+  record. Replacing the sentence with "multiple records are supported" would hand
+  a harness author a guarantee that is not there.
+
+  "Hand edits are lost" under owned describes a one-writer world. In a two-writer
+  world the sentence has to say edits by any writer, or a harness author reads it
+  as applying only to humans.
+
+  The attribute object is stated as the extension point, and preservation of
+  unrecognised keys as a promise rather than an implementation accident. That
+  promise is what a harness builds per-region state on, and it is only worth
+  making because the round trip now honors it.
+constraints:
+  - >-
+    Unrecognised attribute keys are preserved in both directions: retained on
+    read and re-emitted on write, including through the replacement path that
+    rewrites an existing region. A key Sedum does not model must survive every
+    rerun untouched.
+  - >-
+    Preservation is transparent, never interpreting. Sedum does not read, act on,
+    validate, or reorder an unrecognised key. It carries it.
+  - >-
+    A key Sedum does model is never taken from the carried extras. Tier, record,
+    kwargs and writer come from the invocation on write and from the declared
+    fields on read; extras cannot shadow them.
+  - >-
+    The writer key is one free-form string naming the tool that last wrote the
+    region. Absent means sedum, so every marker already written reads correctly
+    and no migration is implied.
+  - >-
+    A marker is never rejected for carrying more than the reading version
+    expects, and never rejected for carrying less. An unreadable attribute
+    object stays an error, because that is corruption rather than version skew.
+  - >-
+    Region identity is unchanged. Neither the writer key nor any carried extra
+    takes part in IdentityOf, so adding them cannot cause a region to be
+    duplicated or replaced differently than before.
+  - >-
+    No marker version token. Additive evolution is already free under the JSON
+    object, and a token earns its place only for a breaking change - an existing
+    field changing meaning - which this is not.
+  - >-
+    The PRD edits state what the code does, not what it might do. Where behavior
+    and PRD disagree, the PRD is what changes; where the PRD describes a key that
+    does not exist yet, it says so rather than describing today.
+affected_scope:
+  - internal/inject/**
+  - internal/expand/**
+  - PRD.md
+forbidden_scope: []
+type: blueprint
+implements: prov-2026-d554bfc3
+supersedes: ""
+superseded_by: ""
+related:
+  - prov-2026-36c8a99c
+  - prov-2026-dad4d877
+sealed_at_sha: ""
+associated_specs: []
+associated_traces: []
+monitors: []
+tags:
+  - sedum
+  - marker
+  - integration
