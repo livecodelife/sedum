@@ -1,6 +1,7 @@
 package expand
 
 import (
+	"maps"
 	"os"
 	"path/filepath"
 	"strings"
@@ -63,15 +64,31 @@ transforms:
   shout: [snake, upper]
 `,
 		"cairn/files/Units/{name}/Manifest.crn": "unit {{name|unitname}}\n  ;; sedum:anchor:steps\nend\n",
+		"cairn/files/Shared/{name}.crn":         "shared {{name|unitname}}\nend\n",
+
+		// One logical change spanning two files, which is what composites
+		// exist for: the constant is declared in one file and the step
+		// that names it goes in another.
 		"cairn/actions/actions.yaml": `actions:
+  provisionStep:
+    composes: [declareConstant, addStep]
+
   addStep:
     kwargs:
       unit: { type: string, required: true }
       step: { type: string, required: true }
     injects_into: "Units/{{unit|slug}}/Manifest.crn"
     anchor: steps
+
+  declareConstant:
+    kwargs:
+      unit: { type: string, required: true }
+      name: { type: string, required: true }
+    injects_into: "Shared/{{name|slug}}.crn"
+    anchor: end_of_file
 `,
-		"cairn/actions/addStep.crn": "step {{step|shout}}\n",
+		"cairn/actions/addStep.crn":         "step {{step|shout}}\n",
+		"cairn/actions/declareConstant.crn": "const {{name|shout}} = \"{{unit|slug}}\"\n",
 	}
 }
 
@@ -251,27 +268,168 @@ func TestUnknownActionIsAnError(t *testing.T) {
 	}
 }
 
-// Composite expansion is a later milestone. A composite reaching here is
-// reported rather than treated as a simple action, because searching the
-// filesystem for a composite's template is a bug rather than a fallback.
-func TestCompositeIsReportedAsUnsupported(t *testing.T) {
-	files := generators()
-	files["rails/actions/actions.yaml"] += `
-  createResource:
-    composes: [createControllerMethod]
-`
-	set := loadSet(t, files)
-	resolved := created(t, set, map[string]string{"app/controllers/users_controller.rb": "rails"})
+// The composite payoff: the caller binds the union once and two files receive
+// correctly shaped injections. Children come back in declaration order, which
+// is the only order there is - nothing reorders them and nothing resolves
+// dependencies between them.
+func TestCompositeExpandsToItsChildrenInDeclarationOrder(t *testing.T) {
+	set := loadSet(t, generators())
+	files := created(t, set, map[string]string{
+		"Units/users/Manifest.crn": "cairn",
+		"Shared/handles.crn":       "cairn",
+	})
 
-	_, err := Expand("PR-014", resolved, []recording.Invocation{{
-		Action: "createResource",
-		Kwargs: map[string]any{"controller": "users", "name": "index"},
+	got, err := Expand("PR-014", files, []recording.Invocation{{
+		Action: "provisionStep",
+		Kwargs: map[string]any{"unit": "user", "name": "handle", "step": "build"},
+	}})
+	if err != nil {
+		t.Fatalf("Expand: %v", err)
+	}
+	if len(got) != 2 {
+		t.Fatalf("one composite expanded to %d invocations, want one per child", len(got))
+	}
+
+	// declareConstant is declared first, so it is applied first.
+	if got[0].Action.Name != "declareConstant" || got[1].Action.Name != "addStep" {
+		t.Errorf("children ran as %s, %s; want declaration order declareConstant, addStep",
+			got[0].Action.Name, got[1].Action.Name)
+	}
+	if got[0].Path != "Shared/handles.crn" || got[1].Path != "Units/users/Manifest.crn" {
+		t.Errorf("children targeted %s, %s; want each child's own injects_into rendered",
+			got[0].Path, got[1].Path)
+	}
+	if got[0].Content != "const HANDLE = \"users\"\n" {
+		t.Errorf("declaration content = %q, want the constant rendered from name and unit", got[0].Content)
+	}
+	if got[1].Content != "step BUILD\n" {
+		t.Errorf("step content = %q, want the step rendered from step", got[1].Content)
+	}
+}
+
+// A region is owned by the action that rendered it, whether that action was
+// invoked directly or reached through a composite (prov-2026-a0e37dae). The
+// composite has no template, so naming it on a marker would point a reader at
+// nothing.
+func TestExpandedChildOwnsItsRegionUnderItsOwnName(t *testing.T) {
+	set := loadSet(t, generators())
+	files := created(t, set, map[string]string{
+		"Units/users/Manifest.crn": "cairn",
+		"Shared/handles.crn":       "cairn",
+	})
+
+	got, err := Expand("PR-014", files, []recording.Invocation{{
+		Action: "provisionStep",
+		Kwargs: map[string]any{"unit": "user", "name": "handle", "step": "build"},
+	}})
+	if err != nil {
+		t.Fatalf("Expand: %v", err)
+	}
+	for _, inv := range got {
+		if inv.Action.Name == "provisionStep" {
+			t.Errorf("a child's region is owned by the composite; want the child that rendered it")
+		}
+		if inv.Variant != "" {
+			t.Errorf("variant = %q; a child's position in a composite is not a variant", inv.Variant)
+		}
+	}
+}
+
+// Union kwargs are mapped onto the subset each child declares. A kwarg one
+// child declares and the other does not reaches only the declaring child, so a
+// region's recorded kwargs describe that region rather than the whole composite.
+func TestCompositeChildrenReceiveOnlyWhatTheyDeclare(t *testing.T) {
+	set := loadSet(t, generators())
+	files := created(t, set, map[string]string{
+		"Units/users/Manifest.crn": "cairn",
+		"Shared/handles.crn":       "cairn",
+	})
+
+	got, err := Expand("PR-014", files, []recording.Invocation{{
+		Action: "provisionStep",
+		Kwargs: map[string]any{"unit": "user", "name": "handle", "step": "build"},
+	}})
+	if err != nil {
+		t.Fatalf("Expand: %v", err)
+	}
+
+	want := []map[string]any{
+		{"unit": "user", "name": "handle"}, // declareConstant
+		{"unit": "user", "step": "build"},  // addStep
+	}
+	for i, inv := range got {
+		if !maps.Equal(inv.Kwargs, want[i]) {
+			t.Errorf("%s received %v, want %v", inv.Action.Name, inv.Kwargs, want[i])
+		}
+	}
+}
+
+// The composite's kwarg schema is the union of its children's, so a kwarg two
+// children share is supplied once and passed to both.
+func TestCompositeSchemaIsTheUnionOfItsChildren(t *testing.T) {
+	set := loadSet(t, generators())
+	pkg, ok := set.Lookup("cairn")
+	if !ok {
+		t.Fatal("fixture package cairn did not load")
+	}
+
+	want := map[string]genpkg.Kwarg{
+		"unit": {Type: "string", Required: true},
+		"name": {Type: "string", Required: true},
+		"step": {Type: "string", Required: true},
+	}
+	if !maps.Equal(pkg.Actions["provisionStep"].Kwargs, want) {
+		t.Errorf("composite schema = %v, want the union %v", pkg.Actions["provisionStep"].Kwargs, want)
+	}
+}
+
+// A child targeting a file no record authorized fails loudly rather than
+// creating it. This is the case a record that names the implementation and
+// forgets the header lands in, and the diagnostic has to name the composite
+// too: the child may be unexposed, so the author never invoked it by name.
+func TestCompositeChildTargetingAnUnauthorizedPathIsAnError(t *testing.T) {
+	set := loadSet(t, generators())
+	files := created(t, set, map[string]string{"Units/users/Manifest.crn": "cairn"})
+
+	_, err := Expand("PR-014", files, []recording.Invocation{{
+		Action: "provisionStep",
+		Kwargs: map[string]any{"unit": "user", "name": "handle", "step": "build"},
 	}})
 	if err == nil {
-		t.Fatal("a composite was expanded as though it were a simple action")
+		t.Fatal("a composite whose child targets an unauthorized path was expanded")
 	}
-	if !strings.Contains(err.Error(), "composite") {
-		t.Errorf("error does not say the action is a composite: %v", err)
+	for _, want := range []string{"provisionStep", "declareConstant", "Shared/handles.crn"} {
+		if !strings.Contains(err.Error(), want) {
+			t.Errorf("error does not name %q: %v", want, err)
+		}
+	}
+}
+
+// Every child is attempted, so a composite with two mistakes in it reports two.
+func TestCompositeReportsEveryChildsProblem(t *testing.T) {
+	set := loadSet(t, generators())
+	files := created(t, set, map[string]string{"app/controllers/users_controller.rb": "rails"})
+	cairn, ok := set.Lookup("cairn")
+	if !ok {
+		t.Fatal("fixture package cairn did not load")
+	}
+	// Bring cairn into the record's catalog without authorizing either of
+	// the paths its children target.
+	files = append(files, resolve.File{
+		Resolution: resolve.Resolution{RecordID: "PR-014", Path: "Units/other/Manifest.crn", Package: cairn},
+	})
+
+	_, err := Expand("PR-014", files, []recording.Invocation{{
+		Action: "provisionStep",
+		Kwargs: map[string]any{"unit": "user", "name": "handle", "step": "build"},
+	}})
+	if err == nil {
+		t.Fatal("a composite with two unauthorized children was expanded")
+	}
+	for _, want := range []string{"declareConstant", "addStep"} {
+		if !strings.Contains(err.Error(), want) {
+			t.Errorf("error does not report %q: %v", want, err)
+		}
 	}
 }
 

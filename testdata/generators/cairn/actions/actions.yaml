@@ -1,10 +1,20 @@
 actions:
+  # One logical change spanning two files, which is the case composites exist
+  # for. A step that names a constant nothing declared is not a valid unit, and
+  # a constant no step reaches is not one either, so neither half is worth
+  # invoking alone - both are hidden and the composite is the way in.
+  provisionStep:
+    composes:
+      - declareConstant
+      - addStep
+
   addStep:
     kwargs:
       unit: { type: string, required: true }
       step: { type: string, required: true }
     injects_into: "Units/{{unit|slug}}/Manifest.crn"
     anchor: steps
+    exposed: false
 
   declareConstant:
     kwargs:
@@ -12,3 +22,4 @@ actions:
       name: { type: string, required: true }
     injects_into: "Shared/{{name|slug}}.crn"
     anchor: end_of_file
+    exposed: false

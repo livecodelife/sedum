@@ -7,8 +7,10 @@
 // participate, and in this milestone no model has run at all: the invocation
 // list is a hand-written fixture shaped exactly like a recording.
 //
-// Composite expansion is M5. A composite reaching this package is reported as
-// unsupported rather than silently treated as a simple action.
+// A composite is expanded here into its children, in declaration order, each
+// receiving the kwargs it declares out of the union the caller bound once. That
+// is where a composite stops existing: everything after this point sees a list
+// of simple invocations and contains no composite-aware branch.
 package expand
 
 import (
@@ -34,6 +36,10 @@ import (
 //
 // Every problem is reported rather than the first, because a fixture invocation
 // list with three mistakes should report three.
+//
+// One invocation may produce more than one resolved injection: a composite
+// produces one per child. They are returned in the order the composite declares
+// them, in the position the invocation held.
 func Expand(recordID string, files []resolve.File, invocations []recording.Invocation) ([]inject.Invocation, error) {
 	packages := packagesOf(files)
 
@@ -47,6 +53,74 @@ func Expand(recordID string, files []resolve.File, invocations []recording.Invoc
 			problems = append(problems, err)
 			continue
 		}
+		out = append(out, resolved...)
+	}
+
+	if len(problems) > 0 {
+		return nil, errors.Join(problems...)
+	}
+	return out, nil
+}
+
+func expandOne(recordID string, packages []*genpkg.Package, files []resolve.File, inv recording.Invocation) ([]inject.Invocation, error) {
+	pkg, action, err := lookupAction(packages, inv.Action)
+	if err != nil {
+		return nil, err
+	}
+
+	if action.Kind() == genpkg.Composite {
+		return expandComposite(recordID, pkg, files, action, inv.Kwargs)
+	}
+
+	resolved, err := resolveOne(recordID, pkg, files, action, inv.Kwargs)
+	if err != nil {
+		return nil, err
+	}
+	return []inject.Invocation{resolved}, nil
+}
+
+// expandComposite turns one composite invocation into one resolved injection
+// per child.
+//
+// Children run in declaration order. There is no reordering, no dependency
+// resolution, and no data flow between them - a child's every value comes from
+// the kwargs the caller bound, exactly as a directly invoked action's does.
+//
+// The structural rules a composite has to satisfy are enforced at load
+// (prov-2026-8e6dac6c): one level of nesting, no reaching into another package,
+// type-consistent kwarg unions. A package that fails any of them is rejected
+// whole, so this consumes an already-valid composite and re-checks none of it.
+//
+// Every child is attempted rather than stopping at the first that fails, for the
+// same reason the invocation list is: a composite with two mistakes in it should
+// report two.
+func expandComposite(recordID string, pkg *genpkg.Package, files []resolve.File, composite *genpkg.Action, kwargs map[string]any) ([]inject.Invocation, error) {
+	var (
+		out      []inject.Invocation
+		problems []error
+	)
+	for _, childName := range composite.Composes {
+		child, ok := pkg.Actions[childName]
+		if !ok {
+			// Load rejects a composite naming an action its package does
+			// not define, so reaching here means a package was accepted
+			// that should not have been. It is reported rather than
+			// panicked on, and it is not a validation rule stated twice.
+			problems = append(problems, fmt.Errorf(
+				"composite %s composes %q, which package %s does not define; the package should not have loaded",
+				composite.Name, childName, pkg.Name))
+			continue
+		}
+
+		// The composite is named alongside whatever went wrong with the
+		// child: the child is where the defect is, and the composite is
+		// the invocation the author has to fix - a child may not even be
+		// exposed (prov-2026-a0e37dae).
+		resolved, err := resolveOne(recordID, pkg, files, child, project(child, kwargs))
+		if err != nil {
+			problems = append(problems, fmt.Errorf("composite %s: %w", composite.Name, err))
+			continue
+		}
 		out = append(out, resolved)
 	}
 
@@ -56,18 +130,33 @@ func Expand(recordID string, files []resolve.File, invocations []recording.Invoc
 	return out, nil
 }
 
-func expandOne(recordID string, packages []*genpkg.Package, files []resolve.File, inv recording.Invocation) (inject.Invocation, error) {
-	pkg, action, err := lookupAction(packages, inv.Action)
-	if err != nil {
-		return inject.Invocation{}, err
+// project maps a composite's union kwargs onto one child's declared schema.
+//
+// A composite's schema is the union of its children's, so the caller binds a
+// shared kwarg once and both children receive it. Each child receives exactly
+// what it declares: passing the whole union through would leave a region's
+// recorded kwargs describing the composite rather than the region, and a
+// declaration would claim to have been parameterized by an argument only the
+// definition took.
+//
+// A kwarg the child declares and nothing bound is left absent rather than
+// defaulted. Whether a required argument is missing is Phase 5's judgment, and
+// a template that needs the value fails loudly at render either way.
+func project(child *genpkg.Action, kwargs map[string]any) map[string]any {
+	out := make(map[string]any, len(child.Kwargs))
+	for name := range child.Kwargs {
+		if value, bound := kwargs[name]; bound {
+			out[name] = value
+		}
 	}
+	return out
+}
 
-	if action.Kind() == genpkg.Composite {
-		return inject.Invocation{}, fmt.Errorf(
-			"action %s is a composite; composite expansion is not implemented", action.Name)
-	}
-
-	path, err := renderPath(pkg, action, inv.Kwargs)
+// resolveOne resolves one simple or discriminated action to the point where
+// only writing is left. A composite never reaches it; by the time anything here
+// runs, expansion has already happened.
+func resolveOne(recordID string, pkg *genpkg.Package, files []resolve.File, action *genpkg.Action, kwargs map[string]any) (inject.Invocation, error) {
+	path, err := renderPath(pkg, action, kwargs)
 	if err != nil {
 		return inject.Invocation{}, err
 	}
@@ -75,21 +164,23 @@ func expandOne(recordID string, packages []*genpkg.Package, files []resolve.File
 		return inject.Invocation{}, err
 	}
 
-	variant, template, err := selectTemplate(action, inv.Kwargs)
+	variant, template, err := selectTemplate(action, kwargs)
 	if err != nil {
 		return inject.Invocation{}, err
 	}
 
-	content, err := renderTemplate(pkg, action, template, inv.Kwargs)
+	content, err := renderTemplate(pkg, action, template, kwargs)
 	if err != nil {
 		return inject.Invocation{}, err
 	}
 
+	// The marker names this action, whether it was invoked directly or
+	// reached through a composite (prov-2026-a0e37dae).
 	return inject.Invocation{
 		Package:  pkg,
 		Action:   action,
 		Variant:  variant,
-		Kwargs:   inv.Kwargs,
+		Kwargs:   kwargs,
 		Path:     path,
 		RecordID: recordID,
 		Content:  content,
