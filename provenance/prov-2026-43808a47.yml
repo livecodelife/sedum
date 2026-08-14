@@ -1,0 +1,86 @@
+id: prov-2026-43808a47
+title: sedum resolve consults no output tree
+status: open
+created_at: "2026-08-13"
+author: calebcowen@gmail.com
+intent: |
+  `sedum resolve` was implemented as Phases 0 through 3 with writing suppressed.
+  That is what the PRD's command description says, and it is wrong in a way that
+  only shows up when the command is run from somewhere unexpected.
+
+  Phase 3 does two separable things. It renders the file template a path
+  matched, which is pure - it needs the template and the captures and nothing
+  else. And it inspects the output tree: create-if-absent, plus the check that a
+  file which already exists carries the markers its template plants. That second
+  half needs an output directory, and `resolve` has no --output flag. Its whole
+  flag surface is --generators, --records, --lang, --only, and --show-template.
+  So the output directory defaulted to the working directory, and the command
+  silently interrogated whatever tree the user happened to be standing in.
+
+  Observed: the same command, with the same generators and the same records,
+  reported eleven resolved paths from one directory and halted from another with
+  "file .linespec.yml exists but does not carry marker "config"" - a complaint
+  about a file belonging to an unrelated project that merely shared a relative
+  path with an authorized one. The command's answer depended on the caller's
+  location, and nothing in its interface let the caller say what location was
+  meant.
+
+  So resolve consults no output tree at all. It runs Phases 0 through 2, and
+  when --show-template is given it calls Phase 3's rendering directly, which
+  touches nothing. The only directories it reads are the two it is pointed at.
+
+  This is the honest reading of what the command is for. Resolve answers which
+  package claims a path, which file template matched, and what the captures
+  bound - and every one of those is Phase 2's output. Whether some particular
+  directory already holds a file by that name is a different question about a
+  different input, and the read-only inspection tool is the wrong place to ask
+  it. `grow --stop-after files --dry-run` answers it and has the --output flag
+  the question requires.
+
+  The alternative was to give resolve an --output flag. Rejected: it makes an
+  inspection command take a target it never writes to, and it widens the flag
+  surface to paper over a phase boundary drawn in the wrong place.
+
+  prov-2026-5696ff65 said rendering stays in Phase 3, run with writing
+  suppressed when a caller only wants to see the output. That still holds - the
+  rendering code is Phase 3's and lives there. What is corrected here is the
+  assumption that suppressing writes was enough to make a phase harmless.
+  Reading is also touching, and a phase that reads a tree the caller cannot name
+  is not read-only in any useful sense.
+constraints:
+  - >-
+    sedum resolve reads only the generators directory and the records
+    directory. It stats no output tree, opens no generated file, and its result
+    does not depend on the working directory it is run from.
+  - >-
+    Rendering is available without the filesystem half of Phase 3, so
+    --show-template costs nothing but the render.
+  - >-
+    Verifying an existing tree's markers stays with grow, which has --output.
+    The capability is relocated, not dropped.
+  - >-
+    --dry-run continues to mean "write nothing", not "read nothing". grow
+    --dry-run still reports which authorized paths are already present, which
+    is information it can only get by reading the output tree it was given.
+affected_scope:
+  - internal/resolve/**
+  - internal/cli/**
+forbidden_scope: []
+type: imprint
+implements: prov-2026-1a1a9b52
+supersedes: ""
+superseded_by: ""
+related:
+  - prov-2026-5696ff65
+sealed_at_sha: ""
+associated_specs:
+  - path: internal/cli/resolve_test.go
+    run_command: go test -count=1 ./$(dirname {{path}})
+  - path: internal/resolve/resolve_test.go
+    run_command: go test -count=1 ./$(dirname {{path}})
+associated_traces: []
+monitors: []
+tags:
+  - sedum
+  - m3
+  - resolution
