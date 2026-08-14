@@ -1,0 +1,64 @@
+id: prov-2026-21031113
+title: The catalog reports whether a fallback template exists
+status: open
+created_at: "2026-08-14"
+author: calebcowen@gmail.com
+intent: |
+  The catalog carries has_default: whether a discriminated action's package
+  ships a _default template. The PRD names the variant list as what the model
+  receives and does not name this, so it is an addition and is recorded here.
+
+  The variant list exists to remove an invisible cliff. `name: index` gets a
+  dedicated template and `name: search` falls to _default, and without the list
+  the model has no way to know it fell off. But the list alone only says which
+  values are covered. What happens off the edge is a different fact, and it is
+  the one that decides whether stepping off is survivable: with a _default the
+  action renders a stub, and without one Phase 5 rejects the invocation and the
+  retry is spent discovering a fact the catalog could have stated.
+
+  The PRD's own wording is what settles it. The model should "prefer covered
+  values where intent maps cleanly, and take the fallback knowingly where it
+  does not" - and knowingly is not available to a model that cannot see whether
+  a fallback is there. Two packages can declare identical variants and differ
+  only in whether _default.rb exists, and under the variant list alone those two
+  are indistinguishable while behaving differently.
+
+  It is one boolean, present only when true and only on discriminated actions,
+  so a simple action's entry is unchanged and a composite's is too. A composite
+  has no templates of its own and so has no fallback to report; its children's
+  fallbacks are theirs, and the model does not select a child.
+
+  The cost of getting this wrong in the other direction is worth naming: the
+  field is not a licence to select uncovered values freely. It reports what the
+  package ships and nothing more, and the guidance to prefer a covered variant
+  stays in the prompt where it belongs.
+constraints:
+  - >-
+    has_default is derived from the package's resolved templates, never from a
+    declaration. A package declares variants; whether _default exists is a fact
+    about the filesystem that load already resolved.
+  - >-
+    It appears only on discriminated actions and only when true. A simple
+    action, a composite, and a discriminated action with no fallback all carry
+    nothing, so the field says something wherever it appears.
+  - >-
+    It is reported, not interpreted. Nothing in Sedum reads it back; Phase 5
+    still decides a discriminator value against the package's actual templates.
+affected_scope:
+  - internal/catalog/**
+forbidden_scope: []
+type: imprint
+implements: prov-2026-f095e19f
+supersedes: ""
+superseded_by: ""
+related: []
+sealed_at_sha: ""
+associated_specs:
+  - path: internal/catalog/catalog_test.go
+    run_command: go test -count=1 ./$(dirname {{path}})
+associated_traces: []
+monitors: []
+tags:
+  - sedum
+  - m6
+  - catalog
