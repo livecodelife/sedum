@@ -198,17 +198,126 @@ func TestInjectsAtMarkerAnchor(t *testing.T) {
 	}
 
 	got := read(t, root)
+	// The markers take the anchor's indentation; the body is written exactly
+	// as the template rendered it.
 	want := "class UsersController\n" +
 		"  # sedum:anchor:class_body_top\n" +
 		"\n" +
 		"  # sedum:anchor:class_body\n" +
-		`# sedum:createControllerMethod:index {"tier":"owned","record":"PR-014","kwargs":{"collection":"users","controller":"users","name":"index"}}` + "\n" +
+		`  # sedum:createControllerMethod:index {"tier":"owned","record":"PR-014","kwargs":{"collection":"users","controller":"users","name":"index"}}` + "\n" +
 		"def index\n  User.all\nend\n" +
-		"# /sedum:createControllerMethod:index\n" +
+		"  # /sedum:createControllerMethod:index\n" +
 		"end\n"
 
 	if got != want {
 		t.Errorf("injected file:\n%s\nwant:\n%s", got, want)
+	}
+}
+
+// Sedum's own markers line up with the anchor they land at, in whatever
+// whitespace the file already uses. The body is never touched, because a
+// template author writes each template at the depth its anchor sits at
+// (prov-2026-df491217).
+func TestMarkersTakeTheAnchorsIndentation(t *testing.T) {
+	pkg := loadPackage(t)
+
+	cases := []struct {
+		name   string
+		action string
+		// body is the template output, written the way an author would for
+		// this anchor's depth.
+		body string
+		// indent is what the markers are expected to carry.
+		indent string
+	}{{
+		name: "a marker anchor inside a block", action: "createControllerMethod",
+		body: "\tdef index\n\tend", indent: "  ",
+	}, {
+		name: "start_of_file takes none", action: "addHeader",
+		body: "# frozen_string_literal: true", indent: "",
+	}, {
+		name: "end_of_file takes none", action: "addTrailer",
+		body: "# end of file", indent: "",
+	}, {
+		name: "a region takes the closing marker's", action: "addInRegion",
+		body: "# in region", indent: "  ",
+	}, {
+		name: "after_match takes the matched line's", action: "addAfterClass",
+		body: "# after", indent: "",
+	}}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			root := output(t)
+
+			kwargs := map[string]any{"controller": "users"}
+			variant := ""
+			if tc.action == "createControllerMethod" {
+				variant = "index"
+				kwargs["name"] = "index"
+			}
+
+			inv := invocation(t, pkg, tc.action, variant, tc.body+"\n", "PR-014", kwargs)
+			if _, err := Apply([]Invocation{inv}, Options{Output: root}); err != nil {
+				t.Fatalf("Apply: %v", err)
+			}
+
+			got := read(t, root)
+			for _, line := range strings.Split(got, "\n") {
+				trimmed := strings.TrimSpace(line)
+				if !strings.Contains(trimmed, "sedum:"+tc.action) &&
+					!strings.Contains(trimmed, "/sedum:"+tc.action) {
+					continue
+				}
+				if indent := line[:len(line)-len(strings.TrimLeft(line, " \t"))]; indent != tc.indent {
+					t.Errorf("marker indented %q, want %q:\n%s", indent, tc.indent, got)
+				}
+			}
+
+			// The body keeps exactly what the template produced.
+			if !strings.Contains(got, tc.body+"\n") {
+				t.Errorf("body was re-indented; want it verbatim:\n%s", got)
+			}
+		})
+	}
+}
+
+// Replacement takes alignment from the region's own opening marker, so a run
+// that only refreshes contents does not re-lay-out a region whose surroundings
+// have since moved.
+func TestReplacementKeepsTheRegionsOwnIndentation(t *testing.T) {
+	pkg := loadPackage(t)
+	root := output(t)
+
+	kwargs := map[string]any{"controller": "users", "name": "index"}
+	inv := invocation(t, pkg, "createControllerMethod", "index", "def index\nend\n", "PR-014", kwargs)
+
+	if _, err := Apply([]Invocation{inv}, Options{Output: root}); err != nil {
+		t.Fatalf("Apply: %v", err)
+	}
+
+	// Someone re-indents the region deeper than its anchor.
+	full := filepath.Join(root, filepath.FromSlash(controllerPath))
+	moved := strings.ReplaceAll(read(t, root), "  # sedum:createControllerMethod:index",
+		"      # sedum:createControllerMethod:index")
+	moved = strings.ReplaceAll(moved, "  # /sedum:createControllerMethod:index",
+		"      # /sedum:createControllerMethod:index")
+	if err := os.WriteFile(full, []byte(moved), 0o644); err != nil {
+		t.Fatalf("write: %v", err)
+	}
+
+	refreshed := invocation(t, pkg, "createControllerMethod", "index",
+		"def index\n  User.all\nend\n", "PR-092", kwargs)
+	if _, err := Apply([]Invocation{refreshed}, Options{Output: root}); err != nil {
+		t.Fatalf("rerun Apply: %v", err)
+	}
+
+	got := read(t, root)
+	if !strings.Contains(got, "      # sedum:createControllerMethod:index") {
+		t.Errorf("the region was re-laid-out to its anchor's depth:\n%s", got)
+	}
+	if !strings.Contains(got, "      # /sedum:createControllerMethod:index") {
+		t.Errorf("the closing marker lost the region's indentation:\n%s", got)
 	}
 }
 

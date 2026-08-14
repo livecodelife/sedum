@@ -191,11 +191,6 @@ func applyOne(inv Invocation, content string) (string, Result, error) {
 		return "", result, fmt.Errorf("file %s: %w", inv.Path, err)
 	}
 
-	rendered, err := renderRegion(inv, marker)
-	if err != nil {
-		return "", result, err
-	}
-
 	// An existing region with the same identity is this invocation's region,
 	// whichever record wrote it. Replacement follows from two invocations
 	// being the same thing, never from a lifecycle field Sedum would have to
@@ -215,6 +210,14 @@ func applyOne(inv Invocation, content string) (string, Result, error) {
 			return content, result, nil
 		}
 
+		// Alignment comes from the region's own opening marker rather than
+		// from the anchor, so a run refreshing a region's contents does not
+		// silently re-lay-out one whose surroundings have moved.
+		rendered, err := renderRegion(inv, marker, indentAt(content, region.Start))
+		if err != nil {
+			return "", result, err
+		}
+
 		result.Replaced = true
 		return content[:region.Start] + rendered + content[region.End:], result, nil
 	}
@@ -226,12 +229,24 @@ func applyOne(inv Invocation, content string) (string, Result, error) {
 			inv.Action.Name, inv.Path, err)
 	}
 
+	rendered, err := renderRegion(inv, marker, where.indent)
+	if err != nil {
+		return "", result, err
+	}
+
 	offset := skipRegionsAt(regions, where.offset)
 	return content[:offset] + rendered + content[offset:], result, nil
 }
 
-// renderRegion wraps an invocation's rendered content in its ownership markers.
-func renderRegion(inv Invocation, marker Marker) (string, error) {
+// renderRegion wraps an invocation's rendered content in its ownership markers,
+// aligned to indent.
+//
+// Only the markers are indented. The body is written exactly as the template
+// rendered it, because a template author writes each template at the depth its
+// anchor sits at - a single package legitimately mixes a fragment indented to
+// sit inside a struct with a top-level declaration starting at column zero, and
+// re-indenting would double-indent the first (prov-2026-df491217).
+func renderRegion(inv Invocation, marker Marker, indent string) (string, error) {
 	open, err := marker.Open(inv.Package.CommentPrefix)
 	if err != nil {
 		return "", err
@@ -243,12 +258,14 @@ func renderRegion(inv Invocation, marker Marker) (string, error) {
 	body := strings.TrimRight(inv.Content, "\n")
 
 	var b strings.Builder
+	b.WriteString(indent)
 	b.WriteString(open)
 	b.WriteString("\n")
 	if body != "" {
 		b.WriteString(body)
 		b.WriteString("\n")
 	}
+	b.WriteString(indent)
 	b.WriteString(marker.Close(inv.Package.CommentPrefix))
 	b.WriteString("\n")
 	return b.String(), nil

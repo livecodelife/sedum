@@ -35,6 +35,12 @@ func anchorDecl(commentPrefix, name string) string {
 // site is where injected content goes, as a byte offset into the file.
 type site struct {
 	offset int
+	// indent is the leading whitespace of the line the anchor sits on,
+	// copied verbatim. Sedum's own markers take it so they line up with
+	// their surroundings; the rendered body never does, because the template
+	// author writes each template at the depth its anchor sits at
+	// (prov-2026-df491217).
+	indent string
 	// describes the anchor in a diagnostic, in the author's vocabulary.
 	described string
 }
@@ -46,6 +52,8 @@ func locate(pkg *genpkg.Package, action *genpkg.Action, content string) (site, e
 		return site{}, fmt.Errorf("action %s declares no anchor, so there is nowhere to put its output", action.Name)
 
 	case genpkg.AnchorStartOfFile:
+		// Neither of these names a line to take indentation from, and
+		// column zero is what they mean.
 		return site{offset: 0, described: genpkg.AnchorStartOfFile}, nil
 
 	case genpkg.AnchorEndOfFile:
@@ -63,12 +71,26 @@ func locate(pkg *genpkg.Package, action *genpkg.Action, content string) (site, e
 
 	default:
 		// Every other value names a marker a file template planted.
-		offset, ok := findAnchorLine(pkg.CommentPrefix, action.Anchor, content)
+		start, ok := findAnchorLineStart(pkg.CommentPrefix, action.Anchor, content)
 		if !ok {
 			return site{}, fmt.Errorf("marker %q is not in the file", action.Anchor)
 		}
-		return site{offset: offset, described: fmt.Sprintf("marker %q", action.Anchor)}, nil
+		return site{
+			offset:    lineEnd(content, start),
+			indent:    indentAt(content, start),
+			described: fmt.Sprintf("marker %q", action.Anchor),
+		}, nil
 	}
+}
+
+// indentAt returns the leading whitespace of the line beginning at start,
+// copied verbatim rather than normalized: a file indented with tabs and a file
+// indented with spaces each get their own back.
+func indentAt(content string, start int) string {
+	end := lineTextEnd(content, start)
+	line := content[start:end]
+
+	return line[:len(line)-len(strings.TrimLeft(line, " \t"))]
 }
 
 // locateRegion places content at the end of a named region, just before the
@@ -91,8 +113,11 @@ func locateRegion(pkg *genpkg.Package, action *genpkg.Action, content string) (s
 			action.AnchorEnd, action.AnchorStart)
 	}
 
+	// Content goes just inside the marker that closes the region, so that is
+	// the line its alignment comes from.
 	return site{
 		offset:    start + end,
+		indent:    indentAt(content, start+end),
 		described: fmt.Sprintf("region between %q and %q", action.AnchorStart, action.AnchorEnd),
 	}, nil
 }
@@ -124,19 +149,14 @@ func locateMatch(action *genpkg.Action, content string) (site, error) {
 
 	described := fmt.Sprintf("%s %q", action.Anchor, action.AnchorPattern)
 	if action.Anchor == genpkg.AnchorBeforeMatch {
-		return site{offset: lineStart(content, loc[0]), described: described}, nil
+		start := lineStart(content, loc[0])
+		return site{offset: start, indent: indentAt(content, start), described: described}, nil
 	}
-	return site{offset: lineEnd(content, loc[1]), described: described}, nil
-}
-
-// findAnchorLine returns the offset just past the line carrying the named
-// anchor marker, which is where content anchored to that marker goes.
-func findAnchorLine(commentPrefix, name, content string) (int, bool) {
-	start, ok := findAnchorLineStart(commentPrefix, name, content)
-	if !ok {
-		return 0, false
-	}
-	return lineEnd(content, start), true
+	return site{
+		offset:    lineEnd(content, loc[1]),
+		indent:    indentAt(content, lineStart(content, loc[1])),
+		described: described,
+	}, nil
 }
 
 // findAnchorLineStart returns the offset of the first byte of the line carrying
