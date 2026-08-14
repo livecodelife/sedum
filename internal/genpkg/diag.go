@@ -53,8 +53,11 @@ const (
 	RuleFileTemplateInvalid    = "file_template_invalid"
 	RuleFileTemplateTie        = "file_template_tie"
 
-	RuleAnchorUnplanted = "anchor_marker_unplanted"
-	RuleActionDead      = "action_dead"
+	RuleActionNameReserved = "action_name_reserved"
+
+	RuleAnchorUnplanted       = "anchor_marker_unplanted"
+	RuleAnchorPatternLineMode = "anchor_pattern_line_mode"
+	RuleActionDead            = "action_dead"
 )
 
 // Finding is one load-time diagnostic.

@@ -3,6 +3,7 @@ package genpkg
 import (
 	"fmt"
 	"path/filepath"
+	"regexp"
 	"sort"
 	"strings"
 
@@ -30,7 +31,23 @@ func validateActions(pkg *Package, decls map[string]*actionDecl, r *reporter) {
 	}
 }
 
+// ReservedActionName is the one name an action may not take.
+//
+// Ownership markers and the anchor declarations file templates plant share the
+// "sedum:" namespace and are told apart by the first segment of the label, so
+// an action called "anchor" writes markers a reader is obliged to skip. Its
+// regions become invisible to the matching that would replace them, and it
+// injects a fresh duplicate on every run - silently, which is the one anchor
+// mistake that does not announce itself (prov-2026-42f5eedd).
+const ReservedActionName = "anchor"
+
 func buildAction(name string, decl *actionDecl, pkg *Package, r *reporter) *Action {
+	if name == ReservedActionName {
+		r.errorf(actionsRel, RuleActionNameReserved,
+			"action %q takes the one name that is reserved: %q is how a file template declares an anchor point, so an action of that name writes markers Sedum cannot tell from injection sites and duplicates its output on every run",
+			name, markerDecl(pkg.CommentPrefix, "<name>"))
+	}
+
 	a := &Action{
 		Name:          name,
 		Kwargs:        decl.Kwargs,
@@ -159,6 +176,63 @@ func checkAnchorFields(a *Action, r *reporter) {
 			"action %s declares anchor_pattern but its anchor is %q, not %s or %s",
 			a.Name, a.Anchor, AnchorAfterMatch, AnchorBeforeMatch)
 	}
+
+	if a.AnchorPattern != "" {
+		checkAnchorPattern(a, r)
+	}
+}
+
+// checkAnchorPattern reads the declared expression here rather than leaving it
+// to Phase 7.
+//
+// An expression that does not parse is a defect in the package, and a regex is
+// checkable with nothing but the regex. Leaving it until injection means a
+// package is declared wholly valid and then fails partway through a run that
+// has already written files - the position load-time transform checking already
+// rejected (prov-2026-4675cebe).
+func checkAnchorPattern(a *Action, r *reporter) {
+	if _, err := regexp.Compile(a.AnchorPattern); err != nil {
+		r.errorf(actionsRel, RuleAnchorInvalid,
+			"action %s declares anchor_pattern %q, which is not a valid expression: %v",
+			a.Name, a.AnchorPattern, err)
+		return
+	}
+
+	// ^ and $ match the bounds of the whole file unless (?m) is set, so a
+	// pattern meant to find a line finds nothing and reports it at Phase 7
+	// as a fault in the file rather than in the pattern.
+	//
+	// This warns rather than erroring, and the expression is never rewritten:
+	// whole-text anchoring is legal and occasionally meant, and the pattern
+	// written in actions.yaml has to be the pattern that runs.
+	if !strings.Contains(a.AnchorPattern, "(?m") && lineAnchored(a.AnchorPattern) {
+		r.warnf(actionsRel, RuleAnchorPatternLineMode,
+			"action %s declares anchor_pattern %q, whose ^ or $ matches the bounds of the whole file rather than of a line; write (?m) at the start of the pattern if a line was meant",
+			a.Name, a.AnchorPattern)
+	}
+}
+
+// lineAnchored reports whether a pattern uses ^ or $ as an anchor, ignoring the
+// ones that are escaped or that sit inside a character class, where they mean
+// something else entirely.
+func lineAnchored(pattern string) bool {
+	var inClass bool
+
+	for i := 0; i < len(pattern); i++ {
+		switch pattern[i] {
+		case '\\':
+			i++
+		case '[':
+			inClass = true
+		case ']':
+			inClass = false
+		case '^', '$':
+			if !inClass {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 // resolveComposite enforces the composite rules and builds the kwarg union.
