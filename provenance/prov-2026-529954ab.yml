@@ -1,0 +1,123 @@
+id: prov-2026-529954ab
+title: Packages declare the paths Sedum does not manage
+status: draft
+created_at: "2026-08-14"
+author: calebcowen@gmail.com
+intent: |
+  A generator package gains an `unmanaged` list: paths it declares Sedum will
+  not create, render, or inject into. A path in a record's affected_scope that
+  matches one is skipped and reported rather than resolved, and the run
+  continues.
+
+  The problem it solves is that today a provenance record cannot say the whole
+  truth about a change. Moving a Rails service onto PostgreSQL means adding the
+  pg gem, so Gemfile belongs in affected_scope - it is part of the change, and a
+  record that omits it describes something that was never done. But Gemfile has
+  no extension, no package can claim it, and Phase 2 halts the run:
+
+    path Gemfile has no extension, so no generator package can claim it
+
+  The only way to run was to trim the record down to what the generator could
+  reach. That inverts the relationship: the record is supposed to declare the
+  change and authorize the files, and the tool is supposed to work inside that
+  authorization. A record shaped by the generator's reach is a record that has
+  stopped describing the work.
+
+  The declaration belongs to the package rather than to the command line. Which
+  files a human owns is a property of a stack, not of a run: every Rails service
+  has a Gemfile someone edits by hand, every Go service has a go.mod the
+  toolchain writes. That is the same kind of knowledge as which extensions a
+  package claims and where its file templates live, and it belongs in the same
+  place, versioned with the package and identical for every service built from
+  it. A flag would make every run responsible for remembering it, and a run that
+  forgot would halt.
+
+  What it is not: it does not authorize anything, and it does not weaken
+  affected_scope. The record still governs which paths may be touched; unmanaged
+  says only that Sedum is not the one touching this one. The usual reason is
+  that a human will, or that an agent will be pointed at it separately, which is
+  why the run reports these paths as a list at the end rather than silently
+  passing over them. The handoff is the point.
+
+  Nor is it a way to make Sedum edit structured documents later. Appending a gem
+  to a Gemfile or a dependency to a package.json needs a format-aware primitive
+  with document selectors and merge semantics, and that is a stated non-goal.
+  Declaring the path unmanaged is how a package says so out loud.
+
+  Design, in the order the pipeline meets it:
+
+  Phase 0 parses each package's unmanaged patterns and rejects a package whose
+  pattern cannot be read, the same way an unreadable forbidden_scope entry is
+  rejected - a pattern that matches nothing would silently protect nothing. Two
+  contradictions are load-time errors: a file template whose own path matches
+  its package's unmanaged list, because the package both templates the path and
+  disowns it; and an action whose injects_into is a literal path matching the
+  list, because it targets a file the package says it does not write. An
+  injects_into carrying placeholders cannot be checked here and is caught in
+  Phase 6.
+
+  Phase 2 checks the union of every loaded package's unmanaged patterns before
+  it resolves an extension. Before, not after, because a path with no extension
+  can never reach the package that disowns it - resolution is exactly what
+  Gemfile cannot survive. A matching path is recorded as unmanaged with the
+  package that declared it and takes no further part in the run.
+
+  Phase 3 does not create it. Phase 6 fails loudly if a rendered injects_into
+  names it, saying that the path is declared unmanaged rather than only that it
+  was never created, because the two have different fixes.
+
+  Two packages declaring the same path unmanaged is not a conflict; they agree.
+  A path one package disowns and another would claim by extension resolves as
+  unmanaged, because a declaration that a file is hand-owned is a statement
+  about the file, and the alternative is a run whose behavior depends on which
+  package happened to be consulted first.
+constraints:
+  - >-
+    The pattern vocabulary is the one scope entries already use - **, *, ?,
+    […], and a trailing slash for a subtree - and not a new notation. Regular
+    expressions would make three pattern languages in one system for a job the
+    existing one does.
+  - >-
+    unmanaged is declared per package in sedum.yaml. It is a property of a
+    stack's conventions, not of an invocation, and no flag overrides it.
+  - >-
+    An unmanaged path is skipped, never halted on, and never guessed about.
+    Skipping is silent to no one: the path is reported by sedum resolve and
+    listed at the end of a run as work Sedum did not do.
+  - >-
+    unmanaged authorizes nothing. affected_scope still decides what may be
+    touched, and forbidden_scope still decides what may not.
+  - >-
+    Unmanaged is evaluated before extension resolution, because the paths that
+    most need it are the ones resolution cannot reach.
+  - >-
+    A package that both templates a path and declares it unmanaged is rejected
+    at load, as is an action whose literal injects_into names one.
+  - >-
+    A rendered injects_into naming an unmanaged path is a hard error in Phase 6
+    naming the action, the path, and the package that declared it.
+  - >-
+    This is not a step toward structured-document editing. It is how a package
+    states that a file needs a format-aware primitive Sedum does not have, so a
+    person or another tool will do it.
+affected_scope:
+  - internal/genpkg/**
+  - internal/resolve/**
+  - internal/expand/**
+  - internal/cli/**
+  - testdata/**
+  - PRD.md
+forbidden_scope: []
+type: blueprint
+implements: prov-2026-d554bfc3
+supersedes: ""
+superseded_by: ""
+related:
+  - prov-2026-e8671c88
+sealed_at_sha: ""
+associated_specs: []
+associated_traces: []
+monitors: []
+tags:
+  - sedum
+  - resolution
