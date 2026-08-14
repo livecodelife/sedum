@@ -1,0 +1,113 @@
+id: prov-2026-36c8a99c
+title: The record ID is an attribute of a region, not part of its identity
+status: draft
+created_at: "2026-08-13"
+author: calebcowen@gmail.com
+intent: |
+  M4's blueprint says multiple records injecting into one file is out of scope,
+  and that if it becomes necessary "the marker gains the record ID and nothing
+  else changes". That exit is correct and it is cheaper to take now than later,
+  because the marker is a durable on-disk artifact and its shape is the one
+  thing M4 cannot change afterwards without migrating every generated codebase.
+  This imprint fixes how the record ID is written, because the obvious reading
+  of that sentence forecloses a direction the project intends to go.
+
+  The obvious reading is that a region becomes identified by (record, action,
+  variant). That does make two records injecting into one file representable,
+  and it is wrong.
+
+  Under it, a later record can never claim a region an earlier record wrote. It
+  would always mint a second region beside the first, because its record ID
+  differs and therefore its identity differs. That is exactly the case the
+  update story depends on: a record whose intent is "PUT should support partial
+  updates" is not adding a handler, it is changing the one that exists. Under
+  record-scoped identity the file ends up with two regions defining the same
+  function, and the failure is a duplicate symbol rather than a diagnostic.
+
+  So the record ID is written on the marker but takes no part in matching. A
+  region is identified by the action, the variant, and the kwargs that select
+  what it targets. The record ID records who last wrote the region, and it is
+  overwritten when a later record re-invokes the same identity. What this buys:
+
+    - Independent records sharing a file - two resources, one router - have
+      different selecting kwargs, so their regions have different identities and
+      coexist without anything special.
+    - A later record refining an earlier region matches the same identity and
+      replaces it in place. This is the parameter-space update: the invocation
+      is the same action with different kwargs, rendering is deterministic, and
+      no code is edited by anything.
+    - The audit trail improves rather than degrading, because a region now says
+      which record last parameterized it.
+
+  The general rule this is an instance of: a marker carries facts, and the rule
+  for what counts as the same region lives in code. Everything a future matching
+  rule might need - action, variant, kwargs, tier, record - is on disk from the
+  first generated file, so that rule can be redefined without a migration.
+  Deciding today which subset of kwargs selects a region rather than
+  parameterizes it would be guessing; recording all of them costs nothing and
+  keeps the question open.
+
+  What this does not cover, and deliberately: a region whose kwargs are
+  unchanged but whose body should differ. It cannot be covered, because
+  everything after the model is deterministic - a region's content is a pure
+  function of its template and its kwargs, so identical inputs must produce
+  identical bytes. There are only three ways a region's content legitimately
+  changes. Its kwargs change, which is the case above. Its template changes,
+  which is the generator package's business and propagates to every region
+  using it on the next run. Or the change is outside what the action can
+  express, which is business logic, which is a stated non-goal, and which the
+  tier field exists to route: a region a human or a later editing layer has
+  touched stops being owned, and Sedum stops overwriting it. That is why tier
+  belongs on the marker from the first file alongside the record ID, and why
+  neither field having a reader in M4 is not an argument against writing them.
+
+  The consequence outside the marker is that Phase 1's rule rejecting a path
+  named by two records is dropped when this lands, and Phase 3 creates each
+  distinct path once while Phase 4 continues to call the model once per record.
+  Sedum still does not read a record's lifecycle fields to order or supersede
+  anything (prov-2026-dad4d877); regions are matched by what they are, not by a
+  graph Sedum would have to reimplement.
+constraints:
+  - >-
+    A region's identity is the action, the variant, and the kwargs it was
+    rendered from. The record ID is recorded on the marker and is never part of
+    matching.
+  - >-
+    A later record re-invoking the same identity replaces the region in place
+    and becomes the record the marker names. It never appends a second region
+    beside the first.
+  - >-
+    Every field a future matching rule could need - action, variant, kwargs,
+    tier, record - is written from the first generated file, so the rule can be
+    redefined in code without migrating generated codebases.
+  - >-
+    A change to a region that its kwargs cannot express is out of scope for the
+    boilerplate layer. The tier field is the mechanism that keeps such a region
+    from being overwritten, which is why it is written before anything reads it.
+  - >-
+    Sedum does not consult supersedes, extends, or any other lifecycle field to
+    decide what replaces what. Replacement follows from two invocations having
+    the same identity, per prov-2026-dad4d877.
+  - >-
+    When this lands, Phase 1 no longer rejects a path named by two records,
+    Phase 3 creates each distinct path once, and Phase 4 still makes one model
+    call per record.
+affected_scope:
+  - internal/inject/**
+  - internal/record/**
+forbidden_scope: []
+type: imprint
+implements: prov-2026-b6fa093c
+supersedes: ""
+superseded_by: ""
+related:
+  - prov-2026-dad4d877
+  - prov-2026-e8671c88
+sealed_at_sha: ""
+associated_specs: []
+associated_traces: []
+monitors: []
+tags:
+  - sedum
+  - m4
+  - injection
