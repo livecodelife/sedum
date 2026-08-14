@@ -1,0 +1,82 @@
+id: prov-2026-a9e59197
+title: Phase 0 checks one direction of the anchor relationship
+status: draft
+created_at: "2026-08-14"
+author: calebcowen@gmail.com
+intent: |
+  Phase 0 warns when an action is anchored to a marker no file template in its
+  package plants (prov-2026-42f5eedd). It says nothing about the reverse: a
+  marker a file template plants that no action targets. That marker is an
+  injection point nothing can reach, and the file it opens is generated with a
+  hole in it.
+
+  The failure is not theoretical and it is not cheap. A Go package in a real
+  project planted an imports anchor in three file templates and shipped no
+  action that filled it. Every service generated from it referenced packages it
+  never imported, so the output did not compile at all - and the package
+  validated clean, because the only anchor check runs the other way. It was
+  found by building the generated service, which is the most expensive place to
+  find it and the one place Sedum promises not to make you look.
+
+  Sedum's own fixtures carry two of these: chi plants imports and rails plants
+  start_of_body, and no action in either package names them.
+
+  The fix is the mirror check, and it is the same defect the linter already
+  reports about actions. An action that is neither exposed nor composed is dead
+  configuration: nothing can invoke it, warn at load. A marker no action
+  targets is dead configuration on the other side of the same relationship:
+  nothing can fill it, warn at load. Same category, same severity, same
+  reasoning.
+
+  Warning rather than error, and with no suppression list, for the reason the
+  dead-action warning has neither: a package carrying one is usable, the author
+  may be mid-edit, and --strict already exists for a team that wants it
+  enforced. A marker deliberately reserved for a future action costs one warning
+  line, and the way to silence it is to write the action - which is the same
+  answer Sedum gives everywhere else it asks for a declaration rather than
+  inferring one.
+
+  Unlike the check it mirrors, this one is complete. Verifying that an action's
+  marker exists cannot be complete because template selection is path-dependent,
+  and the action may target a file whose template was never chosen. Verifying
+  that a marker is targeted is a comparison of two sets that are both fully
+  known at load: every marker every file template plants, and every marker every
+  action names. No path is involved.
+
+  Scope note: region anchors reference their markers through anchor_start and
+  anchor_end rather than anchor, so both count as targeting. Missing that would
+  make the check report every region anchor's endpoints as unfilled.
+constraints:
+  - >-
+    A marker planted by a file template that no action in the package targets is
+    a warning, never an error. The package is usable and the author may be
+    mid-edit.
+  - >-
+    anchor, anchor_start and anchor_end all count as targeting a marker. A
+    region anchor names its endpoints through the latter two.
+  - >-
+    No suppression mechanism, matching the dead-action warning. A reserved
+    marker is silenced by writing the action that fills it, and --strict is the
+    existing answer for a team that wants warnings to fail.
+  - >-
+    The fixture packages are corrected rather than exempted. A worked example
+    that trips a rule the linter reports is not a worked example.
+affected_scope:
+  - internal/genpkg/**
+  - testdata/**
+forbidden_scope: []
+type: bug
+extends: prov-2026-8e6dac6c
+supersedes: ""
+superseded_by: ""
+related:
+  - prov-2026-42f5eedd
+sealed_at_sha: ""
+associated_specs:
+  - path: internal/genpkg/anchors_test.go
+    run_command: go test -count=1 ./$(dirname {{path}})
+associated_traces: []
+monitors: []
+tags:
+  - sedum
+  - validation
