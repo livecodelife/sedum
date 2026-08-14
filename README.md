@@ -10,17 +10,14 @@ A provenance record declares intent, constraints, and the files a change is auth
 
 ## Status
 
-Sedum is under active development. Everything up to and including file creation
-has landed: package loading and validation, transforms and template rendering,
-record ingestion, path resolution, and scaffolding files from templates.
-Injection and model invocation have not.
+Sedum is under active development. The **deterministic half of the pipeline has
+landed**: package loading and validation, transforms and template rendering,
+record ingestion, path resolution, file creation, action rendering, and anchored
+injection with ownership markers. Model invocation has not.
 
-| Command | State |
-|---|---|
-| `sedum validate` | Working |
-| `sedum resolve` | Working |
-| `sedum grow` | Working through `--stop-after resolution` and `--stop-after files`. Without a stop point it refuses before touching disk, naming the milestone it is waiting on. |
-| `sedum actions` | Stubbed |
+The ordering is deliberate. The half that does not involve a model must be
+provably correct before one is introduced, so that any later failure is
+unambiguously a selection failure rather than a rendering failure.
 
 | Phase | State |
 |---|---|
@@ -29,11 +26,31 @@ Injection and model invocation have not.
 | 2 — Resolve paths to packages and templates | Working |
 | 3 — Create files from templates | Working |
 | 4–5 — Model invocation and validation | Not built |
-| 6–7 — Expand and inject | Not built |
+| 6 — Expand and resolve | Working for simple and discriminated actions; composite expansion not built |
+| 7 — Inject | Working |
+
+| Command | State |
+|---|---|
+| `sedum validate` | Working |
+| `sedum resolve` | Working |
+| `sedum grow` | Working through `--stop-after resolution` and `--stop-after files`. Without a stop point it refuses before touching disk, naming the milestone it is waiting on. |
+| `sedum actions` | Stubbed |
 
 So today Sedum will scaffold the files a record authorizes, with their
-boilerplate rendered and their anchors planted, and stop there. The regions
-those anchors mark stay empty until injection lands.
+boilerplate rendered and their anchors planted. Phases 6 and 7 will then render
+actions and inject them into those anchors, replacing owned regions in place on
+every rerun — but **they have no command-line entry point yet**. The designed
+entry is `--execute`, which replays a hand-written or recorded invocation list
+with no model involved; until it lands, injection is reachable only from Go.
+
+Two other limits are worth knowing before pointing this at a real project:
+
+- A path named by two provenance records is still rejected in Phase 1. Records
+  that share a file generate correctly one at a time with `--only`, and their
+  regions coexist and survive each other's reruns — the restriction is on the
+  whole-directory run, not on the outcome.
+- A composite action cannot be expanded yet, so a generator package whose
+  exposed catalog is built from composites has no reachable path through them.
 
 Flag parsing and flag-interdependence checks are live for every command, so an
 unusable flag combination is rejected today even where the underlying phase is
@@ -102,6 +119,15 @@ boilerplate rendered and its anchors planted, then stop.
 Rerunning is safe and is the ordinary way to resume: Phase 3 is
 create-if-absent, so a second run reports every path as already present and
 rewrites nothing.
+
+Add `--dry-run` to decide everything and write nothing, or `-v` to mirror the run
+log to stdout.
+
+**Injection has no command yet.** Phases 6 and 7 work — they render actions and
+write them into the anchors Phase 3 planted, replacing owned regions in place on
+rerun — but the command-line entry point for driving them from an invocation list
+is `--execute`, which has not landed. Until then `--stop-after files` is as far as
+a run goes.
 
 **Inspect the command surface** — every command, its flags, and its documented behavior:
 
@@ -487,20 +513,45 @@ Anchors are a small closed vocabulary, declared per action, evaluated at the tex
 
 Marker comments are the load-bearing case. Marker syntax uses the package's declared `comment_prefix`, since `#`, `//`, and `--` all appear across targets.
 
+### Placement
+
+Where an anchor puts content is part of the authoring contract, so it is stated rather than discovered:
+
+- `marker` inserts after the line carrying the marker.
+- `region` accumulates at the end of the region, just inside the marker that closes it, so repeated injections stay in invocation order.
+- `after_match` and `before_match` snap to the line boundary around the match rather than to the match's own bounds, so injected content never lands inside an existing line.
+- A marker name is compared for equality rather than as a prefix, so an action anchored to `class_body` does not land at `class_body_top`.
+
+### What Phase 0 checks
+
+Each anchor kind must carry exactly its companion fields — `region` needs both `anchor_start` and `anchor_end`, `after_match` and `before_match` need `anchor_pattern`, and bare `marker` is rejected because it names the kind rather than a marker.
+
+`anchor_pattern` is compiled at load. An expression that does not parse is a defect in the package, and a regex is checkable with nothing but the regex, so a package carrying a broken one is rejected before anything is written.
+
+A pattern using `^` or `$` without `(?m)` **warns**. Those anchor to the bounds of the whole file rather than of a line, so a pattern meant to find a line finds nothing and the failure surfaces at injection time as a fault in the file rather than in the pattern. It warns rather than erroring because whole-text anchoring is legal and occasionally meant — and the expression is never rewritten on the author's behalf, since the pattern in `actions.yaml` has to be the pattern that runs.
+
+An action targeting a marker that no file template in its package plants also warns. Because template selection is path-dependent this cannot be a complete verification, but it is almost always a typo.
+
 ---
 
 ## Ownership and Idempotency
 
-Every injected region is wrapped in ownership markers naming the action that produced it, the ownership tier, and the kwargs it was rendered from:
+Every injected region is wrapped in ownership markers naming the action that produced it, the ownership tier, the record that last parameterized it, and the kwargs it was rendered from:
 
 ```ruby
-# sedum:createControllerMethod:index owned {"controller":"users","collection":"users"}
+  # sedum:createControllerMethod:index {"tier":"owned","record":"PR-014","kwargs":{"collection":"users","controller":"users"}}
 def index
   @users = User.all
   render json: @users
 end
-# /sedum:createControllerMethod:index
+  # /sedum:createControllerMethod:index
 ```
+
+The action and variant stay literal on the line because they are the audit trail, and grepping only works if it is grep rather than a parser. Everything else is one JSON object rather than positional fields, because the parser has to ignore fields it does not recognize and default the ones that are absent. Positional slots would make every field added later a migration across every repository already carrying markers; an object makes it an addition.
+
+Anchor declarations planted by file templates share the `sedum:` namespace with ownership markers, so the reader tells the two apart. The consequence is that `anchor` is not available as an action name, and a package declaring one is rejected at load.
+
+Sedum's own marker lines take the indentation of the anchor they land at, copied verbatim from the file. The rendered body is never re-indented: a template author writes each template at the depth its anchor sits at, and one package legitimately mixes a fragment indented to sit inside a struct with a top-level declaration starting at column zero. The author owns the body; Sedum owns its own lines.
 
 Re-running a generation replaces the region an action owns rather than appending beside it. Reruns and partial regeneration are safe without a sidecar cache or resolution manifest.
 
@@ -515,6 +566,8 @@ The tier field declares whether Sedum may overwrite a region.
 `seeded` — Sedum generated this region once and never touches it again. Present in the file, skipped on rerun.
 
 An action declares its tier in `actions.yaml`, defaulting to `owned`. A template whose body is a stub a human is expected to complete should declare `seeded`; a template that fully determines its output should not.
+
+**The `tier` key is not yet accepted in `actions.yaml`** — decoding is strict, so declaring one is currently an error. Both tiers are honored when *read* from a marker, which is what makes adding the key later an addition rather than a migration: the field is already on every marker Sedum has ever written.
 
 ### Recorded kwargs
 
@@ -750,6 +803,9 @@ internal/pipeline/    Phase ordering and stop points.
 internal/genpkg/      Package loading and every Phase 0 check.
 internal/record/      Provenance record ingestion and the authorized path set.
 internal/resolve/     Path-to-package resolution, template matching, file creation.
+internal/expand/      Phase 6: injects_into rendering, variant selection, transforms.
+internal/inject/      Phase 7: the marker format, anchor location, region replacement.
+internal/recording/   The recording schema. Types only; serialization is M7.
 internal/transform/   Built-in operations, declarative pipelines, inflection.
 internal/filetmpl/    File template patterns, matching, and specificity ranking.
 internal/render/      Template rendering with transform pipes.
