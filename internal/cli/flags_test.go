@@ -246,8 +246,6 @@ func TestUnimplementedCommandsNameTheirMilestone(t *testing.T) {
 		args      []string
 		milestone string
 	}{
-		{[]string{"actions", "--generators", "g", "--package", "rails"}, "M6"},
-		{[]string{"grow", "--generators", "g", "--records", "r"}, "M6"},
 		{[]string{"grow", "--generators", "g", "--execute", "rec.json"}, "M7"},
 	}
 

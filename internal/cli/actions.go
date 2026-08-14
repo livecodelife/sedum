@@ -1,6 +1,16 @@
 package cli
 
-import "github.com/spf13/cobra"
+import (
+	"fmt"
+	"io"
+	"sort"
+	"strings"
+
+	"github.com/spf13/cobra"
+
+	"github.com/calebcowen/sedum/internal/catalog"
+	"github.com/calebcowen/sedum/internal/genpkg"
+)
 
 func newActionsCommand() *cobra.Command {
 	var cfg ActionsConfig
@@ -13,8 +23,8 @@ variant lists, in the form the model is given.
 
 The authoring feedback loop for exposure and catalog clarity.`,
 		Args: cobra.NoArgs,
-		RunE: func(_ *cobra.Command, _ []string) error {
-			return notImplemented("actions", "M6", "catalog construction shared with model invocation")
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			return runActions(cmd.OutOrStdout(), cfg)
 		},
 	}
 
@@ -27,4 +37,124 @@ The authoring feedback loop for exposure and catalog clarity.`,
 	mustMarkRequired(cmd, "generators", "package")
 
 	return cmd
+}
+
+// runActions prints one package's catalog.
+//
+// The catalog is built by the same code Phase 4 builds its prompt's from, which
+// is the entire reason this command is worth having: it is evidence of what the
+// model receives rather than a second rendering that happens to agree today.
+// Only the presentation below is this command's own.
+func runActions(out io.Writer, cfg ActionsConfig) error {
+	// Only the named package is loaded, so an unrelated package that fails to
+	// load elsewhere in the directory does not stop an author inspecting this
+	// one.
+	set, findings, err := genpkg.Load(cfg.Generators, genpkg.Options{Only: []string{cfg.Package}})
+	if err != nil {
+		return err
+	}
+	for _, f := range findings {
+		if f.Kind == genpkg.KindError {
+			return fmt.Errorf("package %s did not load, so it has no catalog to print: %s", cfg.Package, f)
+		}
+	}
+
+	pkg, ok := set.Lookup(cfg.Package)
+	if !ok {
+		return fmt.Errorf("no package named %q in %s; it declares %s",
+			cfg.Package, cfg.Generators, packageNames(set))
+	}
+
+	c := catalog.Build([]*genpkg.Package{pkg}, catalog.Options{IncludeUnexposed: cfg.All})
+
+	if cfg.JSON {
+		payload, err := c.JSON()
+		if err != nil {
+			return err
+		}
+		fmt.Fprintln(out, string(payload))
+		return nil
+	}
+
+	printCatalog(out, c, cfg)
+	return nil
+}
+
+// printCatalog renders the catalog for a person.
+//
+// It states the same facts --json carries, in the order the model sees them. An
+// author reading this is answering two questions - is the action here at all,
+// and would the description let a model pick it - so exposure and the variant
+// list are the things given room.
+func printCatalog(out io.Writer, c catalog.Catalog, cfg ActionsConfig) {
+	if len(c.Actions) == 0 {
+		fmt.Fprintf(out, "package %s exposes no actions\n", cfg.Package)
+		if !cfg.All {
+			fmt.Fprintln(out, "\n(--all would include any it declares unexposed)")
+		}
+		return
+	}
+
+	for i, a := range c.Actions {
+		if i > 0 {
+			fmt.Fprintln(out)
+		}
+
+		hidden := ""
+		if a.Exposed != nil && !*a.Exposed {
+			hidden = "  [unexposed]"
+		}
+		fmt.Fprintf(out, "%s%s\n", a.Name, hidden)
+
+		if len(a.Composes) > 0 {
+			fmt.Fprintf(out, "  composes: %s\n", strings.Join(a.Composes, ", "))
+		}
+
+		for _, name := range sortedKwargs(a.Kwargs) {
+			k := a.Kwargs[name]
+			requirement := "optional"
+			if k.Required {
+				requirement = "required"
+			}
+			fmt.Fprintf(out, "  %-14s %-8s %s\n", name, k.Type, requirement)
+		}
+
+		if a.Discriminator != "" {
+			fallback := "no fallback, so any other value is an error"
+			if a.HasDefault {
+				fallback = "anything else falls to _default"
+			}
+			fmt.Fprintf(out, "  %s selects a template: %s (%s)\n",
+				a.Discriminator, strings.Join(a.Variants, ", "), fallback)
+		}
+	}
+
+	exposed := 0
+	for _, a := range c.Actions {
+		if a.Exposed == nil {
+			exposed++
+		}
+	}
+	fmt.Fprintf(out, "\n%d action(s), %d exposed to the model\n", len(c.Actions), exposed)
+}
+
+func sortedKwargs(kwargs map[string]catalog.Kwarg) []string {
+	out := make([]string, 0, len(kwargs))
+	for name := range kwargs {
+		out = append(out, name)
+	}
+	sort.Strings(out)
+	return out
+}
+
+func packageNames(set *genpkg.Set) string {
+	if len(set.Packages) == 0 {
+		return "none"
+	}
+	names := make([]string, 0, len(set.Packages))
+	for _, p := range set.Packages {
+		names = append(names, p.Name)
+	}
+	sort.Strings(names)
+	return strings.Join(names, ", ")
 }

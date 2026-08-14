@@ -83,7 +83,10 @@ affected_scope:
   - internal/selection/**
   - internal/catalog/**
   - internal/cli/grow.go
+  - internal/cli/grow_test.go
   - internal/cli/actions.go
+  - internal/cli/actions_test.go
+  - internal/cli/flags_test.go
   - internal/pipeline/**
   - testdata/**
 forbidden_scope: []
