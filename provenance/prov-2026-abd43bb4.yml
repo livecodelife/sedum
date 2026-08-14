@@ -1,0 +1,73 @@
+id: prov-2026-abd43bb4
+title: The response envelope is an object, and lenient decoding has a limit
+status: open
+created_at: "2026-08-14"
+author: calebcowen@gmail.com
+intent: |
+  The PRD says the model returns "a JSON array of {action, kwargs} objects".
+  Sedum asks for an object wrapping that array - {"invocations": [...]} - and
+  accepts a bare array as well. This records why the wire shape differs from the
+  sentence, and where the tolerance stops.
+
+  The reason is response_format. An OpenAI-compatible server constrains output
+  with {"type": "json_object"}, and that mode requires the document's root to be
+  an object; a schema whose root is an array is rejected by some servers and
+  silently ignored by others. Since the whole point of structured output rather
+  than tool calls is to work with the open-weight range, Sedum asks for the
+  shape that range can actually be constrained to.
+
+  A bare array is still accepted, for a reason worth stating: the PRD names it,
+  and a model given a catalog and told to return invocations frequently returns
+  the array on its own. Rejecting a response that is exactly what the document
+  describes would spend a retry on a difference of one nesting level that costs
+  nothing to absorb.
+
+  The tolerance is in the decoder and nowhere else. Two envelope shapes and a
+  fenced code block are unwrapped before decoding, because a fence is a
+  formatting habit rather than a claim about content. After that, every
+  invocation faces exactly the checks every other one does. There is no shape
+  the decoder repairs, no field it infers, and no key it drops.
+
+  That last part is the constraint the brief already states: anything the model
+  returns outside the declared schema is rejected, never interpreted. An
+  invocation carrying a key beyond action and kwargs is a violation naming the
+  key - notably the "reason" or "explanation" field models like to add. It would
+  be easy to ignore it, and ignoring it is the wrong shape of tolerance: an
+  unknown key is the one signal that the model has understood the task
+  differently than the catalog describes it, and the retry loop exists to say so
+  in one cheap call.
+constraints:
+  - >-
+    The request asks for {"invocations": [...]} so that json_object response
+    formatting can constrain it. The decoder also accepts a bare array, since
+    that is the shape the PRD describes and models frequently emit.
+  - >-
+    Unwrapping is limited to a surrounding code fence and the two envelope
+    shapes. Anything else is a re-promptable violation quoting what was received,
+    never a shape the decoder repairs.
+  - >-
+    An invocation carrying a key other than action and kwargs is rejected,
+    naming the key. Ignoring an unrecognised key would discard the clearest
+    signal that the model has misread the task.
+  - >-
+    Leniency lives in decoding only. Once an invocation is decoded, no check is
+    relaxed for the shape it arrived in - a bare array and an enveloped one are
+    validated identically.
+affected_scope:
+  - internal/selection/**
+forbidden_scope: []
+type: imprint
+implements: prov-2026-f095e19f
+supersedes: ""
+superseded_by: ""
+related: []
+sealed_at_sha: ""
+associated_specs:
+  - path: internal/selection/selection_test.go
+    run_command: go test -count=1 ./$(dirname {{path}})
+associated_traces: []
+monitors: []
+tags:
+  - sedum
+  - m6
+  - selection
