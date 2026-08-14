@@ -1,6 +1,6 @@
 id: prov-2026-a0e37dae
 title: An expanded child owns its region under its own name
-status: open
+status: implemented
 created_at: "2026-08-14"
 author: calebcowen@gmail.com
 intent: |
@@ -76,7 +76,7 @@ supersedes: ""
 superseded_by: ""
 related:
   - prov-2026-36c8a99c
-sealed_at_sha: ""
+sealed_at_sha: c3db372a264803c5bd8039d022002c4bb7619adf
 associated_specs:
   - path: internal/expand/expand_test.go
     run_command: go test -count=1 ./$(dirname {{path}})
