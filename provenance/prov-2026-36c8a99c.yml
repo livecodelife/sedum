@@ -1,6 +1,6 @@
 id: prov-2026-36c8a99c
 title: The record ID is an attribute of a region, not part of its identity
-status: draft
+status: open
 created_at: "2026-08-13"
 author: calebcowen@gmail.com
 intent: |
@@ -129,7 +129,6 @@ constraints:
     call per record.
 affected_scope:
   - internal/inject/**
-  - internal/record/**
 forbidden_scope: []
 type: imprint
 implements: prov-2026-b6fa093c
@@ -139,7 +138,9 @@ related:
   - prov-2026-dad4d877
   - prov-2026-e8671c88
 sealed_at_sha: ""
-associated_specs: []
+associated_specs:
+  - path: internal/inject/marker_test.go
+    run_command: go test -count=1 ./$(dirname {{path}})
 associated_traces: []
 monitors: []
 tags:
