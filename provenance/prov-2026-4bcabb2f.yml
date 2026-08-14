@@ -1,0 +1,85 @@
+id: prov-2026-4bcabb2f
+title: Response format is negotiated down, not assumed
+status: open
+created_at: "2026-08-14"
+author: calebcowen@gmail.com
+intent: |
+  Sedum asks for json_schema response formatting, and falls back to sending no
+  response_format at all when the server rejects the field. The fallback is
+  logged and remembered for the rest of the run.
+
+  There is no response_format value every OpenAI-compatible server accepts. The
+  first implementation sent {"type": "json_object"}, which is what the API
+  documents and what hosted OpenAI accepts, and LM Studio - the reference local
+  server for exactly the open-weight range this design exists to serve - refuses
+  it outright: 'response_format.type' must be 'json_schema' or 'text'. Picking
+  either value and calling it the contract would make Sedum work against one
+  half of its intended targets and fail on the other, for a field that is a
+  transport detail rather than anything the model is being asked.
+
+  So the strictest available mode is asked for first. json_schema is better than
+  json_object on the merits: it constrains the envelope rather than merely
+  requiring valid JSON, and the difference is large for the small models most
+  worth being compatible with, which will happily return well-formed JSON of
+  entirely the wrong shape. Sedum sends the invocation envelope as the schema,
+  which is the same shape the decoder accepts, so the constraint and the parser
+  cannot disagree.
+
+  When the server rejects the field, the run continues without it rather than
+  halting. This is the one place Sedum degrades rather than failing loudly, and
+  it is worth defending: the fallback loses a guarantee Sedum never depended on.
+  Phase 5 validates every response whether or not the server constrained it, the
+  decoder already tolerates a fence and both envelope shapes, and the retry loop
+  already exists for output that arrives wrong. Constrained decoding makes a
+  good response likelier; nothing downstream assumes it happened. Halting
+  instead would refuse to run against a server whose only fault is an older
+  API surface, while a mechanism that handles bad output correctly sits unused.
+
+  The degradation is not silent. It is logged as a warning naming the server's
+  own message, so a run that is quietly getting worse output has said why. And
+  it is remembered: once a server has rejected the field, every later call in
+  that run omits it rather than paying a failed request per record.
+
+  What is not negotiated is the response itself. A model that cannot be
+  constrained is still held to exactly the same checks, and no leniency is added
+  to compensate. The fallback changes what Sedum asks for, never what it
+  accepts.
+constraints:
+  - >-
+    json_schema is requested first, carrying the invocation envelope as its
+    schema. The constraint sent to the server and the shape the decoder accepts
+    are the same shape.
+  - >-
+    A server rejecting response_format causes the request to be retried once
+    without the field, not to halt. Nothing downstream assumes the output was
+    constrained.
+  - >-
+    The fallback is logged as a warning quoting the server's message, and is
+    remembered for the rest of the run so that at most one request pays for the
+    discovery.
+  - >-
+    Falling back changes what Sedum asks for and never what it accepts. Phase 5
+    runs identically against a constrained and an unconstrained response.
+  - >-
+    This is a transport concern. It must not reach the prompt, the catalog, or
+    the validation rules, and no generator package or provenance record may
+    influence it.
+affected_scope:
+  - internal/selection/**
+forbidden_scope: []
+type: imprint
+implements: prov-2026-f095e19f
+supersedes: ""
+superseded_by: ""
+related:
+  - prov-2026-abd43bb4
+sealed_at_sha: ""
+associated_specs:
+  - path: internal/selection/selection_test.go
+    run_command: go test -count=1 ./$(dirname {{path}})
+associated_traces: []
+monitors: []
+tags:
+  - sedum
+  - m6
+  - selection
