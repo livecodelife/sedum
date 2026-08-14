@@ -1,6 +1,6 @@
 id: prov-2026-fef25a79
 title: M5 - Composite action expansion
-status: open
+status: implemented
 created_at: "2026-08-07"
 author: calebcowen@gmail.com
 intent: |
@@ -69,7 +69,7 @@ implements: prov-2026-d554bfc3
 supersedes: ""
 superseded_by: ""
 related: []
-sealed_at_sha: ""
+sealed_at_sha: 339fc5493a48d2d4a59ff5452760b1f00237ac7a
 associated_specs:
   - path: internal/expand/expand_test.go
     run_command: go test -count=1 ./$(dirname {{path}})
