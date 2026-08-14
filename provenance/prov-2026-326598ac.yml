@@ -1,0 +1,71 @@
+id: prov-2026-326598ac
+title: The _default file template is chosen by the target path's extension
+status: open
+created_at: "2026-08-13"
+author: calebcowen@gmail.com
+intent: |
+  Phase 3 falls back to "the package's _default template" when no file template
+  matches an authorized path. A package claiming one extension has at most one
+  candidate and the rule is invisible. A package claiming several - the PRD's
+  own rails example claims .rb and .erb - can ship _default.rb and _default.erb,
+  and something has to pick.
+
+  The pick is by the target path's extension: the fallback for a path ending
+  .erb is _default.erb, and nothing else is consulted. If that file does not
+  exist, the path has no default, and Phase 3 creates it empty with a log line
+  exactly as if the package shipped no default at all.
+
+  The alternative considered was to treat a lone _default.<anything> as the
+  package's default regardless of the target's extension, on the theory that an
+  author shipping one meant it for everything. It is rejected because it makes
+  the rule depend on how many defaults happen to exist: adding _default.erb to a
+  package would silently change what .rb files with no match receive, since the
+  lone-default reading would stop applying. A rule whose behavior flips when an
+  unrelated file appears is the kind of thing that gets diagnosed as a bug in
+  the matcher.
+
+  Extension selection also keeps the invariant that already holds everywhere
+  else in files/: a template's own path says what it produces. _default is not
+  an exception to the mirror, it is the leaf of it that matches by extension
+  instead of by position. And the consequence of a miss is mild by design -
+  an empty file and a log line, which the milestone already establishes is not
+  an error, because a migration or a plain config file may legitimately start
+  blank.
+
+  Nothing about this makes _default special to the matcher. A path literally
+  named _default.rb matches the template by the ordinary rules; the fallback
+  described here runs only after M1a reports no match at all.
+constraints:
+  - >-
+    The _default file template for a path is the one named _default with that
+    path's extension, at the top level of the package's files/ directory. No
+    other template is a candidate.
+  - >-
+    A package with no _default for the target's extension is treated as having
+    no default: the file is created empty with a log line, which is not an
+    error.
+  - >-
+    The number of _default templates a package ships never changes which one a
+    given path resolves to.
+  - >-
+    _default is not special-cased in the matcher. It is consulted only after
+    M1a (prov-2026-f51f04b2) reports no match.
+affected_scope:
+  - internal/resolve/**
+forbidden_scope: []
+type: imprint
+implements: prov-2026-1a1a9b52
+supersedes: ""
+superseded_by: ""
+related:
+  - prov-2026-f51f04b2
+sealed_at_sha: ""
+associated_specs:
+  - path: internal/resolve/resolve_test.go
+    run_command: go test -count=1 ./$(dirname {{path}})
+associated_traces: []
+monitors: []
+tags:
+  - sedum
+  - m3
+  - resolution
