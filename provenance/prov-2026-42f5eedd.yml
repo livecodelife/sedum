@@ -1,0 +1,110 @@
+id: prov-2026-42f5eedd
+title: Anchor declarations are validated at load, not discovered at injection
+status: open
+created_at: "2026-08-14"
+author: calebcowen@gmail.com
+intent: |
+  M4 made a missing anchor a hard error at Phase 7, which is right: the file is
+  not shaped the way the action assumed, and that is a disagreement between
+  configuration and reality the author has to resolve. But it left three anchor
+  defects that Phase 0 could catch and does not, and the first of them does not
+  fail at all.
+
+  An action named "anchor" collides with the declarations file templates plant.
+  Ownership markers and anchor declarations share the "sedum:" namespace, and a
+  reader tells them apart by the first segment of the label, so a region written
+  by an action named "anchor" is invisible to the reader that would match it.
+  Nothing errors. The action injects a fresh duplicate on every run, which is
+  precisely the failure ownership markers exist to prevent, and it is silent.
+  The discriminated case is worse: an action named "anchor" with variants writes
+  markers byte-identical to the anchor points a file template plants, so its
+  regions are not merely unmatched but indistinguishable from injection sites. A
+  name collision in configuration belongs where names are declared, not in the
+  reader that has to work around it.
+
+  anchor_pattern is never compiled until Phase 7. An expression that does not
+  parse is a defect in the package, and today a package carrying one is declared
+  wholly valid and then fails partway through a run that has already written
+  files. That is the position load-time transform checking already took
+  (prov-2026-4675cebe): a package is wholly valid or rejected, and half a run
+  must not reach disk before a typo surfaces. A regex is checkable with nothing
+  but the regex.
+
+  The third is not an error but a trap. Go's ^ and $ match the bounds of the
+  whole text rather than of a line, so an author writing "^class .*Controller$"
+  against a multi-line file gets no match. The failure arrives at Phase 7 as
+  "nothing in the file matches this pattern", which points at the file when the
+  fault is in the pattern - the most expensive possible place to learn it, and
+  the diagnostic blames the wrong artifact.
+
+  The fix is not to insert (?m) on the author's behalf. The pattern written in
+  actions.yaml has to be the pattern that runs, or the file stops being a
+  description of what happens; the same reasoning that keeps Sedum from
+  inferring a comment prefix from a file extension keeps it from rewriting a
+  declared expression. So it is a warning where the pattern is declared, naming
+  (?m), and the author decides.
+
+  This record also states the placement semantics M4 settled but wrote down only
+  in code comments, because a package author choosing an anchor kind needs them
+  and cannot read them off the schema:
+
+    - A marker anchor inserts after the line carrying the marker.
+    - A region anchor accumulates at the end of the region, just inside the
+      marker that closes it, so repeated injections stay in invocation order.
+    - after_match and before_match snap to the line boundary around the match
+      rather than to the match's own bounds, so injected content never lands
+      inside an existing line.
+    - A marker name is compared for equality, not as a prefix, so an action
+      anchored to class_body does not land at class_body_top.
+
+  The last of those is an opinion Sedum imposes on a pattern the author wrote,
+  which is exactly the kind of thing that has to be documented rather than
+  discovered.
+constraints:
+  - >-
+    "anchor" is not available as an action name. It is rejected where actions
+    are declared, because the alternative is a region the reader cannot see and
+    an action that silently duplicates its output on every run.
+  - >-
+    anchor_pattern is compiled at load. A package carrying an expression that
+    does not parse is rejected before anything is written, on the same terms as
+    a template referencing an undefined transform (prov-2026-4675cebe).
+  - >-
+    A declared expression is never rewritten. Sedum does not insert (?m) or any
+    other flag on the author's behalf; the pattern in actions.yaml is the
+    pattern that runs.
+  - >-
+    A pattern using ^ or $ without (?m) warns rather than errors. It is legal
+    and occasionally meant, but it is far more often the line-anchor mistake,
+    and Phase 7 reports it as a fault in the file rather than in the pattern.
+  - >-
+    Anchor placement semantics are part of the authoring contract: marker
+    inserts after its line, region accumulates at its end, match anchors snap to
+    line boundaries, and marker names match by equality rather than by prefix.
+  - >-
+    None of this weakens the Phase 7 hard error. Load-time checking narrows what
+    can be wrong at injection to a disagreement between the package and a real
+    file, which is the only thing Phase 0 cannot know.
+affected_scope:
+  - internal/genpkg/validate.go
+  - internal/genpkg/diag.go
+  - internal/genpkg/anchors_test.go
+forbidden_scope: []
+type: imprint
+implements: prov-2026-b6fa093c
+supersedes: ""
+superseded_by: ""
+related:
+  - prov-2026-4675cebe
+  - prov-2026-d1d61186
+  - prov-2026-36c8a99c
+sealed_at_sha: ""
+associated_specs:
+  - path: internal/genpkg/anchors_test.go
+    run_command: go test -count=1 ./$(dirname {{path}})
+associated_traces: []
+monitors: []
+tags:
+  - sedum
+  - m4
+  - injection
