@@ -120,6 +120,11 @@ affected_scope:
   # gain the symmetric accessor and nothing else.
   - internal/genpkg/load.go
   - internal/genpkg/schema.go
+  # Anchor defects Phase 0 can catch and does not, including one that fails
+  # silently rather than loudly (prov-2026-42f5eedd).
+  - internal/genpkg/validate.go
+  - internal/genpkg/diag.go
+  - internal/genpkg/anchors_test.go
 forbidden_scope: []
 type: blueprint
 implements: prov-2026-d554bfc3
