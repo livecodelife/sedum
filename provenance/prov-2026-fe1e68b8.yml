@@ -1,0 +1,75 @@
+id: prov-2026-fe1e68b8
+title: A --lang flag the run cannot use warns rather than errors
+status: open
+created_at: "2026-08-13"
+author: calebcowen@gmail.com
+intent: |
+  Phase 2 owns three checks about extension resolution. Two are hard errors: a
+  path whose extension no package claims, and a contested extension no --lang
+  flag disambiguates. The third is the warning prov-2026-3aea61a1 moved here
+  from load time - a --lang flag naming a package that claims no extension in
+  the record set.
+
+  Implementing it surfaces a case the PRD does not separate out: --lang naming a
+  package that is not in the generators directory at all. It is tempting to make
+  that one an error. It cannot be a false positive, it is almost always a typo,
+  and "failures are loud and specific" pulls that way.
+
+  It stays a warning, for two reasons.
+
+  The PRD's rule already covers it on a plain reading. A package that is not
+  loaded claims no extension in the record set, or in any other set. Splitting
+  the absent case out to be stricter than the present-but-irrelevant case
+  invents a distinction the document does not draw, and the two failures a user
+  hits are the same shape: a preference that had no effect.
+
+  More importantly, --lang is a repeatable preference flag, which is exactly the
+  kind of flag a wrapper script passes unconditionally - `--lang rails --lang
+  chi --lang react` against whatever generators directory the checkout happens
+  to have. Under an error, adding a package to that list breaks every run in
+  every checkout that does not have it, and the failure has nothing to do with
+  what the run was asked to generate. A preference that cannot be honored is not
+  a reason to refuse work; it is a reason to say so.
+
+  Nothing is lost, because the case that actually matters still fails hard. If
+  the typo'd flag was needed to disambiguate a contested extension, the
+  contested-extension error fires on its own and names both candidate packages.
+  If it was not needed, the flag was inert either way.
+
+  The two warnings carry different text, since "not in the generators directory"
+  and "claims no extension any authorized path carries" send a reader to
+  different places.
+constraints:
+  - >-
+    A --lang flag that names a package not present in the generators directory
+    is a warning naming the package, not an error.
+  - >-
+    A --lang flag naming a loaded package that claims no extension carried by
+    any authorized path is a warning, per prov-2026-3aea61a1.
+  - >-
+    The two hard errors in this family are unaffected: an unclaimed extension
+    and a contested extension with no disambiguating flag both halt the run,
+    and the contested error names every candidate package.
+  - >-
+    A preference that cannot be honored never refuses work. --lang is
+    repeatable and scripts pass it unconditionally, so an inert entry must not
+    break a run whose paths resolve unambiguously.
+affected_scope:
+  - internal/resolve/**
+forbidden_scope: []
+type: imprint
+implements: prov-2026-1a1a9b52
+supersedes: ""
+superseded_by: ""
+related:
+  - prov-2026-3aea61a1
+sealed_at_sha: ""
+associated_specs:
+  - path: internal/resolve/resolve_test.go
+    run_command: go test -count=1 ./$(dirname {{path}})
+associated_traces: []
+monitors: []
+tags:
+  - sedum
+  - m3
+  - resolution
