@@ -1,0 +1,155 @@
+id: prov-2026-59535684
+title: The integration surface is file formats, not an API
+status: draft
+created_at: "2026-08-14"
+author: calebcowen@gmail.com
+intent: |
+  State in the PRD what a tool built on top of Sedum may depend on, and record in
+  Open Design Questions that most of that document has moved out of Sedum. No
+  code. This is the documentation half of the boundary TOOL_BOUNDARIES.md decides.
+
+  The decision it writes down is three tools. LineSpec owns behavioral contracts,
+  provenance records in both domains, record drafting and discovery, and test
+  execution. Sedum owns deterministic generation from records and generator
+  packages - the PRD as written, M1 through M7, unchanged in scope. A third tool,
+  the convergence loop, owns the two-beat lifecycle, topological ordering, the
+  focused edit layer, the paired update loop, failure traceback, the two repair
+  modes, and the escalation ladder.
+
+  The line is not determinism. That cuts wrong: Sedum's Phase 4 is a model call,
+  and purifying Sedum into a zero-model tool would gut M6 for no benefit. The
+  line is bounded selection over a closed declared vocabulary versus open
+  synthesis validated by execution. Sedum's model emits {action, kwargs} drawn
+  from a catalog, every failure mode is machine-checkable before anything runs,
+  and Phase 5's retry costs one model call. A harness's model writes freeform
+  content and can only be validated by running something. A single binary
+  containing both takes the weaker guarantee as its own.
+
+  Three supporting arguments, each already load-bearing in this PRD. Target
+  knowledge: "Sedum's core contains no language-specific knowledge" is the
+  document's central principle, and a harness is irreducibly target-aware - it
+  boots the service, runs the suite, isolates per-region assertions. Putting the
+  harness in Sedum either drags that into core or pushes run_command shell into
+  generator packages. Runtime shape: a warm harness is a long-lived process
+  holding a resident model and a running container; Sedum is a batch CLI that
+  exits. Structural rather than disciplinary guarantee: Sedum structurally cannot
+  perform a freeform edit, which is a stronger promise than a rule asking it not
+  to.
+
+  What the PRD gains is a section naming the surface. Everything a harness needs
+  is derivable from artifacts on disk. Ownership markers answer "what exists?" -
+  a filesystem walk requiring nothing from Sedum's process. The generator package
+  answers "could I fix this deterministically?" - read actions.yaml, render each
+  action's injects_into against the kwargs already on the marker, compare to the
+  region's file. Forward rendering and comparison, never inversion, which matters
+  because snake and plural are not invertible; it works only because kwargs are
+  recorded on the marker. The recording plus sedum grow --execute answers "do
+  it" - a harness synthesises a recording of just those invocations and executes
+  it, never touching Phase 4. sedum.yaml's unmanaged patterns answer "what did
+  Sedum decline to do?".
+
+  Direction of control is part of the surface, not an aside. The harness sits
+  above Sedum, not after it, and Sedum never calls the harness. No callback, no
+  hook, no plugin point in the pipeline - adding one inverts the direction and
+  makes Sedum's guarantees depend on code it does not control. This is also what
+  keeps Sedum independently runnable, which is what keeps "commit a recording as
+  a standard service scaffold and replay it" shippable with no harness, no
+  containers, and no model server.
+
+  The consequence worth stating plainly is that the recording is an input format,
+  not only an output artifact. M7's "validation is identical, but failures are
+  terminal" is already the right semantics for a submission protocol; the PRD
+  presents it as a property of hand-editing, and it is more than that.
+
+  What a foreign writer may not do has to be written down, because unwritten
+  constraints become discovered ones and the first breakage looks like a Sedum
+  bug. At minimum: do not remove or relocate a template-planted marker, do not
+  reorder regions within a file, and preserve unknown marker keys in both
+  directions - the same promise Sedum now makes.
+
+  One non-goal is reworded rather than removed. "Scanning existing codebases" is
+  broader than its intent: read literally it forbids the marker scan the surface
+  depends on, and it already contradicts Phase 3, which reads an existing file to
+  verify its markers. The principle worth keeping is no structure inference from
+  unmarked source.
+
+  Open Design Questions is reframed rather than rewritten. Its preamble presents
+  sections 1 through 15 as directions kept out of the PRD because most depend on
+  answers M1-M7 will produce, which implies they return to Sedum. Sections 4
+  through 14 do not; they belong to the convergence loop. The split is also not
+  clean by section - 1, 2 and 3 each have a Sedum half and a harness half - and
+  saying so is the point of the reframing.
+
+  Four substantive edits follow. Section 13's beat boundary moves: its
+  justification for two beats is that after structural completion no failure can
+  mean "not built yet," and an unmanaged Gemfile without the pg gem means the
+  service does not boot, so a spec fails for exactly the structural reason beat
+  two was supposed to have eliminated. Beat one is three steps - Sedum scaffolds,
+  the unmanaged paths are satisfied, beat two runs - and the middle step is not
+  Sedum's to fill. This is not an argument against unmanaged; it is what
+  unmanaged means for a tool above Sedum, which must treat an unmanaged path as a
+  precondition. Section 4's third state is resolved by deferral, because with
+  unrecognised-key preservation a harness expresses it in its own keys and it can
+  be standardised later from use rather than guessed now. Section 3 gains a note
+  that in-parameter-space re-invocation against an existing file already
+  validates correctly. Section 15 notes that forbidden_scope becomes load-bearing
+  as soon as a harness edits an existing repository, not only when Sedum does.
+
+  TOOL_BOUNDARIES.md is updated last, once, to record what landed and to correct
+  three things reading the code turned up: that the unknown-key fix needs a
+  carry-forward through the replacement path and not only retention and
+  re-emission; that ingestion still rejects a path named by two records in one
+  run, so the record attribute is shipped for across-run refinement only; and
+  that the actions.yaml tier key does not exist yet, so the precedence rule is
+  stated for when it lands.
+constraints:
+  - >-
+    Sedum's scope is unchanged. This record adds no capability, no flag, and no
+    phase - it states which existing artifacts are supported to build on and
+    which are internal.
+  - >-
+    The supported surface is exactly three file formats and one command:
+    ownership markers, the generator package, the recording, and
+    sedum grow --execute. Anything else a harness reads is unsupported.
+  - >-
+    No runtime API, no hooks, no callbacks, no plugin points. Sedum never calls
+    code it does not control, and the pipeline offers no point at which foreign
+    code runs inside it.
+  - >-
+    Sedum stays independently runnable. Nothing in this record may make a
+    harness, a container, or a model server a precondition for replaying a
+    recording.
+  - >-
+    A harness reads the marker's recorded kwargs by forward rendering and
+    comparison, never by inverting a transform. snake and plural are not
+    invertible and no surface may imply they are.
+  - >-
+    The scanning-existing-codebases non-goal is reworded, not dropped. The
+    principle retained is no structure inference from unmarked source; the
+    prohibition on parsers stands unchanged.
+  - >-
+    Open Design Questions stays a scratch document. Reframing its preamble and
+    marking relocated sections does not promote anything in it to a requirement.
+  - >-
+    Where TOOL_BOUNDARIES.md and the code disagree, the code is what is true and
+    the decision doc is what is corrected.
+affected_scope:
+  - PRD.md
+  - TOOL_BOUNDARIES.md
+forbidden_scope: []
+type: blueprint
+implements: prov-2026-d554bfc3
+supersedes: ""
+superseded_by: ""
+related:
+  - prov-2026-72775ae5
+  - prov-2026-529954ab
+  - prov-2026-e8671c88
+sealed_at_sha: ""
+associated_specs: []
+associated_traces: []
+monitors: []
+tags:
+  - sedum
+  - integration
+  - boundaries
