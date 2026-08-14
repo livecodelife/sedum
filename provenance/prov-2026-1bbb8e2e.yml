@@ -1,6 +1,6 @@
 id: prov-2026-1bbb8e2e
 title: The catalog shows each action's target pattern
-status: open
+status: implemented
 created_at: "2026-08-14"
 author: calebcowen@gmail.com
 intent: |
@@ -70,7 +70,7 @@ supersedes: ""
 superseded_by: ""
 related:
   - prov-2026-21031113
-sealed_at_sha: ""
+sealed_at_sha: 603d76cb9f2c55e7fef5ed08f8c3c1c4e7cbd7c1
 associated_specs:
   - path: internal/catalog/catalog_test.go
     run_command: go test -count=1 ./$(dirname {{path}})
