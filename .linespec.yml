@@ -1,7 +1,7 @@
 provenance:
     enforcement: strict
     dir: provenance
-    exclude_paths: ['README.md', '.linespec.yml']
+    exclude_paths: ['README.md', '.linespec.yml', 'OPEN_QUESTIONS.md']
     shared_repos: []
     cache_ttl_minutes: 0
     commit_tag_required: true
