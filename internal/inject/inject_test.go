@@ -531,7 +531,7 @@ func TestAnchorKinds(t *testing.T) {
 		before: []string{"# sedum:anchor:class_body"},
 	}, {
 		action: "addTrailer", body: "# end of file",
-		after:  []string{"class UsersController", "end"},
+		after: []string{"class UsersController", "end"},
 	}}
 
 	for _, tc := range cases {
