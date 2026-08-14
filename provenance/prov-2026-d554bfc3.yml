@@ -26,8 +26,33 @@ intent: |
   authorized, shaped by their file templates, containing the boilerplate their
   action templates describe. They run it again and get the same result.
 
+  Where Sedum ends. Sedum is one of three tools, and the boundary is recorded in
+  TOOL_BOUNDARIES.md. LineSpec owns behavioral contracts, provenance records in
+  both domains, record drafting and discovery, and test execution. Sedum owns
+  deterministic generation from records and generator packages - this brief, M0
+  through M7, and nothing more. A third tool, unnamed, owns the convergence loop:
+  the two-beat lifecycle, topological ordering across regions, the focused edit
+  layer, the paired test-then-logic update loop, failure traceback, the repair
+  modes, and the escalation ladder.
+
+  The line is not determinism, which would cut wrong - Phase 4 is a model call,
+  and a zero-model Sedum would gut M6 for no benefit. The line is bounded
+  selection over a closed declared vocabulary versus open synthesis validated by
+  execution. Sedum's model emits {action, kwargs} drawn from a catalog; every
+  failure mode is machine-checkable before anything runs, and a retry costs one
+  model call. A convergence loop's model writes freeform content that can only be
+  validated by running something. One binary containing both would take the
+  weaker guarantee as its own, and the no-target-knowledge principle above would
+  not survive it: a loop that boots a service and runs its suite is irreducibly
+  target-aware.
+
+  This does not narrow what is built here. It names what is not, and it makes the
+  artifacts Sedum leaves on disk into a supported surface rather than internal
+  detail, because the tool above Sedum is a separate program that reads them.
+
   Source of truth for scope and behavior is PRD.md at the repo root. This brief
-  is the parent of one blueprint per milestone (M0 scaffold, M1-M7 from the PRD).
+  is the parent of one blueprint per milestone (M0 scaffold, M1-M7 from the PRD),
+  plus the design decisions recorded alongside them.
 constraints:
   - >-
     Configuration carries all target knowledge. No language, framework, or
@@ -65,8 +90,31 @@ constraints:
     reason.
   - >-
     Non-goals held firm: business logic synthesis, structured-document editing
-    (pom.xml, package.json, CMakeLists.txt), cross-action value flow, scanning
-    existing codebases, and behavioral verification of generated code.
+    (pom.xml, package.json, CMakeLists.txt), cross-action value flow, structure
+    inference from unmarked source, and behavioral verification of generated
+    code. Structure inference is the precise form of the old "scanning existing
+    codebases" non-goal, which read literally forbade the marker scan Phase 3
+    and the integration surface both depend on. Reading what Sedum wrote is not
+    inference; deriving regions or conventions from source Sedum did not shape
+    is.
+  - >-
+    Sedum is a component with no runtime API. The supported surface for any tool
+    built on top of it is artifacts on disk - ownership markers, the generator
+    package, the recording - plus sedum grow --execute. Nothing links against
+    Sedum, and no phase offers a callback, hook, or plugin point: a caller sits
+    above Sedum and Sedum never calls back, because every phase after model
+    invocation is deterministic precisely because nothing foreign runs inside it.
+  - >-
+    Sedum stays independently runnable. Committing a recording as a standard
+    service scaffold and replaying it must never require a harness, a container,
+    or a model server.
+  - >-
+    Durable artifacts are versioned by shape, not by a version token. The
+    ownership marker's attribute object and the recording's phases grouping both
+    exist so that a field added later is an addition rather than a migration
+    across repositories that already carry them. Unrecognised marker attributes
+    are preserved in both directions, which is what lets another tool keep
+    per-region state without a schema change.
   - >-
     Milestone order is deliberate. M4 (deterministic rendering and injection)
     must be provably correct before M6 introduces a model, so that any later
