@@ -105,6 +105,12 @@ affected_scope:
   - internal/resolve/**
   - internal/expand/**
   - internal/cli/**
+  - internal/pipeline/**
+  # The scope-entry matcher moves out of internal/record so that Phase 0 and
+  # Phase 2 can read the same patterns record authors already write, rather
+  # than growing a second implementation of the same grammar.
+  - internal/pathpat/**
+  - internal/record/**
   - testdata/**
   - PRD.md
 forbidden_scope: []
@@ -115,7 +121,13 @@ superseded_by: ""
 related:
   - prov-2026-e8671c88
 sealed_at_sha: ""
-associated_specs: []
+associated_specs:
+  - path: internal/resolve/resolve_test.go
+    run_command: go test -count=1 ./$(dirname {{path}})
+  - path: internal/genpkg/genpkg_test.go
+    run_command: go test -count=1 ./$(dirname {{path}})
+  - path: internal/pathpat/pathpat_test.go
+    run_command: go test -count=1 ./$(dirname {{path}})
 associated_traces: []
 monitors: []
 tags:
