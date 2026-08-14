@@ -1,7 +1,7 @@
 provenance:
     enforcement: strict
     dir: provenance
-    exclude_paths: []
+    exclude_paths: ['README.md']
     shared_repos: []
     cache_ttl_minutes: 0
     commit_tag_required: true
