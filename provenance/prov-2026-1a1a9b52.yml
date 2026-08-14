@@ -1,6 +1,6 @@
 id: prov-2026-1a1a9b52
 title: M3 - Path resolution and file creation from file templates (sedum resolve)
-status: draft
+status: open
 created_at: "2026-08-07"
 author: calebcowen@gmail.com
 intent: |
@@ -105,7 +105,17 @@ affected_scope:
   - internal/record/**
   - internal/resolve/**
   - internal/pipeline/**
-  - internal/cli/resolve.go
+  # The whole command package, not resolve.go alone. --stop-after
+  # resolution|files is a grow flag, so grow.go must route the phases this
+  # milestone builds, and the M0 test asserting that `resolve` reports itself
+  # unimplemented is retired by this milestone landing.
+  - internal/cli/**
+  # Phase 3 renders a file template and, for a path that already exists,
+  # checks the markers that template plants. Both live in the loaded package:
+  # M1 read the template contents and discarded them, and the marker syntax is
+  # declared there. Re-deriving either in resolve would put the marker's shape
+  # in two places, which is what M2 rejected for the transform vocabulary.
+  - internal/genpkg/**
   - testdata/**
 forbidden_scope: []
 type: blueprint
@@ -114,7 +124,9 @@ supersedes: ""
 superseded_by: ""
 related: []
 sealed_at_sha: ""
-associated_specs: []
+associated_specs:
+  - path: internal/record/record_test.go
+    run_command: go test -count=1 ./$(dirname {{path}})
 associated_traces: []
 monitors: []
 tags:
