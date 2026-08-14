@@ -9,12 +9,18 @@ intent: |
   accepts a bare array as well. This records why the wire shape differs from the
   sentence, and where the tolerance stops.
 
-  The reason is response_format. An OpenAI-compatible server constrains output
-  with {"type": "json_object"}, and that mode requires the document's root to be
-  an object; a schema whose root is an array is rejected by some servers and
-  silently ignored by others. Since the whole point of structured output rather
-  than tool calls is to work with the open-weight range, Sedum asks for the
-  shape that range can actually be constrained to.
+  The reason is that an object is the shape every structured-output mechanism
+  in this ecosystem is built around: json_schema and json_object alike require
+  the document's root to be an object, so an array root is the one shape that
+  can never be constrained or validated by a server. Sedum does not in fact ask
+  a server to constrain anything - [[prov-2026-4bcabb2f]] records why - but the
+  envelope is what a caller would reach for the moment it wanted to, and
+  choosing the shape that forecloses that would be a gratuitous cost.
+
+  There is a plainer reason too. An object leaves room to add a key later
+  without changing what an array of invocations means, and a model that has been
+  asked for a named field returns a named field more reliably than one asked for
+  a bare document.
 
   A bare array is still accepted, for a reason worth stating: the PRD names it,
   and a model given a catalog and told to return invocations frequently returns
