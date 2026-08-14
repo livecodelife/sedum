@@ -47,6 +47,31 @@ intent: |
   parameterizes it would be guessing; recording all of them costs nothing and
   keeps the question open.
 
+  The same argument decides how markers are read. The parser tolerates fields
+  it does not recognize: an unknown field is ignored rather than treated as a
+  malformed marker, and an absent field takes its default rather than failing.
+
+  This is not the ownership argument that made record decoding lenient
+  (prov-2026-dad4d877). Sedum does own the marker schema. What it does not own
+  is time - a marker sits in a generated codebase long after the version that
+  wrote it is gone, so the readers and writers of any given marker are
+  different versions of Sedum. Strict parsing would mean a codebase generated
+  by a newer version is unreadable by an older one, and that every field added
+  later requires rewriting markers in every repository that already has them.
+
+  There is a concrete field waiting: cross-region ordering wants markers to
+  record what a region exposes and what it consumes, so that a dependency graph
+  can be built by scanning markers rather than by parsing the target language.
+  Under lenient parsing that is an additive change. Under strict parsing it is
+  a migration across generated codebases, which is exactly the cost this
+  milestone front-loads tier and kwargs to avoid.
+
+  Unknown fields are not preserved when a region is rewritten. A version that
+  does not understand a field cannot be asked to maintain it, and every field
+  on a marker is derived from the invocation rather than authored by hand, so
+  the version that added it can recompute it on its next run. Ignoring a field
+  is cheap; pretending to carry one correctly is not.
+
   What this does not cover, and deliberately: a region whose kwargs are
   unchanged but whose body should differ. It cannot be covered, because
   everything after the model is deterministic - a region's content is a pure
@@ -80,6 +105,16 @@ constraints:
     Every field a future matching rule could need - action, variant, kwargs,
     tier, record - is written from the first generated file, so the rule can be
     redefined in code without migrating generated codebases.
+  - >-
+    The marker parser ignores fields it does not recognize and defaults fields
+    that are absent. A marker is never rejected for carrying more or less than
+    the reading version expects, because the version that wrote a marker and the
+    version that reads it are routinely different.
+  - >-
+    Unknown fields are not preserved when a region is rewritten. Every field on
+    a marker is derived from the invocation, so a version that understands a
+    field can recompute it; a version that does not must not pretend to carry
+    it.
   - >-
     A change to a region that its kwargs cannot express is out of scope for the
     boilerplate layer. The tier field is the mechanism that keeps such a region
