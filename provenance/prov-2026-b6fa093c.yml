@@ -1,6 +1,6 @@
 id: prov-2026-b6fa093c
 title: M4 - Action rendering and anchored injection with ownership markers
-status: draft
+status: open
 created_at: "2026-08-07"
 author: calebcowen@gmail.com
 intent: |
@@ -99,6 +99,14 @@ affected_scope:
   - internal/expand/**
   - internal/recording/**
   - testdata/**
+  # Phase 6 renders action templates, and loading already reads every one of
+  # them to check the transforms they reference but keeps only the file
+  # template contents. Re-reading them at generation time would let a package
+  # change shape between the point it was declared valid and the point it was
+  # used, which is the hazard fileContents exists to close. These two files
+  # gain the symmetric accessor and nothing else.
+  - internal/genpkg/load.go
+  - internal/genpkg/schema.go
 forbidden_scope: []
 type: blueprint
 implements: prov-2026-d554bfc3
@@ -107,7 +115,11 @@ superseded_by: ""
 related:
   - prov-2026-36c8a99c
 sealed_at_sha: ""
-associated_specs: []
+associated_specs:
+  - path: internal/expand/expand_test.go
+    run_command: go test -count=1 ./$(dirname {{path}})
+  - path: internal/inject/inject_test.go
+    run_command: go test -count=1 ./$(dirname {{path}})
 associated_traces: []
 monitors: []
 tags:
