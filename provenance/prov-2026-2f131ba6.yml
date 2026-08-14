@@ -1,0 +1,75 @@
+id: prov-2026-2f131ba6
+title: Model configuration is --model plus two environment variables
+status: open
+created_at: "2026-08-14"
+author: calebcowen@gmail.com
+intent: |
+  The brief says model configuration comes from --model plus the environment,
+  and that no credential, endpoint, or model name is read from a generator
+  package or a provenance record. It does not say which environment variables.
+  They are OPENAI_BASE_URL and OPENAI_API_KEY.
+
+  They are the names go-openai's ecosystem already uses, which is the whole
+  argument. A local server and a hosted API are the same code path precisely
+  because the endpoint is a variable rather than a mode, and inventing
+  SEDUM_-prefixed aliases would mean every user configuring a local endpoint
+  sets a second variable that means what the first one already meant. A team
+  that has an OpenAI-compatible endpoint working for anything else has it
+  working for Sedum.
+
+  An empty API key is accepted when OPENAI_BASE_URL is set, and refused when it
+  is not. A local server accepts any string and most users leave the key unset;
+  failing that run for a missing credential nothing checks would be a
+  requirement Sedum invented. Against the default hosted endpoint an empty key
+  cannot succeed, so it fails immediately, naming the variable, rather than
+  after a round trip returning an authentication error the user has to map back
+  to a variable name themselves.
+
+  --model has no default and is required for a run that invokes a model. There
+  is no sensible default: the model name is server-specific, and guessing one
+  produces a "model not found" from a server the user did not know Sedum had
+  chosen for them. Under --execute it is ignored, because replay invokes
+  nothing, and the command already says so rather than appearing to honor it.
+
+  Nothing about the model reaches configuration in either direction. A generator
+  package cannot pin a model, and a provenance record cannot request one. Both
+  would make a package or a record carry an operational dependency, and a
+  recording replayed a year later would then be asking for a model that no
+  longer exists in order to run phases that never call one.
+constraints:
+  - >-
+    The endpoint is OPENAI_BASE_URL and the credential is OPENAI_API_KEY. No
+    Sedum-prefixed aliases, because a working OpenAI-compatible configuration
+    should already be a working Sedum configuration.
+  - >-
+    An empty API key is accepted when OPENAI_BASE_URL is set and refused when it
+    is not, naming the variable. Local servers do not check a key; the hosted
+    default cannot succeed without one.
+  - >-
+    --model is required for a run that invokes a model and has no default. A
+    guessed model name fails at a server the user did not choose.
+  - >-
+    No generator package and no provenance record may name a model, an endpoint,
+    or a credential. Model configuration is operational and belongs to the
+    invocation.
+affected_scope:
+  - internal/selection/**
+  - internal/cli/grow.go
+  - internal/cli/config.go
+  - internal/cli/config_test.go
+forbidden_scope: []
+type: imprint
+implements: prov-2026-f095e19f
+supersedes: ""
+superseded_by: ""
+related: []
+sealed_at_sha: ""
+associated_specs:
+  - path: internal/selection/selection_test.go
+    run_command: go test -count=1 ./$(dirname {{path}})
+associated_traces: []
+monitors: []
+tags:
+  - sedum
+  - m6
+  - configuration
