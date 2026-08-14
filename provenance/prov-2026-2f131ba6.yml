@@ -1,6 +1,6 @@
 id: prov-2026-2f131ba6
 title: Model configuration is --model plus two environment variables
-status: open
+status: implemented
 created_at: "2026-08-14"
 author: calebcowen@gmail.com
 intent: |
@@ -63,7 +63,7 @@ implements: prov-2026-f095e19f
 supersedes: ""
 superseded_by: ""
 related: []
-sealed_at_sha: ""
+sealed_at_sha: 9d6404a7cb801c8e8d6f48c48e0cc84fb87d32c9
 associated_specs:
   - path: internal/selection/selection_test.go
     run_command: go test -count=1 ./$(dirname {{path}})
