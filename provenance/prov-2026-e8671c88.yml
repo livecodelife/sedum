@@ -1,0 +1,96 @@
+id: prov-2026-e8671c88
+title: A pattern in affected_scope authorizes without naming a file
+status: open
+created_at: "2026-08-13"
+author: calebcowen@gmail.com
+intent: |
+  The PRD writes affected_scope as a list of paths - app/controllers/
+  users_controller.rb - and Phase 3 creates each one. Real provenance records
+  routinely write subtrees instead: internal/record/**, testdata/**,
+  config/initializers/*.rb. Every record in this repository does. So Phase 1
+  has to answer a question the PRD does not: what does Sedum create when
+  affected_scope says internal/record/**?
+
+  It creates nothing for that entry, and this is the answer rather than an
+  omission. An entry carrying glob metacharacters authorizes a set of paths; it
+  does not name one. There is no file called internal/record/**, and inventing
+  a member of the set it describes would be Sedum choosing a path, which is
+  precisely what the PRD forbids the model and the machinery alike from doing.
+  The governance position that nothing is created which a record did not name
+  survives only if "name" keeps meaning name.
+
+  So affected_scope entries divide in two, and both halves are real:
+
+    - A literal path names a file. It enters the authorized path set and Phase
+      3 creates it.
+    - A pattern authorizes matches without naming any. It bounds what a run may
+      touch and creates nothing.
+
+  The second half is not decoration. M7 validates a recording's paths against
+  affected_scope, and that is a matching operation over exactly these entries;
+  a record whose scope is entirely patterns is a usable authorization even
+  though it names no file to create. A trailing slash is read as a pattern for
+  the same reason - lib/tasks/ describes a subtree, and a file by that name
+  cannot exist.
+
+  A record that names no literal path therefore generates nothing, which is
+  legal and worth one warning, because the alternative reading of a silent run
+  is that generation failed.
+
+  Two related facts about the authorized path set are settled here, since both
+  are properties of the set rather than of any one record:
+
+  A literal path that its own record's forbidden_scope matches is a hard error
+  naming the path and the forbidding entry. It has no safe reading - one half
+  of the record says create this and the other says never touch it - and
+  picking either half silently would make forbidden_scope advisory.
+
+  A literal path named by two records is a hard error naming the path and both
+  records. Phase 4 is one model call per record, so two records naming one file
+  means two independent invocation lists injecting into it; the PRD puts
+  multiple records injecting into the same file out of scope. Phase 1 is where
+  both record IDs are still in hand to name.
+
+  Finally, a path that resolves outside the output directory - absolute, or
+  climbing out with .. - is a hard error. Authorization is what makes a write
+  legitimate, and an authorization pointing outside the tree Sedum was pointed
+  at is not one it can honor.
+constraints:
+  - >-
+    An affected_scope entry containing glob metacharacters, or ending in a
+    slash, authorizes matches but names no file. It never causes a file to be
+    created; Sedum does not choose a member of the set it describes.
+  - >-
+    Only literal path entries enter the authorized path set that Phase 3
+    creates from.
+  - >-
+    A record naming no literal path is legal and warns. Generating nothing must
+    be distinguishable from failing to generate.
+  - >-
+    A literal path matched by its own record's forbidden_scope is a hard error
+    naming both the path and the forbidding entry.
+  - >-
+    A literal path named by two records is a hard error naming the path and
+    both records, since Phase 4 makes one model call per record and the PRD
+    puts multiple records injecting into one file out of scope.
+  - >-
+    A path that resolves outside the output directory is a hard error.
+    Authorization cannot reach outside the tree Sedum was pointed at.
+affected_scope:
+  - internal/record/**
+forbidden_scope: []
+type: imprint
+implements: prov-2026-1a1a9b52
+supersedes: ""
+superseded_by: ""
+related: []
+sealed_at_sha: ""
+associated_specs:
+  - path: internal/record/record_test.go
+    run_command: go test -count=1 ./$(dirname {{path}})
+associated_traces: []
+monitors: []
+tags:
+  - sedum
+  - m3
+  - records
