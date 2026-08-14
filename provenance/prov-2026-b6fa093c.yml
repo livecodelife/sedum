@@ -89,8 +89,11 @@ constraints:
     No model is involved in this milestone. Invocation lists are hand-written
     fixtures shaped exactly like a recording.
   - >-
-    Multiple records injecting into the same file is out of scope. If it becomes
-    necessary the marker gains the record ID and nothing else changes.
+    Multiple records injecting into the same file is out of scope for what this
+    milestone exercises, but the marker carries the record ID from the first
+    generated file, as an attribute rather than as part of a region's identity
+    (prov-2026-36c8a99c). Marker shape is the one thing this milestone cannot
+    change afterwards without a migration.
 affected_scope:
   - internal/inject/**
   - internal/expand/**
@@ -101,7 +104,8 @@ type: blueprint
 implements: prov-2026-d554bfc3
 supersedes: ""
 superseded_by: ""
-related: []
+related:
+  - prov-2026-36c8a99c
 sealed_at_sha: ""
 associated_specs: []
 associated_traces: []
