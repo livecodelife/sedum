@@ -1,6 +1,6 @@
 id: prov-2026-fe1e68b8
 title: A --lang flag the run cannot use warns rather than errors
-status: open
+status: implemented
 created_at: "2026-08-13"
 author: calebcowen@gmail.com
 intent: |
@@ -63,7 +63,7 @@ supersedes: ""
 superseded_by: ""
 related:
   - prov-2026-3aea61a1
-sealed_at_sha: ""
+sealed_at_sha: 25b383ddf41a7a2f2828813213b3485671ffabf6
 associated_specs:
   - path: internal/resolve/resolve_test.go
     run_command: go test -count=1 ./$(dirname {{path}})
