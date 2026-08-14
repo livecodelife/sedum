@@ -1,6 +1,6 @@
 id: prov-2026-dad4d877
 title: Record decoding is lenient where package decoding is strict
-status: open
+status: implemented
 created_at: "2026-08-13"
 author: calebcowen@gmail.com
 intent: |
@@ -66,7 +66,7 @@ supersedes: ""
 superseded_by: ""
 related:
   - prov-2026-d1d61186
-sealed_at_sha: ""
+sealed_at_sha: 06cc7ad1ee65314f127667ec1b55a238f5265d65
 associated_specs:
   - path: internal/record/record_test.go
     run_command: go test -count=1 ./$(dirname {{path}})
