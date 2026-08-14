@@ -1,0 +1,78 @@
+id: prov-2026-dad4d877
+title: Record decoding is lenient where package decoding is strict
+status: open
+created_at: "2026-08-13"
+author: calebcowen@gmail.com
+intent: |
+  M1 decodes sedum.yaml and actions.yaml with yaml.v3's KnownFields set, so an
+  unrecognized key is an error naming the key and its file rather than a
+  silently ignored field (prov-2026-d1d61186). Phase 1 inverts that: a
+  provenance record decodes leniently, and a key Sedum does not model is
+  ignored without comment.
+
+  The two files look alike and the rule is opposite, so the difference is worth
+  stating. It is a question of who owns the schema. Sedum defines every key a
+  generator package may carry, so a key it does not recognize is a typo by
+  definition and there is no other explanation to weigh. Sedum does not define
+  the provenance record schema. A record is written by a governance tool that
+  models a lifecycle Sedum has no part in - status, sealed_at_sha,
+  associated_specs, superseded_by, monitors, and whatever the next version of
+  that tool adds. Rejecting a record for carrying its own fields would make
+  Sedum fail on records that are perfectly well-formed, and would couple a
+  generator's usability to a schema it does not control: every field added
+  upstream would break generation until Sedum shipped a release modeling it.
+
+  So the record type declares the four fields the pipeline is defined in terms
+  of - intent, constraints, affected_scope, forbidden_scope - plus id, which is
+  what --only names and what every diagnostic identifies a record by. Everything
+  else decodes into nothing.
+
+  This is the same decision as the milestone constraint that Sedum does not
+  interpret record status or lifecycle, arrived at from the parser's side. That
+  constraint says Sedum must not read those fields; this says it must not
+  fail on them either. In particular a record's status is not consulted: a
+  draft, an open, and an implemented record all ingest identically, because
+  which records a run acts on is what --records and --only decide, and
+  duplicating a governance tool's state machine inside a generator would mean
+  two implementations of it to keep in agreement.
+
+  What leniency does not extend to is the five fields Sedum does read. A record
+  with no id is an error naming the file, a record whose YAML does not parse is
+  an error naming the file, and a malformed value in a modeled field is an
+  error. Ignoring an unmodeled key costs nothing; guessing at a modeled one
+  costs a wrong run.
+constraints:
+  - >-
+    A provenance record decodes leniently. An unrecognized key is ignored,
+    never an error, because Sedum does not own the record schema and a
+    governance tool adding a field must not break generation.
+  - >-
+    Generator package files keep strict decoding. The two rules coexist and the
+    distinction is ownership of the schema, not the file format.
+  - >-
+    The five fields Sedum reads are id, intent, constraints, affected_scope,
+    and forbidden_scope. A missing id or a malformed value in any of them is a
+    hard error naming the file.
+  - >-
+    A record's status and lifecycle fields are never consulted. Which records a
+    run acts on is decided by --records and --only, not by a state machine
+    Sedum reimplements.
+affected_scope:
+  - internal/record/**
+forbidden_scope: []
+type: imprint
+implements: prov-2026-1a1a9b52
+supersedes: ""
+superseded_by: ""
+related:
+  - prov-2026-d1d61186
+sealed_at_sha: ""
+associated_specs:
+  - path: internal/record/record_test.go
+    run_command: go test -count=1 ./$(dirname {{path}})
+associated_traces: []
+monitors: []
+tags:
+  - sedum
+  - m3
+  - records
