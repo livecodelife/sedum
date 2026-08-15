@@ -1,0 +1,171 @@
+id: prov-2026-e6969eb3
+title: A local eval harness, because the measurements it replaces were shell loops and grep
+status: draft
+created_at: "2026-08-15"
+author: calebcowen@gmail.com
+intent: |
+  A package under evals/ that runs a case against a model N times and reports how
+  often each action was selected. Built from a prototype rather than designed
+  ahead of one, so what is recorded here is what it turned out to be.
+
+  ## Why
+
+  The measurement that corrected [[prov-2026-6d87dc11]] was nineteen shell loops
+  with grep -c. One run's output was lost before it could be read, two more were
+  mangled by a bad sed, and every number in that record was hand-tallied. The
+  finding was worth having and the method was not repeatable, which is the whole
+  argument.
+
+  It also could not answer its own follow-ups. Whether descriptions move the rate,
+  whether the positional effect holds on another model, whether a tighter package
+  beats a looser one - all of them are the same measurement with one axis changed,
+  and all of them were out of reach at that cost per run.
+
+  ## It is not part of Sedum
+
+  Nothing under internal/ or cmd/ imports it, it is not compiled into the binary,
+  and its runner sits behind a build tag so go test ./... never reaches it.
+
+  That separation is load-bearing rather than tidy. Sedum does not run or grade
+  the code it generates; a harness that eventually does both would make that
+  non-goal untrue by adjacency if it shipped as part of the tool. Living in the
+  repository is a convenience for keeping fixtures current, and the boundary is
+  the build tag plus the import direction, not the directory.
+
+  Go's internal rule permits evals/ to import internal/, which is what makes this
+  worth doing at all: it calls pipeline.Run and reads Selections directly instead
+  of parsing stdout. Every parsing defect in the manual measurement disappears
+  because there is no parsing.
+
+  ## Rates, not verdicts
+
+  Nothing here fails a build on a selection rate. What is measured is a sampled
+  distribution, and an assertion over a coin flip is a flaky test wearing a suit.
+  The runner fails on exactly one condition - a case that produced nothing to
+  measure - because that is a broken harness rather than a poor model.
+
+  A rate is also not evidence on its own. It needs its sample size, its model and
+  the build it was taken on, which is why the report prints all three on the
+  header line and why Compare exists at all. The git-worktree A/B that
+  prov-2026-6d87dc11 needed is the operation this replaces.
+
+  ## Three outcomes, and the bug that came from conflating two
+
+  The first version had two: a run worked or it failed. Its first real run
+  reported four of six samples "failed" and never said why, because the error was
+  only printed when nothing at all scored.
+
+  Those four were not failures. Retries are zero here on purpose - the question is
+  what one call produces - so a model answering something Phase 5 rejects shows up
+  as no answer, and that is one of the more interesting things to know about a
+  model rather than noise to drop. Three outcomes now:
+
+  - valid: answered and accepted. Scored.
+  - invalid: answered and rejected. A measurement, reported as its own rate.
+  - failed: never reached the model. Outside every denominator, because an
+    unreachable endpoint is not a model that chose badly.
+
+  Rerun after the fix: 6 of 8 valid first calls, with the two rejections named.
+
+  ## The matrix
+
+  A single cell says almost nothing, because every question worth asking is
+  comparative. A case declares each axis even where only one value exists, so that
+  growing the matrix adds files rather than changing a schema that results are
+  already recorded against.
+
+  Model, framework, application, its complexity tier, how tightly the generator
+  package constrains the model, and whether the arm used Sedum at all.
+
+  Two are declared and not runnable, and they are the two that matter most.
+
+  **The baseline arm** asks the same model for the same application with no
+  generator package and no action vocabulary. Without that column a good number
+  here is unfalsifiable, because there is nothing it is good compared to.
+
+  **Behavioral pass rate** is the fraction of an application's linespec contracts
+  that pass once the selection is applied and the target runs. Selection
+  completeness is a proxy and this is the thing it is a proxy for. It costs a
+  container and a database per sample rather than one model call, which is why it
+  is reserved rather than built - and reserving it now is the cheap half, because
+  adding the field later means rewriting every result recorded without it.
+
+  ## What the first run said
+
+  todo-rails, qwen2.5-coder-14b, n=8, retries 0: 6 of 8 valid first calls;
+  addColumn selected in 1 of the 6, every other expected action in 6 of 6.
+
+  Two things worth carrying forward. The positional correlation from
+  prov-2026-6d87dc11 reproduced through an independent path - addColumn was
+  selected exactly when it was selected first, one sample for both. And the rate
+  is well below the 6-of-13 measured by hand, which is either small-sample
+  variance or something systematic about running samples back to back in one
+  process. Unexplained, and now cheap to investigate, which is the point.
+
+  ## Known rough edges, recorded rather than hidden
+
+  Invalid is told from failed by matching an error string, because
+  internal/selection exports no type for a rejected response. The honest fix is a
+  sentinel there and it should land before anything depends on the validity rate.
+
+  Only the sedum arm runs. Behavior is not measured. Both are declared and both
+  are rejected at run time rather than silently skipped.
+constraints:
+  - >-
+    Nothing in internal/ or cmd/ imports evals/, and the runner stays behind a
+    build tag so go test ./... never reaches it. The boundary is the import
+    direction and the tag, not the directory.
+  - >-
+    The harness reports rates and never fails a build on one. The single failing
+    condition is a case that produced nothing to measure, which is a broken
+    harness rather than a poor model.
+  - >-
+    Every reported rate carries its sample size, model and build. A rate recorded
+    without them cannot be re-run and will be believed longer than it is true.
+  - >-
+    Valid, invalid and failed stay distinct. An answer Phase 5 rejected is a
+    measurement; a run that never reached the model is excluded from every
+    denominator.
+  - >-
+    Retries are zero. The question is what one call produces, and a retry loop
+    would fold Phase 5's recovery into a number meant to describe a first answer.
+  - >-
+    A case declares every axis of the matrix even where one value exists, because
+    a schema that grows after results exist means rewriting the results.
+  - >-
+    The baseline arm and the behavioral pass rate are reserved in the schema and
+    rejected at run time until implemented. An unimplemented axis is never
+    silently skipped.
+  - >-
+    The harness's own logic is covered by deterministic tests that need no model
+    and run in the default suite. Only the model-dependent runner is tagged.
+  - >-
+    Expectations are what a complete answer contains, never what the model
+    usually produces. Fitting the expectation to observed behavior would make
+    every rate 100% by construction.
+affected_scope:
+  - evals/**
+forbidden_scope: []
+type: blueprint
+implements: prov-2026-d554bfc3
+supersedes: ""
+superseded_by: ""
+related:
+  - prov-2026-6d87dc11
+  - prov-2026-c5697387
+  - prov-2026-369544c1
+sealed_at_sha: ""
+associated_specs:
+  # The scoring logic is deterministic and is tested as such - hand-built
+  # samples, no model, runs in the default suite. The tagged runner is the part
+  # that needs an endpoint, and it is not what this proves.
+  - path: evals/run_test.go
+    run_command: go test -count=1 ./$(dirname {{path}})
+  - path: evals/README.md
+    run_command: test -f {{path}}
+associated_traces: []
+monitors: []
+tags:
+  - sedum
+  - evals
+  - measurement
