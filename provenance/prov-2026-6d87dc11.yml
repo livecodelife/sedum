@@ -12,12 +12,71 @@ intent: |
 
   ## Measured, not guessed
 
-  M6 running against a real package drops one action reliably. A record naming a
+  M6 running against a real package drops one action. A record naming a
   migration, a controller, a model and their tests produced 14 invocations
   covering every file except the migration: five createEndpoint, five
   addControllerTest, two addModelTest, addValidation, definePermittedParams, and
   no addColumn. One call, validated first try, no retry - because there was
   nothing invalid about it.
+
+  ## Corrected: it is intermittent, not reliable
+
+  This section first said the drop was reliable. Re-measured after
+  [[prov-2026-369544c1]] landed, it is not: it is close to a coin flip, and it
+  was one before that record too.
+
+  Nineteen runs of the same record against the same package with
+  qwen2.5-coder-14b, thirteen on the build carrying derived requirements and six
+  on a worktree built at the commit before them:
+
+  | Build | addColumn selected | Rate |
+  |---|---|---|
+  | With derived requirements | 6 of 13 | 46% |
+  | Without | 4 of 6 | 67% |
+
+  The two are indistinguishable at this sample size, and runs alternated cleanly
+  rather than clustering, so this is sampling noise rather than drift or a stale
+  endpoint. The correction matters in both directions. "Reliably" is wrong and
+  has to go, because a claim that does not reproduce discredits the reasoning
+  built on it the first time someone re-runs it. And the finding this section
+  exists to establish survives intact: **enriching the catalog did not move the
+  rate.** That is the A/B this record's direction rests on, and it now has one
+  rather than an argument.
+
+  A caveat that cannot be removed. The package on disk is not the one the
+  original finding was measured against - it has since been revised in response
+  to [[prov-2026-c5697387]], replacing the options string with named nullable and
+  default kwargs, and it carries six kwargs where this record describes cutting
+  addColumn to four. Neither the before nor the after above reproduces the
+  original conditions. They measure what is true now, which is the only thing
+  still measurable.
+
+  Descriptions are untested. todo-rails explains its kwargs in YAML comments and
+  declares no description fields, so the runs above exercised derived
+  requirements and nothing else. Whether authored descriptions move the rate is
+  an open question this record does not answer, and answering it wants a harness
+  rather than another hand-run loop.
+
+  ## The mechanism is positional
+
+  One correlation held across all nineteen runs without exception: **addColumn
+  appears if and only if it appears first.** Where it is selected the list opens
+  with the two migration columns; where it is not, the list opens with
+  createEndpoint and never returns to the migration. It is not a mid-list
+  omission, and the intermediate case exists - one baseline run selected one
+  column and dropped the other.
+
+  This is worth recording because it constrains what a fix can be. The model is
+  not weighing the migration and declining it; it is not arriving there at all
+  once it has committed to a different opening. A completeness observation fed
+  back after the fact is well shaped for exactly that, because it puts the
+  omitted anchor in front of a model that has already finished its first pass and
+  has nothing left to commit to.
+
+  It also sharpens the value. A coin flip is a better case for one re-prompt than
+  a reliable failure would be: a single retry takes a fifty percent miss to
+  roughly one in four, and a response that leaves nothing unfilled is never
+  re-prompted, so the half of runs that were already complete cost nothing.
 
   Four explanations were tested and none held:
 
@@ -33,7 +92,11 @@ intent: |
   Both local models behave the same way, and an earlier schema of the same action
   was selected freely - over-selected, in fact, producing four columns where two
   were wanted. So the action is selectable, the information is present, and what
-  is missing is the model's judgment on one item out of fourteen.
+  is missing is the model's judgment on one item out of fourteen. The
+  re-measurement below strengthens that reading rather than weakening it: the
+  same action is selected on half of all runs from an identical prompt, which is
+  as direct a demonstration as there is that nothing about the information is
+  what decides the outcome.
 
   That is the finding, and it is what sets the direction: this is not an
   information gap, so enriching the catalog further will not reliably fix it.
@@ -142,6 +205,15 @@ constraints:
     Planted markers per created file are computed once in genpkg and shared with
     prov-2026-14c832bf's Phase 5 check and its file list. Three consumers, one
     function - not three call sites each reading files for themselves.
+  - >-
+    The rate this record is measured against is a rate, not a certainty. Any
+    claim here about how often selection misses states its sample size and the
+    build it was taken on, because a measurement recorded without them cannot be
+    re-run and will be believed longer than it is true.
+  - >-
+    A change to the catalog is not evidence for or against this record until it
+    has been A/B'd against the same record and package. The one A/B run so far
+    covers derived requirements only; descriptions are untested.
 affected_scope:
   - internal/selection/**
   - internal/pipeline/**
