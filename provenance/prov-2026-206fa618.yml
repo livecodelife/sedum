@@ -71,6 +71,33 @@ intent: |
   dead anchors already gets told at load, by name, with the reason. Repeating it
   per run would be the same warning charged per sample.
 
+  ## Measured after
+
+  Same case, same model, same concurrency, five samples again - entry
+  todo-chi-defined at commit a9f97fe, qwen2.5-coder-14b-instruct/llama.cpp-q4_k_m,
+  n=5:
+
+  | Commit | Valid | Valid-sample times | Wall |
+  |---|---|---|---|
+  | 3e38d7c | 5/5 | 527-776s, mean 674s | 31m03s |
+  | a9f97fe | 2/5 | 360-468s, mean 414s | 13m34s |
+
+  **The wall figure is not the evidence**, and reading it as one would repeat
+  the confound this record already names from the other side: three samples were
+  invalid this time, and an invalid sample fails on its first call before it
+  could earn a re-prompt, so it is cheap. Halving the wall clock is what a run
+  with three cheap samples looks like whether or not anything was fixed.
+
+  The per-sample *valid* times are the evidence. They fall from a 527-776s band
+  to a 360-468s one, with no overlap - one model call per valid sample where
+  there were two. Nothing else in the run changed, and nothing else could have:
+  the first call's prompt is untouched by this record, and the pass it narrows
+  runs only after an answer has already validated.
+
+  Validity moving from 5/5 to 2/5 is sampling rather than this change, for the
+  same reason. It is the same spread the earlier 3/5 run showed, and it is worth
+  saying that five samples of one case measure that case loosely.
+
   ## What does not change
 
   An anchor that is fillable and was not filled is still the whole point, and
@@ -112,6 +139,7 @@ affected_scope:
   - internal/expand/**
   - internal/genpkg/**
   - internal/selection/**
+  - evals/**
   - testdata/**
   - PRD.md
 forbidden_scope: []

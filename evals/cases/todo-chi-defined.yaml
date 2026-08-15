@@ -30,10 +30,18 @@ models:
     quant: q4_k_m
 
 # One unfillable anchor remains: init.sql plants "extensions" and no action
-# targets it, so the completeness pass (prov-2026-6d87dc11) fires once per
-# sample and the model correctly declines. That is a standing second model call
-# this case pays and the Rails one does not - worth knowing before reading a
-# timing comparison between them.
+# targets it. It used to cost a completeness re-prompt on every sample - a
+# standing second model call this case paid and the Rails one did not - which
+# made a timing comparison between the two arms unreadable.
+#
+# prov-2026-206fa618 removed it: an anchor nothing in the run can fill is no
+# longer asked about, so this case now pays one model call per sample like the
+# Rails arm. Valid-sample times fell from 527-776s to 360-468s across the two
+# entries in results/todo-chi-defined.jsonl (3e38d7c and a9f97fe, n=5 each).
+#
+# The anchor itself stays. It is a deliberate extension point for a CREATE
+# EXTENSION a later record might want, and the case is worth keeping precisely
+# because it carries one.
 #
 # It used to be four. The others belonged to docker-compose.yml and .gitignore,
 # which left the record's scope when it was cut to functionality.
