@@ -132,15 +132,13 @@ intent: |
 
   ## The catalog carries an anchor where a pattern says nothing
 
-  With injects_into: "{{file}}" the catalog shows the model ["{{file}}"], which
-  carries none of the information prov-2026-1bbb8e2e added it to carry. It is not
-  harmful, but it is noise.
+  With injects_into: "{{file}}" the entry shows ["{{file}}"], which carries none
+  of the information prov-2026-1bbb8e2e added it to carry.
 
   The useful fact for a free-target action is the anchor it requires - and the
   anchor alone is not enough, because the model has no way to know which files
   carry it. So the file list Phase 4 already sends gains the markers each created
-  file plants, and a free-target entry carries its anchor in place of its
-  degenerate pattern.
+  file plants, and the action's entry gains its anchor.
 
   That is the same move prov-2026-1bbb8e2e made, one layer over. There, the model
   matched a *pattern* against the authorized paths and bound what was left. Here
@@ -152,6 +150,40 @@ intent: |
   The planted-marker set is the same computation [[prov-2026-6d87dc11]] needs for
   unfilled anchors and the same one this record's Phase 5 check needs. One
   mechanism, three consumers.
+
+  ## The catalog has a second consumer, and it decides the shape
+
+  The obvious move is to emit the anchor *in place of* the degenerate pattern,
+  since ["{{file}}"] is noise to the model. That is wrong, and it took a second
+  consumer to see why.
+
+  sedum actions --json is a supported surface. Under [[prov-2026-59535684]] the
+  generator package and the commands are what a tool built on Sedum gets, and a
+  caller doing its own selection reads that catalog to decide which action can
+  represent a change. To such a caller the degenerate pattern is not noise: a
+  present-but-bare injects_into is how it tells *this action's target is a
+  parameter* apart from *this action has no target pattern*. Dropping it deletes
+  the only signal that distinguishes them.
+
+  So the two are split. **The JSON keeps injects_into and gains anchor; the
+  prompt suppresses the bare pattern when it renders a free-target entry.** The
+  catalog is the contract and the prompt is a view of it, which is the honest
+  relationship and was already true - the prompt has always been a rendering
+  rather than a serialization.
+
+  This is the first change to make it explicit, and it sets the rule for later
+  ones: additions to the catalog are additive to the JSON, and what any single
+  consumer is shown is that consumer's rendering. A prompt-side omission is not
+  a schema change and must never be implemented as one.
+
+  It also matters more than a formatting choice, because a free target degrades
+  exactly the classification a caller performs. Rendering injects_into against
+  recorded kwargs is how a caller decides whether a generative action can
+  represent a change; a bare {{file}} renders to whatever it is handed, so a
+  free-target action appears able to represent every change to every file. The
+  anchor is what restores the discrimination, and it restores it by the same rule
+  Phase 5 checks: the action is applicable to a file whose template plants its
+  marker. One rule, enforced inside Sedum and available outside it.
 
   ## The three sub-questions, settled
 
@@ -211,9 +243,20 @@ constraints:
     different fixes, and a _default template or an empty-file fallback makes the
     first case legitimate.
   - >-
-    The catalog carries an action's anchor only where its target is a kwarg, and
-    the Phase 4 file list carries the markers each created file plants. The
-    catalog states what the model needs to select, not everything Sedum knows.
+    Every catalog entry carries its action's anchor, and the Phase 4 file list
+    carries the markers each created file plants. Both are additive to
+    sedum actions --json, which is a supported surface with consumers other than
+    the prompt.
+  - >-
+    The JSON keeps injects_into for a free-target action. A present-but-bare
+    pattern is how a caller distinguishes a parameterized target from no target
+    pattern, and it is what makes anchor-based classification necessary rather
+    than merely available.
+  - >-
+    Suppressing the bare pattern is a prompt-rendering decision, never a schema
+    one. The catalog is the contract and each consumer's view is a rendering of
+    it; an omission for the model's benefit must not remove a field from the
+    JSON.
   - >-
     Both target forms coexist with no opt-in. A package that declares no
     free-target action is unchanged, and no sedum.yaml key gates the feature.
@@ -229,6 +272,7 @@ affected_scope:
   - internal/catalog/**
   - internal/selection/**
   - internal/genpkg/**
+  - internal/cli/actions.go
   - testdata/**
   - OPEN_QUESTIONS.md
   - PRD.md
@@ -241,6 +285,7 @@ related:
   - prov-2026-6d87dc11
   - prov-2026-a9e59197
   - prov-2026-369544c1
+  - prov-2026-59535684
 sealed_at_sha: ""
 associated_specs: []
 associated_traces: []
