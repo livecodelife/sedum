@@ -43,7 +43,7 @@ func TestHistoryReadsBackWhatWasRecorded(t *testing.T) {
 		"1/2 [0.09,0.91]", // one of them needed no retry
 		"1.50",            // three calls over two samples
 		"2000+400",        // 6000 prompt and 1200 completion over three calls
-		"72.0",            // 7200 tokens over 100s
+		"12.0",            // 1200 completion tokens over 100s; the prompt was billed, not computed
 	} {
 		if !strings.Contains(out, want) {
 			t.Errorf("history omits %q:\n%s", want, out)

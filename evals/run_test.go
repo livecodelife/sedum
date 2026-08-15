@@ -463,7 +463,7 @@ func TestTokensAreCountedBesideCalls(t *testing.T) {
 
 	var buf bytes.Buffer
 	Report(&buf, m)
-	if out := buf.String(); !strings.Contains(out, "tokens: 7000 prompt + 600 completion") {
+	if out := buf.String(); !strings.Contains(out, "tokens: 7000 prompt billed + 600 completion") {
 		t.Errorf("report omits the token split:\n%s", out)
 	}
 }
