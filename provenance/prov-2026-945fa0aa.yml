@@ -41,6 +41,48 @@ intent: |
   worth noting: samples at concurrency 1, 2, 4 and 8 over one case, recorded as
   ordinary entries, differing only in the concurrency field they already carry.
 
+  ## Measured
+
+  Six runs of todo-rails-defined, four samples each, at commits 42a426f and
+  b37709c. Rows 5 and 6 repeat earlier levels as controls:
+
+  | Order | Concurrency | Wall | Per-sample | tok/s |
+  |---|---|---|---|---|
+  | 1 | 1 | 4m24.4s | 1m06.1s | 36.4 |
+  | 2 | 2 | 4m15.2s | 2m07.4s | 37.7 |
+  | 3 | 4 | 4m01.7s | 4m00.9s | 39.8 |
+  | 4 | 8 | 3m16.8s | 3m16.4s | 48.8 |
+  | 5 | 4 | 3m04.8s | 3m04.6s | 52.0 |
+  | 6 | 1 | 5m06.9s | 1m16.7s | 31.3 |
+
+  **The sweep as designed could not answer its own question.** Rows 1 to 4 read
+  as a clean monotonic gain and are confounded with run order; the obvious
+  reading, that the server warms up, is then falsified by row 6, which is the
+  warmest run and the slowest of all six. Two identical c=4 runs differ by 31%.
+  The noise floor is the size of the effect.
+
+  What survives is weaker and worth stating as such: every parallel run finished
+  faster than every sequential one, ranges disjoint, which arises by chance
+  about 7% of the time at this sample size. Per-sample latency tracks
+  concurrency almost exactly - at c=4 a sample takes essentially the whole wall
+  clock - so raising it trades time-to-first-result for a possible improvement
+  in total.
+
+  ## The finding that outlives the question
+
+  Across those same six runs, tokens per call moved by 0.2% and calls per sample
+  did not move at all, while wall clock moved 31% and throughput 25%.
+
+  **The selection measurements are reproducible on this hardware and the timing
+  measurements are not.** That is the argument for [[prov-2026-0811425c]] and
+  [[prov-2026-096a4d4b]] having denominated cost in calls and tokens rather than
+  seconds, made by measurement rather than by assertion - those counts held
+  steady through a 31% swing in the clock beside them.
+
+  It also bounds what the timing numbers may be used for. A comparison inside
+  about 30% is not a result on this box; the chi arm running at 2.7 times the
+  rails arm is.
+
   ## What an entry can and cannot claim
 
   It cannot claim the server's configuration, because it cannot see it. So a
@@ -74,6 +116,15 @@ constraints:
   - >-
     Hosted endpoints are out of scope here and stay with prov-2026-98ab639c,
     which carries their rate limit and data-egress properties.
+  - >-
+    A configuration measured once is not measured. Two identical runs differed
+    by 31%, so a throughput or wall-clock claim needs repeats of each condition,
+    and a difference inside that band is reported as no result rather than as a
+    small one.
+  - >-
+    The concurrency default stays 1. Time-to-first-result is what a person
+    iterating needs, and the evidence that raising it helps total time is
+    suggestive rather than established.
 affected_scope:
   - evals/**
 forbidden_scope: []
