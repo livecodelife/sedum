@@ -38,8 +38,37 @@ models:
 # It used to be four. The others belonged to docker-compose.yml and .gitignore,
 # which left the record's scope when it was cut to functionality.
 
-# Deliberately empty. Expectations are what a complete answer contains, and
-# nothing has produced one here yet - writing counts from reading the package
-# would make the first run agree with them by construction.
+# Established from per-sample counts, not from a mean.
+#
+# Five samples at commit 3e38d7c, all five valid. Three of them - samples 1, 2
+# and 3 - produced *identical* answers containing exactly these counts, so this
+# is what three independent complete answers agreed on rather than an average
+# over answers none of which looked like it.
+#
+# That distinction is not academic here. The first attempt to establish these
+# had only aggregates, and reported addQueryTest at 3.33, addHandlerTestImport
+# at 0.67 and addMainImport at 0.33 - none of which is a count any answer can
+# have. The per-sample rows (prov-2026-eb283c56) are what made it possible to
+# tell a stable count from an average of unstable ones.
+#
+# The three the model is inconsistent about, and worth watching:
+#   addHandlerTestImport  [0 1 1 1 0]
+#   addQueryTest          [5 5 5 5 0]
+#   createTable           [0 1 1 1 1]
+# The other eight were identical across all five.
 expect:
-  actions: {}
+  actions:
+    # One import per file that needs one.
+    addDBImport: 1
+    addDBTestImport: 1
+    addHandlerImport: 1
+    addHandlerTestImport: 1
+    addMainImport: 1
+    # Five endpoints, and a query, a handler test and a query test for each.
+    createEndpoint: 5
+    createQuery: 5
+    addHandlerTest: 5
+    addQueryTest: 5
+    # Two fields on the model, one table in the schema.
+    addModelField: 2
+    createTable: 1
