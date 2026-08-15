@@ -1,0 +1,116 @@
+id: prov-2026-eb283c56
+title: Eval results are append-only observations, pinned to a commit
+status: draft
+created_at: "2026-08-15"
+author: calebcowen@gmail.com
+intent: |
+  Every run appends one entry to a committed JSONL file under evals/results/,
+  carrying what produced the number as well as the number. Records making a claim
+  quote the summary and name the entry it came from.
+
+  ## A recording is a decision; a result is an observation
+
+  Recordings carry no timestamps, no run identifiers, and no volatile fields, so
+  that two recordings of equivalent runs diff cleanly. Results are the opposite
+  and have to be, and the distinction is worth naming because the two formats
+  otherwise look alike.
+
+  A recording says what to do, and is edited freely - a hand-edited recording is
+  a supported input. A result says what happened, and is never edited: a
+  measurement that turns out to be wrong is superseded by a later entry, not
+  corrected in place. That is the same discipline the provenance graph uses on
+  its own records, applied to observations.
+
+  Append-only also happens to diff cleanly for a different reason than recordings
+  do. Nothing is ever rewritten, so a run adds lines and touches nothing.
+
+  ## What has to be pinned, and why the SHA is nearly enough
+
+  Twice a number became unreproducible, and neither time was the number missing.
+  [[prov-2026-6d87dc11]]'s finding died because the generator package changed
+  underneath it, and the Rails expectations went stale because the record's scope
+  was cut from seventeen paths to six. The numbers survived; their inputs did not.
+
+  Vendoring the fixtures into the repository changed that. Packages and records
+  now live in the tree, so **a git SHA pins everything except the model's
+  sampling** - one field makes a result re-runnable.
+
+  It pins nothing if the tree was dirty, so an entry carries whether it was, and
+  the harness warns when it was not. A dirty run is still recorded, because
+  refusing to measure mid-edit would rule out most of how the harness is
+  actually used - but it is recorded as visibly not re-runnable from its SHA,
+  which is precisely the fact that was missing both times.
+
+  An entry also carries what the SHA cannot: the model with its engine and
+  quantization, the endpoint, the sample count, the concurrency, and the retry
+  limit.
+
+  ## Per-sample rows, not only aggregates
+
+  The first run to establish expectations is the argument for this. The Chi case
+  reported observed means of 0.33, 0.67 and 3.33 invocations for three actions -
+  numbers no single answer can have produced. The aggregate says selection was
+  inconsistent and cannot say **whether any one sample was complete**, which is
+  exactly the question an expectation has to be set from.
+
+  So an entry keeps each sample's counts rather than only their mean. It is a few
+  hundred bytes and it is the difference between a file that can answer a
+  question later and one that can only restate a summary.
+
+  ## The schema will grow
+
+  [[prov-2026-d61010a4]] adds anchor fill rate, syntactic validity and
+  idempotency, and each is a field these entries do not have yet. That is fine
+  and is planned for: entries accumulate, so the schema is additive from the
+  start and a reader ignores what it does not recognise, exactly as the ownership
+  marker's attribute object does.
+
+  What must not happen is a field changing meaning. An entry written today and
+  read a year from now has to mean what it meant, or the history is worth less
+  than re-running.
+constraints:
+  - >-
+    Entries are append-only and never edited. A measurement that turns out to be
+    wrong is superseded by a later entry, not corrected in place.
+  - >-
+    Every entry carries the commit it ran against and whether the tree was
+    clean. A dirty run is recorded and warned about rather than refused, because
+    refusing would rule out most of how the harness is used - but it is recorded
+    as not re-runnable from its SHA.
+  - >-
+    Every entry carries what the commit cannot: model id, engine, quantization,
+    endpoint, sample count, concurrency, and retry limit.
+  - >-
+    Per-sample counts are kept, not only their aggregate. A mean of 3.33
+    invocations cannot say whether any single answer was complete, which is the
+    question an expectation is set from.
+  - >-
+    The schema is additive. Fields are added as signals are added, a reader
+    ignores what it does not recognise, and no existing field changes meaning -
+    entries outlive the version that wrote them.
+  - >-
+    A record making a claim quotes the summary and names the entry: commit, case,
+    model label and sample size. The record stays where the reasoning lives; the
+    file stops the numbers being retyped from memory.
+  - >-
+    Results are committed. They are evidence cited by records, and evidence that
+    is not versioned with what produced it is the failure this record exists to
+    prevent.
+affected_scope:
+  - evals/**
+forbidden_scope: []
+type: imprint
+implements: prov-2026-e6969eb3
+supersedes: ""
+superseded_by: ""
+related:
+  - prov-2026-d61010a4
+  - prov-2026-6d87dc11
+sealed_at_sha: ""
+associated_specs: []
+associated_traces: []
+monitors: []
+tags:
+  - sedum
+  - evals
+  - measurement
