@@ -236,6 +236,55 @@ tokens for every sample, and the `tokens:` line says exactly how many: at
 hundred completion tokens. That ratio is the argument for `--cache-reuse`, and
 it is a measurement rather than a suspicion only because the token counts exist.
 
+### What the concurrency sweep found
+
+Six runs of `todo-rails-defined`, four samples each, on the invocation above:
+
+| Order | `-eval.concurrency` | Wall | Per-sample mean | tok/s |
+|---|---|---|---|---|
+| 1 | 1 | 4m24.4s | 1m06.1s | 36.4 |
+| 2 | 2 | 4m15.2s | 2m07.4s | 37.7 |
+| 3 | 4 | 4m01.7s | 4m00.9s | 39.8 |
+| 4 | 8 | 3m16.8s | 3m16.4s | 48.8 |
+| 5 | 4 | 3m04.8s | 3m04.6s | 52.0 |
+| 6 | 1 | 5m06.9s | 1m16.7s | 31.3 |
+
+Runs 5 and 6 are controls, repeating earlier levels after everything was warm.
+They are why this table says less than it appears to.
+
+**Two identical c=4 runs differed by 31%** (rows 3 and 5), and the slowest run of
+all six was the last and warmest one. So there is no warm-up trend, and the
+run-to-run noise is as large as any effect the sweep could claim.
+
+What survives: **every parallel run finished faster than every sequential one**
+(185–255s against 264–307s, disjoint ranges), and per-sample latency scales
+almost exactly with concurrency — at c=4 each sample takes essentially the whole
+wall clock. Read that as suggestive rather than established: with two runs per
+condition, that ordering arises by chance about 7% of the time.
+
+**The practical advice.** Leave concurrency at 1 while iterating: time-to-first
+result is 1m06s instead of 3m05s, so a broken fixture surfaces in a minute
+rather than after the whole run. Raise it to about the server's `-np` when you
+want a whole measurement sooner and will wait for all of it either way. Do not
+quote a wall-clock difference under ~30% from single runs of each condition.
+
+### Timing is soft; the counts are not
+
+The same six runs, by what stayed still:
+
+| Quantity | Spread across six runs |
+|---|---|
+| Wall clock | 3m04s – 5m07s (±31%) |
+| Throughput | 31.3 – 52.0 tok/s (±25%) |
+| Tokens per call | 1799+605 → 1799+604 (±0.2%) |
+| Calls per sample | 1.00 every time (exact) |
+
+This is the argument for `cost:` being denominated in calls and tokens rather
+than seconds. The selection measurements are reproducible on this hardware; the
+timing measurements are worth ±30%, and a comparison inside that band is not a
+result. A comparison well outside it — the chi arm at 2.7x the rails arm — still
+is.
+
 ### Throughput is reported, not estimated
 
 The `throughput:` line divides the counted tokens by the wall clock. It is never
