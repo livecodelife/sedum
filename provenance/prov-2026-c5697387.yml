@@ -129,11 +129,17 @@ constraints:
 affected_scope:
   - internal/genpkg/**
   - internal/catalog/**
-  # actions.go alone, as this was first scoped, excludes the test beside it -
-  # which this record's own associated_specs names as its proof.
-  - internal/cli/**
-  - internal/selection/**
-  - testdata/**
+  # Both paths named rather than internal/cli/**. A glob here would make this
+  # record govern every file in the directory, and completion runs the specs of
+  # every record governing an overlapping file - so the glob would tax every
+  # future record touching anything under internal/cli with this one's three
+  # whole-package runs.
+  - internal/cli/actions.go
+  - internal/cli/actions_test.go
+  # No internal/selection entry: descriptions reach the prompt inside the
+  # catalog payload it already embeds, so nothing there changed. Scope a record
+  # does not use still makes it govern those files.
+  - testdata/generators/rails/actions/actions.yaml
   - PRD.md
 forbidden_scope: []
 type: bug
