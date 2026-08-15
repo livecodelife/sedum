@@ -1,0 +1,99 @@
+id: prov-2026-945fa0aa
+title: Throughput is a property of how the server is run, and the harness says which
+status: draft
+created_at: "2026-08-15"
+author: calebcowen@gmail.com
+intent: |
+  Every measurement so far has been bounded by the model server rather than by
+  anything in this repository, and the repository records almost nothing about
+  how that server was run. An entry carries the endpoint URL and the concurrency
+  the harness asked for. It does not carry how many slots the server was serving,
+  whether it reused a cached prompt prefix, or what batch size it decided on -
+  and those decide the wall clock.
+
+  This is not an argument for the harness configuring the server. The endpoint is
+  a variable on purpose ([[prov-2026-2f131ba6]]), and a run against a server
+  someone else tuned is still a valid run. It is an argument for the two cheap
+  local wins being *found and written down*, so that a wall-clock figure means
+  something to the next person who reads it.
+
+  ## The prefix is identical and is being paid for every time
+
+  A case's prompt is the record plus the catalog, and it is byte-identical across
+  every sample of that case - the samples differ only in the model's sampling.
+  [[prov-2026-096a4d4b]] makes the size of that prefix measurable for the first
+  time, so the waste is now a number rather than a suspicion.
+
+  llama.cpp can reuse a cached prefix across requests. Nothing in this repository
+  has to change for that; what has to change is that the invocation known to work
+  is written down beside the numbers it produced, because a throughput claim
+  measured against a server run one way is not evidence about a server run
+  another way.
+
+  ## Concurrency has never been swept
+
+  The default is 1 and every run so far has used 2, chosen by hand, reporting
+  about 1.9x over sequential. Nobody has measured where that stops paying on this
+  hardware. It is one flag and a few runs, and the answer is worth a line in the
+  README rather than a habit.
+
+  A sweep is also the first use of the harness to measure the harness, which is
+  worth noting: samples at concurrency 1, 2, 4 and 8 over one case, recorded as
+  ordinary entries, differing only in the concurrency field they already carry.
+
+  ## What an entry can and cannot claim
+
+  It cannot claim the server's configuration, because it cannot see it. So a
+  throughput comparison across two entries is only a comparison when the server
+  was run the same way both times, and that fact belongs beside the numbers.
+  Tokens per second is now derivable from the token counts and the wall clock,
+  which makes the claim precise enough to be worth guarding.
+
+  ## Not the hosted endpoint
+
+  Deliberately out of scope here. [[prov-2026-98ab639c]] already carries hosted
+  rows, with the rate limit and the data-egress property that travel with them,
+  and an entry measured on borrowed silicon answers a different question than one
+  measured on the machine Sedum is meant to run on.
+constraints:
+  - >-
+    The harness does not configure the model server. The endpoint stays a
+    variable, and a run against a differently-tuned server is a valid run that
+    costs differently.
+  - >-
+    A server invocation that a throughput number was measured against is written
+    down beside the number. An entry cannot record the server's configuration, so
+    the claim is only a comparison when that configuration is stated.
+  - >-
+    The concurrency sweep is recorded as ordinary entries, differing only in the
+    concurrency field they already carry. The harness measures itself with the
+    same instrument it measures everything else with.
+  - >-
+    Tokens per second is derived from the token counts and the wall clock, never
+    estimated from a model's advertised rate.
+  - >-
+    Hosted endpoints are out of scope here and stay with prov-2026-98ab639c,
+    which carries their rate limit and data-egress properties.
+affected_scope:
+  - evals/**
+forbidden_scope: []
+type: imprint
+implements: prov-2026-e6969eb3
+supersedes: ""
+superseded_by: ""
+related:
+  - prov-2026-096a4d4b
+  - prov-2026-98ab639c
+  - prov-2026-0baaa119
+sealed_at_sha: ""
+associated_specs:
+  - path: evals/README.md
+    run_command: test -f {{path}}
+  - path: evals/run_test.go
+    run_command: go test -count=1 ./$(dirname {{path}})
+associated_traces: []
+monitors: []
+tags:
+  - sedum
+  - evals
+  - measurement
