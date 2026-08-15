@@ -71,25 +71,58 @@ func Filled(recordID string, files []resolve.File, invocations []recording.Invoc
 	return out
 }
 
-// Unfilled is Planted minus Filled: the anchors this run created and nothing it
-// selected writes into.
+// Fillable returns the markers something in this run could have injected at:
+// every marker targeted by any action in any package the run's files resolved
+// to.
+//
+// It is computed across the run's packages rather than per package, because
+// that is the question being asked. genpkg's load-time check is package-scoped
+// because it asks an authoring question - is this package internally coherent.
+// This asks whether anything in the run can reach the anchor, and an action's
+// injects_into renders to a path that resolves to a package by extension, so an
+// action in one package may target a file another package owns. A per-package
+// rule would drop anchors something else could have filled.
+func Fillable(files []resolve.File) map[string]bool {
+	out := map[string]bool{}
+	for _, pkg := range Packages(files) {
+		for _, action := range pkg.Actions {
+			for _, marker := range action.TargetedMarkers() {
+				out[marker] = true
+			}
+		}
+	}
+	return out
+}
+
+// Unfilled is Planted minus Filled, minus the anchors nothing in the run could
+// have filled: the anchors this run created, something it loaded can write
+// into, and nothing it selected does.
 //
 // It is not an error and must not become one. A template may plant a region for
 // an action a later record will fill, or for one this change legitimately does
 // not need, and a run that refused to proceed would make every such template a
 // liability. What it is good for is saying so - once, to the model, and to
 // anyone measuring how complete a selection was.
+//
+// An anchor no action targets is dropped rather than reported, because it is
+// not an omission the model can act on: asking about it spends a call on a
+// question with no available answer, on every run, forever
+// (prov-2026-206fa618). The subtraction is silent. Phase 0 already names every
+// such marker at load, by name and with the reason, and repeating it here would
+// charge an authoring warning by the run.
 func Unfilled(recordID string, files []resolve.File, invocations []recording.Invocation) []Anchor {
 	filled := map[Anchor]bool{}
 	for _, a := range Filled(recordID, files, invocations) {
 		filled[a] = true
 	}
+	fillable := Fillable(files)
 
 	var out []Anchor
 	for _, a := range Planted(files) {
-		if !filled[a] {
-			out = append(out, a)
+		if filled[a] || !fillable[a.Marker] {
+			continue
 		}
+		out = append(out, a)
 	}
 	return out
 }

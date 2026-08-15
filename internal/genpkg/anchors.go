@@ -36,6 +36,36 @@ func (a *Action) MarkerAnchor() (string, bool) {
 	return a.Anchor, true
 }
 
+// TargetedMarkers returns every marker this action can inject at, which is one
+// for a marker anchor, two for a region anchor, and none for the rest.
+//
+// A region names its endpoints through anchor_start and anchor_end rather than
+// anchor, so reading only MarkerAnchor would report every region's endpoints as
+// targeted by nothing.
+//
+// It is one definition rather than two because two questions turn on it and
+// they must not be able to disagree: whether a package plants a marker nothing
+// targets, asked once at load (prov-2026-a9e59197), and whether an unfilled
+// anchor is fillable at all, asked per run (prov-2026-206fa618). A run that
+// asked the model about an anchor load had already called dead would be exactly
+// that disagreement, charged per sample.
+func (a *Action) TargetedMarkers() []string {
+	if a.Anchor == AnchorRegion {
+		var out []string
+		if a.AnchorStart != "" {
+			out = append(out, a.AnchorStart)
+		}
+		if a.AnchorEnd != "" {
+			out = append(out, a.AnchorEnd)
+		}
+		return out
+	}
+	if marker, ok := a.MarkerAnchor(); ok {
+		return []string{marker}
+	}
+	return nil
+}
+
 // markerDecl is the text a file template plants to create an anchor point. The
 // prefix is the package's declared comment_prefix, since #, // and -- all
 // appear across targets.

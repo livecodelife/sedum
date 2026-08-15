@@ -547,6 +547,66 @@ func TestUnfilledAnchorsAreWhatTheRunMadeAndNothingFills(t *testing.T) {
 	}
 }
 
+// An anchor no action in the run targets is not an omission anything could
+// have corrected. Asking about it costs a model call on every run for a
+// question with no available answer, so it is dropped rather than reported
+// (prov-2026-206fa618).
+func TestAnAnchorNothingCanFillIsNotReportedUnfilled(t *testing.T) {
+	set := loadSet(t, generators())
+	files := []resolve.File{rendered(t, set,
+		"app/controllers/users_controller.rb", "rails",
+		"class UsersController\n  # sedum:anchor:audit_log\nend\n")}
+
+	if got := Unfilled("PR-014", files, nil); len(got) != 0 {
+		t.Errorf("an anchor no action targets was reported unfilled: %+v", got)
+	}
+}
+
+// A file planting both kinds reports only the one an action could have filled.
+// The feature is narrowed, not removed: the model is still asked about anything
+// it could actually have done.
+func TestOnlyTheFillableHalfOfAMixedFileIsReported(t *testing.T) {
+	set := loadSet(t, generators())
+	files := []resolve.File{rendered(t, set,
+		"app/controllers/users_controller.rb", "rails",
+		"class UsersController\n  # sedum:anchor:audit_log\n  # sedum:anchor:class_body\nend\n")}
+
+	got := Unfilled("PR-014", files, nil)
+	if len(got) != 1 || got[0].Marker != "class_body" {
+		t.Fatalf("mixed file reported %+v unfilled, want class_body alone", got)
+	}
+}
+
+// Fillability is a property of the run, not of the package that planted the
+// marker. An action's injects_into renders to a path that resolves to a package
+// by extension, so an action in one package may target a file another owns -
+// and a per-package rule would drop an anchor something else could have filled.
+func TestFillabilityIsComputedAcrossTheRunsPackages(t *testing.T) {
+	set := loadSet(t, generators())
+	// A rails file planting steps, which only cairn's addStep targets.
+	railsFile := rendered(t, set,
+		"app/controllers/users_controller.rb", "rails",
+		"class UsersController\n  # sedum:anchor:steps\nend\n")
+
+	if got := Unfilled("PR-014", []resolve.File{railsFile}, nil); len(got) != 0 {
+		t.Errorf("steps was reported unfilled in a run cairn is not part of: %+v", got)
+	}
+
+	// The same file in a run that also loaded cairn: something can fill it now.
+	cairnFile := rendered(t, set, "Units/orders/Manifest.crn", "cairn",
+		"unit Orders\n  ;; sedum:anchor:steps\nend\n")
+
+	got := Unfilled("PR-014", []resolve.File{railsFile, cairnFile}, nil)
+	if len(got) != 2 {
+		t.Fatalf("a run loading cairn reported %+v unfilled, want both files' steps", got)
+	}
+	for _, a := range got {
+		if a.Marker != "steps" {
+			t.Errorf("unexpected unfilled anchor %+v", a)
+		}
+	}
+}
+
 // An unmanaged path is one Sedum did not write, so it has no claim about what
 // the file contains and no business reporting an anchor missing from it.
 func TestUnmanagedPathsPlantNothing(t *testing.T) {

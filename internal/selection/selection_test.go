@@ -734,6 +734,51 @@ func TestACompleteSelectionIsNotReprompted(t *testing.T) {
 	}
 }
 
+// A difference the model could not have closed earns no call at all. The chi
+// eval fixture plants an extensions anchor no action targets - a deliberate
+// extension point for a later record - and paid a re-prompt for it on every
+// sample, declined every time (prov-2026-206fa618).
+func TestAnUnfillableAnchorEarnsNoRePrompt(t *testing.T) {
+	req := railsRequest(t)
+	req.Files[0].Rendered = "class UsersController\n  # sedum:anchor:audit_log\nend\n"
+
+	got, client, err := selectWith(t, req, 0, `{"invocations":[]}`)
+	if err != nil {
+		t.Fatalf("a selection leaving only an unfillable anchor was rejected: %v", err)
+	}
+	if len(got) != 0 {
+		t.Errorf("got %d invocations, want the model's own answer of none", len(got))
+	}
+	if len(client.seen) != 1 {
+		t.Errorf("the model was called %d time(s), want 1 - nothing it selected could have filled audit_log", len(client.seen))
+	}
+}
+
+// The narrowing is to which anchors are asked about, not to whether they are.
+// A file planting both kinds still earns the observation, and the note names
+// only the anchor an action could have filled.
+func TestTheObservationNamesOnlyTheFillableAnchors(t *testing.T) {
+	req := railsRequest(t)
+	req.Files[0].Rendered = "class UsersController\n  # sedum:anchor:audit_log\n" +
+		"  # sedum:anchor:class_body\nend\n"
+
+	_, client, err := selectWith(t, req, 0, `{"invocations":[]}`, validResponse)
+	if err != nil {
+		t.Fatalf("a completeness re-prompt was treated as a failure: %v", err)
+	}
+	if len(client.seen) != 2 {
+		t.Fatalf("the model was called %d time(s), want 2 - class_body was fillable and unfilled", len(client.seen))
+	}
+
+	followUp := client.seen[1][len(client.seen[1])-1].Content
+	if !strings.Contains(followUp, "class_body") {
+		t.Errorf("the completeness note does not mention the fillable anchor:\n%s", followUp)
+	}
+	if strings.Contains(followUp, "audit_log") {
+		t.Errorf("the completeness note asks about an anchor nothing can fill:\n%s", followUp)
+	}
+}
+
 // A completeness re-prompt is not a validation retry. Exhausting one must not
 // consume the other, so an invalid answer still gets its full retry budget after
 // the observation has been spent.

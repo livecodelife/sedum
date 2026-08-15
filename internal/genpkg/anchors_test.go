@@ -1,6 +1,7 @@
 package genpkg
 
 import (
+	"slices"
 	"strings"
 	"testing"
 )
@@ -251,6 +252,35 @@ func TestRegionEndpointsCountAsTargeted(t *testing.T) {
 	for _, f := range findings {
 		if f.Rule == RuleMarkerUnfilled {
 			t.Errorf("a marker reached through a region anchor was reported unfilled: %s", f.Message)
+		}
+	}
+}
+
+// What an action targets is defined once and read twice: by the warning above,
+// and by the run-time question of whether an unfilled anchor is fillable at all
+// (prov-2026-206fa618). Two copies could disagree, and the run would ask the
+// model about an anchor load had already called dead.
+func TestTargetedMarkersIsTheOneDefinition(t *testing.T) {
+	cases := []struct {
+		name   string
+		action Action
+		want   []string
+	}{
+		{"marker", Action{Anchor: "class_body"}, []string{"class_body"}},
+		{"region", Action{Anchor: AnchorRegion, AnchorStart: "top", AnchorEnd: "bottom"},
+			[]string{"top", "bottom"}},
+		// The reserved anchors name no region a file can be observed to be
+		// missing, so they target no marker.
+		{"end_of_file", Action{Anchor: AnchorEndOfFile}, nil},
+		{"after_match", Action{Anchor: AnchorAfterMatch, AnchorPattern: "^func "}, nil},
+		// A composite has no anchor of its own; its children carry theirs.
+		{"composite", Action{Composes: []string{"a", "b"}}, nil},
+	}
+
+	for _, tc := range cases {
+		got := tc.action.TargetedMarkers()
+		if !slices.Equal(got, tc.want) {
+			t.Errorf("%s targets %v, want %v", tc.name, got, tc.want)
 		}
 	}
 }

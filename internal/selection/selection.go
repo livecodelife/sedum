@@ -137,6 +137,11 @@ func Select(ctx context.Context, client Client, req Request, opts Options) ([]re
 			// keeps the judgment and simply stops making it blind. A response
 			// leaving nothing unfilled is never re-prompted, so the case that
 			// was already complete costs nothing.
+			//
+			// Nor is a difference the model could not have closed: an anchor
+			// no action in the run targets is already excluded upstream, so a
+			// package whose templates plant a region reserved for a later
+			// record earns no call here at all (prov-2026-206fa618).
 			if !askedForCompleteness {
 				unfilled := expand.Unfilled(req.RecordID, req.Files, invocations)
 				if len(unfilled) > 0 {

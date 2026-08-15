@@ -502,15 +502,8 @@ func checkMarkerAnchors(pkg *Package, fileTemplates []string, r *reporter) {
 func checkMarkersFilled(pkg *Package, fileTemplates []string, r *reporter) {
 	targeted := map[string]bool{}
 	for _, action := range pkg.Actions {
-		if marker, ok := action.MarkerAnchor(); ok {
+		for _, marker := range action.TargetedMarkers() {
 			targeted[marker] = true
-		}
-		// A region anchor names its endpoints through anchor_start and
-		// anchor_end rather than anchor. Missing them would report every
-		// region's endpoints as unfilled.
-		if action.Anchor == AnchorRegion {
-			targeted[action.AnchorStart] = true
-			targeted[action.AnchorEnd] = true
 		}
 	}
 
