@@ -29,7 +29,16 @@ records: todo-rails/provenance
 # measured on one be read as a claim about the other. Only the llama.cpp engine
 # supports continuous batching today, which is the other reason they differ in
 # practice rather than only on paper.
+#
+# On a 24GB machine only one of these is resident at a time, so running the
+# whole list means a model swap between rows. -eval.model narrows a run to one.
 models:
+  # Continuous batching is llama.cpp-only today, so this is the row that can be
+  # sampled concurrently.
+  - id: qwen2.5-coder-14b-instruct
+    engine: llama.cpp
+    quant: q4_k_m
+  # Faster single-stream, no batching. The row that matches interactive use.
   - id: qwen2.5-coder-14b-instruct-mlx
     engine: mlx
     quant: 4bit

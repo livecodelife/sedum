@@ -9,6 +9,7 @@
 //	  go test -tags eval ./evals -v -timeout 60m
 //
 //	  -eval.case      run one case by id, default all
+//	  -eval.model     run only models whose label contains this substring
 //	  -eval.samples   runs per model, default 5
 //	  -eval.concurrency  samples in flight at once, default 1
 //	  -eval.root      where the fixture applications live, default ../..
@@ -19,6 +20,7 @@ import (
 	"context"
 	"flag"
 	"os"
+	"strings"
 	"testing"
 
 	"github.com/calebcowen/sedum/internal/selection"
@@ -26,6 +28,7 @@ import (
 
 var (
 	caseID      = flag.String("eval.case", "", "run only the case with this id")
+	modelID     = flag.String("eval.model", "", "run only models whose label contains this; one row at a time when memory is tight")
 	samples     = flag.Int("eval.samples", 5, "runs per model")
 	concurrency = flag.Int("eval.concurrency", 1, "samples in flight at once; raise it against a server with continuous batching")
 	root        = flag.String("eval.root", "../..", "directory the fixture applications live under")
@@ -49,6 +52,9 @@ func TestEval(t *testing.T) {
 			continue
 		}
 		for _, model := range c.Models {
+			if *modelID != "" && !strings.Contains(model.Label(), *modelID) {
+				continue
+			}
 			t.Run(c.ID+"/"+model.Label(), func(t *testing.T) {
 				m, err := Run(context.Background(), c, model, *samples, *concurrency)
 				if err != nil {
