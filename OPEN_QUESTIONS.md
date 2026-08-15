@@ -6,7 +6,7 @@ Scratch document. Nothing here is a requirement. These are directions explored a
 
 So these sections are not deferred Sedum work. They are the design notes for a tool that will be built on Sedum's [integration surface](PRD.md), and the useful question about each is no longer "when does Sedum do this" but "what does Sedum have to expose so something else can."
 
-**The split is not clean by section.** §1, §2, and §3 each have a Sedum half and a harness half, and they are marked inline where the halves diverge. §12's record *drafter* belongs to LineSpec, which already owns record authoring — `provenance create` / `discover` / `next` are the same shape of operation, and drafting is `discover` pointed at intent rather than at source. §15 is a mix of both.
+**The split is not clean by section.** §1, §2, and §3 each have a Sedum half and a harness half, and they are marked inline where the halves diverge. §12's record *drafter* belongs to LineSpec, which already owns record authoring — `provenance create` / `discover` / `next` are the same shape of operation, and drafting is `discover` pointed at intent rather than at source. §16 is a mix of both.
 
 Several decisions from this exploration were pulled forward into the PRD, because they write durable artifacts whose shape is expensive to change later:
 
@@ -388,7 +388,225 @@ Editing-the-spec-as-programming is safe *because* the integration layer is human
 
 ---
 
-## 15. Other unresolved items
+## 15. File-agnostic actions and the `injects_into` coupling
+
+> **Sedum's.** This is action authoring and catalog shape. Nothing here needs
+> the harness, and none of it is deferred behind M1–M7.
+
+### The problem
+
+`injects_into` is declared on the action, so an action whose template is
+target-independent still needs one definition per target file group. `addImport`
+becomes `addModelImport`, `addControllerImport`, `addSerializerImport` — same
+kwargs, same template body, differing only in a path pattern.
+
+The authoring duplication is the visible cost. The real cost is **catalog
+quality**. Phase 4 hands the model a set of near-identical entries with identical
+kwarg schemas, whose only discriminator is a name encoding a fact the model has
+to infer. That is the worst possible shape for selection accuracy, which is the
+thing the closed vocabulary exists to protect. And it scales multiplicatively:
+file-agnostic actions × file groups.
+
+### Root cause
+
+`injects_into` conflates two things — *which file this action targets*, and
+*what naming convention identifies that file*.
+
+For a structure-creating action the target is implied by the action's identity.
+`createControllerMethod` only ever means a controller, and the pattern is exactly
+right. For a file-agnostic action the file is genuinely a parameter, and encoding
+it in the action definition forces one action per binding of that parameter. The
+convention is also already stated once, in `files/`; the action restates it.
+
+### The direction: the target is a kwarg
+
+Nothing forbids this today. `injects_into` is a pattern rendered against bound
+kwargs, and load-time validation only inspects it when it is literal — a pattern
+containing `{{` is deferred to Phase 6 by construction. So this is already legal:
+
+```yaml
+addImport:
+  kwargs:
+    file:   { type: string, required: true }
+    symbol: { type: string, required: true }
+    from:   { type: string, required: false }
+  injects_into: "{{file}}"
+  anchor: imports
+```
+
+Phase 5's `unauthorized_path` rule still holds: the rendered path must be one
+this record authorized and this run created. **The path pattern was never the
+safety boundary — `affected_scope` is.** And Phase 4 already hands the model the
+list of paths created for the record, so it is selecting a path from a given set
+rather than constructing one from convention.
+
+### What is lost, and the better replacement
+
+The pattern implicitly restricted applicability: `addBeforeFilter` could not be
+aimed at a migration, because the path would not render to one. A free target
+removes that guard. It should be replaced by **anchor applicability** rather than
+reinstated.
+
+An action's anchor already declares the region kind it needs. The check is that
+the file template which matched the target path must plant the marker the action
+is anchored to. Everything it requires exists:
+
+- `resolve.Resolution.Template` names the file template that matched each path
+- `genpkg.MarkersIn(commentPrefix, content)` extracts the markers one template plants
+- `Action.MarkerAnchor()` gives the marker an action is anchored to
+
+Today `plantedMarkers` does this package-wide, at load, as a warning — the best
+available check when the target is a pattern. With the target known per
+invocation it narrows to a per-file error at Phase 5:
+
+```
+addImport injects into db/migrate/001_create_users.rb, whose file template
+db/migrate/*.rb plants no "imports" marker
+```
+
+This is strictly better than what the path pattern gave. It states the actual
+precondition rather than approximating it by directory; it catches the case where
+a path matches the pattern but the file has no such region; and it is the check
+Phase 7 would have failed on anyway, moved from a hard error mid-write to a
+re-promptable Phase 5 diagnostic.
+
+It also reframes an action's applicability contract as **anchor vocabulary rather
+than path shape**, which is a more honest description of what these actions are.
+They operate on a region kind, not on a directory.
+
+### What this depends on, and already has
+
+Many-per-file invocation. `addImport` has no discriminator, so every invocation
+would collide on `sedum:addImport` under label-only identity. `inject.IdentityOf`
+already handles it: required kwargs select, optional kwargs parameterize. Two
+imports with different `symbol` are distinct regions, and re-invoking one with a
+different `from` replaces it in place.
+
+Making `file` required puts it in the identity key, which is correct. The
+consequence is that changing an invocation's target path orphans the region in
+the old file rather than moving it — but that is already true of any required
+kwarg feeding a path pattern (`controller` in `addBeforeFilter`), so it is not
+introduced here.
+
+### Verified, not reasoned
+
+The claims above were checked by building the package and running it, not by
+reading the code. A `chi2` fixture declares `addImport` with
+`injects_into: "{{file}}"`, three file-template groups — handlers and models
+plant an `imports` marker, store deliberately does not — and one record
+authorizing one path in each. A stub OpenAI-compatible endpoint supplied the
+selections.
+
+| What was tested | Result |
+|---|---|
+| `sedum validate` on a bare-kwarg `injects_into` | 0 errors, 0 warnings |
+| One `addImport` across two file groups | Both injected correctly |
+| Two `addImport` calls into one file | Two distinct regions, no collision |
+| Three consecutive runs | 2 injected, then 2 replaced, then 2 replaced — no drift |
+| Target a path the record did not authorize | Phase 5 `unauthorized_path`, re-promptable |
+| Target a file whose template plants no `imports` | Phase 7 hard error |
+| Valid invocation *before* a failing one | **Nothing written.** Phase 7 is atomic |
+
+So the mechanism needs no code to work, and the missing-anchor case is not a
+safety hole — Phase 7 refuses the whole record rather than leaving a partial
+write. The only defect is *when* it refuses: a Phase 7 halt is terminal where a
+Phase 5 violation is re-promptable, which is exactly the shape
+`prov-2026-9dcf2658` and `prov-2026-369544c1` both exist to close. **That
+diagnostic move is the entire implementation cost of this section.**
+
+### The real obstacle is a sealed constraint, not the code
+
+`prov-2026-1bbb8e2e` — implemented, sealed — puts the target pattern in the
+catalog, under a constraint that free targets contradict directly:
+
+> The model still binds arguments and never chooses a path. The pattern is shown
+> so that its bindings can land on an authorized file, not so that it can name
+> one.
+
+That record was written from an observed failure: qwen2.5-coder-14b, shown a
+kwarg named `controller` and an authorized file
+`app/controllers/users_controller.rb`, bound `controller` to the whole path. The
+fix was to show the pattern so the model could match literal segments and bind
+`users`.
+
+**Worth sitting with: the model's "mistake" was this section's proposal.** It
+tried to name the file it had been handed. `prov-2026-1bbb8e2e` and free targets
+are two answers to one observation — teach the model to invert the pattern by
+forward matching, or stop requiring the inversion. The first is strictly
+necessary for structure-creating actions, where the path genuinely is the
+package's. It is unnecessary work for file-agnostic ones.
+
+Two consequences:
+
+**The constraint needs rescoping, not overriding.** As written it is absolute.
+What it should say is that a *pattern-targeted* action's kwargs are bound, never
+inverted from a path — which is the failure it was actually built from. An action
+that declares its target to be a kwarg has no pattern to invert and no inversion
+to prohibit. Adopting free targets is a record amending that scope, and should be
+recorded as one rather than smuggled in as a package-authoring convention.
+
+**The catalog entry degenerates.** With `injects_into: "{{file}}"` the catalog
+shows the model `["{{file}}"]`, which carries none of the information
+`prov-2026-1bbb8e2e` added it to carry. It is not harmful, but it is noise, and
+it suggests a free-target action should be presented differently — the anchor it
+requires is the useful fact, not its target pattern.
+
+### The alternative that keeps the model out of paths
+
+A discriminated target map: a `target_kind` kwarg selecting among declared
+patterns, mirroring `discriminator`/`variants` for the path instead of for the
+template.
+
+```yaml
+addImport:
+  kwargs:
+    target_kind: { type: string, required: true }
+    name:        { type: string, required: true }
+  target:
+    discriminator: target_kind
+    paths:
+      model:      "app/models/{{name|snake}}.rb"
+      controller: "app/controllers/{{name|snake}}_controller.rb"
+```
+
+It preserves the "Sedum knows the layout, the model says what" property, keeps
+transforms in play, and — the argument that got stronger once
+`prov-2026-1bbb8e2e` was read — needs no constraint amended, because the model
+still never names a path. Against it: it restates the `files/` layout in a second
+place where the two can drift, it adds a second discriminator concept to a schema
+that already has one, and it makes the model name a category when it could name
+the file it was already handed.
+
+Between the two, the free target is the smaller mechanism and the discriminated
+map is the smaller governance change. That is the trade, and it is the decision
+this section is actually asking for.
+
+### Open
+
+**Whether `prov-2026-1bbb8e2e`'s constraint is rescoped or left standing.** This
+is the decision; everything else here follows from it. Rescoping it costs one
+record. Leaving it standing means the discriminated target map is the only
+available answer.
+
+**Whether both forms coexist,** or whether a free target requires an opt-in in
+`sedum.yaml`. A package author who wants a purely convention-driven layout may
+reasonably not want any action taking a path from the model — the same grounds as
+the opt-in guard on §4's edit layer.
+
+**How a free-target action is presented in the catalog,** given that its
+`injects_into` entry conveys nothing. Showing the required anchor in its place is
+the obvious candidate and would be the first time the catalog carried an anchor
+at all.
+
+**Whether the anchor-applicability check is an error or a warning at Phase 5.**
+An error is re-promptable and cheap, which argues for error. But `_default` file
+templates and empty-file fallbacks mean a legitimately blank file plants no
+markers at all, and that case should not be indistinguishable from aiming an
+action at the wrong file.
+
+---
+
+## 16. Other unresolved items
 
 **Removal.** If a record drops `destroy`, does replay delete the owned region? Saying yes turns recordings from action logs into declarative desired state and replay into reconciliation — powerful, converges toward idempotent sync. It also means an incomplete hand-edited recording silently deletes code. If pursued: `--prune` opt-in, never default.
 
