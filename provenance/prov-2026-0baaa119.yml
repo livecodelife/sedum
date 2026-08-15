@@ -1,0 +1,98 @@
+id: prov-2026-0baaa119
+title: A rate is printed with the uncertainty five samples actually give it
+status: draft
+created_at: "2026-08-15"
+author: calebcowen@gmail.com
+intent: |
+  The harness prints 4/5 and 5/5 in the same column and invites a reader to see a
+  difference between them. At five samples there usually is not one.
+
+  The chi case's first-call validity, four runs, four commits:
+
+  | Commit | First-call valid |
+  |---|---|
+  | 3e38d7c | 5/5 |
+  | a9f97fe | 2/5 |
+  | 4367e2b | 5/5 (measured as within-3-calls) |
+  | 90fe770 | 4/5 |
+
+  Two of those runs differ by a change that cannot touch a first answer
+  ([[prov-2026-206fa618]] narrows a pass that only runs after one has validated),
+  so the spread across them is sampling and nothing else. A reader without that
+  context has a table saying 5/5 then 2/5 then 4/5 and no way to tell it from a
+  regression.
+
+  ## What to print
+
+  A Wilson score interval beside each rate, computed from the samples that were
+  scored rather than the samples drawn. It is the standard interval for exactly
+  this shape - a proportion from a small sample, near the boundary - and it does
+  not collapse at 5/5 the way a normal approximation does, which matters because
+  5/5 is the reading most likely to be over-believed.
+
+  4/5 becomes 0.80 [0.38, 0.96] and 5/5 becomes 1.00 [0.57, 1.00]. Overlapping,
+  visibly, which is the fact the current table hides.
+
+  ## What not to print
+
+  **No significance tests and no verdicts.** The harness's own rule is rates
+  rather than verdicts ([[prov-2026-e6969eb3]]), and a p-value is a verdict
+  wearing a number. An interval is the same measurement stated honestly; a test
+  is a decision the harness is not entitled to make on the reader's behalf.
+
+  **No hiding the fraction.** The interval goes beside 4/5, never instead of it.
+  Five samples is the fact that produced the width, and a reader who sees only
+  the interval has lost it.
+
+  ## Where it changes a decision
+
+  Compare exists to put two measurements side by side, and today it will happily
+  report a difference between two overlapping intervals. It should say when the
+  intervals overlap, because that is the case where the honest answer is "these
+  runs do not distinguish the arms" and the current output says otherwise.
+
+  This also prices the sample size: an interval that wide is the argument for
+  drawing more samples, and it makes the cost of doing so legible next to the
+  benefit ([[prov-2026-945fa0aa]]).
+constraints:
+  - >-
+    Every rate the report prints carries an interval computed from the samples
+    it scored, and the fraction stays visible beside it. The sample size is what
+    produced the width.
+  - >-
+    Wilson score interval, not a normal approximation. The approximation
+    collapses to zero width at 0/5 and 5/5, which are the readings most likely
+    to be over-believed.
+  - >-
+    No significance test and no verdict. The harness reports rates, and a
+    p-value is a decision the reader is entitled to make rather than one the
+    harness makes for them.
+  - >-
+    Compare says when two intervals overlap. A side-by-side that reports a
+    difference between overlapping intervals is the specific way this output
+    misleads today.
+  - >-
+    Intervals are a reporting property, not a stored one. Entries keep per-sample
+    counts, and an interval computed from them is derivable at any time - so the
+    format does not change and old entries gain the treatment for free.
+affected_scope:
+  - evals/**
+forbidden_scope: []
+type: imprint
+implements: prov-2026-e6969eb3
+supersedes: ""
+superseded_by: ""
+related:
+  - prov-2026-945fa0aa
+  - prov-2026-eb283c56
+  - prov-2026-206fa618
+sealed_at_sha: ""
+associated_specs:
+  - path: evals/run_test.go
+    run_command: go test -count=1 ./$(dirname {{path}})
+associated_traces: []
+monitors: []
+tags:
+  - sedum
+  - evals
+  - measurement
