@@ -334,3 +334,43 @@ func TestJSONDoesNotEscapeConfigurationBackToTheAuthor(t *testing.T) {
 		t.Errorf("decoded catalog holds %v", back.Names())
 	}
 }
+
+// The catalog carries what a shared kwarg schema structurally cannot: which
+// values each variant's template renders. Without it the entry says "optional"
+// and every reader believes it - the model on its first call, and a caller
+// submitting a recording through replay's terminal validation, which has no
+// retry loop at all (prov-2026-369544c1).
+func TestVariantRequirementsReachBothConsumers(t *testing.T) {
+	// A local override rather than a change to the shared fixture: the
+	// behavior under test is a template that renders an optional kwarg, and
+	// every other test here wants the fixture it already has.
+	files := generators()
+	files["rails/actions/createControllerMethod/index.rb"] = "def index\n  {{collection}}\nend\n"
+
+	c := Build(loadPackages(t, files, "rails"), Options{})
+	entry := find(t, c, "createControllerMethod")
+
+	if got := entry.VariantRequires["index"]; len(got) != 1 || got[0] != "collection" {
+		t.Errorf("index requires %v, want [collection]", got)
+	}
+	if got := entry.VariantRequires["show"]; len(got) != 0 {
+		t.Errorf("show requires %v, want nothing", got)
+	}
+
+	// The schema stays a faithful view of actions.yaml. The effective
+	// requirement is the union, and folding the derivation into required
+	// would leave a reader unable to see what the author actually wrote.
+	if entry.Kwargs["collection"].Required {
+		t.Error("the derivation rewrote the declared schema; it must be carried alongside it")
+	}
+
+	// One encoder serves the prompt and sedum actions --json, so what an
+	// author inspects is what the model receives.
+	raw, err := c.JSON()
+	if err != nil {
+		t.Fatalf("JSON: %v", err)
+	}
+	if !strings.Contains(string(raw), "variant_requires") {
+		t.Errorf("the encoded catalog omits variant_requires:\n%s", raw)
+	}
+}

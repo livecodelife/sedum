@@ -62,6 +62,19 @@ const (
 
 	RuleUnmanagedInvalid       = "unmanaged_invalid"
 	RuleUnmanagedContradiction = "unmanaged_contradiction"
+
+	// RuleTemplateValueUndeclared names a template rendering a value its
+	// action has no kwarg for. It is an error rather than a render-time
+	// failure because it is almost always a typo, and a typo found at load is
+	// found before a run pays for a model call (prov-2026-369544c1).
+	RuleTemplateValueUndeclared = "template_value_undeclared"
+	// RuleKwargRequirementUnderstated names a simple action whose one
+	// template always renders a kwarg the schema calls optional. The
+	// derivation covers it either way, so this says the declaration
+	// understates itself rather than failing the package. A discriminated
+	// action never earns it: optional is the only thing its shared schema can
+	// say about a value one variant needs and another forbids.
+	RuleKwargRequirementUnderstated = "kwarg_requirement_understated"
 )
 
 // Finding is one load-time diagnostic.

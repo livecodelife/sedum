@@ -144,6 +144,10 @@ func checkKwargs(entry catalog.Action, inv recording.Invocation, index int) []Vi
 		})
 	}
 
+	if v := checkDerived(entry, inv, index); v != nil {
+		out = append(out, *v)
+	}
+
 	var unknown []string
 	for name := range inv.Kwargs {
 		if _, declared := entry.Kwargs[name]; !declared {
@@ -181,6 +185,76 @@ func checkKwargs(entry catalog.Action, inv recording.Invocation, index int) []Vi
 	}
 
 	return out
+}
+
+// checkDerived holds an invocation to what its selected template will actually
+// render, which the kwarg schema alone cannot express.
+//
+// This is the half of the requirement that comes from the template rather than
+// the declaration. A discriminated action shares one schema across every
+// variant, so a kwarg that one variant needs and another forbids can only be
+// declared optional - and then the catalog says optional, the model omits it,
+// every Phase 5 check passes, and Phase 6 halts rendering a template with the
+// retry loop already skipped because nothing was wrong with the selection.
+//
+// That is the shape prov-2026-9dcf2658 named for paths and this closes for
+// values: a later phase must not reject what this one accepted, because the
+// loop that could have fixed it never runs (prov-2026-369544c1).
+//
+// The violation is reported separately from missing_kwarg, and names the
+// variant, because the two have different fixes. A declared requirement that is
+// absent is a binding mistake; a derived one is usually the author's schema
+// understating what a variant needs.
+func checkDerived(entry catalog.Action, inv recording.Invocation, index int) *Violation {
+	required := append([]string{}, entry.Requires...)
+
+	variant := ""
+	if entry.Discriminator != "" && len(entry.VariantRequires) > 0 {
+		// Selection falls back exactly as template selection does, so a value
+		// with no dedicated template inherits the fallback's requirements
+		// rather than none. A discriminator that is absent or not a string is
+		// already reported by checkVariant; adding a second violation for one
+		// mistake would make the diagnostic harder to act on.
+		if raw, bound := inv.Kwargs[entry.Discriminator]; bound {
+			if value, ok := raw.(string); ok {
+				variant = value
+				if _, covered := entry.VariantRequires[value]; !covered {
+					variant = genpkg.DefaultVariant
+				}
+				required = append(required, entry.VariantRequires[variant]...)
+			}
+		}
+	}
+
+	var missing []string
+	seen := map[string]bool{}
+	for _, name := range required {
+		if seen[name] {
+			continue
+		}
+		seen[name] = true
+		if _, bound := inv.Kwargs[name]; !bound {
+			missing = append(missing, name)
+		}
+	}
+	if len(missing) == 0 {
+		return nil
+	}
+	sort.Strings(missing)
+
+	where := "this action's template renders"
+	if variant != "" {
+		where = fmt.Sprintf("the %q template renders", variant)
+	}
+	return &Violation{
+		Index:  index,
+		Action: inv.Action,
+		Rule:   "missing_derived_kwarg",
+		Detail: fmt.Sprintf("%s %s, so %s must be bound even where the schema declares %s optional",
+			where, quoteList(missing),
+			plural(len(missing), "it", "they"),
+			plural(len(missing), "it", "them")),
+	}
 }
 
 // checkVariant holds a discriminated action's selecting value to what the

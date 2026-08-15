@@ -258,7 +258,10 @@ func TestEmptyInvocationListIsValid(t *testing.T) {
 // object mode requires an object at the root. Both are accepted, and both are
 // validated identically (prov-2026-abd43bb4).
 func TestBothEnvelopeShapesAreAccepted(t *testing.T) {
-	bare := `[{"action":"createControllerMethod","kwargs":{"controller":"users","name":"index"}}]`
+	// collection is bound because the index template renders it. This test is
+	// about the envelope, and an invocation that also tripped the derived
+	// requirement check would stop isolating it.
+	bare := `[{"action":"createControllerMethod","kwargs":{"controller":"users","name":"index","collection":"users"}}]`
 
 	got, _, err := selectWith(t, railsRequest(t), 0, bare)
 	if err != nil {
@@ -610,4 +613,52 @@ func TestPromptNamesUnmanagedPathsAsUnreachable(t *testing.T) {
 	if !strings.Contains(user, "not written by this tool") {
 		t.Errorf("prompt does not say the unmanaged path is unreachable:\n%s", user)
 	}
+}
+
+// The failure this record was written from: a discriminated action shares one
+// kwarg schema across every variant, so a value that index needs and show
+// forbids can only be declared optional. The catalog said optional, the model
+// omitted it, Phase 5 passed, and Phase 6 halted rendering a template - with
+// the retry loop already skipped, because nothing was wrong with the selection
+// (prov-2026-369544c1).
+func TestAVariantsOwnRequirementIsCheckedInPhase5(t *testing.T) {
+	req := railsRequest(t)
+
+	// index renders {{collection}}, so omitting it is now re-promptable rather
+	// than a Phase 6 halt. The diagnostic names the kwarg and the variant.
+	wantViolation(t, req,
+		`{"invocations":[{"action":"createControllerMethod","kwargs":{"controller":"users","name":"index"}}]}`,
+		"missing_derived_kwarg", "collection", "index")
+
+	// show renders nothing, so the same omission is legal there. The schema
+	// really does make it optional, and the derivation must not promote a
+	// requirement one variant happens to have into one every variant carries.
+	if _, _, err := selectWith(t, req, 0,
+		`{"invocations":[{"action":"createControllerMethod","kwargs":{"controller":"users","name":"show"}}]}`,
+	); err != nil {
+		t.Errorf("a variant whose template renders no optional kwarg was rejected: %v", err)
+	}
+}
+
+// A discriminator value with no dedicated template inherits the fallback's
+// requirements rather than none, because that is the template it will render.
+func TestAnUncoveredVariantInheritsTheDefaultsRequirements(t *testing.T) {
+	// _default.rb renders {{name|snake}}, and name is the discriminator, so it
+	// is bound by construction - the fallback is satisfied here. What must not
+	// happen is index's requirement leaking onto a value index does not serve.
+	if _, _, err := selectWith(t, railsRequest(t), 0,
+		`{"invocations":[{"action":"createControllerMethod","kwargs":{"controller":"users","name":"archive"}}]}`,
+	); err != nil {
+		t.Errorf("an uncovered variant was held to another variant's template: %v", err)
+	}
+}
+
+// The two halves are reported separately because they have different fixes. A
+// declared requirement that is absent is a binding mistake; a derived one is
+// usually a schema understating what a variant needs, and a diagnostic that
+// conflated them would send an author to the wrong file.
+func TestDeclaredAndDerivedRequirementsAreDistinctViolations(t *testing.T) {
+	wantViolation(t, railsRequest(t),
+		`{"invocations":[{"action":"createControllerMethod","kwargs":{"name":"index"}}]}`,
+		"missing_kwarg", "controller")
 }

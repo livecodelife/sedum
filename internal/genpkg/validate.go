@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"sort"
+	"strconv"
 	"strings"
 
 	"github.com/calebcowen/sedum/internal/filetmpl"
@@ -281,6 +282,97 @@ func resolveComposite(a *Action, pkg *Package, r *reporter) {
 		}
 	}
 	a.Kwargs = union
+}
+
+// deriveRequirements records, for every action template, the values it renders.
+//
+// This spends what checkTemplates already gathered rather than asking an author
+// to restate it. The alternative was per-variant requires lists in actions.yaml,
+// which says the same thing in a second place and drifts from the template the
+// first time one is edited - and asks every existing package to be migrated to
+// carry information Sedum can already read.
+//
+// It runs after checkTemplates so that a template which is not Sedum's syntax
+// has already been rejected on its own terms. Reparsing is deliberate: the two
+// passes answer different questions, and threading one's results into the other
+// would couple a syntax check to a requirements derivation for the cost of a
+// string scan.
+func deriveRequirements(pkg *Package, actionTemplates map[string]string, r *reporter) {
+	for _, name := range sortedKeys(pkg.Actions) {
+		a := pkg.Actions[name]
+
+		// A composite has no template of its own and so renders nothing. Its
+		// children's requirements are theirs, resolved per child against the
+		// template that child selects, which is expansion's job rather than
+		// this one's.
+		templates := map[string]string{}
+		switch a.Kind() {
+		case Simple:
+			if a.Template != "" {
+				templates[SoleTemplate] = a.Template
+			}
+		case Discriminated:
+			for variant, path := range a.Templates {
+				templates[variant] = path
+			}
+		default:
+			continue
+		}
+		if len(templates) == 0 {
+			continue
+		}
+
+		refs := map[string][]string{}
+		for _, variant := range sortedKeys(templates) {
+			path := templates[variant]
+			exprs, _ := render.Parse(actionTemplates[path])
+
+			seen := map[string]bool{}
+			var values []string
+			for _, expr := range exprs {
+				if expr.Value == "" || seen[expr.Value] {
+					continue
+				}
+				seen[expr.Value] = true
+				values = append(values, expr.Value)
+			}
+			sort.Strings(values)
+			refs[variant] = values
+
+			for _, value := range values {
+				declared, ok := a.Kwargs[value]
+				if !ok {
+					r.errorf(path, RuleTemplateValueUndeclared,
+						"template renders {{%s}}, which action %s does not declare as a kwarg; it declares %s",
+						value, name, quoted(sortedKeys(a.Kwargs)))
+					continue
+				}
+				// Only a single-template action can restate itself. A
+				// discriminated one shares a schema across variants, so
+				// optional is the only thing it can say about a value one
+				// variant needs and another forbids.
+				if a.Kind() == Simple && !declared.Required {
+					r.warnf(actionsRel, RuleKwargRequirementUnderstated,
+						"action %s declares kwarg %s optional, but its only template renders it unconditionally; Sedum requires it either way, and declaring it required is what the catalog shows the model",
+						name, value)
+				}
+			}
+		}
+		a.TemplateRefs = refs
+	}
+}
+
+// quoted renders a name list for a diagnostic, so that an empty schema reads as
+// something other than a stray "it declares ." at the end of a sentence.
+func quoted(names []string) string {
+	if len(names) == 0 {
+		return "none"
+	}
+	out := make([]string, len(names))
+	for i, n := range names {
+		out[i] = strconv.Quote(n)
+	}
+	return strings.Join(out, ", ")
 }
 
 // checkFileTemplatePatterns rejects a package whose file templates cannot be

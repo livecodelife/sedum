@@ -15,7 +15,11 @@ actions:
   addRoute:
     kwargs:
       resource: { type: string, required: true }
-      verb: { type: string, required: false }
+      # Required because the template renders {{verb|upper}} unconditionally.
+      # This said false until the derivation in prov-2026-369544c1 read the
+      # template and disagreed with it - the exact drift that record exists to
+      # catch, sitting in this repository's own fixture.
+      verb: { type: string, required: true }
     injects_into: "internal/handlers/{{resource|snake}}.go"
     anchor: end_of_file
     exposed: false

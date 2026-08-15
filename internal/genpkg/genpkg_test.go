@@ -724,3 +724,141 @@ func TestFileTemplateContentsAreAddressableByPattern(t *testing.T) {
 		t.Error("a pattern the package does not ship reported contents")
 	}
 }
+
+// A value a template renders is a value that template needs, and Sedum reads
+// that off the template rather than asking an author to restate it in a
+// requires list that would drift the first time either was edited
+// (prov-2026-369544c1).
+func TestTemplateReferencesAreDerivedPerVariant(t *testing.T) {
+	files := map[string]string{
+		"rails/sedum.yaml": "name: rails\nextensions: [\".rb\"]\ncomment_prefix: \"#\"\n",
+		"rails/files/app/controllers/{name}_controller.rb": "class X\n  # sedum:anchor:body\nend\n",
+		"rails/actions/actions.yaml": `actions:
+  createControllerMethod:
+    kwargs:
+      controller: { type: string, required: true }
+      name: { type: string, required: true }
+      collection: { type: string, required: false }
+    discriminator: name
+    variants: [index, show]
+    injects_into: "app/controllers/{{controller|snake}}_controller.rb"
+    anchor: body
+`,
+		"rails/actions/createControllerMethod/index.rb":    "def index\n  {{collection}}\nend\n",
+		"rails/actions/createControllerMethod/show.rb":     "def show\nend\n",
+		"rails/actions/createControllerMethod/_default.rb": "def {{name}}\nend\n",
+	}
+
+	set, findings := loadTree(t, files)
+	for _, f := range findings {
+		if f.Kind == KindError {
+			t.Fatalf("package does not load: %s", f)
+		}
+	}
+	pkg, _ := set.Lookup("rails")
+	action := pkg.Actions["createControllerMethod"]
+
+	// index needs collection; show needs nothing; _default needs the
+	// discriminator it selects on. A shared schema cannot say any of this.
+	for variant, want := range map[string][]string{
+		"index":        {"collection"},
+		"show":         nil,
+		DefaultVariant: {"name"},
+	} {
+		got := action.Requires(variant)
+		if len(got) != len(want) {
+			t.Errorf("variant %s requires %v, want %v", variant, got, want)
+			continue
+		}
+		for i := range want {
+			if got[i] != want[i] {
+				t.Errorf("variant %s requires %v, want %v", variant, got, want)
+				break
+			}
+		}
+	}
+
+	// A value with no dedicated template renders the fallback, so it inherits
+	// the fallback's requirements rather than none.
+	if got := action.Requires("archive"); len(got) != 1 || got[0] != "name" {
+		t.Errorf("an uncovered variant requires %v, want the fallback's [name]", got)
+	}
+}
+
+// A template naming a value the action has no kwarg for is a typo, and finding
+// it at load is finding it before a run pays for a model call.
+func TestATemplateValueTheActionDoesNotDeclareIsALoadError(t *testing.T) {
+	files := map[string]string{
+		"rails/sedum.yaml":                 "name: rails\nextensions: [\".rb\"]\ncomment_prefix: \"#\"\n",
+		"rails/files/app/models/{name}.rb": "class X\n  # sedum:anchor:body\nend\n",
+		"rails/actions/actions.yaml": `actions:
+  createModelClass:
+    kwargs:
+      name: { type: string, required: true }
+    injects_into: "app/models/{{name|snake}}.rb"
+    anchor: body
+`,
+		"rails/actions/createModelClass.rb": "class {{name}} < {{parent}}\nend\n",
+	}
+
+	_, findings := loadTree(t, files)
+	f := findingFor(t, findings, RuleTemplateValueUndeclared)
+	if f.Kind != KindError {
+		t.Errorf("an undeclared template value reported as %s, want error", f.Kind)
+	}
+	if !strings.Contains(f.Message, "parent") {
+		t.Errorf("diagnostic does not name the value: %s", f.Message)
+	}
+}
+
+// A single-template action that always renders a kwarg could have declared it
+// required. The derivation covers it either way, so this says the declaration
+// understates itself rather than failing the package - and a discriminated
+// action never earns it, because optional is all its shared schema can say.
+func TestAnUnderstatedRequirementWarnsAndOnlyForSingleTemplateActions(t *testing.T) {
+	files := map[string]string{
+		"rails/sedum.yaml":                 "name: rails\nextensions: [\".rb\"]\ncomment_prefix: \"#\"\n",
+		"rails/files/app/models/{name}.rb": "class X\n  # sedum:anchor:body\nend\n",
+		"rails/actions/actions.yaml": `actions:
+  createModelClass:
+    kwargs:
+      name: { type: string, required: true }
+      table: { type: string, required: false }
+    injects_into: "app/models/{{name|snake}}.rb"
+    anchor: body
+`,
+		"rails/actions/createModelClass.rb": "class {{name}}\n  self.table_name = {{table}}\nend\n",
+	}
+
+	_, findings := loadTree(t, files)
+	f := findingFor(t, findings, RuleKwargRequirementUnderstated)
+	if f.Kind != KindWarning {
+		t.Errorf("an understated requirement reported as %s, want warning", f.Kind)
+	}
+	if !strings.Contains(f.Message, "table") {
+		t.Errorf("diagnostic does not name the kwarg: %s", f.Message)
+	}
+
+	// The same shape under a discriminator is not a defect and must not warn.
+	discriminated := map[string]string{
+		"rails/sedum.yaml":                 "name: rails\nextensions: [\".rb\"]\ncomment_prefix: \"#\"\n",
+		"rails/files/app/models/{name}.rb": "class X\n  # sedum:anchor:body\nend\n",
+		"rails/actions/actions.yaml": `actions:
+  createModelClass:
+    kwargs:
+      name: { type: string, required: true }
+      table: { type: string, required: false }
+    discriminator: name
+    variants: [user]
+    injects_into: "app/models/{{name|snake}}.rb"
+    anchor: body
+`,
+		"rails/actions/createModelClass/user.rb": "class {{name}}\n  self.table_name = {{table}}\nend\n",
+	}
+	_, findings = loadTree(t, discriminated)
+	for _, f := range findings {
+		if f.Rule == RuleKwargRequirementUnderstated {
+			t.Errorf("a discriminated action warned about a shared schema it cannot change: %s", f)
+		}
+	}
+}

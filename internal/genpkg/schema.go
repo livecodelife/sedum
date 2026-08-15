@@ -117,10 +117,44 @@ type Action struct {
 	// action, including DefaultVariant when present. Empty for the others.
 	Templates map[string]string
 
+	// TemplateRefs are the values each of this action's templates renders,
+	// sorted and deduplicated, keyed by variant for a discriminated action
+	// and by SoleTemplate for a simple one. A composite has none of its own;
+	// its children carry theirs.
+	//
+	// A value a template renders is a value that template needs. That holds
+	// exactly rather than approximately, because the grammar is {{name}} and
+	// {{name|op}} with no conditionals, loops, or field access - so there is
+	// no shape of template for which "referenced" and "required" differ. If
+	// the grammar ever gains one, this stops being a derivation and becomes a
+	// guess (prov-2026-369544c1).
+	TemplateRefs map[string][]string
+
 	kind ActionKind
 }
 
+// SoleTemplate keys the single entry in a simple action's TemplateRefs. A
+// simple action has one template and no variant to name it by, and giving it a
+// key rather than a field of its own lets one lookup serve both kinds.
+const SoleTemplate = ""
+
 func (a *Action) Kind() ActionKind { return a.kind }
+
+// Requires returns the values the template selected by variant renders.
+//
+// The variant is SoleTemplate for a simple action and a discriminator value
+// for a discriminated one, falling back to DefaultVariant exactly as template
+// selection does - so a value with no dedicated template inherits the
+// fallback's requirements rather than none.
+func (a *Action) Requires(variant string) []string {
+	if a.TemplateRefs == nil {
+		return nil
+	}
+	if refs, ok := a.TemplateRefs[variant]; ok {
+		return refs
+	}
+	return a.TemplateRefs[DefaultVariant]
+}
 
 // Package is a loaded generator package: a team's conventions for one target
 // stack.

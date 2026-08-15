@@ -79,6 +79,29 @@ type Action struct {
 	// lands somewhere the record authorized (prov-2026-1bbb8e2e).
 	InjectsInto []string `json:"injects_into,omitempty"`
 
+	// Requires names values this action's template renders on every
+	// invocation, beyond whatever the kwarg schema declares required. It is
+	// empty for a discriminated action, whose requirements depend on which
+	// template the discriminator selects.
+	//
+	// It is carried separately rather than folded into Kwargs[x].Required so
+	// that the schema stays a faithful view of actions.yaml. A reader
+	// comparing the two should see what the author wrote; the effective
+	// requirement is the union, and stating it as a union is what lets a
+	// diagnostic say which half a missing kwarg came from (prov-2026-369544c1).
+	Requires []string `json:"requires,omitempty"`
+
+	// VariantRequires names, per variant, the values that variant's template
+	// renders. This is the information a shared kwarg schema structurally
+	// cannot carry: a kwarg one variant needs and another forbids can only be
+	// declared optional, so without this the catalog says "optional" and the
+	// model believes it.
+	//
+	// DefaultVariant appears here when the package ships a fallback, because a
+	// discriminator value with no dedicated template inherits the fallback's
+	// requirements rather than none.
+	VariantRequires map[string][]string `json:"variant_requires,omitempty"`
+
 	// Exposed is nil for an exposed action and false for a hidden one, so
 	// that it appears only where it says something. Only sedum actions --all
 	// ever produces an entry carrying it; the catalog the model receives has
@@ -150,6 +173,7 @@ func entry(pkg *genpkg.Package, action *genpkg.Action, opts Options) Action {
 	}
 
 	out.InjectsInto = targets(pkg, action)
+	out.Requires, out.VariantRequires = requirements(pkg, action)
 
 	if opts.IncludeUnexposed && !action.Exposed {
 		hidden := false
@@ -181,6 +205,66 @@ func targets(pkg *genpkg.Package, action *genpkg.Action) []string {
 		out = append(out, child.InjectsInto)
 	}
 	return out
+}
+
+// requirements collects what an action's templates render, split by whether the
+// requirement is unconditional or depends on a selected variant.
+//
+// A composite has no template of its own and takes its children's, resolved per
+// child against the template that child selects - so a simple child contributes
+// to the unconditional set and a discriminated one to the per-variant map. A
+// child a package does not define cannot reach here, because load rejects the
+// package.
+func requirements(pkg *genpkg.Package, action *genpkg.Action) ([]string, map[string][]string) {
+	unconditional := map[string]bool{}
+	byVariant := map[string]map[string]bool{}
+
+	collect := func(a *genpkg.Action) {
+		for variant, values := range a.TemplateRefs {
+			if variant == genpkg.SoleTemplate {
+				for _, v := range values {
+					unconditional[v] = true
+				}
+				continue
+			}
+			if byVariant[variant] == nil {
+				byVariant[variant] = map[string]bool{}
+			}
+			for _, v := range values {
+				byVariant[variant][v] = true
+			}
+		}
+	}
+
+	if action.Kind() == genpkg.Composite {
+		for _, name := range action.Composes {
+			if child, ok := pkg.Actions[name]; ok {
+				collect(child)
+			}
+		}
+	} else {
+		collect(action)
+	}
+
+	var out []string
+	for name := range unconditional {
+		out = append(out, name)
+	}
+	sort.Strings(out)
+
+	var variants map[string][]string
+	if len(byVariant) > 0 {
+		variants = make(map[string][]string, len(byVariant))
+		for variant, set := range byVariant {
+			var names []string
+			for name := range set {
+				names = append(names, name)
+			}
+			sort.Strings(names)
+			variants[variant] = names
+		}
+	}
+	return out, variants
 }
 
 // Lookup returns every entry declaring a name.

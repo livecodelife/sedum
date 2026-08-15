@@ -178,7 +178,13 @@ actions:
 
 `kwargs` is the schema the model is held to. Types come from a closed set — `string`, `int`, `bool`, `list` — sufficient for argument binding and nothing more.
 
-A kwarg every one of an action's templates renders unconditionally must be declared `required`, as `collection` is above. Marking it optional passes Phase 5 — the argument really is absent-able as far as the schema knows — and then fails in Phase 6 with a diagnostic about a template, after the retry loop has been skipped because nothing was wrong with the selection. The schema is where "this is needed" has to be said.
+A kwarg every one of an action's templates renders unconditionally should be declared `required`, as `collection` is above, and Sedum warns when a single-template action declares one optional. But the declaration is not the only source of the requirement, because it cannot be: a discriminated action shares one kwarg schema across every variant, so a value that `index` needs and `destroy` forbids can only be declared optional.
+
+**So a requirement is also derived from the template.** Sedum's grammar has no conditionals, no loops, and no field access — `{{name}}` and `{{name|op}}` are the whole of it — so a value a template references is a value that template unconditionally needs. There is no shape of template for which *referenced* and *required* differ, which makes the derivation exact rather than approximate.
+
+The effective requirement for an invocation is the **union** of the action's declared required kwargs and the values referenced by the template that invocation selects. A declared requirement holds for every variant; a derived one holds when its template is chosen. Neither replaces the other, and they are reported as separate violations because they have different fixes.
+
+A template referencing a value its action does not declare at all is a load-time error.
 
 `discriminator` names the kwarg whose value selects a template. `variants` enumerates the values that have dedicated templates. Both are declared explicitly rather than inferred from directory structure, so that specializing on a second argument later cannot create an undocumented precedence rule, and so a misspelled variant filename fails at load rather than silently falling through to `_default`.
 
@@ -362,7 +368,7 @@ This is a governance position. `forbidden_scope` means Sedum does not touch what
 
 ### Phase 4 — Model invocation
 
-One call per provenance record. The prompt contains the record's `intent`, its `constraints`, the paths created for it in Phase 3, and the action catalog — the **union of exposed actions across every package the record's paths resolved to**, with their kwarg schemas, variant lists, and `injects_into` patterns.
+One call per provenance record. The prompt contains the record's `intent`, its `constraints`, the paths created for it in Phase 3, and the action catalog — the **union of exposed actions across every package the record's paths resolved to**, with their kwarg schemas, variant lists, per-variant derived requirements, and `injects_into` patterns.
 
 Variant lists are included deliberately. Without them there is an invisible cliff: `name: index` gets a full implementation while `name: search` falls to `_default`, and the model has no way to know it fell off. Exposing the list lets it prefer covered values where intent maps cleanly, and take the fallback knowingly where it does not. Whether a `_default` exists is carried alongside, because *knowingly* is not available to a model that cannot see whether there is a fallback to take.
 
@@ -378,10 +384,13 @@ Deterministic checks, each producing a specific re-promptable error:
 
 - Action name exists and is exposed in the record's catalog
 - All required kwargs present
+- Every value the selected template renders is bound, whatever the schema declares
 - No unknown kwargs
 - Every kwarg value matches its declared type
 - Discriminator value is a declared variant, or `_default` exists
 - Rendered `injects_into` path was created in Phase 3
+
+The third check is the one that keeps the phase boundary honest. Without it Phase 5 accepts an invocation Phase 6 then halts on, with the retry loop already skipped because nothing was wrong with the *selection* — and a phase that accepts what a later phase rejects makes the loop that could have fixed it unreachable.
 
 On failure, re-prompt with the specific violations appended, up to a configured retry limit. This loop costs one model call — no compilation, no service startup, no test execution.
 
@@ -716,7 +725,7 @@ sedum resolve --generators ./generators --records ./provenance
 
 ### `sedum actions`
 
-Prints a package's action catalog exactly as the model would receive it — exposed actions, kwarg schemas, variant lists. The authoring feedback loop for exposure and catalog clarity.
+Prints a package's action catalog exactly as the model would receive it — exposed actions, kwarg schemas, variant lists, derived requirements. The authoring feedback loop for exposure and catalog clarity.
 
 ```
 sedum actions --generators ./generators --package rails

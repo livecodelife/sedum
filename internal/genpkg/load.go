@@ -210,6 +210,7 @@ func loadPackage(dir, dirName string) (*Package, Findings, error) {
 	pkg.actionContents = actionTemplates
 
 	checkTemplates(pkg, fileTemplates.contents, actionTemplates, r)
+	deriveRequirements(pkg, actionTemplates, r)
 	checkMarkerAnchors(pkg, fileTemplates.bodies(), r)
 	checkMarkersFilled(pkg, fileTemplates.bodies(), r)
 	checkUnmanaged(pkg, r)
