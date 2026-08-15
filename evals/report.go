@@ -61,6 +61,18 @@ func Report(out io.Writer, m Measurement) {
 		fmt.Fprintf(out, "  tokens: %s prompt + %s completion, per call %.0f + %.0f\n",
 			thousands(spent.PromptTokens), thousands(spent.CompletionTokens),
 			perCall(spent.PromptTokens), perCall(spent.CompletionTokens))
+
+		// Throughput, derived from what was counted rather than from a model's
+		// advertised rate. It is a property of how the server was run as much
+		// as of the model, which is why it is printed with the concurrency and
+		// why a comparison across runs needs the server invocation stated
+		// (prov-2026-945fa0aa).
+		if tps := spent.PerSecond(m.Wall); tps > 0 {
+			fmt.Fprintf(out, "  throughput: %.1f tok/s at concurrency %d (prompt %.1f, completion %.1f)\n",
+				tps, m.Concurrency,
+				float64(spent.PromptTokens)/m.Wall.Seconds(),
+				float64(spent.CompletionTokens)/m.Wall.Seconds())
+		}
 	}
 
 	for _, d := range m.Details() {

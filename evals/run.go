@@ -307,6 +307,23 @@ type Cost struct {
 	CompletionTokens int
 }
 
+// PerSecond is the measurement's token throughput over its wall clock.
+//
+// Derived from what was counted, never from a model's advertised rate: the
+// advertised number describes a single stream on the vendor's hardware, and
+// what a run is bounded by is this server, at this concurrency, with whatever
+// prefix caching it was configured for (prov-2026-945fa0aa).
+//
+// Zero when the wall clock is zero or no endpoint reported usage, because a
+// throughput of zero is a measurement and this is its absence.
+func (c Cost) PerSecond(wall time.Duration) float64 {
+	total := c.PromptTokens + c.CompletionTokens
+	if wall <= 0 || total == 0 {
+		return 0
+	}
+	return float64(total) / wall.Seconds()
+}
+
 // Spent sums what the samples cost. Failed samples contribute nothing: a call
 // that never returned an answer is not a cost attributable to a selection.
 func (m Measurement) Spent() Cost {

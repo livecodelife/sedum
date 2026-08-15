@@ -328,6 +328,46 @@ func TestCostIsCountedInCallsNotSeconds(t *testing.T) {
 	}
 }
 
+// Throughput is derived from what was counted, never from a model's advertised
+// rate: the advertised number describes one stream on the vendor's hardware,
+// and what a run is bounded by is this server at this concurrency
+// (prov-2026-945fa0aa).
+func TestThroughputIsDerivedFromWhatWasCounted(t *testing.T) {
+	m := measurement(
+		Sample{Counts: map[string]int{"addColumn": 2}, Calls: 1, PromptTokens: 2000, CompletionTokens: 500},
+		Sample{Counts: map[string]int{"addColumn": 2}, Calls: 1, PromptTokens: 3000, CompletionTokens: 500},
+	)
+	m.Wall = 10 * time.Second
+	m.Concurrency = 2
+
+	if got := m.Spent().PerSecond(m.Wall); math.Abs(got-600) > 0.01 {
+		t.Errorf("throughput %.2f tok/s, want 600 - 6000 tokens over 10s", got)
+	}
+
+	var buf bytes.Buffer
+	Report(&buf, m)
+	if out := buf.String(); !strings.Contains(out, "throughput: 600.0 tok/s at concurrency 2") {
+		t.Errorf("report omits throughput at its concurrency:\n%s", out)
+	}
+}
+
+// A server that reported no usage has no throughput to report, and zero would
+// read as a measured rate rather than as its absence.
+func TestThroughputIsAbsentRatherThanZero(t *testing.T) {
+	m := measurement(Sample{Counts: map[string]int{"addColumn": 2}, Calls: 1})
+	m.Wall = 10 * time.Second
+
+	if got := m.Spent().PerSecond(m.Wall); got != 0 {
+		t.Errorf("throughput %.2f from a run with no token counts", got)
+	}
+
+	var buf bytes.Buffer
+	Report(&buf, m)
+	if out := buf.String(); strings.Contains(out, "throughput:") {
+		t.Errorf("a run with no usage reported a throughput line:\n%s", out)
+	}
+}
+
 // Five samples do not distinguish 4/5 from 5/5, and a table that prints them in
 // the same column invites a reader to think otherwise. The chi case has come in
 // at 5/5, 2/5 and 4/5 across runs where the difference could not have been

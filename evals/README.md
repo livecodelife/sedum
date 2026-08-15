@@ -100,6 +100,46 @@ The completeness re-prompt is untouched by this. It draws from its own budget in
 `internal/selection` and always has, so retries buy re-prompts of a *rejected*
 answer and nothing else.
 
+## The model server
+
+**The harness does not configure the server, and cannot see how it was
+configured.** The endpoint is a variable on purpose — a local server, a hosted
+API, and a colleague's tuned box are all the same code path. The consequence is
+that an entry records the endpoint URL and the concurrency the harness asked
+for, and nothing about slots, batch size, or prefix caching. So a **throughput
+comparison across two entries is only a comparison when the server was run the
+same way both times**, and that fact belongs beside the numbers rather than in
+someone's memory.
+
+The invocation the entries in `results/` were measured against:
+
+```
+# LM Studio / llama.cpp server, Qwen2.5-Coder-14B-Instruct Q4_K_M
+llama-server -m qwen2.5-coder-14b-instruct-q4_k_m.gguf \
+  -c 16384 -np 4 --cont-batching --cache-reuse 256
+```
+
+`-np` is the number of parallel slots and bounds what `-eval.concurrency` can
+actually overlap; asking for more concurrency than slots queues rather than
+parallelizes. `--cont-batching` is what makes concurrent samples share a decode
+batch instead of taking turns.
+
+### Why prefix caching matters here
+
+A case's prompt is the record plus the catalog, and it is **byte-identical
+across every sample of that case** — samples differ only in the model's
+sampling. Without prefix reuse the server re-evaluates those thousands of prompt
+tokens for every sample, and the `tokens:` line says exactly how many: at
+`90fe770` the chi case spent about 2.6k prompt tokens per call against a few
+hundred completion tokens. That ratio is the argument for `--cache-reuse`, and
+it is a measurement rather than a suspicion only because the token counts exist.
+
+### Throughput is reported, not estimated
+
+The `throughput:` line divides the counted tokens by the wall clock. It is never
+a model's advertised token rate, which describes a single stream on the vendor's
+hardware and says nothing about this server at this concurrency.
+
 ## The matrix
 
 A single cell says almost nothing; every interesting question is comparative. A
