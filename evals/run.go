@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"sort"
 	"strings"
+	"sync"
+	"time"
 
 	"github.com/calebcowen/sedum/internal/pipeline"
 	"github.com/calebcowen/sedum/internal/selection"
@@ -42,13 +44,30 @@ type Sample struct {
 	// down, a package that would not load. Excluded from every rate, because an
 	// unreachable server is not a model that chose badly.
 	Err error
+
+	// Elapsed is how long this sample took end to end.
+	//
+	// Recorded because the harness could not previously answer "why is this
+	// slow" about itself - the 75s-per-call figure had to be reconstructed from
+	// a stale run log. It is also how thermal throttling becomes visible: on a
+	// fanless machine the last samples of a long run are slower than the first,
+	// and only per-sample timing shows that.
+	Elapsed time.Duration
 }
 
 // Measurement is what a case and model produced over N samples.
 type Measurement struct {
-	Case    Case
-	Model   string
+	Case  Case
+	Model Model
+
 	Samples []Sample
+
+	// Wall is how long the whole measurement took. Compared against the sum of
+	// the samples it is what concurrency actually bought, which is not
+	// derivable from either number alone.
+	Wall time.Duration
+	// Concurrency is how many samples were in flight at once.
+	Concurrency int
 }
 
 // Run measures one case against one model, samples times.
@@ -62,22 +81,48 @@ type Measurement struct {
 // Retries are zero on purpose. The question is what one call produces, and a
 // retry loop would fold Phase 5's recovery into a number meant to describe the
 // model's first answer.
-func Run(ctx context.Context, c Case, model string, samples int) (Measurement, error) {
+//
+// Samples run concurrently up to concurrency, because drawing N independent
+// samples is the canonical batched-inference workload and running them one at a
+// time leaves the server idle between tokens. A concurrency of 1 or less is
+// sequential.
+//
+// Results are written by index rather than appended, so the report reads the
+// same way whatever order they finish in. A measurement that reordered between
+// runs would make two of them harder to compare for no reason.
+func Run(ctx context.Context, c Case, model Model, samples, concurrency int) (Measurement, error) {
 	if c.Arm != "sedum" {
 		return Measurement{}, fmt.Errorf("case %s has arm %q; only the sedum arm can be run today", c.ID, c.Arm)
 	}
-
-	m := Measurement{Case: c, Model: model}
-	for i := 0; i < samples; i++ {
-		m.Samples = append(m.Samples, sample(ctx, c, model))
+	if concurrency < 1 {
+		concurrency = 1
 	}
+
+	m := Measurement{Case: c, Model: model, Concurrency: concurrency, Samples: make([]Sample, samples)}
+
+	started := time.Now()
+	var wg sync.WaitGroup
+	slots := make(chan struct{}, concurrency)
+	for i := 0; i < samples; i++ {
+		wg.Add(1)
+		go func(i int) {
+			defer wg.Done()
+			slots <- struct{}{}
+			defer func() { <-slots }()
+			m.Samples[i] = sample(ctx, c, model.ID)
+		}(i)
+	}
+	wg.Wait()
+	m.Wall = time.Since(started)
+
 	return m, nil
 }
 
 func sample(ctx context.Context, c Case, model string) Sample {
+	started := time.Now()
 	client, err := selection.NewOpenAI(model)
 	if err != nil {
-		return Sample{Err: err}
+		return Sample{Err: err, Elapsed: time.Since(started)}
 	}
 
 	result, err := pipeline.Run(ctx, pipeline.Config{
@@ -95,12 +140,12 @@ func sample(ctx context.Context, c Case, model string) Sample {
 		// an exported sentinel there - worth doing before anything depends on
 		// this number.
 		if strings.Contains(err.Error(), "did not validate") {
-			return Sample{Invalid: true, Detail: firstLine(err.Error())}
+			return Sample{Invalid: true, Detail: firstLine(err.Error()), Elapsed: time.Since(started)}
 		}
-		return Sample{Err: err, Detail: firstLine(err.Error())}
+		return Sample{Err: err, Detail: firstLine(err.Error()), Elapsed: time.Since(started)}
 	}
 
-	s := Sample{Counts: map[string]int{}}
+	s := Sample{Counts: map[string]int{}, Elapsed: time.Since(started)}
 	for _, sel := range result.Selections {
 		for _, inv := range sel.Invocations {
 			if s.First == "" {

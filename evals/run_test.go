@@ -2,9 +2,11 @@ package evals
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"strings"
 	"testing"
+	"time"
 )
 
 // The harness's own arithmetic is deterministic and is tested as such. Only the
@@ -13,8 +15,9 @@ import (
 
 func measurement(samples ...Sample) Measurement {
 	m := Measurement{
-		Model:   "test-model",
-		Samples: samples,
+		Model:       Model{ID: "test-model", Engine: "mlx", Quant: "4bit"},
+		Samples:     samples,
+		Concurrency: 1,
 	}
 	m.Case.ID = "fixture"
 	m.Case.Arm = "sedum"
@@ -156,5 +159,95 @@ func TestDetailsAreDeduplicated(t *testing.T) {
 	got := m.Details()
 	if len(got) != 2 {
 		t.Errorf("details are %v, want two distinct reasons", got)
+	}
+}
+
+// Two runtimes over one checkpoint are two rows, not one. MLX 4-bit and a
+// llama.cpp Q4_K_M build use different quantization schemes and do not produce
+// identical output, so a rate measured on one must not read as a claim about
+// the other.
+func TestModelLabelDistinguishesEngineAndQuant(t *testing.T) {
+	mlx := Model{ID: "qwen2.5-coder-14b", Engine: "mlx", Quant: "4bit"}
+	gguf := Model{ID: "qwen2.5-coder-14b", Engine: "llama.cpp", Quant: "q4_k_m"}
+
+	if mlx.Label() == gguf.Label() {
+		t.Fatalf("one checkpoint under two engines produced one label: %q", mlx.Label())
+	}
+	if !strings.Contains(mlx.Label(), "mlx") || !strings.Contains(gguf.Label(), "q4_k_m") {
+		t.Errorf("labels do not carry engine and quant: %q / %q", mlx.Label(), gguf.Label())
+	}
+
+	// A hosted model's weights are not ours to describe, so quant is optional.
+	hosted := Model{ID: "qwen/qwen3.6-27b", Engine: "groq"}
+	if hosted.Label() != "qwen/qwen3.6-27b/groq" {
+		t.Errorf("label is %q, want the id and engine with no trailing separator", hosted.Label())
+	}
+}
+
+// A case that omits the engine is the mistake this field exists to prevent, so
+// it is rejected at load rather than silently merging two rows.
+func TestACaseWithoutAnEngineIsRejected(t *testing.T) {
+	c := Case{ID: "x", Arm: "baseline", Models: []Model{{ID: "some-model"}}}
+	err := c.validate("x.yaml")
+	if err == nil {
+		t.Fatal("a model with no engine was accepted")
+	}
+	if !strings.Contains(err.Error(), "engine") {
+		t.Errorf("error does not name the missing field: %v", err)
+	}
+}
+
+// The report has to be able to say what the run cost. The harness could not do
+// this before, which is why the 75s-per-call figure behind prov-2026-6d87dc11
+// had to be reconstructed from a stale run log.
+func TestReportCarriesTiming(t *testing.T) {
+	m := measurement(
+		Sample{Counts: map[string]int{"addColumn": 2}, First: "addColumn", Elapsed: 10 * time.Second},
+		Sample{Counts: map[string]int{"addColumn": 2}, First: "addColumn", Elapsed: 30 * time.Second},
+	)
+	m.Wall = 32 * time.Second
+
+	var buf bytes.Buffer
+	Report(&buf, m)
+	out := buf.String()
+
+	// Fastest and slowest both appear, because the spread is the throttling
+	// signal and a mean alone would hide it.
+	for _, want := range []string{"wall 32s", "fastest 10s", "mean 20s", "slowest 30s"} {
+		if !strings.Contains(out, want) {
+			t.Errorf("timing line omits %q:\n%s", want, out)
+		}
+	}
+}
+
+// Concurrency must not reorder results. A measurement whose rows moved between
+// runs would make two of them harder to compare for no reason.
+func TestConcurrentSamplesKeepTheirOrder(t *testing.T) {
+	c := Case{ID: "fixture", Arm: "sedum", Generators: "x", Records: "y"}
+	c.Expect.Actions = map[string]int{"addColumn": 2}
+
+	// Every sample fails identically here - there is no endpoint - which is
+	// enough to prove the slice is filled by index rather than appended.
+	m, err := Run(context.Background(), c, Model{ID: "none", Engine: "test"}, 6, 4)
+	if err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+	if len(m.Samples) != 6 {
+		t.Fatalf("got %d samples, want 6 - concurrent writes lost one", len(m.Samples))
+	}
+	if m.Concurrency != 4 {
+		t.Errorf("concurrency recorded as %d, want 4", m.Concurrency)
+	}
+	if m.Wall == 0 {
+		t.Error("wall time was not recorded")
+	}
+}
+
+// A baseline arm has no generator package and no action vocabulary, so it is
+// declared in the matrix and refused at run time rather than silently skipped.
+func TestTheBaselineArmIsRefusedRatherThanSkipped(t *testing.T) {
+	c := Case{ID: "fixture", Arm: "baseline"}
+	if _, err := Run(context.Background(), c, Model{ID: "none", Engine: "test"}, 1, 1); err == nil {
+		t.Fatal("the baseline arm ran; it is not implemented and must say so")
 	}
 }

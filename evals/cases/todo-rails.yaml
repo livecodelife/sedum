@@ -23,8 +23,16 @@ arm: sedum
 generators: todo-rails/_generators
 records: todo-rails/provenance
 
+# Engine and quantization are part of a row's identity. The same checkpoint
+# under MLX and under llama.cpp uses a different quantization scheme and does
+# not produce identical output, so folding them together would let a rate
+# measured on one be read as a claim about the other. Only the llama.cpp engine
+# supports continuous batching today, which is the other reason they differ in
+# practice rather than only on paper.
 models:
-  - qwen2.5-coder-14b-instruct-mlx
+  - id: qwen2.5-coder-14b-instruct-mlx
+    engine: mlx
+    quant: 4bit
 
 expect:
   actions:

@@ -50,10 +50,47 @@ type Case struct {
 	Generators string `yaml:"generators"`
 	Records    string `yaml:"records"`
 
-	// Models are the model identifiers to measure, each run independently.
-	Models []string `yaml:"models"`
+	// Models are the models to measure, each run independently.
+	Models []Model `yaml:"models"`
 
 	Expect Expectations `yaml:"expect"`
+}
+
+// Model is one row of the model axis: what to ask for, and what is actually
+// answering.
+//
+// Engine and Quant are carried because the same weights under two runtimes are
+// not the same model for measurement purposes. MLX 4-bit and a llama.cpp
+// Q4_K_M build of one checkpoint use different quantization schemes and do not
+// produce identical output, so folding them into a single row would let a rate
+// measured on one be read as a claim about the other.
+//
+// It also matters practically: only the llama.cpp engine supports continuous
+// batching today, so the row that runs fast and the row that runs on the
+// interactive default are different rows.
+type Model struct {
+	// ID is what the endpoint is asked for, verbatim.
+	ID string `yaml:"id"`
+	// Engine is the runtime serving it - "mlx", "llama.cpp", or a hosted
+	// provider's name. Free-form: nothing dispatches on it, it is recorded so
+	// that a result says what produced it.
+	Engine string `yaml:"engine"`
+	// Quant is the quantization, as the build names it: "4bit", "q4_k_m", or
+	// empty for a hosted model whose weights are not ours to describe.
+	Quant string `yaml:"quant"`
+}
+
+// Label identifies a model in a report, and is what distinguishes two rows over
+// one checkpoint.
+func (m Model) Label() string {
+	out := m.ID
+	if m.Engine != "" {
+		out += "/" + m.Engine
+	}
+	if m.Quant != "" {
+		out += "-" + m.Quant
+	}
+	return out
 }
 
 // Expectations is what a correct run would have produced.
@@ -140,6 +177,19 @@ func (c Case) validate(file string) error {
 	}
 	if len(c.Models) == 0 {
 		return fmt.Errorf("%s: case %s names no models", file, c.ID)
+	}
+	for i, m := range c.Models {
+		if m.ID == "" {
+			return fmt.Errorf("%s: case %s model %d has no id", file, c.ID, i)
+		}
+		// Engine is required because its absence is what silently merges two
+		// rows over one checkpoint, which is the mistake this field exists to
+		// prevent. Quant is optional: a hosted model's weights are not ours to
+		// describe.
+		if m.Engine == "" {
+			return fmt.Errorf("%s: case %s model %q declares no engine; two runtimes over one checkpoint are two rows, not one",
+				file, c.ID, m.ID)
+		}
 	}
 
 	switch c.Arm {

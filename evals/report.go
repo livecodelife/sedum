@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"strings"
+	"time"
 )
 
 // Report writes a measurement in a form that can be pasted into a record.
@@ -17,7 +18,8 @@ func Report(out io.Writer, m Measurement) {
 	t := m.Tally()
 
 	fmt.Fprintf(out, "%s  model=%s  arm=%s  tightness=%s  n=%d\n",
-		m.Case.ID, m.Model, m.Case.Arm, m.Case.Tightness, len(m.Samples))
+		m.Case.ID, m.Model.Label(), m.Case.Arm, m.Case.Tightness, len(m.Samples))
+	fmt.Fprintln(out, "  "+timing(m))
 
 	// First-call validity before anything else. Retries are zero here, so this
 	// is how often one call produced something Phase 5 accepted - the number
@@ -49,6 +51,46 @@ func Report(out io.Writer, m Measurement) {
 	if m.Case.Expect.Behavior != nil {
 		fmt.Fprintln(out, "  behavior: declared but not measured; applying and running the target is not implemented")
 	}
+}
+
+// timing renders what the run cost, which the harness previously could not say
+// about itself - the 75s-per-call figure behind prov-2026-6d87dc11 had to be
+// reconstructed from a stale run log.
+//
+// Slowest is printed beside fastest rather than only a mean, because on a
+// fanless machine the spread is the throttling signal: a run whose last samples
+// are much slower than its first is thermally limited, and a mean hides that.
+// Wall against the summed sample time is what concurrency actually bought.
+func timing(m Measurement) string {
+	if len(m.Samples) == 0 {
+		return "no samples"
+	}
+
+	var sum, fastest, slowest time.Duration
+	for i, s := range m.Samples {
+		sum += s.Elapsed
+		if i == 0 || s.Elapsed < fastest {
+			fastest = s.Elapsed
+		}
+		if s.Elapsed > slowest {
+			slowest = s.Elapsed
+		}
+	}
+	mean := sum / time.Duration(len(m.Samples))
+
+	out := fmt.Sprintf("wall %s  per-sample fastest %s / mean %s / slowest %s  concurrency %d",
+		round(m.Wall), round(fastest), round(mean), round(slowest), m.Concurrency)
+	if m.Concurrency > 1 && m.Wall > 0 {
+		out += fmt.Sprintf("  (%.1fx over sequential)", float64(sum)/float64(m.Wall))
+	}
+	return out
+}
+
+func round(d time.Duration) time.Duration {
+	if d >= time.Second {
+		return d.Round(100 * time.Millisecond)
+	}
+	return d.Round(time.Millisecond)
 }
 
 func ratio(n, of int) string {
@@ -97,7 +139,7 @@ func Compare(out io.Writer, a, b Measurement) {
 }
 
 func label(m Measurement) string {
-	parts := []string{m.Model}
+	parts := []string{m.Model.Label()}
 	if m.Case.Tightness != "" {
 		parts = append(parts, m.Case.Tightness)
 	}
