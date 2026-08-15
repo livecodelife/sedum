@@ -26,6 +26,39 @@ OPENAI_BASE_URL=http://127.0.0.1:1234/v1 OPENAI_API_KEY=local \
 
 Without an endpoint configured the runner skips rather than fails.
 
+## Reading the history
+
+The results files are append-only and pinned to commits, and `history` is how
+they are read back:
+
+```
+go run ./evals/cmd/history                    # every case
+go run ./evals/cmd/history todo-chi-defined   # one case
+```
+
+```
+todo-rails-defined  (7 entries)
+  date       commit     n  r  c  valid              first call         calls  tok/call    wall     tok/s
+  2026-08-15 3e38d7c*   1  0  1  1/1 [0.21,1.00]    -                  -      -           1m5.5s   -
+~ 2026-08-15 90fe770*   5  2  2  5/5 [0.57,1.00]    5/5 [0.57,1.00]    1.00   -           7m1s     -
+~ 2026-08-15 42a426f*   4  0  1  4/4 [0.51,1.00]    4/4 [0.51,1.00]    1.00   1799+605    4m24.4s  36.4
+  * tree was dirty: not re-runnable from that commit
+  ~ interval overlaps the previous entry: these runs do not distinguish each other
+  - not recorded: the entry predates that field
+```
+
+`n`/`r`/`c` are samples, retry budget, and concurrency. **A dash is not a
+zero** — it means the entry was written before that field existed, and the
+schema's additive promise is that such an entry keeps meaning what it meant.
+
+The `~` column is the one to read first: it marks entries whose interval
+overlaps the entry above, which is the harness saying *these two runs do not
+distinguish each other*. A history with `~` down the whole column is a history
+in which nothing measurable has changed.
+
+It reads committed files only — no endpoint, no model, no build tag — and never
+writes.
+
 ## Why it exists
 
 The measurement that corrected `prov-2026-6d87dc11` was nineteen shell loops with

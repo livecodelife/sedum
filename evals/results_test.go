@@ -18,6 +18,110 @@ func entryFor(t *testing.T, samples ...Sample) Entry {
 	return NewEntry(m, "http://127.0.0.1:1234/v1")
 }
 
+// The history is evidence a record can cite, and citing it meant re-deriving
+// the summary by hand until this existed (prov-2026-c0f55691).
+func TestHistoryReadsBackWhatWasRecorded(t *testing.T) {
+	m := measurement(
+		Sample{Counts: map[string]int{"addColumn": 2}, Calls: 1, PromptTokens: 2000, CompletionTokens: 400},
+		Sample{Counts: map[string]int{"addColumn": 2}, Calls: 2, Rejected: 1, PromptTokens: 4000, CompletionTokens: 800},
+	)
+	m.Wall = 100 * time.Second
+	m.Retries = 2
+	m.Concurrency = 2
+	e := NewEntry(m, "http://x")
+	e.Commit = "abc1234"
+	e.Clean = true
+
+	var buf strings.Builder
+	History(&buf, "fixture", []Entry{e})
+	out := buf.String()
+
+	for _, want := range []string{
+		"fixture  (1 entries)",
+		"abc1234",
+		"2/2 [0.34,1.00]", // both samples answered acceptably
+		"1/2 [0.09,0.91]", // one of them needed no retry
+		"1.50",            // three calls over two samples
+		"2000+400",        // 6000 prompt and 1200 completion over three calls
+		"72.0",            // 7200 tokens over 100s
+	} {
+		if !strings.Contains(out, want) {
+			t.Errorf("history omits %q:\n%s", want, out)
+		}
+	}
+
+	// A clean tree earns no asterisk and no legend line about one.
+	if strings.Contains(out, "not re-runnable") {
+		t.Errorf("a clean entry was marked dirty:\n%s", out)
+	}
+}
+
+// An entry written before a field existed says so rather than reading as a
+// measurement of zero. Four such entries exist already, and the additive
+// schema's whole promise is that they keep meaning what they meant.
+func TestHistoryPrintsAnAbsentFieldAsAbsent(t *testing.T) {
+	// An entry as it was written before call counts and tokens existed.
+	old := Entry{
+		Schema:  EntrySchema,
+		Commit:  "0000000",
+		Clean:   true,
+		At:      time.Now().UTC(),
+		Case:    "fixture",
+		Samples: 5,
+		Valid:   5,
+		WallMS:  60_000,
+		Runs: []SampleRun{
+			{Outcome: "valid", MS: 12_000}, {Outcome: "valid", MS: 12_000},
+			{Outcome: "valid", MS: 12_000}, {Outcome: "valid", MS: 12_000},
+			{Outcome: "valid", MS: 12_000},
+		},
+	}
+
+	var buf strings.Builder
+	History(&buf, "fixture", []Entry{old})
+	out := buf.String()
+
+	if !strings.Contains(out, "predates that field") {
+		t.Errorf("history does not explain its dashes:\n%s", out)
+	}
+	// The rate it does carry is still reported; only the missing fields dash.
+	if !strings.Contains(out, "5/5 [0.57,1.00]") {
+		t.Errorf("history dropped a rate the old entry did carry:\n%s", out)
+	}
+	if strings.Contains(out, "0.00") {
+		t.Errorf("an unrecorded count printed as zero:\n%s", out)
+	}
+}
+
+// Consecutive entries whose intervals overlap are marked, for the reason every
+// rate got an interval: a column of fractions invites a reader to see a change
+// that five samples cannot support (prov-2026-0baaa119).
+func TestHistoryMarksEntriesThatDoNotDistinguishEachOther(t *testing.T) {
+	entry := func(valid, invalid int) Entry {
+		e := Entry{Schema: EntrySchema, Clean: true, At: time.Now().UTC(),
+			Samples: valid + invalid, Valid: valid, Invalid: invalid, WallMS: 1000}
+		for i := 0; i < valid; i++ {
+			e.Runs = append(e.Runs, SampleRun{Outcome: "valid", Calls: 1})
+		}
+		for i := 0; i < invalid; i++ {
+			e.Runs = append(e.Runs, SampleRun{Outcome: "invalid", Calls: 1, Rejected: 1})
+		}
+		return e
+	}
+
+	var overlapping strings.Builder
+	History(&overlapping, "fixture", []Entry{entry(5, 0), entry(4, 1)})
+	if !strings.Contains(overlapping.String(), "~") {
+		t.Errorf("5/5 then 4/5 was not marked as indistinguishable:\n%s", overlapping.String())
+	}
+
+	var separated strings.Builder
+	History(&separated, "fixture", []Entry{entry(5, 0), entry(0, 5)})
+	if strings.Contains(separated.String(), "~") {
+		t.Errorf("5/5 then 0/5 was marked as indistinguishable:\n%s", separated.String())
+	}
+}
+
 // Appending must preserve what was already there. A run adds lines and rewrites
 // nothing, which is what makes the history impossible to edit by accident.
 func TestAppendPreservesHistory(t *testing.T) {
