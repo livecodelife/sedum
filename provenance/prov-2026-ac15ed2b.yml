@@ -1,0 +1,107 @@
+id: prov-2026-ac15ed2b
+title: Does a description move the selection rate, and against what baseline
+status: draft
+created_at: "2026-08-15"
+author: calebcowen@gmail.com
+intent: |
+  Run the harness twice over one application, once with a generator package whose
+  kwargs carry descriptions and once without, and record what the difference was.
+
+  ## Why this is the harness's first job
+
+  [[prov-2026-c5697387]] shipped descriptions on the strength of four hand-observed
+  wrong bindings, and the package those were observed on has since been rewritten
+  to avoid them - the options string it describes no longer exists. So the feature
+  landed with no measurement behind it and no way to get one. It is the least
+  verified thing in the repository.
+
+  [[prov-2026-6d87dc11]] has the complementary problem from the other direction. It
+  claims enriching the catalog will not fix under-selection, and the one A/B run so
+  far covers derived requirements only. Descriptions are the other half of that
+  claim and are untested.
+
+  Both records want the same experiment, which is why it is one imprint rather
+  than two.
+
+  ## The design
+
+  Two cases over todo-rails, differing in exactly one thing. Everything else -
+  model, record, sample size, retries - held fixed, and Compare reports the pair.
+
+  Where the described package lives is the decision worth stating. todo-rails
+  explains its kwargs in YAML comments today, and adding description fields there
+  is a change to that repository under its own record, not this one. That is the
+  honest place for it: the fixture applications are real projects, and a package
+  edited only to make an eval look good is not a fixture, it is a confound.
+
+  So the described variant is authored in todo-rails, and this record's scope is
+  the second case file that points at it.
+
+  ## What would make the result mean anything
+
+  A rate is not evidence on its own, and this experiment is small enough to
+  mislead in three specific ways worth naming before the numbers arrive:
+
+  The sample is one application, one model, one framework. A difference here is
+  a difference there, not a property of descriptions.
+
+  The two packages differ by more than descriptions if the edit is careless. Only
+  description fields may be added - not a reworded kwarg name, not a changed
+  required flag, not a new variant - or the comparison measures something nobody
+  chose.
+
+  A null result is a result. If the rate does not move, that is evidence for
+  prov-2026-6d87dc11's central claim and against prov-2026-c5697387's implicit
+  one, and it gets recorded exactly as readily as a positive one would. The
+  temptation to keep sampling until the number moves is the specific failure this
+  constraint exists to prevent.
+
+  ## What it cannot answer
+
+  Selection rate is not correctness. Every wrong binding prov-2026-c5697387 was
+  written from produced a *selected* action with a *bad argument* - the catalog
+  count would have been perfect in all four cases. So this measures whether
+  descriptions help the model pick, and says nothing about whether they help it
+  bind, which is what they were added for.
+
+  Measuring the thing they were actually added for needs the rendered output
+  checked, and that is deferred with the behavioral half of the harness. Stating
+  the gap here rather than letting a green selection rate be mistaken for
+  validation of the feature.
+constraints:
+  - >-
+    The two packages differ only by added description fields. No renamed kwarg,
+    no changed required flag, no new variant - a second difference makes the
+    comparison measure something nobody chose.
+  - >-
+    Model, record, sample size and retry count are identical across both arms,
+    and the reported pair carries all four.
+  - >-
+    A null result is recorded as readily as a positive one. Sampling does not
+    continue until the number moves.
+  - >-
+    The described package is authored in the fixture's own repository under its
+    own record. A package edited only to make an eval look good is a confound
+    rather than a fixture.
+  - >-
+    This measures selection, not binding. Every wrong binding that motivated
+    prov-2026-c5697387 would have scored a perfect catalog count, so the result
+    must not be reported as validating that record's feature.
+affected_scope:
+  - evals/cases/**
+forbidden_scope: []
+type: imprint
+implements: prov-2026-e6969eb3
+supersedes: ""
+superseded_by: ""
+related:
+  - prov-2026-c5697387
+  - prov-2026-6d87dc11
+sealed_at_sha: ""
+associated_specs: []
+associated_traces: []
+monitors: []
+tags:
+  - sedum
+  - evals
+  - catalog
