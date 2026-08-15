@@ -57,6 +57,15 @@ type Entry struct {
 	Concurrency int    `json:"concurrency"`
 	Retries     int    `json:"retries"`
 
+	// Resolution is the question the sample size was drawn for: smoke, coarse
+	// or fine.
+	//
+	// Omitted when there is none, and the entries already in results/ have none
+	// - they were drawn at five because five was the default, and stamping them
+	// "coarse" now would invent a decision nobody made. A reader sees "unstated"
+	// for those, which is the true thing to say about them (prov-2026-3039750e).
+	Resolution string `json:"resolution,omitempty"`
+
 	Valid   int `json:"valid"`
 	Invalid int `json:"invalid"`
 	Failed  int `json:"failed"`
@@ -131,6 +140,7 @@ func NewEntry(m Measurement, endpoint string) Entry {
 		Samples:     len(m.Samples),
 		Concurrency: m.Concurrency,
 		Retries:     m.Retries,
+		Resolution:  string(m.Resolution),
 		Valid:       t.Valid,
 		Invalid:     t.Invalid,
 		Failed:      t.Failed,

@@ -30,6 +30,16 @@
 // was selected, start the target, and report the fraction of its linespec
 // contracts that pass. Reserved in the schema and not yet implemented.
 //
+// # How many samples
+//
+// A run states the question it is asking - smoke, coarse or fine - and the
+// sample size follows from it, because the size of a sample is a property of
+// the question rather than of the harness. A perfect 5/5 is consistent with a
+// true rate of 0.57, which is ample for a difference of several times and
+// useless for moving a rate from 0.8 to 1.0. A run drawn below its stated
+// resolution is refused before the first call, and a smoke rate is never cited
+// as a measurement.
+//
 // # The matrix
 //
 // A single measurement says almost nothing, because every interesting question

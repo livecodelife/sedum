@@ -10,7 +10,8 @@
 //
 //	  -eval.case      run one case by id, default all
 //	  -eval.model     run only models whose label contains this substring
-//	  -eval.samples   runs per model, default 5
+//	  -eval.resolution  the question being asked: smoke, coarse or fine, default coarse
+//	  -eval.samples   runs per model, default the resolution's own count
 //	  -eval.concurrency  samples in flight at once, default 1
 //	  -eval.retries   re-prompts a rejected answer may spend, default 0
 //	  -eval.root      where the vendored fixtures live, default testdata
@@ -31,7 +32,8 @@ import (
 var (
 	caseID      = flag.String("eval.case", "", "run only the case with this id")
 	modelID     = flag.String("eval.model", "", "run only models whose label contains this; one row at a time when memory is tight")
-	samples     = flag.Int("eval.samples", 5, "runs per model")
+	resolution  = flag.String("eval.resolution", string(DefaultResolution), "the question this run is asking: smoke (plumbing only), coarse (large differences) or fine (moving a rate that is already high)")
+	samples     = flag.Int("eval.samples", 0, "runs per model; zero draws what the resolution calls for, and a count below it is refused rather than relabelled")
 	concurrency = flag.Int("eval.concurrency", 1, "samples in flight at once; raise it against a server with continuous batching")
 	root        = flag.String("eval.root", "testdata", "directory the vendored fixtures live under")
 	results     = flag.String("eval.results", "results", "directory results are appended to; empty disables recording")
@@ -41,6 +43,14 @@ var (
 func TestEval(t *testing.T) {
 	if os.Getenv(selection.EnvBaseURL) == "" && os.Getenv(selection.EnvAPIKey) == "" {
 		t.Skipf("no model endpoint: set %s (a local server) or %s", selection.EnvBaseURL, selection.EnvAPIKey)
+	}
+
+	// Parsed before anything is loaded, so a misspelled resolution costs a
+	// second rather than the minutes it would take to find out after the first
+	// case has run.
+	res, err := ParseResolution(*resolution)
+	if err != nil {
+		t.Fatalf("%v", err)
 	}
 
 	cases, err := Load("cases", *root)
@@ -61,6 +71,7 @@ func TestEval(t *testing.T) {
 			}
 			t.Run(c.ID+"/"+model.Label(), func(t *testing.T) {
 				m, err := Run(context.Background(), c, model, Options{
+					Resolution:  res,
 					Samples:     *samples,
 					Concurrency: *concurrency,
 					Retries:     *retries,

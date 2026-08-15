@@ -19,8 +19,19 @@ func Report(out io.Writer, m Measurement) {
 	rows, scored, _ := m.Scored()
 	t := m.Tally()
 
-	fmt.Fprintf(out, "%s  model=%s  arm=%s  tightness=%s  n=%d  retries=%d\n",
-		m.Case.ID, m.Model.Label(), m.Case.Arm, m.Case.Tightness, len(m.Samples), m.Retries)
+	fmt.Fprintf(out, "%s  model=%s  arm=%s  tightness=%s  res=%s  n=%d  retries=%d\n",
+		m.Case.ID, m.Model.Label(), m.Case.Arm, m.Case.Tightness,
+		resolutionOf(m.Resolution), len(m.Samples), m.Retries)
+
+	// A smoke run says what it is before it says any number, because the rate
+	// below is the sort of thing that gets pasted into a record on its own. It
+	// exists to prove the plumbing and is not a measurement, and the only place
+	// that can be made unmissable is above the numbers (prov-2026-3039750e).
+	if m.Resolution == Smoke {
+		fmt.Fprintf(out, "  SMOKE: plumbing only at n=%d. Not a measurement, and not to be cited as one.\n",
+			len(m.Samples))
+	}
+
 	fmt.Fprintln(out, "  "+timing(m))
 
 	// Validity before anything else: it is the number every rate below is
@@ -167,6 +178,17 @@ func calls(retries int) string {
 	return fmt.Sprintf("within %d calls", retries+1)
 }
 
+// resolutionOf names a measurement's resolution, and says so plainly when there
+// is none rather than defaulting the word to "coarse". An entry drawn before
+// resolutions existed was drawn at five samples for no stated reason, which is
+// the fact this field was added to stop hiding.
+func resolutionOf(r Resolution) string {
+	if r == "" {
+		return "unstated"
+	}
+	return string(r)
+}
+
 // Interval is a rate with the uncertainty its sample size gives it.
 type Interval struct {
 	Rate      float64
@@ -249,12 +271,20 @@ func Compare(out io.Writer, a, b Measurement) {
 	aRows, aScored, _ := a.Scored()
 	bRows, bScored, _ := b.Scored()
 
-	fmt.Fprintf(out, "%s  %s (n=%d)  vs  %s (n=%d)\n",
-		a.Case.ID, label(a), aScored, label(b), bScored)
+	fmt.Fprintf(out, "%s  %s (res=%s n=%d)  vs  %s (res=%s n=%d)\n",
+		a.Case.ID, label(a), resolutionOf(a.Resolution), aScored,
+		label(b), resolutionOf(b.Resolution), bScored)
 
 	if aScored == 0 || bScored == 0 {
 		fmt.Fprintln(out, "  one side has no scoreable samples; nothing to compare")
 		return
+	}
+
+	// A comparison is the one operation a smoke run must never be read as, so
+	// it is named here as well as on each arm's own report. Two plumbing checks
+	// differ by whatever the model did that morning.
+	if !a.Resolution.Cites() || !b.Resolution.Cites() {
+		fmt.Fprintln(out, "  SMOKE: at least one arm proves plumbing only. This is not a comparison.")
 	}
 
 	byName := map[string]ActionResult{}
@@ -283,6 +313,14 @@ func Compare(out io.Writer, a, b Measurement) {
 	}
 
 	fmt.Fprintln(out, "  ~ marks rows whose intervals overlap: these runs do not distinguish the arms")
+
+	// Overlap is conservative on purpose, and saying so is what keeps it from
+	// being read as a test. A two-proportion comparison separates two rates
+	// earlier than their intervals stop overlapping, so a row marked ~ is "not
+	// shown by these samples", never "shown to be the same" - and the sample
+	// size overlap asks for is an upper bound on what the question needed
+	// (prov-2026-3039750e).
+	fmt.Fprintln(out, "    it is a conservative reading, not a test: ~ means not distinguished here, never no difference")
 }
 
 func label(m Measurement) string {

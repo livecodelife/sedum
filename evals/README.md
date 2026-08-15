@@ -19,7 +19,8 @@ OPENAI_BASE_URL=http://127.0.0.1:1234/v1 OPENAI_API_KEY=local \
 | Flag | Meaning |
 |---|---|
 | `-eval.case <id>` | Run one case. Default: all. |
-| `-eval.samples <n>` | Runs per model. Default 5. |
+| `-eval.resolution <r>` | The question being asked: `smoke`, `coarse` or `fine`. Default `coarse`. Sets the sample size. |
+| `-eval.samples <n>` | Runs per model. Default: whatever the resolution calls for. A count *below* it is refused. |
 | `-eval.model <substr>` | Run only models whose label contains this. One row at a time when memory is tight. |
 | `-eval.root <dir>` | Where the vendored fixtures live. Default `testdata`. |
 | `-eval.retries <n>` | Re-prompts a rejected answer may spend. Default 0. See below before raising it. |
@@ -38,23 +39,32 @@ go run ./evals/cmd/history todo-chi-defined   # one case
 
 ```
 todo-rails-defined  (7 entries)
-  date       commit     n  r  c  valid              first call         calls  tok/call    wall     tok/s
-  2026-08-15 3e38d7c*   1  0  1  1/1 [0.21,1.00]    -                  -      -           1m5.5s   -
-~ 2026-08-15 90fe770*   5  2  2  5/5 [0.57,1.00]    5/5 [0.57,1.00]    1.00   -           7m1s     -
-~ 2026-08-15 42a426f*   4  0  1  4/4 [0.51,1.00]    4/4 [0.51,1.00]    1.00   1799+605    4m24.4s  36.4
+  date       commit    res       n  r  c  valid              first call         calls  tok/call    wall     tok/s
+  2026-08-15 3e38d7c*  -         1  0  1  1/1 [0.21,1.00]    -                  -      -           1m5.5s   -
+~ 2026-08-15 90fe770*  -         5  2  2  5/5 [0.57,1.00]    5/5 [0.57,1.00]    1.00   -           7m1s     -
+s 2026-08-15 1c4d0aa   smoke     2  0  1  2/2 [0.34,1.00]    2/2 [0.34,1.00]    1.00   1802+601    2m9.8s   35.9
+~ 2026-08-15 42a426f*  coarse    4  0  1  4/4 [0.51,1.00]    4/4 [0.51,1.00]    1.00   1799+605    4m24.4s  36.4
   * tree was dirty: not re-runnable from that commit
-  ~ interval overlaps the previous entry: these runs do not distinguish each other
+  s smoke: plumbing only at that sample size, not a measurement and not compared
+  ~ interval overlaps the previous comparable entry: these runs do not distinguish each other
   - not recorded: the entry predates that field
 ```
 
-`n`/`r`/`c` are samples, retry budget, and concurrency. **A dash is not a
-zero** — it means the entry was written before that field existed, and the
-schema's additive promise is that such an entry keeps meaning what it meant.
+`res`/`n`/`r`/`c` are the resolution, sample size, retry budget, and
+concurrency. **A dash is not a zero** — it means the entry was written before
+that field existed, and the schema's additive promise is that such an entry
+keeps meaning what it meant. A dash under `res` is *unstated*, not `coarse`:
+those runs drew five samples because five was the default, and stamping a
+decision on them now would invent one.
 
 The `~` column is the one to read first: it marks entries whose interval
-overlaps the entry above, which is the harness saying *these two runs do not
-distinguish each other*. A history with `~` down the whole column is a history
-in which nothing measurable has changed.
+overlaps the previous comparable entry, which is the harness saying *these two
+runs do not distinguish each other*. A history with `~` down the whole column is
+a history in which nothing measurable has changed.
+
+An `s` row is a smoke run and is skipped by that comparison entirely. Two
+samples overlap almost everything, so leaving one in the chain would print
+"these runs do not distinguish each other" about a plumbing check.
 
 It reads committed files only — no endpoint, no model, no build tag — and never
 writes.
@@ -71,7 +81,7 @@ finding was worth having; the method was not repeatable.
 A real run, annotated:
 
 ```
-todo-chi-defined  model=qwen2.5-coder-14b-instruct/llama.cpp-q4_k_m  arm=sedum  tightness=defined  n=5  retries=2
+todo-chi-defined  model=qwen2.5-coder-14b-instruct/llama.cpp-q4_k_m  arm=sedum  tightness=defined  res=coarse  n=5  retries=2
   wall 18m46.1s  per-sample fastest 4m22.9s / mean 7m24s / slowest 9m59.3s  concurrency 2  (2.0x over sequential)
   valid within 3 calls: 5/5 [0.57,1.00]
   valid first call: 4/5 [0.38,0.96]
@@ -83,8 +93,10 @@ todo-chi-defined  model=qwen2.5-coder-14b-instruct/llama.cpp-q4_k_m  arm=sedum  
 ```
 
 **Header** — what was measured. `n` is independent runs of the same case;
-`retries` is the budget each got. The model is `id/engine-quant` because one
-checkpoint under two engines is two rows, not one.
+`retries` is the budget each got; `res` is the question that `n` was drawn for,
+and `res=smoke` means the numbers below it are a plumbing check rather than a
+measurement. The model is `id/engine-quant` because one checkpoint under two
+engines is two rows, not one.
 
 **`wall` / per-sample spread** — total elapsed, then how the individual samples
 were distributed. The fastest-to-slowest spread is the *throttling* detector: on
@@ -136,6 +148,7 @@ weighing and rejecting it, it was never arriving there.
 | *Why* is this case slow? | the `completion` half of `tokens:` — the prompt is cached |
 | Is the box throttling? | the fastest-to-slowest spread |
 | Did my change do anything? | the `~` marks in `history` |
+| How many samples does my question need? | the resolution table below |
 
 ## What a number here means
 
@@ -171,6 +184,72 @@ The first two are told apart from the third by *type*: Phase 5 returns a
 `*selection.Rejection` for an answer it refused, and the harness classifies with
 `errors.As`. It matched the text of the diagnostic until `prov-2026-0811425c`,
 which meant one renamed error would have silently moved samples between columns.
+
+### Sample size is a property of the question
+
+`-eval.samples` defaulted to 5 and every early run used it, for no reason anyone
+chose — it was the first run's number and everything since inherited it. What
+five buys is less than it looks:
+
+| Perfect cell | 95% interval | Width |
+|---|---|---|
+| 5/5 | `[0.57, 1.00]` | 0.43 |
+| 10/10 | `[0.72, 1.00]` | 0.28 |
+| 20/20 | `[0.84, 1.00]` | 0.16 |
+| 30/30 | `[0.89, 1.00]` | 0.11 |
+
+**A perfect score at five samples is consistent with a true rate of 57%.** That
+is not an argument for always drawing thirty. It is an argument for choosing the
+number against the question, because these questions differ by an order of
+magnitude in the effect they are looking for. So a run states its **resolution**
+and the sample size follows:
+
+| Resolution | n | The questions it answers |
+|---|---|---|
+| `smoke` | 2 | Does the plumbing work — a new case loads, a new package resolves, an endpoint answers. **Not a measurement.** |
+| `coarse` | 5 | Differences that are enormous. Does a 4b model select usefully where a 14b does; does a framework's package work at all; is one arm several times slower than another. |
+| `fine` | 30 | Moving a rate that is already high — 4/5 to 5/5, or a selection rate from 80% to 100%. |
+
+The chi arm coming in at 2.7× the rails arm is a coarse result, and five samples
+established it comfortably. Whether kwarg descriptions move a selection rate is
+a fine one, and five samples cannot see it either way.
+
+*Resolution*, not *tier*, because a case already has a tier: `complexity` is an
+ordinal tier of the application. Two axes sharing a word read as one axis in a
+results file.
+
+**A smoke rate is never cited as a measurement.** It says so on its own report,
+in any `Compare` it appears in, and in `history` long after whoever ran it has
+forgotten which it was.
+
+**A run drawn below its resolution is refused before the first call**, because
+both ways of getting this wrong are only expensive afterwards. A comparison that
+publishes "no effect" from a run too small to have seen one is worse than no
+comparison — the temptation to then keep sampling until the number moves is the
+specific failure the refusal exists to prevent. Oversampling is honoured rather
+than clamped: it is a cost decision and misleads nobody.
+
+**Raise `n` per question, never globally.** At n=5 on the local 14b row,
+`todo-rails-defined` is about 7 minutes and `todo-chi-defined` about 19, and a
+cell scales linearly in n:
+
+| | n=5 (coarse) | n=30 (fine) |
+|---|---|---|
+| `todo-rails-defined` | ~7 min | ~45 min |
+| `todo-chi-defined` | ~19 min | ~2 hr |
+
+Four local model rows over both cases is under 2 hours at the coarse tier and
+most of a day at the fine one. That arithmetic is the real constraint on
+widening the matrix: a matrix run at n=30 everywhere buys resolution for
+questions that never needed it, and spends the hours the questions that do need
+it were going to require.
+
+**Thirty is an upper bound, not a threshold.** It comes from comparing
+intervals, which is deliberately conservative — a proper two-proportion
+comparison separates two rates earlier than their intervals stop overlapping. A
+`~` mark means *not distinguished by these samples*, never *shown to be the
+same*. What the conservatism does not change is the direction of the error at
+five: too few for a fine question by a wide margin either way.
 
 ### The retry budget
 

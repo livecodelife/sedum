@@ -231,7 +231,8 @@ func TestConcurrentSamplesKeepTheirOrder(t *testing.T) {
 
 	// Every sample fails identically here - there is no endpoint - which is
 	// enough to prove the slice is filled by index rather than appended.
-	m, err := Run(context.Background(), c, Model{ID: "none", Engine: "test"}, Options{Samples: 6, Concurrency: 4})
+	m, err := Run(context.Background(), c, Model{ID: "none", Engine: "test"},
+		Options{Resolution: Smoke, Samples: 6, Concurrency: 4})
 	if err != nil {
 		t.Fatalf("Run: %v", err)
 	}
@@ -253,7 +254,7 @@ func TestTheRetryBudgetIsCarriedNotAssumed(t *testing.T) {
 	c := Case{ID: "fixture", Arm: "sedum", Generators: "x", Records: "y"}
 
 	m, err := Run(context.Background(), c, Model{ID: "none", Engine: "test"},
-		Options{Samples: 1, Concurrency: 1, Retries: 2})
+		Options{Resolution: Smoke, Samples: 1, Concurrency: 1, Retries: 2})
 	if err != nil {
 		t.Fatalf("Run: %v", err)
 	}
@@ -267,7 +268,8 @@ func TestTheRetryBudgetIsCarriedNotAssumed(t *testing.T) {
 	// The default is zero and cannot drift: every entry already recorded means
 	// "validated on the first call", and a new default would re-point that word
 	// while the field name and the report line stayed put.
-	zero, err := Run(context.Background(), c, Model{ID: "none", Engine: "test"}, Options{Samples: 1})
+	zero, err := Run(context.Background(), c, Model{ID: "none", Engine: "test"},
+		Options{Resolution: Smoke, Samples: 1})
 	if err != nil {
 		t.Fatalf("Run: %v", err)
 	}
@@ -532,8 +534,15 @@ func TestAnEntryCarriesWhatEachSampleCost(t *testing.T) {
 // declared in the matrix and refused at run time rather than silently skipped.
 func TestTheBaselineArmIsRefusedRatherThanSkipped(t *testing.T) {
 	c := Case{ID: "fixture", Arm: "baseline"}
-	if _, err := Run(context.Background(), c, Model{ID: "none", Engine: "test"}, Options{Samples: 1, Concurrency: 1}); err == nil {
+	// A resolution is stated so the refusal that is asserted is the arm's, not
+	// the one an unstated sample size would have produced first.
+	_, err := Run(context.Background(), c, Model{ID: "none", Engine: "test"},
+		Options{Resolution: Smoke, Samples: 1, Concurrency: 1})
+	if err == nil {
 		t.Fatal("the baseline arm ran; it is not implemented and must say so")
+	}
+	if !strings.Contains(err.Error(), "arm") {
+		t.Errorf("the refusal is %q, which does not name the arm", err)
 	}
 }
 
@@ -638,5 +647,179 @@ func TestTheLanguageArmsAreControlled(t *testing.T) {
 	if rails.Application.Complexity != chi.Application.Complexity {
 		t.Errorf("the arms are tier %d and tier %d; they ask for the same functionality, so rating them differently puts a package difference on the application axis",
 			rails.Application.Complexity, chi.Application.Complexity)
+	}
+}
+
+// The sample size follows from the question. Five was never chosen against one -
+// it was the first run's number and every run since inherited it - and what it
+// buys is an interval a fine question cannot be asked inside of
+// (prov-2026-3039750e).
+func TestTheResolutionDeterminesTheSampleSize(t *testing.T) {
+	for _, tc := range []struct {
+		res  Resolution
+		want int
+	}{
+		{Smoke, 2},
+		{Coarse, 5},
+		{Fine, 30},
+	} {
+		if got := tc.res.Samples(); got != tc.want {
+			t.Errorf("%s draws %d samples, want %d", tc.res, got, tc.want)
+		}
+	}
+
+	// Five remains the default, but as the coarse tier's own number rather than
+	// as an inheritance: the questions widening the matrix asks are coarse ones.
+	if DefaultResolution != Coarse || DefaultResolution.Samples() != 5 {
+		t.Errorf("the default is %s at n=%d, want coarse at 5", DefaultResolution, DefaultResolution.Samples())
+	}
+
+	// A run that states no question is a sample size nobody chose, which is the
+	// whole finding this record was written from.
+	c := Case{ID: "fixture", Arm: "sedum", Generators: "x", Records: "y"}
+	if _, err := Run(context.Background(), c, Model{ID: "none", Engine: "test"}, Options{Samples: 5}); err == nil {
+		t.Error("a run with no stated resolution was accepted")
+	}
+}
+
+// A null result from a run too small to have seen the effect is not a null
+// result. The refusal is at the top of Run rather than in the reading of the
+// report, because by then the hours are spent.
+func TestARunTooSmallForItsQuestionIsRefused(t *testing.T) {
+	c := Case{ID: "fixture", Arm: "sedum", Generators: "x", Records: "y"}
+
+	_, err := Run(context.Background(), c, Model{ID: "none", Engine: "test"},
+		Options{Resolution: Fine, Samples: 5})
+	if err == nil {
+		t.Fatal("a fine question drawn at five samples was accepted")
+	}
+	if !strings.Contains(err.Error(), "fine") {
+		t.Errorf("the refusal is %q, which does not name the resolution it was drawn against", err)
+	}
+
+	// Oversampling is a cost decision and misleads nobody, so it is honoured
+	// rather than clamped.
+	over, err := Run(context.Background(), c, Model{ID: "none", Engine: "test"},
+		Options{Resolution: Coarse, Samples: 7})
+	if err != nil {
+		t.Fatalf("oversampling a coarse question was refused: %v", err)
+	}
+	if len(over.Samples) != 7 {
+		t.Errorf("drew %d samples, want the 7 that were asked for", len(over.Samples))
+	}
+
+	// Smoke has no measurement to mislabel, so one sample is a perfectly good
+	// plumbing check.
+	if _, err := Run(context.Background(), c, Model{ID: "none", Engine: "test"},
+		Options{Resolution: Smoke, Samples: 1}); err != nil {
+		t.Errorf("a single-sample smoke run was refused: %v", err)
+	}
+}
+
+// A smoke rate is not a measurement and says so wherever it appears: on its own
+// report, in a comparison, and in the history file long after whoever ran it has
+// forgotten which it was.
+func TestASmokeRateSaysItIsNotAMeasurement(t *testing.T) {
+	m := measurement(valid(map[string]int{"addColumn": 2, "createEndpoint": 5}, "addColumn"))
+	m.Resolution = Smoke
+
+	var buf bytes.Buffer
+	Report(&buf, m)
+	out := buf.String()
+	if !strings.Contains(out, "res=smoke") {
+		t.Errorf("the header does not carry the resolution:\n%s", out)
+	}
+	if !strings.Contains(out, "SMOKE:") || !strings.Contains(out, "Not a measurement") {
+		t.Errorf("a smoke report reads as a measurement:\n%s", out)
+	}
+
+	// And a comparison is the reading it must survive, because two plumbing
+	// checks differ by whatever the model did that morning.
+	coarse := measurement(valid(map[string]int{"addColumn": 2, "createEndpoint": 5}, "addColumn"))
+	coarse.Resolution = Coarse
+	buf.Reset()
+	Compare(&buf, m, coarse)
+	if out := buf.String(); !strings.Contains(out, "SMOKE:") {
+		t.Errorf("a comparison against a smoke arm does not say so:\n%s", out)
+	}
+
+	// The header names the resolution even when it is coarse, so that a rate is
+	// never read without the question it was drawn for.
+	buf.Reset()
+	Report(&buf, coarse)
+	if out := buf.String(); !strings.Contains(out, "res=coarse") {
+		t.Errorf("a coarse report omits its resolution:\n%s", out)
+	}
+}
+
+// The resolution travels into the entry, because n alone cannot recover it: two
+// samples drawn as a plumbing check and two survivors of a five-sample run print
+// the same number and are not the same claim.
+func TestTheResolutionIsRecordedAndReadBack(t *testing.T) {
+	m := measurement(valid(map[string]int{"addColumn": 2}, "addColumn"))
+	m.Resolution = Fine
+
+	e := NewEntry(m, "http://x")
+	if e.Resolution != "fine" {
+		t.Errorf("entry recorded resolution %q, want fine", e.Resolution)
+	}
+
+	raw, err := json.Marshal(e)
+	if err != nil {
+		t.Fatalf("marshalling: %v", err)
+	}
+	var back Entry
+	if err := json.Unmarshal(raw, &back); err != nil {
+		t.Fatalf("unmarshalling: %v", err)
+	}
+	if back.Resolution != "fine" {
+		t.Errorf("resolution read back as %q", back.Resolution)
+	}
+
+	// The entries already in results/ have none, and are not retroactively
+	// coarse: they were drawn at five because five was the default, and
+	// stamping a decision on them now would be inventing one. The field is
+	// additive, so an older entry keeps meaning what it meant.
+	var old Entry
+	if err := json.Unmarshal([]byte(`{"schema":1,"case":"x","samples":5,"valid":5}`), &old); err != nil {
+		t.Fatalf("an entry written before resolutions no longer decodes: %v", err)
+	}
+	if old.Resolution != "" {
+		t.Errorf("a pre-resolution entry decoded as %q, want no resolution at all", old.Resolution)
+	}
+	if resolutionOf(Resolution(old.Resolution)) != "unstated" {
+		t.Errorf("a pre-resolution entry reports as %q, want unstated", resolutionOf(Resolution(old.Resolution)))
+	}
+}
+
+// History marks a smoke entry and refuses to compare against it. A two-sample
+// plumbing check overlaps everything, so leaving it in the comparison chain
+// would print "these runs do not distinguish each other" about a run that was
+// never a measurement.
+func TestHistoryDoesNotCompareAgainstASmokeEntry(t *testing.T) {
+	at := time.Date(2026, 8, 15, 0, 0, 0, 0, time.UTC)
+	entries := []Entry{
+		{Case: "x", At: at, Commit: "aaaaaaa", Clean: true, Resolution: "coarse", Samples: 5, Invalid: 5},
+		{Case: "x", At: at, Commit: "bbbbbbb", Clean: true, Resolution: "smoke", Samples: 2, Valid: 2},
+		{Case: "x", At: at, Commit: "ccccccc", Clean: true, Resolution: "coarse", Samples: 5, Valid: 5},
+	}
+
+	var buf bytes.Buffer
+	History(&buf, "x", entries)
+	out := buf.String()
+
+	if !strings.Contains(out, "res") || !strings.Contains(out, "smoke") {
+		t.Errorf("the history does not carry resolutions:\n%s", out)
+	}
+	if !strings.Contains(out, "s smoke: plumbing only") {
+		t.Errorf("the smoke row is not marked:\n%s", out)
+	}
+
+	// 0/5 and 5/5 are the two coarse entries, and their intervals do not
+	// overlap - so no row may be marked ~. If the smoke entry were left in the
+	// chain, the 5/5 row would have been compared against 2/2 [0.34,1.00] and
+	// marked indistinguishable from it.
+	if strings.Contains(out, "~ interval overlaps") {
+		t.Errorf("a run was marked indistinguishable from a plumbing check:\n%s", out)
 	}
 }

@@ -26,15 +26,23 @@ func History(out io.Writer, caseID string, entries []Entry) {
 	// A header rather than labels repeated on every row: the columns are the
 	// same for every entry, and a row carrying its own labels is unreadable at
 	// this width.
-	fmt.Fprintf(out, "  %-10s %-9s %2s %2s %2s  %-18s %-18s %-6s %-11s %-8s %s\n",
-		"date", "commit", "n", "r", "c",
+	fmt.Fprintf(out, "  %-10s %-9s %-8s %2s %2s %2s  %-18s %-18s %-6s %-11s %-8s %s\n",
+		"date", "commit", "res", "n", "r", "c",
 		"valid", "first call", "calls", "tok/call", "wall", "gen tok/s")
 
 	var dirty bool
 	var overlapped bool
 	var absent bool
+	var smoked bool
 
-	for i, e := range entries {
+	// The interval the next row is compared against is the last one that could
+	// be compared at all. A smoke entry is not a measurement, so marking a real
+	// run as indistinguishable from a two-sample plumbing check - which it
+	// always will be, at that width - would read as a finding about the run
+	// (prov-2026-3039750e).
+	var last *Interval
+
+	for _, e := range entries {
 		valid := wilson(e.Valid, e.Valid+e.Invalid)
 
 		commit := e.Commit
@@ -46,20 +54,30 @@ func History(out io.Writer, caseID string, entries []Entry) {
 			dirty = true
 		}
 
+		res := e.Resolution
+		if res == "" {
+			res = "-"
+			absent = true
+		}
+
 		// A mark rather than a suppressed row: the numbers are what was
 		// measured, and what the mark says is that this entry and the one
 		// before it do not distinguish each other (prov-2026-0baaa119).
 		row := " "
-		if i > 0 {
-			prev := entries[i-1]
-			if valid.Overlaps(wilson(prev.Valid, prev.Valid+prev.Invalid)) {
+		if Resolution(e.Resolution).Cites() || e.Resolution == "" {
+			if last != nil && valid.Overlaps(*last) {
 				row = "~"
 				overlapped = true
 			}
+			carried := valid
+			last = &carried
+		} else {
+			row = "s"
+			smoked = true
 		}
 
-		fmt.Fprintf(out, "%s %-10s %-9s %2d %2d %2d  %-18s %-18s %-6s %-11s %-8s %s\n",
-			row, e.At.Format("2006-01-02"), commit,
+		fmt.Fprintf(out, "%s %-10s %-9s %-8s %2d %2d %2d  %-18s %-18s %-6s %-11s %-8s %s\n",
+			row, e.At.Format("2006-01-02"), commit, res,
 			e.Samples, e.Retries, e.Concurrency,
 			valid, firstCall(e), callCost(e), tokenCost(e), wallOf(e), throughputOf(e))
 
@@ -73,8 +91,11 @@ func History(out io.Writer, caseID string, entries []Entry) {
 	if dirty {
 		fmt.Fprintln(out, "  * tree was dirty: not re-runnable from that commit")
 	}
+	if smoked {
+		fmt.Fprintln(out, "  s smoke: plumbing only at that sample size, not a measurement and not compared")
+	}
 	if overlapped {
-		fmt.Fprintln(out, "  ~ interval overlaps the previous entry: these runs do not distinguish each other")
+		fmt.Fprintln(out, "  ~ interval overlaps the previous comparable entry: these runs do not distinguish each other")
 	}
 	if absent {
 		fmt.Fprintln(out, "  - not recorded: the entry predates that field")

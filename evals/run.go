@@ -98,6 +98,15 @@ type Measurement struct {
 	// at 0 than at 2, and no reading of the table recovers which one it was
 	// (prov-2026-b4555efc).
 	Retries int
+
+	// Resolution is the question the sample size was drawn for.
+	//
+	// It travels for the same reason the retry budget does, and one step
+	// further: the sample count alone cannot say whether five was chosen for a
+	// question five can answer or inherited from a default. A smoke rate and a
+	// coarse rate can be the same fraction and are not the same claim, so the
+	// word is carried rather than reconstructed from n (prov-2026-3039750e).
+	Resolution Resolution
 }
 
 // Options is what a measurement is drawn with.
@@ -106,7 +115,14 @@ type Measurement struct {
 // retries are all small integers and nothing about a call site would look wrong
 // if two of them were swapped.
 type Options struct {
-	// Samples is how many runs to draw per model.
+	// Resolution is the question the run is asking, and it is required: a run
+	// that does not state one is a sample size nobody chose (prov-2026-3039750e).
+	Resolution Resolution
+
+	// Samples is how many runs to draw per model. Zero means the resolution's
+	// own count, which is the usual case - an explicit count is for
+	// oversampling a question deliberately, and one below the resolution's is
+	// refused rather than quietly relabelled.
 	Samples int
 
 	// Concurrency is how many samples may be in flight at once. Anything below
@@ -127,7 +143,13 @@ type Options struct {
 	Retries int
 }
 
-// Run measures one case against one model, samples times.
+// Run measures one case against one model, as many times as its resolution
+// calls for.
+//
+// The count comes from Options.Resolution rather than from a number the caller
+// picked, because the size of a sample is a property of the question and not of
+// the harness: the same five samples that comfortably separate a 2.7x
+// difference cannot tell 4/5 from 5/5 (prov-2026-3039750e).
 //
 // Every sample is an independent run through Phases 0 to 5 with nothing written:
 // packages load, records resolve, files are created in memory, the model is
@@ -156,18 +178,35 @@ func Run(ctx context.Context, c Case, model Model, opts Options) (Measurement, e
 		opts.Concurrency = 1
 	}
 
+	// The resolution is settled before a single call is made, because both ways
+	// of getting it wrong are only expensive afterwards: a run drawn too small
+	// for its question publishes a null result it could not have seen, and a run
+	// labelled for a question it was not drawn for is worse than one carrying no
+	// label at all.
+	if opts.Resolution == "" {
+		return Measurement{}, fmt.Errorf("case %s: no resolution stated; a sample size follows from the question, so say smoke, coarse or fine", c.ID)
+	}
+	if _, err := ParseResolution(string(opts.Resolution)); err != nil {
+		return Measurement{}, fmt.Errorf("case %s: %w", c.ID, err)
+	}
+	samples, err := opts.Resolution.plan(opts.Samples)
+	if err != nil {
+		return Measurement{}, fmt.Errorf("case %s: %w", c.ID, err)
+	}
+
 	m := Measurement{
 		Case:        c,
 		Model:       model,
 		Concurrency: opts.Concurrency,
 		Retries:     opts.Retries,
-		Samples:     make([]Sample, opts.Samples),
+		Resolution:  opts.Resolution,
+		Samples:     make([]Sample, samples),
 	}
 
 	started := time.Now()
 	var wg sync.WaitGroup
 	slots := make(chan struct{}, opts.Concurrency)
-	for i := 0; i < opts.Samples; i++ {
+	for i := 0; i < samples; i++ {
 		wg.Add(1)
 		go func(i int) {
 			defer wg.Done()
