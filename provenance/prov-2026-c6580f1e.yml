@@ -54,6 +54,21 @@ intent: |
   rerun's output equals its input wherever nothing changed - is a byte property
   and a semantic comparison would pass while the diff was noisy.
 
+  ## It lives at conformance/, not under testdata/
+
+  testdata/ is a Go convention. The directory is invisible to the toolchain, it
+  reads as one project's internal fixtures, and a stranger has no reason to look
+  in it or to believe what is there is meant for them. Every property this corpus
+  needs is the opposite: it is a published artifact, it is language-neutral, and
+  its audience is a writer who is not using Go at all - a corpus that only a Go
+  implementation can consume answers the wrong question, because Sedum's own
+  implementation is the one thing that does not need checking.
+
+  So it is conformance/ at the repository root, listed in the supported surface
+  beside the formats it pins. The same reasoning [[prov-2026-b5465dfa]] applies to
+  a growing surface applies here: an artifact a third party is expected to depend
+  on is named where they will find it, or it is not really offered.
+
   ## What makes it maintainable
 
   Sedum's own tests read the corpus rather than carrying a parallel copy. The
@@ -82,6 +97,22 @@ intent: |
   borrow its implementation of the format. Checkability is the whole of what
   they get, so leaving it as prose is not a gap in the documentation - it is a
   gap in the surface.
+
+  ## But it blocks nobody, and that is worth being honest about
+
+  The first foreign writer of this format can bootstrap the corpus in its own
+  repository and upstream it, because it has to implement the codec either way and
+  the fixtures fall out of doing so. So this record is not on any consumer's
+  critical path, and it should not be sequenced as though it were.
+
+  What it blocks is the promise. "Third-party harnesses supported" is a
+  distribution intent with no mechanical way for a stranger to check compliance,
+  and a first-party consumer writing the corpus does not close that - it is the
+  party least likely to notice where the format is underspecified, for exactly the
+  reason prov-2026-b5465dfa gives about eating the same food. Upstreaming a
+  bootstrapped corpus is a good outcome and does not make this record redundant;
+  it makes it the place the result is ratified and kept honest by Sedum's own
+  tests.
 
   ## What this is not
 
@@ -120,12 +151,22 @@ constraints:
     prov-2026-b5465dfa's decision leaves them, and it has to actually be
     sufficient.
   - >-
+    It lives at conformance/ in the repository root and is named in the supported
+    surface, never under testdata/. The audience is a writer not using Go, and a
+    corpus only a Go implementation can find or consume checks the one
+    implementation that does not need checking.
+  - >-
+    A corpus bootstrapped by a foreign writer and upstreamed satisfies this
+    record's artifact but not its purpose. Sedum's tests must depend on whatever
+    lands, so the published fixtures are what fails when Sedum regresses.
+  - >-
     The corpus covers the marker format only. Transform and rendering behavior
     is out of scope and settled in prov-2026-b5465dfa.
 affected_scope:
-  - testdata/**
+  - conformance/**
   - internal/inject/**
   - PRD.md
+  - TOOL_BOUNDARIES.md
 forbidden_scope: []
 type: blueprint
 implements: prov-2026-d554bfc3
