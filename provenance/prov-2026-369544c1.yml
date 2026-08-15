@@ -94,6 +94,19 @@ intent: |
   where the value compounds: a hand-authored recording omitting a kwarg fails
   in Phase 5 with a diagnostic naming it, terminally and before anything is
   written, rather than part-way through injection.
+
+  That is no longer a hypothetical about hand-editing. Under
+  [[prov-2026-59535684]] the recording is a submission protocol, and a caller
+  doing its own selection submits invocations Sedum never chose. Such a caller
+  reads the same catalog and needs the same fact: that a variant requires a kwarg
+  the shared schema had to call optional. Without the derivation it binds by the
+  declaration, submits, and gets a Phase 6 halt naming a template file - the same
+  failure this record was written from, arriving through a different door and
+  landing on a caller with no retry loop at all.
+
+  So per-variant needs are additive to sedum actions --json as well as to the
+  prompt. The catalog is the contract and each consumer's view is a rendering of
+  it ([[prov-2026-14c832bf]]); this is a field both consumers read.
 constraints:
   - >-
     Requirements are derived from templates, never declared per variant.
@@ -122,9 +135,15 @@ constraints:
   - >-
     A composite's derived requirements are the union of its children's, resolved
     per child against the template that child selects.
+  - >-
+    Derived requirements are additive to sedum actions --json, not to the prompt
+    alone. A caller doing its own selection submits invocations through replay's
+    terminal validation and has no retry loop, so it needs the fact at least as
+    much as the model does.
 affected_scope:
   - internal/genpkg/**
   - internal/catalog/**
+  - internal/cli/actions.go
   - internal/selection/**
   - internal/expand/**
   - testdata/**
@@ -136,7 +155,8 @@ supersedes: ""
 superseded_by: ""
 related:
   - prov-2026-9dcf2658
-  - prov-2026-1bbb8e2e
+  - prov-2026-14c832bf
+  - prov-2026-59535684
 sealed_at_sha: ""
 associated_specs: []
 associated_traces: []
