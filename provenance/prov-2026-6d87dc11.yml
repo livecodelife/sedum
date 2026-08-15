@@ -86,6 +86,31 @@ intent: |
   The distinction from a retry matters and is worth stating: a retry says the
   answer was wrong, and this says the answer may be incomplete. They must not be
   reported the same way, and exhausting one must not consume the other.
+
+  ## It belongs to Phase 4 and stops there
+
+  Replay gets none of this, and the reason is not that it would be hard. A
+  recording under --execute is a submission from a caller that did its own
+  selection ([[prov-2026-59535684]]), and an unfilled anchor in that world is not
+  an oversight to feed back - it is the caller's decision, made before Sedum was
+  invoked, with nobody to re-prompt. Replay's validation is terminal by design and
+  this observation is not a validation failure, so it is not a reason to halt one
+  either.
+
+  What such a caller may legitimately want is the observation itself, and it can
+  compute it: the markers a file plants are readable from the file, and which
+  anchors an invocation fills is derivable from actions.yaml. So the fact stays
+  available on the surface without Sedum offering an opinion about it, which is
+  the right division - Sedum re-prompts the model it called, and says nothing to a
+  caller about selections it did not make.
+
+  ## One computation, three callers
+
+  Planted markers per created file are also what [[prov-2026-14c832bf]] needs, in
+  two places: the Phase 5 anchor-applicability check for a free-target action, and
+  the file list that tells the model which files carry which anchors. Same input,
+  same function, three consumers - so it is built once, in genpkg, rather than
+  three times at three call sites.
 constraints:
   - >-
     Unfilled anchors are computed from the markers Phase 3 actually planted and
@@ -109,6 +134,14 @@ constraints:
   - >-
     Only marker anchors participate. start_of_file, end_of_file and the match
     anchors name no region a file can be observed to be missing.
+  - >-
+    The completeness observation is Phase 4's and does not run under --execute. A
+    replayed recording is a caller's own selection, so an unfilled anchor there is
+    a decision rather than an oversight, and there is nobody to re-prompt.
+  - >-
+    Planted markers per created file are computed once in genpkg and shared with
+    prov-2026-14c832bf's Phase 5 check and its file list. Three consumers, one
+    function - not three call sites each reading files for themselves.
 affected_scope:
   - internal/selection/**
   - internal/pipeline/**
@@ -125,6 +158,8 @@ related:
   - prov-2026-9dcf2658
   - prov-2026-369544c1
   - prov-2026-c5697387
+  - prov-2026-14c832bf
+  - prov-2026-59535684
 sealed_at_sha: ""
 associated_specs: []
 associated_traces: []
