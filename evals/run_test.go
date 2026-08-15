@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"math"
 	"os"
 	"strings"
 	"testing"
@@ -324,6 +325,74 @@ func TestCostIsCountedInCallsNotSeconds(t *testing.T) {
 	// the retry budget: one of the three answered samples took no rejection.
 	if spent.FirstTry != 1 {
 		t.Errorf("counted %d first-try answers, want 1", spent.FirstTry)
+	}
+}
+
+// Five samples do not distinguish 4/5 from 5/5, and a table that prints them in
+// the same column invites a reader to think otherwise. The chi case has come in
+// at 5/5, 2/5 and 4/5 across runs where the difference could not have been
+// caused by the change between them (prov-2026-0baaa119).
+func TestARateCarriesTheUncertaintyItsSampleSizeGivesIt(t *testing.T) {
+	cases := []struct {
+		successes, samples int
+		low, high          float64
+	}{
+		// The reading most likely to be over-believed: 5/5 is not evidence of
+		// a rate of 1.00, and the normal approximation would claim it was by
+		// collapsing to zero width here.
+		{5, 5, 0.57, 1.00},
+		{4, 5, 0.38, 0.96},
+		{2, 5, 0.12, 0.77},
+		{0, 5, 0.00, 0.43},
+	}
+
+	for _, c := range cases {
+		got := wilson(c.successes, c.samples)
+		if math.Abs(got.Low-c.low) > 0.01 || math.Abs(got.High-c.high) > 0.01 {
+			t.Errorf("wilson(%d,%d) = [%.2f,%.2f], want [%.2f,%.2f]",
+				c.successes, c.samples, got.Low, got.High, c.low, c.high)
+		}
+	}
+
+	// The fraction stays visible: the sample size is what produced the width.
+	if got := wilson(4, 5).String(); !strings.HasPrefix(got, "4/5 ") {
+		t.Errorf("an interval hid the fraction that produced it: %s", got)
+	}
+	if got := wilson(0, 0).String(); got != "-" {
+		t.Errorf("an interval over no samples rendered as %q, want a dash", got)
+	}
+}
+
+// Overlap is the condition under which a reported difference is not
+// distinguishable from sampling. It decides nothing - the harness reports rates
+// rather than verdicts - but a table that stays silent about it reports noise
+// as a result.
+func TestOverlappingIntervalsAreMarkedInAComparison(t *testing.T) {
+	a := measurement(
+		valid(map[string]int{"addColumn": 2, "createEndpoint": 5}, "addColumn"),
+		valid(map[string]int{"addColumn": 2, "createEndpoint": 5}, "addColumn"),
+	)
+	// Same action, one sample short: 2/2 against 1/2, whose intervals overlap
+	// heavily at this sample size.
+	b := measurement(
+		valid(map[string]int{"addColumn": 2, "createEndpoint": 5}, "addColumn"),
+		valid(map[string]int{"createEndpoint": 5}, "createEndpoint"),
+	)
+
+	var buf bytes.Buffer
+	Compare(&buf, a, b)
+	out := buf.String()
+
+	if !strings.Contains(out, "~") {
+		t.Errorf("a comparison of overlapping rates is not marked:\n%s", out)
+	}
+	if !strings.Contains(out, "do not distinguish") {
+		t.Errorf("the legend does not say what the mark means:\n%s", out)
+	}
+
+	// Non-overlapping stays unmarked, or the mark would mean nothing.
+	if wilson(5, 5).Overlaps(wilson(0, 5)) {
+		t.Error("5/5 and 0/5 were reported as indistinguishable")
 	}
 }
 

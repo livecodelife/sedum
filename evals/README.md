@@ -40,6 +40,14 @@ measured is a sampled distribution, and an assertion over a coin flip is a flaky
 test wearing a suit. The runner fails only when a case produced *nothing* to
 measure, which is a broken harness rather than a poor model.
 
+**Every rate carries a 95% Wilson interval**, and the fraction stays beside it
+because the sample size is what produced the width. At five samples, 4/5 is
+`[0.38, 0.96]` and 5/5 is `[0.57, 1.00]` — overlapping, so a run that moved from
+one to the other has not shown you anything. `Compare` marks overlapping rows
+with `~`. There are deliberately no significance tests: an interval states the
+measurement honestly, while a p-value is a verdict wearing a number, and the
+decision belongs to the reader.
+
 **A rate is not evidence on its own.** It needs the sample size, the model, and
 the build it was taken on — which is why `Report` prints all three on the header
 line, and why `Compare` exists. Changing the catalog and observing a better rate
