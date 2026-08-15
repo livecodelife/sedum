@@ -1,6 +1,6 @@
 id: prov-2026-eb283c56
 title: Eval results are append-only observations, pinned to a commit
-status: open
+status: implemented
 created_at: "2026-08-15"
 author: calebcowen@gmail.com
 intent: |
@@ -106,7 +106,7 @@ superseded_by: ""
 related:
   - prov-2026-d61010a4
   - prov-2026-6d87dc11
-sealed_at_sha: ""
+sealed_at_sha: 48b4e18d08b1de1fa1615ad8640aee0e599b1ad3
 associated_specs:
   # The codec and the commit-pinning are deterministic and need no model: a
   # round trip, an append that preserves what was there, and an entry that
