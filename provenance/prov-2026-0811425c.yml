@@ -1,0 +1,124 @@
+id: prov-2026-0811425c
+title: Phase 5 reports what it spent, and a rejected answer is a type rather than a string
+status: draft
+created_at: "2026-08-15"
+author: calebcowen@gmail.com
+intent: |
+  [[prov-2026-b4555efc]] gave the harness a retry budget and, in the same move,
+  made two numbers compete for one run. At a budget of zero the entry says how
+  often one call validates and cannot say what a complete answer contains,
+  because the samples that would have said it did not survive. At a budget of two
+  it says the second and loses the first: "valid within 3 calls: 5/5" is
+  consistent with five samples that validated immediately and with five that
+  needed three, and nothing in the entry distinguishes them.
+
+  Both runs made the number. Neither kept it.
+
+  ## What is missing is a count, not a design
+
+  `Select` runs a loop it fully understands - it knows which answers were
+  rejected, how many calls it made, and whether it spent the completeness
+  observation - and then returns a slice, discarding all of it. The harness
+  reconstructs what it can from the outside: wall time per sample, which is calls
+  multiplied by an unknown and varying per-call cost, and which is why the chi
+  and rails arms cannot be compared on cost even now that both are 5/5.
+
+  So Phase 5 returns what it spent alongside what it chose.
+
+  **Three counts, because there are three separate facts.** Calls is every model
+  call the record cost. Rejected is how many of those answers Phase 5 refused,
+  which is what makes first-call validity recoverable at any budget - a sample
+  with zero rejections validated first try, whatever the budget allowed.
+  Completeness is the observation call, 0 or 1, kept apart because it draws from
+  its own budget ([[prov-2026-6d87dc11]]) and folding it into Rejected would
+  report a complete answer as a rejected one.
+
+  With those, the trade-off b4555efc had to describe stops existing. A run at a
+  raised budget answers both questions, and the two entries stop being
+  incomparable for the reason that mattered: cost per sample becomes calls rather
+  than seconds.
+
+  ## The string match goes at the same time
+
+  The harness classifies invalid-versus-failed by matching "did not validate"
+  against an error message, which its own README has carried as a known rough
+  edge since it was written: an unreachable endpoint and a rejected answer are
+  different measurements, and today one renamed error would silently move samples
+  from one column to the other.
+
+  It is the same seam. A caller that needs the attempt count off a *failed*
+  sample needs a typed error to read it from, so the sentinel and the counts
+  arrive together or the counts arrive only for the samples that succeeded.
+
+  The type carries the counts and the per-attempt violations it already
+  accumulates, so the error stays exactly as informative as it is today and
+  becomes machine-readable as well.
+
+  ## What this does not do
+
+  It does not change what Phase 5 accepts, rejects, or asks about. Every rule,
+  budget and re-prompt behaves as it does now; what changes is that the loop says
+  what it did rather than leaving the caller to infer it from a clock.
+
+  Nor is it an eval-only concern, which is why it lives in Sedum rather than
+  behind the harness's build tag. "How many model calls did this record cost" is
+  the question a package author asks about their own catalog, and the run log
+  answers it today only for whoever reads every line of it.
+constraints:
+  - >-
+    Phase 5 reports Calls, Rejected and Completeness alongside the invocations.
+    Three counts rather than one, because a rejected answer, a completeness
+    observation and a total are three different facts drawn from two budgets.
+  - >-
+    First-call validity is recoverable at any retry budget: a sample with zero
+    rejections validated on its first call, whatever the budget allowed. The
+    budget stops being a trade-off between two measurements.
+  - >-
+    A rejected answer is a typed error carrying the same counts and every
+    attempt's violations. Callers classify with errors.As rather than by matching
+    a message, and the diagnostic text stays as informative as it is today.
+  - >-
+    The completeness call is counted separately from validation attempts. It
+    draws from its own budget, and folding the two together would report a
+    complete answer as a rejected one.
+  - >-
+    Nothing about what Phase 5 accepts, rejects or asks about changes. This
+    record adds reporting and changes no decision.
+  - >-
+    An eval entry records the counts per sample, additively. The schema does not
+    move, a reader ignores what it does not recognise, and no existing field
+    changes meaning - so entries written before this remain readable and keep
+    meaning what they meant.
+  - >-
+    Cost per sample is reported in calls, not only in seconds. Two entries at
+    different retry budgets compare on calls, which is the comparison seconds
+    could never support.
+affected_scope:
+  - internal/selection/**
+  - internal/pipeline/**
+  - evals/**
+  - PRD.md
+forbidden_scope: []
+type: bug
+extends: prov-2026-e6969eb3
+supersedes: ""
+superseded_by: ""
+related:
+  - prov-2026-b4555efc
+  - prov-2026-6d87dc11
+  - prov-2026-eb283c56
+sealed_at_sha: ""
+associated_specs:
+  # selection owns the counts and the typed rejection; evals owns recording them
+  # per sample. Both are deterministic and need no model.
+  - path: internal/selection/selection_test.go
+    run_command: go test -count=1 ./$(dirname {{path}})
+  - path: evals/run_test.go
+    run_command: go test -count=1 ./$(dirname {{path}})
+associated_traces: []
+monitors: []
+tags:
+  - sedum
+  - selection
+  - evals
+  - measurement
