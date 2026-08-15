@@ -1,6 +1,6 @@
 id: prov-2026-945fa0aa
 title: Throughput is a property of how the server is run, and the harness says which
-status: draft
+status: open
 created_at: "2026-08-15"
 author: calebcowen@gmail.com
 intent: |
