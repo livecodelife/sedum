@@ -53,10 +53,10 @@ intent: |
   that produced it wants the check; a hand-edited generic scaffold has no
   corresponding records.
 
-  Open, and to be settled by this milestone: whether ingestion's duplicate-path
-  rejection applies on the replay path. record.checkDuplicatePaths rejects a path
-  named by two records, and its justification is that Phase 4 makes one model call
-  per record, so two records naming one file would mean two independent calls
+  Settled here rather than left open: ingestion's duplicate-path rejection moves
+  out of ingestion and into Phase 4's entry. record.checkDuplicatePaths rejects a
+  path named by two records, and its justification is that Phase 4 makes one model
+  call per record, so two records naming one file would mean two independent calls
   deciding one file's contents. Under --execute there is no model call and that
   justification does not hold - the recording already says what happens to the
   file, and scope validation is only asking whether the paths were authorized.
@@ -65,15 +65,22 @@ intent: |
   Sedum uses: it synthesises a recording and hands back the records for the scope
   check. Two records legitimately refining regions in one file is exactly what the
   marker's record attribute exists to support, and it would halt here for a reason
-  that belongs to a phase replay does not run.
+  that belongs to a phase replay does not run. The first such caller wants
+  concurrent single-invocation replays *and* scope validation, which is precisely
+  the combination the check forbids for no reason that survives replay.
 
-  Three options, in order of preference. Skip the check under --execute, since
-  the concern it encodes is Phase 4's and Phase 4 is skipped. Keep it and document
-  the restriction, which is honest but pushes callers to invoke Sedum once per
-  record for no benefit. Or move it out of ingestion into Phase 4's entry, which
-  puts the check where its justification lives and is probably right regardless of
-  which of the first two is chosen. Deciding this is in scope for M7 and the
-  decision belongs in an imprint under it.
+  Three options were weighed. Keeping it and documenting the restriction is ruled
+  out by that requirement: it would push a caller into one invocation per record
+  for no benefit. Skipping it under --execute works, and moving it to Phase 4's
+  entry achieves the same thing while putting the check where its justification
+  lives - so the second is chosen, because a conditional at the call site that
+  reads "unless replaying" is the same rule stated worse. Ingestion goes back to
+  ingesting.
+
+  The behavior on the grow path is unchanged, and that is the test: a
+  whole-directory run with two records naming one file still halts with the same
+  diagnostic, and it halts before a model is called rather than before records are
+  read.
 
   Testable: recording a run and replaying it produces byte-identical output with
   no model invocation; stopping at invocations and resuming with --execute
@@ -120,13 +127,19 @@ constraints:
     good enough to author against, not merely good enough to debug a
     hand-edit with.
   - >-
-    A record's duplicate-path rejection must not halt a replay for a reason that
-    belongs to Phase 4. Whether the check is skipped under --execute or moved to
-    where its justification lives is open, but a caller supplying records purely
-    for scope validation must not be forced into one invocation per record.
+    The duplicate-path check moves from ingestion to Phase 4's entry, where its
+    justification lives. A caller supplying records purely for scope validation is
+    never forced into one invocation per record, and the grow path's behavior is
+    unchanged - two records naming one file still halt, now before the model call
+    rather than before records are read.
+  - >-
+    Replay must support concurrent single-invocation recordings with scope
+    validation enabled. That combination is how a caller driving Sedum uses it,
+    and no check may forbid it for a reason belonging to a phase replay skips.
 affected_scope:
   - internal/recording/**
   - internal/pipeline/**
+  - internal/record/**
   - internal/cli/grow.go
   - testdata/**
 forbidden_scope: []
@@ -134,7 +147,10 @@ type: blueprint
 implements: prov-2026-d554bfc3
 supersedes: ""
 superseded_by: ""
-related: []
+related:
+  - prov-2026-59535684
+  - prov-2026-b5465dfa
+  - prov-2026-36c8a99c
 sealed_at_sha: ""
 associated_specs: []
 associated_traces: []
