@@ -340,14 +340,23 @@ func TestThroughputIsDerivedFromWhatWasCounted(t *testing.T) {
 	m.Wall = 10 * time.Second
 	m.Concurrency = 2
 
-	if got := m.Spent().PerSecond(m.Wall); math.Abs(got-600) > 0.01 {
-		t.Errorf("throughput %.2f tok/s, want 600 - 6000 tokens over 10s", got)
+	// Completion tokens only: 1000 over 10s. The 5000 prompt tokens are billed
+	// but were almost certainly never computed, and counting them as work would
+	// make a case look faster the larger its prompt is (prov-2026-e323b805).
+	if got := m.Spent().PerSecond(m.Wall); math.Abs(got-100) > 0.01 {
+		t.Errorf("throughput %.2f tok/s, want 100 - 1000 completion tokens over 10s", got)
 	}
 
 	var buf bytes.Buffer
 	Report(&buf, m)
-	if out := buf.String(); !strings.Contains(out, "throughput: 600.0 tok/s at concurrency 2") {
-		t.Errorf("report omits throughput at its concurrency:\n%s", out)
+	out := buf.String()
+	if !strings.Contains(out, "throughput: 100.0 completion tok/s at concurrency 2") {
+		t.Errorf("report omits completion throughput at its concurrency:\n%s", out)
+	}
+	// The prompt half stays on the tokens line, labelled for what it is: a
+	// hosted endpoint charges it and a rate limit counts it.
+	if !strings.Contains(out, "prompt billed") {
+		t.Errorf("the tokens line does not mark prompt tokens as billed:\n%s", out)
 	}
 }
 

@@ -28,7 +28,7 @@ func History(out io.Writer, caseID string, entries []Entry) {
 	// this width.
 	fmt.Fprintf(out, "  %-10s %-9s %2s %2s %2s  %-18s %-18s %-6s %-11s %-8s %s\n",
 		"date", "commit", "n", "r", "c",
-		"valid", "first call", "calls", "tok/call", "wall", "tok/s")
+		"valid", "first call", "calls", "tok/call", "wall", "gen tok/s")
 
 	var dirty bool
 	var overlapped bool
@@ -122,20 +122,24 @@ func wallOf(e Entry) string {
 	return round(time.Duration(e.WallMS) * time.Millisecond).String()
 }
 
-// throughputOf is the entry's token rate over its wall clock.
+// throughputOf is the entry's completion-token rate over its wall clock.
+//
+// Completion only: a prompt token is billed whether or not the server computed
+// it, and this one reuses cached prefixes so thoroughly that a prompt of two
+// thousand tokens costs one (prov-2026-e323b805).
 //
 // It is the column a concurrency sweep is read from, and it is only a
 // comparison between entries whose server was run the same way - which an entry
 // cannot record (prov-2026-945fa0aa).
 func throughputOf(e Entry) string {
-	total := 0
+	completion := 0
 	for _, r := range e.Runs {
-		total += r.PromptTokens + r.CompletionTokens
+		completion += r.CompletionTokens
 	}
-	if total == 0 || e.WallMS <= 0 {
+	if completion == 0 || e.WallMS <= 0 {
 		return "-"
 	}
-	return fmt.Sprintf("%.1f", float64(total)/(float64(e.WallMS)/1000))
+	return fmt.Sprintf("%.1f", float64(completion)/(float64(e.WallMS)/1000))
 }
 
 func callCost(e Entry) string {

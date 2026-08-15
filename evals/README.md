@@ -106,12 +106,14 @@ excludes samples that never reached the model.
 calls + 1 retry + 3 completeness observations, and the mean is the number to
 compare against another arm's.
 
-**`tokens:`** — prompt against completion. **The ratio is a diagnosis.** A
-prompt-dominated case is slow because the catalog is being re-read every call,
-which prefix caching removes; a completion-dominated one is slow because the
-model has more to write, which caching cannot touch.
+**`tokens:`** — prompt billed against completion produced. **Billed is not
+computed**: this server reuses a cached prefix, so a 1799-token prompt costs one
+token of work. The prompt figure is what a hosted endpoint would charge and what
+a rate limit counts; it is not where the local time goes.
 
-**`throughput:`** — counted tokens over the wall clock, at that concurrency.
+**`throughput:`** — *completion* tokens over the wall clock, at that
+concurrency. Completion only, because those are the tokens the machine produced;
+counting billed prompt tokens made a case look faster the larger its prompt was.
 Comparable across runs *only* when the server was run the same way both times.
 
 **The action table** — `want` is what a complete answer contains. `selected` is
@@ -131,7 +133,7 @@ weighing and rejecting it, it was never arriving there.
 | Are the answers complete? | the `exact` column |
 | Missing entirely, or showing up short? | `selected` against `exact` |
 | What does a run cost? | `cost:` calls per sample |
-| *Why* is this case slow? | the `tokens:` prompt/completion ratio |
+| *Why* is this case slow? | the `completion` half of `tokens:` — the prompt is cached |
 | Is the box throttling? | the fastest-to-slowest spread |
 | Did my change do anything? | the `~` marks in `history` |
 
@@ -242,27 +244,39 @@ happened (`prov-2026-6f728c95`).
 configuration are not in either output, so they are unknown here rather than
 assumed.
 
-### Prefix caching is unmeasured, not configured
+### Prefix caching is already on, and there is no flag for it
 
 A case's prompt is the record plus the catalog, and it is **byte-identical
 across every sample of that case** — samples differ only in the model's
-sampling. If the server recomputes that prefix per call it is doing the same
-work over and over, and the `tokens:` line says how much is at stake: at
-`90fe770` the chi case spent about 2.6k prompt tokens per call against a few
-hundred completion tokens.
+sampling. The llama.cpp backend under LM Studio exploits that automatically: it
+picks a slot by longest-common-prefix similarity and keeps everything up to the
+divergence point.
 
-**Whether any of it is being cached today is unknown**, and nothing here has
-enabled it. Two things make that harder to settle than it sounds:
+From the server log during a rails run:
 
-- **Token counts cannot detect it.** `usage` reports the prompt length whether
-  or not the prefix was recomputed, so a cache hit and a cache miss are
-  indistinguishable in the entry.
-- **The only external signal is the wall clock**, which the sweep below measured
-  at ±31% on this machine. An A/B of caching therefore needs repeated conditions
-  before it needs a flag.
+```
+slot get_availabl: selected slot by LCP similarity, sim_best = 1.000 (> 0.100 thold)
+slot update_slots: new prompt, n_keep = 1799, task.n_tokens = 1799
+slot update_slots: n_past was set to 1798
+prompt eval time =     746.79 ms /     1 tokens
+       eval time =  194531.80 ms /   603 tokens (322.61 ms per token, 3.10 tokens per second)
+```
 
-So this is an open question with a known method, not a setting someone forgot to
-turn on.
+**One token of 1799 is evaluated.** Across a day of runs, 63 prompt evaluations
+computed a single token, three computed the full prompt as cold starts, and the
+rest were completeness re-prompts, which share the prefix and diverge after it.
+
+Two consequences worth keeping straight:
+
+- **Generation is essentially the whole cost** — 746 ms against 194.5 s, or
+  99.6%. A slow case is slow because of what the model writes, not what it reads.
+- **Billed is not computed.** `usage` reports the full prompt length on a cache
+  hit, so the harness cannot see how much was recomputed, and the `tokens:` line
+  says `prompt billed` rather than implying work.
+
+There is nothing to enable and no flag to pass: `lms load` exposes context
+length, parallelism, GPU ratio, and TTL, and no cache options, because the reuse
+is structural.
 
 ### What the concurrency sweep found
 

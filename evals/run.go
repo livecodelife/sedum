@@ -307,21 +307,28 @@ type Cost struct {
 	CompletionTokens int
 }
 
-// PerSecond is the measurement's token throughput over its wall clock.
+// PerSecond is the measurement's completion-token throughput over its wall
+// clock.
+//
+// Completion tokens only, and that is the whole point. A prompt token is billed
+// whether or not it was computed, and this server computes almost none of them:
+// llama.cpp selects a slot by longest-common-prefix similarity, so a case whose
+// prompt is identical across samples evaluates one token of it and reuses the
+// rest. Counting billed prompt tokens as work overstated this by about four
+// times, and made a case look faster the larger its prompt was
+// (prov-2026-e323b805).
 //
 // Derived from what was counted, never from a model's advertised rate: the
 // advertised number describes a single stream on the vendor's hardware, and
-// what a run is bounded by is this server, at this concurrency, with whatever
-// prefix caching it was configured for (prov-2026-945fa0aa).
+// what a run is bounded by is this server at this concurrency.
 //
 // Zero when the wall clock is zero or no endpoint reported usage, because a
 // throughput of zero is a measurement and this is its absence.
 func (c Cost) PerSecond(wall time.Duration) float64 {
-	total := c.PromptTokens + c.CompletionTokens
-	if wall <= 0 || total == 0 {
+	if wall <= 0 || c.CompletionTokens == 0 {
 		return 0
 	}
-	return float64(total) / wall.Seconds()
+	return float64(c.CompletionTokens) / wall.Seconds()
 }
 
 // Spent sums what the samples cost. Failed samples contribute nothing: a call

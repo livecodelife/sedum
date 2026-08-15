@@ -58,20 +58,18 @@ func Report(out io.Writer, m Measurement) {
 	// answer are different problems with different responses.
 	if spent.PromptTokens > 0 || spent.CompletionTokens > 0 {
 		perCall := func(n int) float64 { return float64(n) / float64(spent.Calls) }
-		fmt.Fprintf(out, "  tokens: %s prompt + %s completion, per call %.0f + %.0f\n",
+		fmt.Fprintf(out, "  tokens: %s prompt billed + %s completion, per call %.0f + %.0f\n",
 			thousands(spent.PromptTokens), thousands(spent.CompletionTokens),
 			perCall(spent.PromptTokens), perCall(spent.CompletionTokens))
 
-		// Throughput, derived from what was counted rather than from a model's
-		// advertised rate. It is a property of how the server was run as much
-		// as of the model, which is why it is printed with the concurrency and
-		// why a comparison across runs needs the server invocation stated
-		// (prov-2026-945fa0aa).
+		// Completion tokens only, because those are the ones the machine
+		// produced. A server that reuses a cached prefix evaluates one token of
+		// a two-thousand-token prompt, so counting billed prompt tokens as work
+		// would make a case look faster the larger its prompt is
+		// (prov-2026-e323b805).
 		if tps := spent.PerSecond(m.Wall); tps > 0 {
-			fmt.Fprintf(out, "  throughput: %.1f tok/s at concurrency %d (prompt %.1f, completion %.1f)\n",
-				tps, m.Concurrency,
-				float64(spent.PromptTokens)/m.Wall.Seconds(),
-				float64(spent.CompletionTokens)/m.Wall.Seconds())
+			fmt.Fprintf(out, "  throughput: %.1f completion tok/s at concurrency %d\n",
+				tps, m.Concurrency)
 		}
 	}
 
