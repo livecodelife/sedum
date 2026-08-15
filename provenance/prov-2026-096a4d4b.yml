@@ -1,6 +1,6 @@
 id: prov-2026-096a4d4b
 title: A call is not a unit of cost, so the run counts tokens as well
-status: draft
+status: open
 created_at: "2026-08-15"
 author: calebcowen@gmail.com
 intent: |
