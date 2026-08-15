@@ -1,0 +1,45 @@
+# The case the harness was built from. Its expectations are what a complete
+# answer contains, taken from the runs where the model produced one - not from
+# what it usually produces, which is the thing being measured.
+#
+# addColumn is the interesting row. Across nineteen manual runs it was selected
+# on roughly half of them, and it appeared if and only if it appeared first
+# (prov-2026-6d87dc11).
+id: todo-rails
+
+application:
+  name: todo
+  # Tier 1. A single resource, five endpoints, no auth and no relations. The
+  # floor of the complexity axis rather than a representative sample of it.
+  complexity: 1
+
+framework: rails
+tightness: defined
+arm: sedum
+
+# Outside this repository, because the fixture applications are real projects.
+# Resolved against the root passed to Load, which defaults to the parent of the
+# checkout.
+generators: todo-rails/_generators
+records: todo-rails/provenance
+
+models:
+  - qwen2.5-coder-14b-instruct-mlx
+
+expect:
+  actions:
+    # Two columns on the migration: title and completed.
+    addColumn: 2
+    # Five REST endpoints, each a composite covering the action and its route.
+    createEndpoint: 5
+    addControllerTest: 5
+    definePermittedParams: 1
+    addValidation: 1
+
+# Reserved. Measuring this means applying the selection, starting the target and
+# running its contracts, which is a different order of cost from a model call.
+# Declared here so the schema does not change once it is implemented.
+#
+# behavior:
+#   specs: todo-rails/linespec
+#   pass_rate: 1.0
