@@ -1,6 +1,6 @@
 id: prov-2026-e6969eb3
 title: A local eval harness, because the measurements it replaces were shell loops and grep
-status: draft
+status: open
 created_at: "2026-08-15"
 author: calebcowen@gmail.com
 intent: |
