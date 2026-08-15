@@ -95,6 +95,12 @@ type SampleRun struct {
 	Calls        int `json:"calls,omitempty"`
 	Rejected     int `json:"rejected,omitempty"`
 	Completeness int `json:"completeness,omitempty"`
+
+	// PromptTokens and CompletionTokens are the server's accounting of what
+	// those calls cost. Omitted when the endpoint reported none, so an entry
+	// says "not measured" rather than "cost nothing".
+	PromptTokens     int `json:"prompt_tokens,omitempty"`
+	CompletionTokens int `json:"completion_tokens,omitempty"`
 }
 
 // EntrySchema is the current entry format. Additive changes do not move it.
@@ -134,13 +140,15 @@ func NewEntry(m Measurement, endpoint string) Entry {
 
 	for _, s := range m.Samples {
 		r := SampleRun{
-			Outcome:      "valid",
-			Counts:       s.Counts,
-			First:        s.First,
-			MS:           s.Elapsed.Milliseconds(),
-			Calls:        s.Calls,
-			Rejected:     s.Rejected,
-			Completeness: s.Completeness,
+			Outcome:          "valid",
+			Counts:           s.Counts,
+			First:            s.First,
+			MS:               s.Elapsed.Milliseconds(),
+			Calls:            s.Calls,
+			Rejected:         s.Rejected,
+			Completeness:     s.Completeness,
+			PromptTokens:     s.PromptTokens,
+			CompletionTokens: s.CompletionTokens,
 		}
 		switch {
 		case s.Err != nil:

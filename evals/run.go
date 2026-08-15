@@ -45,8 +45,8 @@ type Sample struct {
 	// reported without the ability to say what the misses looked like.
 	Detail string
 
-	// Calls, Rejected and Completeness are what the sample cost, summed over
-	// the case's records.
+	// Calls, Rejected, Completeness and the token counts are what the sample
+	// cost, summed over the case's records.
 	//
 	// Cost in calls rather than only in seconds is what makes two runs at
 	// different retry budgets comparable, and Rejected is what makes first-call
@@ -56,6 +56,13 @@ type Sample struct {
 	Calls        int
 	Rejected     int
 	Completeness int
+
+	// PromptTokens and CompletionTokens are what those calls cost, as the
+	// server accounted for it. Zero means the endpoint reported no usage, which
+	// is why a report prints them only when there are some: a zero averaged in
+	// would read as a measurement (prov-2026-096a4d4b).
+	PromptTokens     int
+	CompletionTokens int
 
 	// Err is set when the run could not be made at all - an endpoint that was
 	// down, a package that would not load. Excluded from every rate, because an
@@ -215,12 +222,14 @@ func sample(ctx context.Context, c Case, model string, retries int) Sample {
 		var rejected *selection.Rejection
 		if errors.As(err, &rejected) {
 			return Sample{
-				Invalid:      true,
-				Detail:       firstLine(err.Error()),
-				Calls:        rejected.Calls,
-				Rejected:     rejected.Rejected,
-				Completeness: rejected.Completeness,
-				Elapsed:      time.Since(started),
+				Invalid:          true,
+				Detail:           firstLine(err.Error()),
+				Calls:            rejected.Calls,
+				Rejected:         rejected.Rejected,
+				Completeness:     rejected.Completeness,
+				PromptTokens:     rejected.PromptTokens,
+				CompletionTokens: rejected.CompletionTokens,
+				Elapsed:          time.Since(started),
 			}
 		}
 		return Sample{Err: err, Detail: firstLine(err.Error()), Elapsed: time.Since(started)}
@@ -231,6 +240,8 @@ func sample(ctx context.Context, c Case, model string, retries int) Sample {
 		s.Calls += sel.Calls
 		s.Rejected += sel.Rejected
 		s.Completeness += sel.Completeness
+		s.PromptTokens += sel.PromptTokens
+		s.CompletionTokens += sel.CompletionTokens
 		for _, inv := range sel.Invocations {
 			if s.First == "" {
 				s.First = inv.Action
@@ -287,6 +298,13 @@ type Cost struct {
 	// first-call validity, and it survives any retry budget - which is the
 	// measurement a raised budget used to destroy (prov-2026-0811425c).
 	FirstTry int
+
+	// PromptTokens and CompletionTokens are what the calls cost. Their split
+	// is the point: a case whose calls are slow because its catalog is long and
+	// one whose calls are slow because it has more to emit are different
+	// problems, and a total would report them alike (prov-2026-096a4d4b).
+	PromptTokens     int
+	CompletionTokens int
 }
 
 // Spent sums what the samples cost. Failed samples contribute nothing: a call
@@ -299,6 +317,8 @@ func (m Measurement) Spent() Cost {
 		}
 		c.Calls += s.Calls
 		c.Completeness += s.Completeness
+		c.PromptTokens += s.PromptTokens
+		c.CompletionTokens += s.CompletionTokens
 		if s.Rejected == 0 {
 			c.FirstTry++
 		}

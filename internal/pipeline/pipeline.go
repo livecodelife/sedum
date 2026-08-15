@@ -116,13 +116,16 @@ type Selection struct {
 	Invocations []recording.Invocation
 
 	// Calls, Rejected and Completeness are what Phase 5 spent reaching this
-	// answer. They are carried rather than logged only, because "what did this
-	// record cost" is a question about the run and not about one phase's
-	// diagnostics (prov-2026-0811425c). A record no model was asked about
-	// carries zeroes, which is what it cost.
-	Calls        int
-	Rejected     int
-	Completeness int
+	// answer, and the token counts are what those calls cost as the server
+	// accounted for it. They are carried rather than logged only, because "what
+	// did this record cost" is a question about the run and not about one
+	// phase's diagnostics (prov-2026-0811425c, prov-2026-096a4d4b). A record no
+	// model was asked about carries zeroes, which is what it cost.
+	Calls            int
+	Rejected         int
+	Completeness     int
+	PromptTokens     int
+	CompletionTokens int
 }
 
 // Run executes the phases in order.
@@ -298,12 +301,14 @@ func selectAll(ctx context.Context, cfg Config, records *record.Set, files []res
 		}
 
 		out = append(out, Selection{
-			RecordID:     rec.ID,
-			Files:        mine,
-			Invocations:  answer.Invocations,
-			Calls:        answer.Calls,
-			Rejected:     answer.Rejected,
-			Completeness: answer.Completeness,
+			RecordID:         rec.ID,
+			Files:            mine,
+			Invocations:      answer.Invocations,
+			Calls:            answer.Calls,
+			Rejected:         answer.Rejected,
+			Completeness:     answer.Completeness,
+			PromptTokens:     answer.PromptTokens,
+			CompletionTokens: answer.CompletionTokens,
 		})
 	}
 

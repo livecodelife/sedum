@@ -73,13 +73,13 @@ type stub struct {
 	prompts  [][]selection.Message
 }
 
-func (s *stub) Complete(_ context.Context, messages []selection.Message) (string, error) {
+func (s *stub) Complete(_ context.Context, messages []selection.Message) (selection.Completion, error) {
 	s.calls++
 	s.prompts = append(s.prompts, messages)
 	if s.response == "" {
-		return `{"invocations": []}`, nil
+		return selection.Completion{Content: `{"invocations": []}`}, nil
 	}
-	return s.response, nil
+	return selection.Completion{Content: s.response}, nil
 }
 
 func config(t *testing.T) Config {

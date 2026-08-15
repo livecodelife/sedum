@@ -40,14 +40,37 @@ type Message struct {
 	Content string
 }
 
+// Completion is one model response: the message, and what the call cost.
+//
+// The counts are what the server already reported and Sedum used to drop at the
+// client boundary. A call count says how many times the model was asked; this
+// says what each asking cost, which is the difference between knowing that one
+// case is slower and knowing whether its prompt or its answer is the reason
+// (prov-2026-096a4d4b).
+type Completion struct {
+	Content string
+
+	// PromptTokens and CompletionTokens are the server's own accounting.
+	//
+	// Zero means the server reported none - not every endpoint fills the usage
+	// block - and a caller must keep that distinction rather than averaging a
+	// zero in as though it were measured.
+	PromptTokens     int
+	CompletionTokens int
+}
+
 // Client is the model.
 //
 // It is an interface for two reasons that matter equally: the retry loop is the
 // part most worth testing and the part least worth a network call to test, and
-// the structured-output contract must not quietly become a tool-calling one -
-// a client that can only return a string cannot smuggle in tool calls.
+// the structured-output contract must not quietly become a tool-calling one.
+//
+// Completion is text and two integers, which keeps that second property exactly.
+// It was never "returns a string" that mattered - it was that the return carries
+// no channel for anything but the answer, and there is nothing in a token count
+// a tool call can arrive through.
 type Client interface {
-	Complete(ctx context.Context, messages []Message) (string, error)
+	Complete(ctx context.Context, messages []Message) (Completion, error)
 }
 
 // Request is one provenance record's Phase 4 input.
@@ -99,6 +122,17 @@ type Answer struct {
 	// Folding the two together would report a complete answer as a rejected
 	// one.
 	Completeness int
+
+	// PromptTokens and CompletionTokens are what the calls cost, summed across
+	// them, as the server accounted for it.
+	//
+	// Beside Calls rather than instead of it: a call is what a retry budget is
+	// spent from, and tokens are what a call costs. Neither derives the other,
+	// and the two together are what says whether a slow case has a long prompt
+	// or a long answer (prov-2026-096a4d4b). Zero means the server reported
+	// nothing, which is not the same as a call that cost nothing.
+	PromptTokens     int
+	CompletionTokens int
 }
 
 // Rejection is an answer Phase 5 refused every time it asked.
@@ -116,12 +150,15 @@ type Rejection struct {
 	// mistake three times are different problems with different fixes.
 	Attempts []Attempt
 
-	// Calls, Rejected and Completeness are Answer's counts for a record that
-	// never produced one, so cost is reported for the samples that failed as
-	// well as the samples that did not.
-	Calls        int
-	Rejected     int
-	Completeness int
+	// Calls, Rejected, Completeness and the token counts are Answer's for a
+	// record that never produced one, so cost is reported for the samples that
+	// failed as well as the samples that did not - and a sample that spent its
+	// whole budget being refused is the expensive one.
+	Calls            int
+	Rejected         int
+	Completeness     int
+	PromptTokens     int
+	CompletionTokens int
 }
 
 // Attempt is one rejected answer.
@@ -203,9 +240,13 @@ func Select(ctx context.Context, client Client, req Request, opts Options) (Answ
 			// answer is not a cost attributable to a selection.
 			return Answer{}, fmt.Errorf("record %s: model call failed on attempt %d: %w", req.RecordID, i+1, err)
 		}
-		log.Info("model responded", "record", req.RecordID, "attempt", i+1, "response", raw)
+		answer.PromptTokens += raw.PromptTokens
+		answer.CompletionTokens += raw.CompletionTokens
+		log.Info("model responded", "record", req.RecordID, "attempt", i+1,
+			"response", raw.Content,
+			"prompt_tokens", raw.PromptTokens, "completion_tokens", raw.CompletionTokens)
 
-		invocations, violations := decode(raw)
+		invocations, violations := decode(raw.Content)
 		if len(violations) == 0 {
 			violations = validate(cat, packages, req.Files, invocations)
 		}
@@ -231,7 +272,7 @@ func Select(ctx context.Context, client Client, req Request, opts Options) (Answ
 					log.Info("selection leaves anchors unfilled", "record", req.RecordID,
 						"attempt", i+1, "unfilled", anchorSummary(unfilled))
 					messages = append(messages,
-						Message{Role: RoleAssistant, Content: raw},
+						Message{Role: RoleAssistant, Content: raw.Content},
 						Message{Role: RoleUser, Content: note(unfilled)},
 					)
 					continue
@@ -249,12 +290,14 @@ func Select(ctx context.Context, client Client, req Request, opts Options) (Answ
 		answer.Rejected++
 		if len(rejected) > opts.Retries {
 			return Answer{}, &Rejection{
-				RecordID:     req.RecordID,
-				Retries:      opts.Retries,
-				Attempts:     rejected,
-				Calls:        answer.Calls,
-				Rejected:     answer.Rejected,
-				Completeness: answer.Completeness,
+				RecordID:         req.RecordID,
+				Retries:          opts.Retries,
+				Attempts:         rejected,
+				Calls:            answer.Calls,
+				Rejected:         answer.Rejected,
+				Completeness:     answer.Completeness,
+				PromptTokens:     answer.PromptTokens,
+				CompletionTokens: answer.CompletionTokens,
 			}
 		}
 
@@ -262,7 +305,7 @@ func Select(ctx context.Context, client Client, req Request, opts Options) (Answ
 		// the violations but without what they refer to would ask the model to
 		// correct something it can no longer see.
 		messages = append(messages,
-			Message{Role: RoleAssistant, Content: raw},
+			Message{Role: RoleAssistant, Content: raw.Content},
 			Message{Role: RoleUser, Content: rejection(violations)},
 		)
 	}

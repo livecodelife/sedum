@@ -80,22 +80,31 @@ func NewOpenAI(model string) (*OpenAI, error) {
 // the same prompt that produced three correct invocations produced none
 // (prov-2026-4bcabb2f). The contract lives in the prompt and in Phase 5, which
 // is where it can be enforced specifically enough to re-prompt with.
-func (o *OpenAI) Complete(ctx context.Context, messages []Message) (string, error) {
+// The usage block is carried through rather than dropped. It is the server's
+// own accounting of what the call cost, and a harness that had to infer it from
+// elapsed time would be reading tokens multiplied by an unknown token rate
+// (prov-2026-096a4d4b). A server that fills none leaves the counts at zero,
+// which callers keep distinct from a call that cost nothing.
+func (o *OpenAI) Complete(ctx context.Context, messages []Message) (Completion, error) {
 	resp, err := o.client.CreateChatCompletion(ctx, openai.ChatCompletionRequest{
 		Model:       o.model,
 		Temperature: 0,
 		Messages:    wire(messages),
 	})
 	if err != nil {
-		return "", fmt.Errorf("model %s: %w", o.model, err)
+		return Completion{}, fmt.Errorf("model %s: %w", o.model, err)
 	}
 	if len(resp.Choices) == 0 {
 		// Not a validation failure: the server returned successfully and said
 		// nothing, which is a transport-level problem rather than a response
 		// worth re-prompting.
-		return "", fmt.Errorf("model %s returned no choices", o.model)
+		return Completion{}, fmt.Errorf("model %s returned no choices", o.model)
 	}
-	return resp.Choices[0].Message.Content, nil
+	return Completion{
+		Content:          resp.Choices[0].Message.Content,
+		PromptTokens:     resp.Usage.PromptTokens,
+		CompletionTokens: resp.Usage.CompletionTokens,
+	}, nil
 }
 
 func wire(messages []Message) []openai.ChatCompletionMessage {

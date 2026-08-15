@@ -79,8 +79,12 @@ prints both lines at a raised budget, and the entry keeps the counts per sample.
 
 What a raised budget still costs is **wall-clock comparability**. A sample that
 retries pays for every rejected answer, so seconds at one budget are not seconds
-at another. Compare cost in **calls** instead, which is what the counts are for:
-a per-sample time is calls multiplied by an unknown and varying per-call cost.
+at another. Compare cost in **calls** and **tokens** instead, which is what the counts are
+for: a per-sample time is calls multiplied by an unknown and varying per-call
+cost, and a per-call cost is tokens multiplied by an unknown token rate. The
+prompt/completion split is what says whether a slow case has a long catalog or
+a long answer — different problems with different responses. A server that fills
+no `usage` block gets no token line rather than a line of zeroes.
 The budget is in the entry and on the report header, and the validity line says
 `within N calls` rather than `first call` whenever it was not one.
 

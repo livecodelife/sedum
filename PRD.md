@@ -422,7 +422,7 @@ The third check is the one that keeps the phase boundary honest. Without it Phas
 
 On failure, re-prompt with the specific violations appended, up to a configured retry limit. This loop costs one model call — no compilation, no service startup, no test execution.
 
-**Phase 5 reports what it spent**: how many calls the record cost, how many answers were rejected, and whether the completeness observation was one of them. The loop is the only thing that can tell those apart after the fact, and a caller left to infer cost from elapsed time is reading calls multiplied by an unknown per-call cost. A record with no rejections validated on its first call, whatever the retry limit allowed — which is what keeps first-call validity measurable at any budget. An answer refused every time it was asked is returned as a typed rejection carrying those counts and every attempt's violations, so a rejected answer and an unreachable endpoint are distinguishable without matching on text.
+**Phase 5 reports what it spent**: how many calls the record cost, how many answers were rejected, whether the completeness observation was one of them, and the prompt and completion tokens the server accounted for. The loop is the only thing that can tell those apart after the fact, and a caller left to infer cost from elapsed time is reading calls multiplied by an unknown per-call cost. A record with no rejections validated on its first call, whatever the retry limit allowed — which is what keeps first-call validity measurable at any budget. An answer refused every time it was asked is returned as a typed rejection carrying those counts and every attempt's violations, so a rejected answer and an unreachable endpoint are distinguishable without matching on text.
 
 ### Completeness
 

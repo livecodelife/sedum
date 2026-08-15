@@ -50,6 +50,18 @@ func Report(out io.Writer, m Measurement) {
 		fmt.Fprintln(out)
 	}
 
+	// The prompt/completion split, printed only when the endpoint reported it.
+	// A server that fills no usage block gets no line rather than a line of
+	// zeroes, because zero tokens is a measurement and this is its absence
+	// (prov-2026-096a4d4b). The split is the point: a long catalog and a long
+	// answer are different problems with different responses.
+	if spent.PromptTokens > 0 || spent.CompletionTokens > 0 {
+		perCall := func(n int) float64 { return float64(n) / float64(spent.Calls) }
+		fmt.Fprintf(out, "  tokens: %s prompt + %s completion, per call %.0f + %.0f\n",
+			thousands(spent.PromptTokens), thousands(spent.CompletionTokens),
+			perCall(spent.PromptTokens), perCall(spent.CompletionTokens))
+	}
+
 	for _, d := range m.Details() {
 		fmt.Fprintf(out, "    %s\n", d)
 	}
@@ -142,6 +154,16 @@ func calls(retries int) string {
 		return "first call"
 	}
 	return fmt.Sprintf("within %d calls", retries+1)
+}
+
+// thousands keeps a token count readable without losing the small ones: a
+// four-figure count is exact, and anything larger is rounded to a tenth of a
+// thousand.
+func thousands(n int) string {
+	if n < 10_000 {
+		return fmt.Sprintf("%d", n)
+	}
+	return fmt.Sprintf("%.1fk", float64(n)/1000)
 }
 
 func ratio(n, of int) string {

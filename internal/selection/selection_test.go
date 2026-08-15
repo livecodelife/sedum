@@ -183,15 +183,21 @@ type stub struct {
 	seen      [][]Message
 }
 
-func (s *stub) Complete(_ context.Context, messages []Message) (string, error) {
+func (s *stub) Complete(_ context.Context, messages []Message) (Completion, error) {
 	s.seen = append(s.seen, slices.Clone(messages))
 	if s.err != nil {
-		return "", s.err
+		return Completion{}, s.err
 	}
 	if len(s.seen) > len(s.responses) {
-		return "", fmt.Errorf("called %d times, but only %d responses were staged", len(s.seen), len(s.responses))
+		return Completion{}, fmt.Errorf("called %d times, but only %d responses were staged", len(s.seen), len(s.responses))
 	}
-	return s.responses[len(s.seen)-1], nil
+	// Token counts a server would have reported, so the loop's accounting is
+	// exercised rather than assumed. They are deliberately unequal per call.
+	return Completion{
+		Content:          s.responses[len(s.seen)-1],
+		PromptTokens:     100 * len(s.seen),
+		CompletionTokens: 10 * len(s.seen),
+	}, nil
 }
 
 func selectWith(t *testing.T, req Request, retries int, responses ...string) ([]recording.Invocation, *stub, error) {
@@ -812,6 +818,39 @@ func TestAnAnswerReportsWhatItCost(t *testing.T) {
 	// and it draws from its own budget.
 	if got.Completeness != 1 {
 		t.Errorf("reported %d completeness calls, want 1", got.Completeness)
+	}
+}
+
+// Token counts leave with the calls that made them, summed across a record's
+// attempts. The stub reports a different count per call, so a sum that only
+// kept the last one would not add up.
+func TestAnAnswerCarriesWhatTheCallsCostInTokens(t *testing.T) {
+	bad := `{"invocations":[{"action":"noSuchAction","kwargs":{}}]}`
+	got, _, err := selectAnswer(t, railsRequest(t), 1, bad, validResponse)
+	if err != nil {
+		t.Fatalf("Select: %v", err)
+	}
+	// Two calls, at 100/10 then 200/20.
+	if got.PromptTokens != 300 || got.CompletionTokens != 30 {
+		t.Errorf("reported %d prompt and %d completion tokens, want 300 and 30",
+			got.PromptTokens, got.CompletionTokens)
+	}
+}
+
+// A rejected answer carries its token cost too. A sample that spent its whole
+// budget being refused is the expensive one, so dropping its counts would lose
+// the cost most worth knowing.
+func TestARejectionCarriesItsTokenCost(t *testing.T) {
+	bad := `{"invocations":[{"action":"noSuchAction","kwargs":{}}]}`
+	_, _, err := selectAnswer(t, railsRequest(t), 1, bad, bad)
+
+	var rejected *Rejection
+	if !errors.As(err, &rejected) {
+		t.Fatalf("want *Rejection, got %T", err)
+	}
+	if rejected.PromptTokens != 300 || rejected.CompletionTokens != 30 {
+		t.Errorf("rejection reports %d prompt and %d completion tokens, want 300 and 30",
+			rejected.PromptTokens, rejected.CompletionTokens)
 	}
 }
 

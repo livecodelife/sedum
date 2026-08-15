@@ -327,6 +327,41 @@ func TestCostIsCountedInCallsNotSeconds(t *testing.T) {
 	}
 }
 
+// A call count says how many times the model was asked; tokens say what each
+// asking cost. The split is what distinguishes a case that is slow because its
+// catalog is long from one that is slow because it has more to emit
+// (prov-2026-096a4d4b).
+func TestTokensAreCountedBesideCalls(t *testing.T) {
+	m := measurement(
+		Sample{Counts: map[string]int{"addColumn": 2}, Calls: 1, PromptTokens: 2000, CompletionTokens: 200},
+		Sample{Counts: map[string]int{"addColumn": 2}, Calls: 2, Rejected: 1, PromptTokens: 5000, CompletionTokens: 400},
+	)
+
+	spent := m.Spent()
+	if spent.PromptTokens != 7000 || spent.CompletionTokens != 600 {
+		t.Errorf("spent %d prompt and %d completion tokens, want 7000 and 600",
+			spent.PromptTokens, spent.CompletionTokens)
+	}
+
+	var buf bytes.Buffer
+	Report(&buf, m)
+	if out := buf.String(); !strings.Contains(out, "tokens: 7000 prompt + 600 completion") {
+		t.Errorf("report omits the token split:\n%s", out)
+	}
+}
+
+// A server that fills no usage block reported nothing, which is not the same as
+// calls that cost nothing. A line of zeroes would read as a measurement.
+func TestAnEndpointReportingNoUsageGetsNoTokenLine(t *testing.T) {
+	m := measurement(Sample{Counts: map[string]int{"addColumn": 2}, Calls: 1})
+
+	var buf bytes.Buffer
+	Report(&buf, m)
+	if out := buf.String(); strings.Contains(out, "tokens:") {
+		t.Errorf("a run with no usage reported a token line:\n%s", out)
+	}
+}
+
 // The budget stops being a trade-off between two measurements: a run at two
 // retries reports both what it validated within three calls and how often one
 // call was enough.
