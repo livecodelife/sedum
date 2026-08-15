@@ -1,6 +1,6 @@
 id: prov-2026-206fa618
 title: The completeness pass asks about anchors Phase 0 knows nothing can fill
-status: draft
+status: open
 created_at: "2026-08-15"
 author: calebcowen@gmail.com
 intent: |
@@ -100,11 +100,17 @@ constraints:
     An unfilled anchor remains never a hard error, and the observation is still
     fed back at most once per record.
   - >-
+    "An action targets this marker" is defined once, in genpkg, and read by both
+    a9e59197's load-time warning and the run-time fillable set. Two copies would
+    let the run ask about an anchor load already called dead, which is the exact
+    disagreement this record exists to remove.
+  - >-
     A package planting an anchor no action fills stays legal. Planting a region
     for a later record is the case prov-2026-6d87dc11's own rule was written for,
     and the defect is asking about it rather than tolerating it.
 affected_scope:
   - internal/expand/**
+  - internal/genpkg/**
   - internal/selection/**
   - testdata/**
   - PRD.md
@@ -120,10 +126,13 @@ related:
 sealed_at_sha: ""
 associated_specs:
   # expand owns the fillable set and the subtraction; selection owns the rule
-  # that a wholly-unfillable difference earns no re-prompt at all.
+  # that a wholly-unfillable difference earns no re-prompt at all. genpkg owns
+  # the one definition of what an action targets, which both read.
   - path: internal/expand/expand_test.go
     run_command: go test -count=1 ./$(dirname {{path}})
   - path: internal/selection/selection_test.go
+    run_command: go test -count=1 ./$(dirname {{path}})
+  - path: internal/genpkg/anchors_test.go
     run_command: go test -count=1 ./$(dirname {{path}})
 associated_traces: []
 monitors: []
