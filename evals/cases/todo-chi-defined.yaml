@@ -13,8 +13,10 @@ id: todo-chi-defined
 application:
   name: todo
   # Tier 2 rather than 1. Same five endpoints, but the record spans four
-  # generator packages and carries constraints about query protocol and driver
-  # choice that the Rails record has no equivalent of.
+  # generator packages, carries constraints about query protocol and driver
+  # choice that the Rails record has no equivalent of, and folds in two
+  # behaviors - partial update semantics and retrying startup - that the Rails
+  # record does not ask for.
   complexity: 2
 
 language: go
@@ -25,11 +27,14 @@ arm: sedum
 records: todo-api/records
 generators: todo-api/generators/defined
 
-# The fixture carries three records: the CRUD build, and two later bug records
-# that refine it. A sample costs one model call per record, so this case names
-# the one it is about rather than paying for all three.
-only:
-  - prov-2026-4317fe6c
+# No `only:` - the fixture carries exactly one record.
+#
+# The source project has three: the CRUD build and two later records refining
+# it. Sedum makes one model call per record, so three would measure three
+# different selections and charge the eval for all of them to learn about one.
+# The fixture condenses them into a single record stating the whole intent,
+# which is a deliberate deviation from the sibling project and is explained at
+# the top of records/todo-crud.yml.
 
 models:
   - id: qwen2.5-coder-14b-instruct

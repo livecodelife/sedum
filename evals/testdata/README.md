@@ -23,9 +23,23 @@ treat a `prov-*.yml` as one of *this* repository's records and lint it, and
 these belong to other repositories. Left as they were, this repo claimed four
 foreign records and refused to commit.
 
-Sedum reads the `id:` field rather than the filename, so the records are
-unchanged in every way that matters — `only:` in a case still names the real
-record ID.
+Sedum reads the `id:` field rather than the filename, so nothing about how a
+record is ingested changes.
+
+## Fixtures may deviate from their source projects
+
+`todo-api`'s three records are condensed here into one. Sedum makes **one model
+call per record**, so a fixture carrying three measures three different
+selections and charges the eval for all of them to learn about one. Sequencing
+records against a converging codebase is the harness's job, not Sedum's.
+
+The condensed record therefore has its own id — `eval-todo-chi`, not the source
+record's — because it is no longer that record and should not claim to be. Where
+a fixture diverges, the reason is written at the top of the file it diverges in.
+
+The rule: a fixture exists to make a measurement mean something, not to mirror a
+project. Where those pull apart, the measurement wins and the deviation is
+recorded.
 
 ## Why these are vendored rather than referenced
 
