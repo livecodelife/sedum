@@ -76,13 +76,60 @@ intent: |
   report. prov-2026-dc227be7 already requires replay's diagnostics to be good
   enough to author against. This adds no surface at all.
 
-  Preferred: the command. The caller's question is "which action and kwargs land
-  on this file", asked speculatively across candidates; a process launch per
-  candidate that answers in prose is the wrong shape for a lookup. Replay stays
-  the right way to ask "is this invocation valid", which is a different question
-  and is already answered. Settling which of the two ships is in this record's
-  scope, and the alternative is written here so that the choice is a decision
-  rather than an omission.
+  **Decided: the command, as sedum render.** The caller's question is "which
+  action and kwargs land on this file", asked speculatively across candidates; a
+  process launch per candidate that answers in prose is the wrong shape for a
+  lookup. Replay stays the right way to ask "is this invocation valid", which is
+  a different question and is already answered. The alternative is written above
+  so that this is a decision rather than an omission.
+
+  It is its own command rather than an extension of sedum actions --json. That
+  command answers "what can this package do", which is a per-package listing; this
+  one answers "where does this invocation land", which is per-invocation and takes
+  kwargs. Overloading the first with the second would make a listing command
+  require an action and a kwargs blob to answer its second question.
+
+    sedum render --generators <dir> --package <name> --action <name>
+                 --kwargs <json> --json
+
+  The signature is fixed here because a consumer has already been written against
+  it: Tendril's deterministic classifier calls exactly this to decide whether any
+  generative action can represent a change, declares it a hard dependency with no
+  fallback, and pins it in a version floor. That is the first evidence the
+  four-surface model is load-bearing rather than theoretical, and the shape of a
+  command with a caller waiting on it is not ours alone to revise.
+
+  ## sedum --version, for the same reason
+
+  A caller that depends on a command depends on a version of it, and cannot check
+  which one it has. Sedum has no --version flag and no version constant; the
+  recording's sedum_version field has nothing feeding it.
+
+  This is the same defect as the rendering hole, one step earlier: a caller is told
+  to invoke a binary and given no way to know whether that binary is the one the
+  instruction was written for. Under the strict reading it cannot link the package
+  to read a constant, so the surface has to answer it. Shipped as sedum --version
+  emitting a semver string, and as the value the recording carries, so the two
+  cannot drift.
+
+  ## Two open questions the same reading closes
+
+  TOOL_BOUNDARIES §8 leaves both open, and a written consumer answers both:
+
+  **Whether --only needs region granularity.** No. A caller synthesises a
+  single-invocation recording, which works today, and adding a selector vocabulary
+  to serve a need nobody has is the kind of surface growth this record exists to
+  resist.
+
+  **Whether a reserved consumer namespace belongs in the generator package.** No,
+  not on a consumer's account. It was proposed as somewhere a caller could keep
+  per-stack configuration Sedum validates the shape of but never interprets; the
+  consumer that wanted it derives that configuration instead. It remains
+  defensible on Sedum's own extensibility grounds and is recorded as unclaimed
+  rather than refused.
+
+  Both are closed the way this record closes things: a surface grows when a caller
+  demonstrates it must, and not before.
 
   A conformance corpus was considered as the answer and rejected. A corpus
   specifies formats well and behavior badly: it would have to enumerate every
@@ -96,9 +143,18 @@ intent: |
   sufficiency argument written beneath it rather than left implicit, and §4's
   second question is corrected to name the mechanism instead of instructing a
   caller to do something it cannot do. The PRD's integration surface section
-  gains the same argument and the same correction. The mechanism's
-  implementation lands under an imprint that declares its own code scope, once
-  the choice between the two candidates is made.
+  gains the same argument and the same correction, and its CLI surface gains
+  sedum render and sedum --version. TOOL_BOUNDARIES §8 loses the two questions
+  closed above.
+
+  The supported surface goes from four things to five, and the table that names
+  them says so: markers, the generator package, the recording, sedum grow
+  --execute, and sedum render. Counting it as an addition rather than folding it
+  into an existing row is the point - a surface that grows silently is one nobody
+  audits.
+
+  Since the choice between the candidates is settled, the mechanism is in this
+  record rather than deferred to an imprint under it.
 constraints:
   - >-
     The strict reading governs: nothing links against Sedum, the first-party
@@ -124,18 +180,39 @@ constraints:
     the inflection table would sanction a caller's reimplementation of every
     rule around it, which is the divergence this record exists to prevent.
   - >-
-    The mechanism stays inside the four-surface model - a command or an
-    extension of one, on identical terms for a third party and for ours. It adds
-    no runtime API, no hook, and no callback, and does not make Sedum callable
-    as a library by another name.
+    The mechanism stays inside the four-surface model - a command, on identical
+    terms for a third party and for ours. It adds no runtime API, no hook, and no
+    callback, and does not make Sedum callable as a library by another name.
   - >-
-    This record settles the linking decision and the injects_into rendering
-    hole. The marker conformance corpus, test_paths on the manifest, reasons on
-    unmanaged entries, and the replay duplicate-path check are separate
-    questions and are not settled here.
+    The rendering command ships as sedum render, taking --generators, --package,
+    --action, --kwargs and --json. The signature is fixed rather than preferred,
+    because a consumer has already been written against it and declares it a hard
+    dependency with no fallback.
+  - >-
+    sedum render answers where one invocation lands. It is not folded into
+    sedum actions, which answers what a package can do - a per-package listing
+    must not require an action and a kwargs blob to answer its second question.
+  - >-
+    sedum --version emits a semver string and is the same value the recording
+    carries, so the two cannot drift. A caller told to invoke a binary must be
+    able to check it is the one the instruction was written for.
+  - >-
+    --only gains no region granularity and the generator package gains no
+    reserved consumer namespace. Both were open pending a caller that needed
+    them; the caller that arrived needs neither. A surface grows when a consumer
+    demonstrates it must, and not before.
+  - >-
+    This record settles the linking decision, the injects_into rendering hole,
+    version reporting, and the two surface-growth questions above. The marker
+    conformance corpus, test_paths, reasons on unmanaged entries, and the replay
+    duplicate-path check are separate questions and are not settled here.
 affected_scope:
   - PRD.md
   - TOOL_BOUNDARIES.md
+  - internal/cli/**
+  - internal/render/**
+  - internal/recording/**
+  - testdata/**
 forbidden_scope: []
 type: blueprint
 implements: prov-2026-d554bfc3
@@ -147,9 +224,10 @@ related:
   - prov-2026-dc227be7
 sealed_at_sha: ""
 associated_specs:
-  # Docs-only record, following prov-2026-59535684: the proof asserts the
-  # claims landed rather than that the files exist. A rewording that drops one
-  # of these statements fails here.
+  # Two halves. The doc specs follow prov-2026-59535684: the proof asserts the
+  # claims landed rather than that the files exist, so a rewording that drops
+  # one of these statements fails here. The code spec is added when
+  # internal/cli/render_test.go exists, before this record opens.
   - path: TOOL_BOUNDARIES.md
     run_command: grep -q "nothing links against Sedum" {{path}}
   - path: PRD.md
