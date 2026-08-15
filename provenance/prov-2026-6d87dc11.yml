@@ -104,6 +104,40 @@ intent: |
   more and both are worth having on their own merits, but neither addresses a
   model that already has what it needs and does not act on it.
 
+  ## Measured after: it recovers the misses
+
+  The same case through the eval harness ([[prov-2026-e6969eb3]]), same model and
+  same record, n=8 with retries at zero:
+
+  | | addColumn selected | exact | first |
+  |---|---|---|---|
+  | Before the completeness pass | 1 of 6 valid | 1 of 6 | 17% |
+  | After | 6 of 6 valid | 6 of 6 | 67% |
+
+  Every other expected action was 6 of 6 in both arms, so nothing else moved. A
+  6-of-6 result under the roughly even odds measured by hand has a probability
+  near one in sixty, so this is an effect rather than a sample. It is still n=6,
+  and one case on one model.
+
+  The row that confirms the diagnosis is **first**. Selection and first position
+  had been perfectly correlated across nineteen manual runs and the harness's
+  first eight - the action appeared only when it opened the answer. After the
+  change it is selected on every run and opens only two thirds of them, so the
+  correlation is broken in exactly the way this record predicted: the observation
+  reaches a model that has already finished its first pass and has nothing left
+  to commit to, which is why it can add what it never arrived at.
+
+  First-call validity was unchanged at 6 of 8, so the second call did not make
+  answers worse.
+
+  The cost is real and is the expected one. The run took 1749s against 643s for
+  the same sample size, because an incomplete answer now costs two calls. Only
+  the incomplete ones pay it, and Sedum's own work is 10ms of that - Phase 4 is
+  the entire budget either way.
+
+  Not exercised: no run declined twice, so the path where the model is asked and
+  says no again has unit tests behind it and no field evidence.
+
   ## The mechanism
 
   A file template plants the markers an action's anchor targets. That is already
