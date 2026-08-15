@@ -1,0 +1,108 @@
+id: prov-2026-3039750e
+title: Sample size is a property of the question, not of the harness
+status: draft
+created_at: "2026-08-15"
+author: calebcowen@gmail.com
+intent: |
+  `-eval.samples` defaults to 5 and every run so far has used it, for no reason
+  anyone chose. [[prov-2026-0baaa119]] made what that buys visible, and it is
+  less than it looks.
+
+  | Perfect cell | 95% interval | Width |
+  |---|---|---|
+  | 5/5 | [0.57, 1.00] | 0.43 |
+  | 10/10 | [0.72, 1.00] | 0.28 |
+  | 20/20 | [0.84, 1.00] | 0.16 |
+  | 30/30 | [0.89, 1.00] | 0.11 |
+
+  **A perfect score at five samples is consistent with a true rate of 57%.** That
+  is not an argument for always drawing thirty. It is an argument for choosing
+  the number against the question, because the questions differ by an order of
+  magnitude in the effect they are looking for.
+
+  ## Three tiers, and which questions belong to each
+
+  **Smoke, n=1 or 2.** Does the plumbing work at all - a new case loads, a new
+  package resolves, an endpoint answers. [[prov-2026-98ab639c]]'s 0.5b row is
+  this: it will produce nonsense and prove the harness in seconds. A rate from a
+  smoke run is not a measurement and is not cited as one.
+
+  **Coarse, n=5.** Differences that are enormous, which is most of what widening
+  the matrix asks. Does a 4b model select usefully where a 14b does; does a
+  framework's package work at all; is one arm three times slower than another.
+  The chi arm at 2.7 times the rails arm is a coarse result and n=5 established
+  it comfortably.
+
+  **Fine, n≈30.** Moving a rate that is already high - 4/5 to 5/5, or a selection
+  rate from 80% to 100%. These are the questions where an interval at n=5 is
+  decoration.
+
+  ## The record this immediately affects
+
+  [[prov-2026-ac15ed2b]] asks whether kwarg descriptions move the selection
+  rate. That is a fine question by this taxonomy, and its own constraint says a
+  null result is recorded as readily as a positive one - which at n=5 would
+  publish "no effect" from a run that could not have seen one. **It states the
+  n it needs before it runs, or its null result means nothing.**
+
+  ## An honest caveat about the arithmetic
+
+  The table above compares intervals, and two intervals overlapping is a
+  deliberately conservative signal - the `~` mark exists to be slow to claim a
+  difference. A proper two-proportion comparison separates earlier than
+  overlapping intervals suggest, so **treat n≈30 as an upper bound** for the fine
+  tier rather than a threshold. What does not change is the direction of the
+  error: n=5 is too few for a fine question by a wide margin either way.
+
+  ## What it costs
+
+  At n=5 on the local 14b row, todo-rails-defined is about 7 minutes and
+  todo-chi-defined about 19. A cell scales linearly in n, so a fine-tier cell is
+  roughly 45 minutes and 2 hours respectively. Four local model rows over both
+  cases is under 2 hours at the coarse tier and most of a day at the fine one.
+
+  That arithmetic is the constraint on widening the matrix, and it is why the
+  tier is chosen per question rather than raised globally: a matrix run at n=30
+  everywhere buys resolution for questions that never needed it, and spends the
+  hours that the questions which do need it were going to require.
+constraints:
+  - >-
+    A run states the tier its question belongs to, and the sample size follows
+    from that. The default of 5 is the coarse tier and is not a decision anyone
+    made about a specific question.
+  - >-
+    A comparison record fixes its sample size before the run. A null result from
+    a run too small to see the effect is not a null result, and recording it as
+    one is worse than not running.
+  - >-
+    A smoke-tier rate is never cited as a measurement. It exists to prove the
+    plumbing, and it says so wherever it appears.
+  - >-
+    n is raised per question, never globally. A matrix at the fine tier
+    everywhere spends its hours on resolution that most cells do not need.
+  - >-
+    Interval overlap is conservative and is treated as an upper bound on the
+    sample size a question needs, not as the test itself.
+affected_scope:
+  - evals/**
+forbidden_scope: []
+type: imprint
+implements: prov-2026-e6969eb3
+supersedes: ""
+superseded_by: ""
+related:
+  - prov-2026-0baaa119
+  - prov-2026-ac15ed2b
+  - prov-2026-98ab639c
+sealed_at_sha: ""
+associated_specs:
+  - path: evals/README.md
+    run_command: test -f {{path}}
+  - path: evals/run_test.go
+    run_command: go test -count=1 ./$(dirname {{path}})
+associated_traces: []
+monitors: []
+tags:
+  - sedum
+  - evals
+  - measurement
