@@ -1,0 +1,141 @@
+id: prov-2026-3f01a02d
+title: Packages declare which of their paths hold tests
+status: draft
+created_at: "2026-08-14"
+author: calebcowen@gmail.com
+intent: |
+  A package may declare test_paths: a pattern list in sedum.yaml naming the paths
+  that hold tests, in the same grammar as unmanaged and affected_scope. Sedum
+  validates it and, in this milestone set, does not act on it.
+
+  ## Why a field Sedum does not yet use
+
+  That sentence is the whole of the tension, so it goes first.
+
+  sedum.yaml is decoded with KnownFields(true) - genpkg/load.go's strictUnmarshal
+  - so an unrecognised key is a load error rather than an ignored one. That is the
+  right default and is not being changed. Its consequence is that a package
+  declaring a key Sedum has not modelled does not load at all: not "loads and is
+  ignored", but rejected, with every action in the package unavailable.
+
+  So a caller that reads sedum.yaml directly - which is what the integration
+  surface tells it to do - cannot ask a package author to declare anything Sedum
+  has not declared first. Strict decoding means Sedum decides what may appear in
+  the file, whoever ends up reading it. This is the first time that has cost
+  anything, and it will not be the last.
+
+  ## What needs it
+
+  **A caller partitioning regions.** Tendril resolves which assertions cover which
+  region by matching Sedum markers on both sides, and to do that it must first
+  know which of a record's regions are assertions. It names test_paths a blocking
+  prerequisite and pins it in a version floor. Without it every repository falls
+  back to file-granular coverage from a record's associated_specs, which is
+  correct but coarse, and the per-region assertion isolation that the whole
+  model-driven half of that tool depends on is unreachable.
+
+  **Sedum's own two-pass generation.** OPEN_QUESTIONS §1 proposes generating test
+  files in their own pass before the implementation pass. The recording's phases
+  grouping is already reserved for exactly that, and the partition that pass needs
+  is this one. §1 splits the idea - generating the files is Sedum's, feeding pass
+  one's output into pass two's prompt is the caller's - and this record ships
+  neither half. It ships the declaration both would read.
+
+  Two consumers wanting the same fact is the argument for the field being a
+  package declaration rather than either one's private configuration.
+
+  ## Why the package, and why patterns
+
+  Which files hold tests is a property of a stack, not of an invocation. Every
+  Rails service puts them under spec/ or test/; every Go package puts user_test.go
+  beside user.go. That is the same argument the PRD makes for unmanaged belonging
+  to the package rather than to a flag: a run that had to remember it would
+  eventually forget.
+
+  Patterns rather than a directory, for the Go case exactly. There is no separate
+  tree to name - same extension, same package, same directory - so anything
+  directory-shaped cannot express it:
+
+    test_paths:
+      - "spec/**"
+      - "**/*_test.go"
+
+  Sedum validates them with the pattern parser it already has, so an unclosed
+  bracket is a load error naming the entry, the same as an unmanaged entry today.
+  This is what separates the field from the reserved consumer namespace that
+  [[prov-2026-b5465dfa]] closed as unclaimed: a namespace is opaque and can be
+  validated only for shape, and this is fully checkable in a grammar Sedum owns.
+
+  ## What is deliberately not decided
+
+  **Nothing acts on it.** No phase reads it, no output partitions on it, and no
+  check consults it beyond validating the patterns themselves. A field that
+  nothing enforces can drift from reality, and that risk is accepted here rather
+  than papered over: the mitigation is that the grammar is checked, not that the
+  meaning is.
+
+  **The relationship to unmanaged is left alone.** A path may match both. Sedum
+  does not write an unmanaged path, so whether a caller counts it as a test is the
+  caller's question, and inventing a contradiction check would be inventing a rule
+  neither consumer asked for.
+
+  **The catalog is untouched.** test_paths is package metadata and the catalog
+  describes actions. A caller reads sedum.yaml directly for this.
+
+  ## Cost
+
+  Additive and optional. A package declaring no test_paths behaves exactly as it
+  does today, so no existing package needs editing and no durable artifact changes
+  shape - markers and recordings are untouched, because a test path is a property
+  of a package rather than of a region or a run.
+constraints:
+  - >-
+    test_paths is an optional per-package list in sedum.yaml, in the same pattern
+    grammar as unmanaged and affected_scope. A package that declares none behaves
+    exactly as it does today.
+  - >-
+    Patterns, never a directory. Go places user_test.go beside user.go, so no
+    directory-shaped declaration can express the partition.
+  - >-
+    Sedum validates the patterns at load with the parser it already has - an
+    unreadable or empty entry is a load error naming it - and validates nothing
+    about their meaning.
+  - >-
+    Sedum does not act on test_paths in M1-M7. No phase reads it, no output
+    partitions on it, and no check consults it. It is a declaration, and the
+    milestones that would consume it are not in this scope.
+  - >-
+    The field exists because strict decoding makes it necessary: KnownFields(true)
+    rejects a package declaring a key Sedum has not modelled, so a caller reading
+    sedum.yaml directly cannot ask an author to declare anything Sedum has not
+    declared first.
+  - >-
+    A path matching both test_paths and unmanaged is not a contradiction and
+    raises no diagnostic. Sedum does not write an unmanaged path, so whether it
+    counts as a test is the reader's question.
+  - >-
+    No durable artifact changes shape. Markers and recordings are untouched,
+    because a test path is a property of a package rather than of a region or a
+    run.
+affected_scope:
+  - internal/genpkg/**
+  - testdata/**
+  - PRD.md
+  - OPEN_QUESTIONS.md
+forbidden_scope: []
+type: blueprint
+implements: prov-2026-d554bfc3
+supersedes: ""
+superseded_by: ""
+related:
+  - prov-2026-529954ab
+  - prov-2026-b5465dfa
+  - prov-2026-59535684
+sealed_at_sha: ""
+associated_specs: []
+associated_traces: []
+monitors: []
+tags:
+  - sedum
+  - genpkg
+  - integration-surface
