@@ -1,0 +1,86 @@
+id: prov-2026-6f728c95
+title: The documented server invocation was never the one that ran
+status: draft
+created_at: "2026-08-15"
+author: calebcowen@gmail.com
+intent: |
+  [[prov-2026-945fa0aa]] argued that a throughput number means nothing without
+  the server configuration beside it, made that a constraint, and then wrote down
+  a configuration nobody had run:
+
+      llama-server -m qwen2.5-coder-14b-instruct-q4_k_m.gguf \
+        -c 16384 -np 4 --cont-batching --cache-reuse 256
+
+  Every entry in evals/results/ was produced against **LM Studio**, which serves
+  an OpenAI-compatible endpoint on 127.0.0.1:1234 and takes no such command line.
+  The invocation was reconstructed from what a llama.cpp server plausibly needs
+  rather than read off the machine, and two of its four flags happen to match by
+  luck: `lms ps` reports PARALLEL 4 and a loaded context of 16292.
+
+  The flag that does not match is the one the section was written to justify.
+  **`--cache-reuse 256` was in effect for exactly none of the measurements**, so
+  a reader following that section would have concluded the prefix-caching
+  question was already answered, when it has not been asked.
+
+  ## Why this is a bug and not a typo
+
+  The record it violates is the one that exists to make throughput claims
+  checkable. A wrong number is visible against a re-run; a wrong statement of how
+  a number was produced survives re-running, because the re-run reproduces the
+  documented configuration rather than the real one. It is the same failure
+  [[prov-2026-eb283c56]] was written against - the inputs going stale while the
+  numbers look fine - reintroduced one commit after the constraint against it.
+
+  ## What can honestly be said
+
+  What `lms ps` and LM Studio's own API report, which is what a person can verify
+  in one command: the model and quantization, the loaded context length, and the
+  number of parallel slots. Not the batch policy, not the cache configuration.
+
+  So the section states the server, the facts it exposes, the command that reads
+  them back, and then says plainly that prefix caching is **unmeasured** rather
+  than configured.
+
+  ## And why caching cannot simply be checked off
+
+  Token counts cannot detect it: usage reports the prompt length whether or not
+  the prefix was recomputed. The only external signal is wall clock, and
+  [[prov-2026-945fa0aa]] measured that at plus or minus 31% on this machine. So
+  "did caching help" needs repeated conditions before it needs a flag, and
+  claiming the win without that would be the same mistake in a different place.
+constraints:
+  - >-
+    A server configuration in the documentation is read off the running server,
+    never reconstructed from what a server of that kind plausibly takes. The
+    command that reads it is written beside it so the next person can check.
+  - >-
+    What the server does not expose is described as unknown rather than assumed.
+    Prefix caching is unmeasured on these entries and says so.
+  - >-
+    A claim about how a measurement was produced is corrected the moment it is
+    found wrong, because unlike a wrong number it survives re-running.
+  - >-
+    Whether prefix caching helps is an open question needing repeated
+    conditions, not a flag to add and assert. The wall clock is the only external
+    signal and it is worth plus or minus 31% here.
+affected_scope:
+  - evals/**
+forbidden_scope: []
+type: bug
+extends: prov-2026-e6969eb3
+supersedes: ""
+superseded_by: ""
+related:
+  - prov-2026-945fa0aa
+  - prov-2026-eb283c56
+  - prov-2026-096a4d4b
+sealed_at_sha: ""
+associated_specs:
+  - path: evals/README.md
+    run_command: test -f {{path}}
+associated_traces: []
+monitors: []
+tags:
+  - sedum
+  - evals
+  - measurement
