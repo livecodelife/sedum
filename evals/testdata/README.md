@@ -11,11 +11,17 @@ package and the record, so the application source is neither copied nor read.
 
 ```
 <application>/
-  records/               the record(s): what to build
+  records/
+    native/              the record as the stack's own author would write it
+    parity/              a record mirroring another stack's, for a controlled comparison
   generators/
     defined/             a generator package set: how to build it
-    loose/               a second package set over the same record
+    loose/               a second package set over the same records
 ```
+
+Both axes are **sets**, so either can be varied while the other is held fixed.
+Swapping `generators` isolates the package; swapping `records` isolates the
+intent.
 
 The record directory is `records/` and the files are named for what they
 describe rather than `prov-<id>.yml`. Both are deliberate: LineSpec's hooks
@@ -40,6 +46,25 @@ a fixture diverges, the reason is written at the top of the file it diverges in.
 The rule: a fixture exists to make a measurement mean something, not to mirror a
 project. Where those pull apart, the measurement wins and the deviation is
 recorded.
+
+## native and parity
+
+The native records are each stack's own, and they are **not comparable to each
+other**. Both ask for the same functionality — full CRUD, PostgreSQL, partial
+updates, no boot race — but they prescribe opposite solutions to the last one:
+the Rails record says the application "holds no retry loop of its own" and lets
+the database declare itself healthy first, while the native Chi record mandates
+a 30-attempt retry loop. A model satisfying either has violated the other.
+
+So a rails-vs-chi delta across the native records is not a language result. It
+confounds language, framework, package count, and two records that disagree
+about the answer.
+
+`records/parity/` exists to remove that. It mirrors the Rails record's
+functionality, prescribed approach and constraint specificity, translated for Go
+where a concept has a counterpart and dropped where it has none. Against the
+Rails case it varies the stack; against the native Chi case it varies the record
+while holding the package fixed.
 
 ## Why these are vendored rather than referenced
 

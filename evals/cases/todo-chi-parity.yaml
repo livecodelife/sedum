@@ -1,0 +1,43 @@
+# The controlled arm of the language comparison.
+#
+# Against todo-rails-defined this holds functionality, prescribed approach and
+# constraint specificity fixed, leaving the stack as the difference. Against
+# todo-chi-defined it holds the stack and the generator package fixed, leaving
+# the record as the difference.
+#
+# Neither comparison is available from the native records alone: those prescribe
+# opposite solutions to boot ordering - Rails forbids a retry loop, native Chi
+# mandates one - so a model satisfying either has violated the other.
+id: todo-chi-parity
+
+application:
+  name: todo
+  # Tier 1, matching todo-rails-defined. The native Chi record is tier 2 because
+  # it asks for more than the Rails one; this asks for the same thing, so rating
+  # it higher would build the confound back into the axis.
+  complexity: 1
+
+language: go
+framework: chi
+tightness: defined
+arm: sedum
+
+# Same generator package as todo-chi-defined. Only the record differs, which is
+# what makes native-vs-parity a record comparison rather than a package one.
+records: todo-api/records/parity
+generators: todo-api/generators/defined
+
+models:
+  - id: qwen2.5-coder-14b-instruct
+    engine: llama.cpp
+    quant: q4_k_m
+
+# This fixture also pays the standing two-calls-per-sample cost described in
+# todo-chi-defined: the packages plant four anchors no action can fill, so the
+# completeness pass fires every run and the model correctly declines.
+
+# Deliberately empty, as with todo-chi-defined. Expectations are what a complete
+# answer contains, and nothing has produced one here yet - inventing counts from
+# reading the package would make the first run agree with them by construction.
+expect:
+  actions: {}

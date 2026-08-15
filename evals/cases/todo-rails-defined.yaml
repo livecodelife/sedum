@@ -23,7 +23,7 @@ arm: sedum
 # Vendored, so a number measured today can be re-run tomorrow. Swapping the
 # generators line to another package set over this same record is the tightness
 # comparison; nothing else about the case changes.
-records: todo-rails/records
+records: todo-rails/records/native
 generators: todo-rails/generators/defined
 
 # On a 24GB machine one 14B is resident at a time, so -eval.model narrows a run

@@ -318,3 +318,49 @@ func TestObservedIncludesUnexpectedActions(t *testing.T) {
 		t.Errorf("observed is %v; an unexpected action was dropped", got)
 	}
 }
+
+// The native records are each stack's own and prescribe opposite solutions to
+// boot ordering, so a rails-vs-chi delta across them is not a language result.
+// The parity record removes that, and this asserts the arms exist and differ in
+// exactly one thing each.
+func TestTheComparisonArmsAreControlled(t *testing.T) {
+	cases, err := Load("cases", "testdata")
+	if err != nil {
+		t.Fatalf("loading cases: %v", err)
+	}
+
+	by := map[string]Case{}
+	for _, c := range cases {
+		by[c.ID] = c
+	}
+
+	rails, chiNative, chiParity := by["todo-rails-defined"], by["todo-chi-defined"], by["todo-chi-parity"]
+	for id, c := range map[string]Case{"todo-rails-defined": rails, "todo-chi-defined": chiNative, "todo-chi-parity": chiParity} {
+		if c.ID == "" {
+			t.Fatalf("case %s is missing", id)
+		}
+	}
+
+	// Record comparison: same stack, same package, different record.
+	if chiNative.Generators != chiParity.Generators {
+		t.Errorf("the two chi arms use different packages (%s vs %s); that makes it a package comparison, not a record one",
+			chiNative.Generators, chiParity.Generators)
+	}
+	if chiNative.Records == chiParity.Records {
+		t.Error("the two chi arms name the same record set; nothing is being varied")
+	}
+
+	// Language comparison: parity matches the rails arm on everything the
+	// record controls, so the stack is what is left.
+	if chiParity.Application.Complexity != rails.Application.Complexity {
+		t.Errorf("parity is tier %d and rails is tier %d; rating the controlled arm differently builds the confound back in",
+			chiParity.Application.Complexity, rails.Application.Complexity)
+	}
+	if chiParity.Language == rails.Language {
+		t.Error("the language arms share a language; nothing is being varied")
+	}
+	if chiParity.Tightness != rails.Tightness {
+		t.Errorf("the language arms differ in tightness (%s vs %s), which is a second variable",
+			chiParity.Tightness, rails.Tightness)
+	}
+}

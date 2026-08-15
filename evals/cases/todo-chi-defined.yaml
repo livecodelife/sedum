@@ -12,11 +12,15 @@ id: todo-chi-defined
 
 application:
   name: todo
-  # Tier 2 rather than 1. Same five endpoints, but the record spans four
-  # generator packages, carries constraints about query protocol and driver
-  # choice that the Rails record has no equivalent of, and folds in two
-  # behaviors - partial update semantics and retrying startup - that the Rails
-  # record does not ask for.
+  # Tier 2 rather than 1, but not because it asks for more behavior. The Rails
+  # record asks for partial updates and boot ordering too. What raises this is
+  # the structure: four generator packages against Rails' one, and constraints
+  # about query protocol and driver choice the Rails record has no equivalent
+  # of.
+  #
+  # It is also not comparable to Rails on approach - this record mandates a
+  # retry loop where the Rails one forbids exactly that. todo-chi-parity is the
+  # arm that removes that difference.
   complexity: 2
 
 language: go
@@ -24,7 +28,7 @@ framework: chi
 tightness: defined
 arm: sedum
 
-records: todo-api/records
+records: todo-api/records/native
 generators: todo-api/generators/defined
 
 # No `only:` - the fixture carries exactly one record.
