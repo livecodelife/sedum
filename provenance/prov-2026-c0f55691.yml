@@ -1,0 +1,96 @@
+id: prov-2026-c0f55691
+title: The entries are read back, not only written
+status: draft
+created_at: "2026-08-15"
+author: calebcowen@gmail.com
+intent: |
+  [[prov-2026-eb283c56]] built an append-only history pinned to commits, and
+  nothing reads it. `ReadEntries` has no caller, `Complete` and `Vocabulary` have
+  no caller, and every question anyone has actually asked of that history this
+  week was answered by hand with python and jq against the JSONL.
+
+  That is the gap. The file is evidence a record can cite, and citing it
+  currently means someone re-deriving the summary each time - which is the
+  hand-tallying [[prov-2026-e6969eb3]] exists to have stopped.
+
+  ## What it answers
+
+  One case's timeline, oldest first, one line per entry: when, which commit and
+  whether the tree was dirty, the model, the sample size, the retry budget and
+  concurrency, then validity with its interval, first-call validity with its
+  interval, cost in calls and tokens, and throughput.
+
+  Every one of those is already in the entries. Nothing is recomputed by running
+  anything, and the command needs no endpoint and no model - it reads committed
+  files and prints.
+
+  ## Consecutive entries that do not differ say so
+
+  [[prov-2026-0baaa119]] gave every rate an interval, and the timeline is where
+  that pays: four chi runs read 5/5, 2/5, 5/5, 4/5, and only one of those
+  transitions is outside sampling. A history that printed the fractions in a
+  column would invite exactly the misreading the intervals were added to
+  prevent, so consecutive entries whose intervals overlap are marked as not
+  distinguishing each other.
+
+  ## Older entries are missing fields, and say so rather than reading as zero
+
+  Entries predating [[prov-2026-0811425c]] carry no call counts and entries
+  predating [[prov-2026-096a4d4b]] carry no tokens. Four such entries exist
+  already. They print as absent - a dash, not a zero - because the schema's whole
+  additive promise is that an old entry stays readable and keeps meaning what it
+  meant, and a zero would silently claim those runs cost nothing.
+
+  ## Where it lives
+
+  Not in the sedum binary. The harness is deliberately not part of Sedum -
+  nothing under internal/ or cmd/ imports it - and a reporting command that read
+  eval results from inside the tool would make that separation untrue by
+  adjacency, which is the same argument the build tag was added for.
+
+  It needs no build tag of its own, though: reading committed JSONL takes
+  milliseconds, needs no endpoint, and is deterministic, so the reason the runner
+  is tagged does not apply to it.
+constraints:
+  - >-
+    The history is derived from committed entries alone. It runs nothing, calls
+    no model, and needs no endpoint.
+  - >-
+    It never edits. Entries are append-only, and a reader that could rewrite one
+    would defeat the property the format exists for.
+  - >-
+    A field an older entry does not carry prints as absent, never as zero. The
+    additive schema's promise is that an old entry keeps meaning what it meant.
+  - >-
+    Consecutive entries whose intervals overlap are marked as not distinguishing
+    each other, for the reason prov-2026-0baaa119 gave every rate an interval.
+  - >-
+    It lives outside the sedum binary. The harness is not part of Sedum, and a
+    reporting command inside the tool would erode that by adjacency.
+  - >-
+    The rendering logic is a function over entries, tested without a model like
+    every other piece of the harness's arithmetic. The command around it is a
+    thin main.
+affected_scope:
+  - evals/**
+forbidden_scope: []
+type: imprint
+implements: prov-2026-e6969eb3
+supersedes: ""
+superseded_by: ""
+related:
+  - prov-2026-eb283c56
+  - prov-2026-0baaa119
+  - prov-2026-096a4d4b
+sealed_at_sha: ""
+associated_specs:
+  - path: evals/results_test.go
+    run_command: go test -count=1 ./$(dirname {{path}})
+  - path: evals/README.md
+    run_command: test -f {{path}}
+associated_traces: []
+monitors: []
+tags:
+  - sedum
+  - evals
+  - measurement
