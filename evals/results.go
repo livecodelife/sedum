@@ -83,6 +83,18 @@ type SampleRun struct {
 	Counts  map[string]int `json:"counts,omitempty"`
 	First   string         `json:"first,omitempty"`
 	MS      int64          `json:"ms"`
+
+	// Calls, Rejected and Completeness are what the sample cost.
+	//
+	// Added rather than replacing anything, so the entries written before them
+	// stay readable and keep meaning what they meant - a reader ignores what it
+	// does not recognise, and an older entry simply reports no call counts
+	// rather than reporting zero of them. Cost in calls is what makes two
+	// entries at different retry budgets comparable, and Rejected is what makes
+	// first-call validity survive a raised budget (prov-2026-0811425c).
+	Calls        int `json:"calls,omitempty"`
+	Rejected     int `json:"rejected,omitempty"`
+	Completeness int `json:"completeness,omitempty"`
 }
 
 // EntrySchema is the current entry format. Additive changes do not move it.
@@ -121,7 +133,15 @@ func NewEntry(m Measurement, endpoint string) Entry {
 	}
 
 	for _, s := range m.Samples {
-		r := SampleRun{Outcome: "valid", Counts: s.Counts, First: s.First, MS: s.Elapsed.Milliseconds()}
+		r := SampleRun{
+			Outcome:      "valid",
+			Counts:       s.Counts,
+			First:        s.First,
+			MS:           s.Elapsed.Milliseconds(),
+			Calls:        s.Calls,
+			Rejected:     s.Rejected,
+			Completeness: s.Completeness,
+		}
 		switch {
 		case s.Err != nil:
 			r.Outcome = "failed"

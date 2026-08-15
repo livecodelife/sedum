@@ -196,6 +196,14 @@ func (s *stub) Complete(_ context.Context, messages []Message) (string, error) {
 
 func selectWith(t *testing.T, req Request, retries int, responses ...string) ([]recording.Invocation, *stub, error) {
 	t.Helper()
+	answer, client, err := selectAnswer(t, req, retries, responses...)
+	return answer.Invocations, client, err
+}
+
+// selectAnswer keeps what the answer cost, which selectWith drops for the many
+// tests that only care about what was chosen.
+func selectAnswer(t *testing.T, req Request, retries int, responses ...string) (Answer, *stub, error) {
+	t.Helper()
 	client := &stub{responses: responses}
 	got, err := Select(context.Background(), client, req, Options{Retries: retries})
 	return got, client, err
@@ -776,6 +784,93 @@ func TestTheObservationNamesOnlyTheFillableAnchors(t *testing.T) {
 	}
 	if strings.Contains(followUp, "audit_log") {
 		t.Errorf("the completeness note asks about an anchor nothing can fill:\n%s", followUp)
+	}
+}
+
+// What a record cost is the loop's to report, because the loop is the only
+// thing that can tell a rejected answer from a completeness observation after
+// the fact. A caller left to infer it has nothing but a clock, which is calls
+// multiplied by an unknown per-call cost (prov-2026-0811425c).
+func TestAnAnswerReportsWhatItCost(t *testing.T) {
+	req := railsRequest(t)
+	req.Files[0].Rendered = "class UsersController\n  # sedum:anchor:class_body\nend\n"
+
+	// One rejected answer, then an empty one that earns the observation, then
+	// a valid and complete one: three calls, one rejection, one observation.
+	bad := `{"invocations":[{"action":"noSuchAction","kwargs":{}}]}`
+	got, _, err := selectAnswer(t, req, 1, bad, `{"invocations":[]}`, validResponse)
+	if err != nil {
+		t.Fatalf("Select: %v", err)
+	}
+	if got.Calls != 3 {
+		t.Errorf("reported %d calls, want 3", got.Calls)
+	}
+	if got.Rejected != 1 {
+		t.Errorf("reported %d rejections, want 1", got.Rejected)
+	}
+	// Counted apart from the rejection: the answer that earned it was valid,
+	// and it draws from its own budget.
+	if got.Completeness != 1 {
+		t.Errorf("reported %d completeness calls, want 1", got.Completeness)
+	}
+}
+
+// First-call validity survives any retry budget, which is the measurement the
+// budget used to destroy: an answer with no rejections validated first try,
+// whatever the budget would have allowed.
+func TestNoRejectionsMeansItValidatedFirstTry(t *testing.T) {
+	got, _, err := selectAnswer(t, railsRequest(t), 2, validResponse)
+	if err != nil {
+		t.Fatalf("Select: %v", err)
+	}
+	if got.Rejected != 0 || got.Calls != 1 {
+		t.Errorf("a first-try answer reported %d call(s) and %d rejection(s), want 1 and 0",
+			got.Calls, got.Rejected)
+	}
+}
+
+// A rejected answer is a type, so a caller can tell it from a transport failure
+// without matching on text. They are different measurements - a model that
+// chose badly and a server that was not there - and the harness classified them
+// by matching "did not validate" until this existed.
+func TestARejectedAnswerIsATypedError(t *testing.T) {
+	bad := `{"invocations":[{"action":"noSuchAction","kwargs":{}}]}`
+	_, _, err := selectAnswer(t, railsRequest(t), 1, bad, bad)
+
+	var rejected *Rejection
+	if !errors.As(err, &rejected) {
+		t.Fatalf("a rejected answer is not a *Rejection: %T %v", err, err)
+	}
+	if rejected.Calls != 2 || rejected.Rejected != 2 {
+		t.Errorf("rejection reports %d call(s) and %d rejection(s), want 2 and 2",
+			rejected.Calls, rejected.Rejected)
+	}
+	if len(rejected.Attempts) != 2 {
+		t.Fatalf("rejection kept %d attempt(s), want both", len(rejected.Attempts))
+	}
+	// The text stays exactly as informative as it was: every attempt's
+	// violations, not only the last response's.
+	msg := rejected.Error()
+	for _, want := range []string{"attempt 1", "attempt 2", "noSuchAction", "did not validate"} {
+		if !strings.Contains(msg, want) {
+			t.Errorf("rejection text lost %q:\n%s", want, msg)
+		}
+	}
+}
+
+// A transport failure is not a Rejection. Nothing about a connection error is
+// the model's to correct, and a caller that classified it as a bad answer would
+// be counting an unreachable server as a model that chose badly.
+func TestATransportFailureIsNotARejection(t *testing.T) {
+	client := &stub{err: errors.New("connection refused")}
+	_, err := Select(context.Background(), client, railsRequest(t), Options{Retries: 2})
+
+	var rejected *Rejection
+	if errors.As(err, &rejected) {
+		t.Error("a transport failure was reported as a rejected answer")
+	}
+	if err == nil || !strings.Contains(err.Error(), "connection refused") {
+		t.Errorf("the transport failure was not reported as itself: %v", err)
 	}
 }
 

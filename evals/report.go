@@ -33,6 +33,23 @@ func Report(out io.Writer, m Measurement) {
 	}
 	fmt.Fprintln(out)
 
+	// The stronger claim, still available at a raised budget: an answer with no
+	// rejections validated first try whatever the budget allowed. Printed only
+	// when the budget could have hidden it, since at zero retries the line
+	// above already is this number (prov-2026-0811425c).
+	spent := m.Spent()
+	if m.Retries > 0 && t.Answered() > 0 {
+		fmt.Fprintf(out, "  valid first call: %s\n", ratio(spent.FirstTry, t.Answered()))
+	}
+	if spent.Calls > 0 {
+		fmt.Fprintf(out, "  cost: %d call(s) over %d sample(s), mean %.2f",
+			spent.Calls, t.Answered(), float64(spent.Calls)/float64(t.Answered()))
+		if spent.Completeness > 0 {
+			fmt.Fprintf(out, "  (%d completeness observation(s))", spent.Completeness)
+		}
+		fmt.Fprintln(out)
+	}
+
 	for _, d := range m.Details() {
 		fmt.Fprintf(out, "    %s\n", d)
 	}

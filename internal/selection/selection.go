@@ -72,6 +72,78 @@ type Options struct {
 	Log *runlog.Log
 }
 
+// Answer is what one record's selection produced, and what it cost.
+//
+// The counts are here rather than only in the run log because the loop is the
+// only thing that knows them, and a caller reconstructing them from the outside
+// has nothing to reconstruct from but a clock - which is calls multiplied by an
+// unknown and varying per-call cost (prov-2026-0811425c).
+type Answer struct {
+	Invocations []recording.Invocation
+
+	// Calls is every model call this record cost, including the rejected
+	// answers and the completeness observation.
+	Calls int
+
+	// Rejected is how many answers Phase 5 refused.
+	//
+	// It is what makes first-call validity recoverable at any retry budget: a
+	// record with no rejections validated on its first call, whatever the
+	// budget would have allowed.
+	Rejected int
+
+	// Completeness is the observation call: 0 or 1.
+	//
+	// Counted apart from Rejected because it draws from its own budget
+	// (prov-2026-6d87dc11) and because the answer that earned it was valid.
+	// Folding the two together would report a complete answer as a rejected
+	// one.
+	Completeness int
+}
+
+// Rejection is an answer Phase 5 refused every time it asked.
+//
+// It is a type rather than a message so that a caller can tell it from a
+// transport failure without matching on text. The two are different
+// measurements - a model that chose badly and a server that was not there - and
+// the harness classified them by matching "did not validate" until this existed.
+type Rejection struct {
+	RecordID string
+	Retries  int
+
+	// Attempts is every rejected answer with its violations, kept whole. A
+	// model making a different mistake each time and one making the same
+	// mistake three times are different problems with different fixes.
+	Attempts []Attempt
+
+	// Calls, Rejected and Completeness are Answer's counts for a record that
+	// never produced one, so cost is reported for the samples that failed as
+	// well as the samples that did not.
+	Calls        int
+	Rejected     int
+	Completeness int
+}
+
+// Attempt is one rejected answer.
+type Attempt struct {
+	Number     int
+	Violations []Violation
+}
+
+func (e *Rejection) Error() string {
+	var b strings.Builder
+	fmt.Fprintf(&b, "record %s: the model's output did not validate within %d attempt(s)",
+		e.RecordID, e.Retries+1)
+
+	for _, a := range e.Attempts {
+		fmt.Fprintf(&b, "\n\n  attempt %d:", a.Number)
+		for _, v := range a.Violations {
+			fmt.Fprintf(&b, "\n    %s", v)
+		}
+	}
+	return b.String()
+}
+
 // Select runs one record's model call and validates the result.
 //
 // One call per record. The prompt carries the record's intent, its constraints,
@@ -86,7 +158,7 @@ type Options struct {
 // A transport failure is not re-prompted. Nothing about a connection error is
 // the model's to correct, and retrying it would silently consume the budget
 // reserved for the mistakes that are.
-func Select(ctx context.Context, client Client, req Request, opts Options) ([]recording.Invocation, error) {
+func Select(ctx context.Context, client Client, req Request, opts Options) (Answer, error) {
 	packages := expand.Packages(req.Files)
 	cat := catalog.Build(packages, catalog.Options{})
 
@@ -97,7 +169,7 @@ func Select(ctx context.Context, client Client, req Request, opts Options) ([]re
 
 	prompt, err := Prompt(req, cat)
 	if err != nil {
-		return nil, err
+		return Answer{}, err
 	}
 	messages := prompt
 
@@ -105,8 +177,13 @@ func Select(ctx context.Context, client Client, req Request, opts Options) ([]re
 	// was wrong; a completeness re-prompt says it may be incomplete. Exhausting
 	// one must not consume the other, and they are reported differently
 	// (prov-2026-6d87dc11).
-	var rejected []attempt
+	var rejected []Attempt
 	askedForCompleteness := false
+
+	// Counted here rather than derived by the caller, because this loop is the
+	// only thing that can tell a rejected answer from a completeness
+	// observation after the fact.
+	var answer Answer
 
 	for i := 0; ; i++ {
 		log.Info("invoking model", "record", req.RecordID, "attempt", i+1,
@@ -119,8 +196,12 @@ func Select(ctx context.Context, client Client, req Request, opts Options) ([]re
 			"prompt", messages[len(messages)-1].Content)
 
 		raw, err := client.Complete(ctx, messages)
+		answer.Calls++
 		if err != nil {
-			return nil, fmt.Errorf("record %s: model call failed on attempt %d: %w", req.RecordID, i+1, err)
+			// A transport failure is not the model's mistake and is not a
+			// Rejection. Its counts go with it: a call that never returned an
+			// answer is not a cost attributable to a selection.
+			return Answer{}, fmt.Errorf("record %s: model call failed on attempt %d: %w", req.RecordID, i+1, err)
 		}
 		log.Info("model responded", "record", req.RecordID, "attempt", i+1, "response", raw)
 
@@ -146,6 +227,7 @@ func Select(ctx context.Context, client Client, req Request, opts Options) ([]re
 				unfilled := expand.Unfilled(req.RecordID, req.Files, invocations)
 				if len(unfilled) > 0 {
 					askedForCompleteness = true
+					answer.Completeness = 1
 					log.Info("selection leaves anchors unfilled", "record", req.RecordID,
 						"attempt", i+1, "unfilled", anchorSummary(unfilled))
 					messages = append(messages,
@@ -155,16 +237,25 @@ func Select(ctx context.Context, client Client, req Request, opts Options) ([]re
 					continue
 				}
 			}
-			return invocations, nil
+			answer.Invocations = invocations
+			return answer, nil
 		}
 
 		for _, v := range violations {
 			log.Info("model output rejected", "record", req.RecordID, "attempt", i+1,
 				"rule", v.Rule, "detail", v.Detail)
 		}
-		rejected = append(rejected, attempt{number: i + 1, violations: violations})
+		rejected = append(rejected, Attempt{Number: i + 1, Violations: violations})
+		answer.Rejected++
 		if len(rejected) > opts.Retries {
-			return nil, exhausted(req.RecordID, opts.Retries, rejected)
+			return Answer{}, &Rejection{
+				RecordID:     req.RecordID,
+				Retries:      opts.Retries,
+				Attempts:     rejected,
+				Calls:        answer.Calls,
+				Rejected:     answer.Rejected,
+				Completeness: answer.Completeness,
+			}
 		}
 
 		// The rejected response stays in the conversation. Re-prompting with
@@ -175,32 +266,4 @@ func Select(ctx context.Context, client Client, req Request, opts Options) ([]re
 			Message{Role: RoleUser, Content: rejection(violations)},
 		)
 	}
-}
-
-// attempt is one rejected response, kept so that exhaustion reports every
-// violation rather than only the last response's.
-type attempt struct {
-	number     int
-	violations []Violation
-}
-
-// exhausted reports a run that never produced a valid response.
-//
-// Every attempt's violations are reported, not just the final one. A model
-// making a different mistake each time and a model making the same mistake
-// three times are different problems with different fixes - the first is a
-// prompt that underdetermines the answer, the second is usually a catalog an
-// author needs to look at - and only the accumulated record distinguishes them.
-func exhausted(recordID string, retries int, attempts []attempt) error {
-	var b strings.Builder
-	fmt.Fprintf(&b, "record %s: the model's output did not validate within %d attempt(s)",
-		recordID, retries+1)
-
-	for _, a := range attempts {
-		fmt.Fprintf(&b, "\n\n  attempt %d:", a.number)
-		for _, v := range a.violations {
-			fmt.Fprintf(&b, "\n    %s", v)
-		}
-	}
-	return fmt.Errorf("%s", b.String())
 }

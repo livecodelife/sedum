@@ -55,6 +55,11 @@ bug:
 - **failed** — the run never reached the model. Excluded from every denominator,
   because an unreachable endpoint is not a model that chose badly.
 
+The first two are told apart from the third by *type*: Phase 5 returns a
+`*selection.Rejection` for an answer it refused, and the harness classifies with
+`errors.As`. It matched the text of the diagnostic until `prov-2026-0811425c`,
+which meant one renamed error would have silently moved samples between columns.
+
 ### The retry budget
 
 Zero by default, and the default cannot move: every entry in `results/` was
@@ -67,12 +72,17 @@ and 2/5 across three runs; a comparison of what a complete answer contains, made
 from the two samples that survived, is a worse measurement than the same
 comparison made from five.
 
-What a raised budget costs is **timing**. A sample that retries pays for every
-rejected answer, so per-sample and wall figures at one budget are not comparable
-with another's. Two entries at the same budget compare; two at different budgets
-do not. The budget is in the entry and on the report header so that is checkable
-rather than remembered, and the validity line says `within N calls` rather than
-`first call` whenever it was not one.
+Raising it no longer costs you first-call validity. Every sample records how
+many calls it made and how many answers were rejected, so a sample with no
+rejections validated on its first call whatever the budget allowed — the report
+prints both lines at a raised budget, and the entry keeps the counts per sample.
+
+What a raised budget still costs is **wall-clock comparability**. A sample that
+retries pays for every rejected answer, so seconds at one budget are not seconds
+at another. Compare cost in **calls** instead, which is what the counts are for:
+a per-sample time is calls multiplied by an unknown and varying per-call cost.
+The budget is in the entry and on the report header, and the validity line says
+`within N calls` rather than `first call` whenever it was not one.
 
 The completeness re-prompt is untouched by this. It draws from its own budget in
 `internal/selection` and always has, so retries buy re-prompts of a *rejected*
@@ -149,9 +159,5 @@ first run agree with them by construction.
 
 ## Known rough edges
 
-- **Invalid-vs-failed is classified by matching an error string.**
-  `internal/selection` exports no error type for a rejected response. The honest
-  fix is a sentinel there, and it should land before anything depends on the
-  validity rate.
 - **Only the `sedum` arm runs.** `baseline` is declared and rejected at run time.
 - **Behavior is not measured.** The schema reserves it; nothing implements it.

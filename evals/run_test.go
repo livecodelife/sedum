@@ -3,6 +3,7 @@ package evals
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"os"
 	"strings"
@@ -296,6 +297,81 @@ func TestTheValidityLineNamesItsBudget(t *testing.T) {
 	}
 	if !strings.Contains(out, "retries=2") {
 		t.Errorf("the header omits the budget:\n%s", out)
+	}
+}
+
+// Cost is reported in calls, which is the comparison seconds could never
+// support: a per-sample time is calls multiplied by an unknown and varying
+// per-call cost (prov-2026-0811425c).
+func TestCostIsCountedInCallsNotSeconds(t *testing.T) {
+	m := measurement(
+		Sample{Counts: map[string]int{"addColumn": 2}, Calls: 1},
+		Sample{Counts: map[string]int{"addColumn": 2}, Calls: 3, Rejected: 1, Completeness: 1},
+		Sample{Invalid: true, Calls: 3, Rejected: 3},
+		// A sample that never reached the model contributes nothing: a call
+		// that returned no answer is not a cost a selection can be charged for.
+		Sample{Err: errors.New("connection refused"), Calls: 9},
+	)
+
+	spent := m.Spent()
+	if spent.Calls != 7 {
+		t.Errorf("spent %d calls, want 7 - the failed sample must not be charged", spent.Calls)
+	}
+	if spent.Completeness != 1 {
+		t.Errorf("counted %d completeness observations, want 1", spent.Completeness)
+	}
+	// First-call validity, recovered from the rejection counts rather than from
+	// the retry budget: one of the three answered samples took no rejection.
+	if spent.FirstTry != 1 {
+		t.Errorf("counted %d first-try answers, want 1", spent.FirstTry)
+	}
+}
+
+// The budget stops being a trade-off between two measurements: a run at two
+// retries reports both what it validated within three calls and how often one
+// call was enough.
+func TestARaisedBudgetStillReportsFirstCallValidity(t *testing.T) {
+	m := measurement(
+		Sample{Counts: map[string]int{"addColumn": 2}, Calls: 1},
+		Sample{Counts: map[string]int{"addColumn": 2}, Calls: 2, Rejected: 1},
+	)
+	m.Retries = 2
+
+	var buf bytes.Buffer
+	Report(&buf, m)
+	out := buf.String()
+
+	for _, want := range []string{"valid within 3 calls: 2/2", "valid first call: 1/2", "cost: 3 call(s)"} {
+		if !strings.Contains(out, want) {
+			t.Errorf("report omits %q:\n%s", want, out)
+		}
+	}
+}
+
+// The counts reach the file, additively. An entry written before them stays
+// readable and keeps meaning what it meant, which is the one move the format
+// forbids itself.
+func TestAnEntryCarriesWhatEachSampleCost(t *testing.T) {
+	m := measurement(Sample{Counts: map[string]int{"addColumn": 2}, Calls: 2, Rejected: 1, Completeness: 1})
+	e := NewEntry(m, "http://x")
+
+	if len(e.Runs) != 1 {
+		t.Fatalf("got %d runs, want 1", len(e.Runs))
+	}
+	r := e.Runs[0]
+	if r.Calls != 2 || r.Rejected != 1 || r.Completeness != 1 {
+		t.Errorf("entry recorded calls=%d rejected=%d completeness=%d, want 2/1/1",
+			r.Calls, r.Rejected, r.Completeness)
+	}
+
+	// An older entry has no counts, and reads as having none rather than as
+	// having spent zero calls.
+	var old Entry
+	if err := json.Unmarshal([]byte(`{"schema":1,"case":"x","runs":[{"outcome":"valid","ms":10}]}`), &old); err != nil {
+		t.Fatalf("an entry written before the counts no longer decodes: %v", err)
+	}
+	if old.Runs[0].Calls != 0 {
+		t.Errorf("a pre-counts entry decoded calls as %d", old.Runs[0].Calls)
 	}
 }
 

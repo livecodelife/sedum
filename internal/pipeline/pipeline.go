@@ -114,6 +114,15 @@ type Selection struct {
 	RecordID    string
 	Files       []resolve.File
 	Invocations []recording.Invocation
+
+	// Calls, Rejected and Completeness are what Phase 5 spent reaching this
+	// answer. They are carried rather than logged only, because "what did this
+	// record cost" is a question about the run and not about one phase's
+	// diagnostics (prov-2026-0811425c). A record no model was asked about
+	// carries zeroes, which is what it cost.
+	Calls        int
+	Rejected     int
+	Completeness int
 }
 
 // Run executes the phases in order.
@@ -278,7 +287,7 @@ func selectAll(ctx context.Context, cfg Config, records *record.Set, files []res
 			return nil, fmt.Errorf("record %s: reaching model invocation with no model configured", rec.ID)
 		}
 
-		invocations, err := selection.Select(ctx, cfg.Client, selection.Request{
+		answer, err := selection.Select(ctx, cfg.Client, selection.Request{
 			RecordID:    rec.ID,
 			Intent:      rec.Intent,
 			Constraints: rec.Constraints,
@@ -288,7 +297,14 @@ func selectAll(ctx context.Context, cfg Config, records *record.Set, files []res
 			return nil, err
 		}
 
-		out = append(out, Selection{RecordID: rec.ID, Files: mine, Invocations: invocations})
+		out = append(out, Selection{
+			RecordID:     rec.ID,
+			Files:        mine,
+			Invocations:  answer.Invocations,
+			Calls:        answer.Calls,
+			Rejected:     answer.Rejected,
+			Completeness: answer.Completeness,
+		})
 	}
 
 	return out, nil

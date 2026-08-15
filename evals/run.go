@@ -2,6 +2,7 @@ package evals
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"sort"
@@ -43,6 +44,18 @@ type Sample struct {
 	// Detail is why a sample was invalid or failed, kept so a rate is never
 	// reported without the ability to say what the misses looked like.
 	Detail string
+
+	// Calls, Rejected and Completeness are what the sample cost, summed over
+	// the case's records.
+	//
+	// Cost in calls rather than only in seconds is what makes two runs at
+	// different retry budgets comparable, and Rejected is what makes first-call
+	// validity survive a raised budget: a sample with none validated first try
+	// whatever the budget allowed (prov-2026-0811425c). They are recorded for
+	// invalid samples too, which is where the count is most interesting.
+	Calls        int
+	Rejected     int
+	Completeness int
 
 	// Err is set when the run could not be made at all - an endpoint that was
 	// down, a package that would not load. Excluded from every rate, because an
@@ -194,19 +207,30 @@ func sample(ctx context.Context, c Case, model string, retries int) Sample {
 		Retries:    retries,
 	})
 	if err != nil {
-		// Provisional classification. internal/selection exports no error type
-		// for a rejected response, so this matches the message it builds. It is
-		// fragile in the ordinary way a string match is, and the honest fix is
-		// an exported sentinel there - worth doing before anything depends on
-		// this number.
-		if strings.Contains(err.Error(), "did not validate") {
-			return Sample{Invalid: true, Detail: firstLine(err.Error()), Elapsed: time.Since(started)}
+		// An answer Phase 5 refused and a server that was not there are
+		// different measurements, and they are told apart by type rather than
+		// by matching the text of a diagnostic (prov-2026-0811425c). A rejected
+		// answer carries what it cost, which is the sample where the count is
+		// most interesting - it is the expensive one.
+		var rejected *selection.Rejection
+		if errors.As(err, &rejected) {
+			return Sample{
+				Invalid:      true,
+				Detail:       firstLine(err.Error()),
+				Calls:        rejected.Calls,
+				Rejected:     rejected.Rejected,
+				Completeness: rejected.Completeness,
+				Elapsed:      time.Since(started),
+			}
 		}
 		return Sample{Err: err, Detail: firstLine(err.Error()), Elapsed: time.Since(started)}
 	}
 
 	s := Sample{Counts: map[string]int{}, Elapsed: time.Since(started)}
 	for _, sel := range result.Selections {
+		s.Calls += sel.Calls
+		s.Rejected += sel.Rejected
+		s.Completeness += sel.Completeness
 		for _, inv := range sel.Invocations {
 			if s.First == "" {
 				s.First = inv.Action
@@ -248,6 +272,39 @@ type Totals struct {
 
 // Answered is how many samples the model responded to at all.
 func (t Totals) Answered() int { return t.Valid + t.Invalid }
+
+// Cost is what a measurement spent, in calls.
+//
+// Seconds cannot answer this: a per-sample time is calls multiplied by an
+// unknown and varying per-call cost, which is why two arms at 5/5 could not be
+// compared on cost before Phase 5 reported what it spent.
+type Cost struct {
+	// Calls is every model call the measurement made.
+	Calls int
+	// Completeness is how many of them were the completeness observation.
+	Completeness int
+	// FirstTry is how many answered samples took no rejection at all. This is
+	// first-call validity, and it survives any retry budget - which is the
+	// measurement a raised budget used to destroy (prov-2026-0811425c).
+	FirstTry int
+}
+
+// Spent sums what the samples cost. Failed samples contribute nothing: a call
+// that never returned an answer is not a cost attributable to a selection.
+func (m Measurement) Spent() Cost {
+	var c Cost
+	for _, s := range m.Samples {
+		if s.Err != nil {
+			continue
+		}
+		c.Calls += s.Calls
+		c.Completeness += s.Completeness
+		if s.Rejected == 0 {
+			c.FirstTry++
+		}
+	}
+	return c
+}
 
 // Tally divides the samples without scoring any of them.
 func (m Measurement) Tally() Totals {
