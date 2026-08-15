@@ -79,10 +79,20 @@ intent: |
   ## Cost and scope
 
   Additive to actions.yaml: a package that declares none is unchanged and
-  unaffected, so there is no migration. The catalog is regenerated per run and
-  is not a durable artifact, so its shape is free to grow. Recordings and
-  markers are untouched - a description describes an argument, and what a region
-  was parameterized with is already on the marker.
+  unaffected, so there is no migration. Recordings and markers are untouched - a
+  description describes an argument, and what a region was parameterized with is
+  already on the marker.
+
+  The catalog is regenerated per run and is not a durable artifact, so its shape
+  is free to **grow**. That is not the same as free to change, and the distinction
+  has become load-bearing since this was first written: sedum actions --json is a
+  supported surface under [[prov-2026-59535684]], and a caller doing its own
+  selection reads it to decide which action can represent a change. Adding a field
+  is safe for such a reader; removing or repurposing one is not, whatever the
+  catalog's lifetime. [[prov-2026-14c832bf]] settles the general rule - the JSON is
+  the contract and each consumer's view is a rendering of it - and a description is
+  the easiest possible case under it, because it is new, optional, and consumed by
+  nothing that does not ask for it.
 
   Worth saying plainly: this makes catalog quality an authoring responsibility
   rather than a property of the model. That is the right place for it. An author
@@ -111,6 +121,11 @@ constraints:
     Descriptions reach the prompt and nothing else. They are not recorded on
     markers and not written into recordings - a description describes an
     argument, not a region.
+  - >-
+    The addition is additive to sedum actions --json, which is a supported
+    surface with readers other than the prompt. The catalog's shape is free to
+    grow and not free to change; no existing field is removed or repurposed to
+    make room for a description.
 affected_scope:
   - internal/genpkg/**
   - internal/catalog/**
@@ -125,7 +140,8 @@ supersedes: ""
 superseded_by: ""
 related:
   - prov-2026-369544c1
-  - prov-2026-1bbb8e2e
+  - prov-2026-14c832bf
+  - prov-2026-59535684
 sealed_at_sha: ""
 associated_specs: []
 associated_traces: []
