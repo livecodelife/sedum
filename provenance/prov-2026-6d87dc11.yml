@@ -225,6 +225,8 @@ constraints:
 affected_scope:
   - internal/selection/**
   - internal/expand/**
+  # The completeness re-prompt changes a call count this test asserts.
+  - internal/pipeline/pipeline_test.go
   - testdata/**
   - PRD.md
 forbidden_scope: []

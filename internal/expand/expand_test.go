@@ -504,3 +504,73 @@ func TestActionTargetingAnUnmanagedPathSaysSo(t *testing.T) {
 		}
 	}
 }
+
+// rendered builds the Phase 3 output with the template content the file was
+// created from, which is what plants the anchors an action fills.
+func rendered(t *testing.T, set *genpkg.Set, path, pkgName, content string) resolve.File {
+	t.Helper()
+	pkg, ok := set.Lookup(pkgName)
+	if !ok {
+		t.Fatalf("package %q did not load", pkgName)
+	}
+	return resolve.File{
+		Resolution: resolve.Resolution{RecordID: "PR-014", Path: path, Package: pkg},
+		Rendered:   content,
+	}
+}
+
+// A created file states on disk what work it expects, because a file template
+// planted the markers an action's anchor targets. Planted minus filled is the
+// one failure class Phase 5 is otherwise blind to (prov-2026-6d87dc11).
+func TestUnfilledAnchorsAreWhatTheRunMadeAndNothingFills(t *testing.T) {
+	set := loadSet(t, generators())
+	files := []resolve.File{rendered(t, set,
+		"app/controllers/users_controller.rb", "rails",
+		"class UsersController\n  # sedum:anchor:class_body\nend\n")}
+
+	// Nothing selected: the anchor the template planted is unfilled.
+	empty := Unfilled("PR-014", files, nil)
+	if len(empty) != 1 || empty[0].Marker != "class_body" {
+		t.Fatalf("an empty selection left %+v unfilled, want class_body", empty)
+	}
+	if empty[0].Path != "app/controllers/users_controller.rb" {
+		t.Errorf("unfilled anchor names %q, want the file that planted it", empty[0].Path)
+	}
+
+	// An action anchored to it accounts for it.
+	filled := Unfilled("PR-014", files, []recording.Invocation{{
+		Action: "createControllerMethod",
+		Kwargs: map[string]any{"controller": "users", "name": "index", "collection": "users"},
+	}})
+	if len(filled) != 0 {
+		t.Errorf("class_body reported unfilled after an action anchored to it was selected: %+v", filled)
+	}
+}
+
+// An unmanaged path is one Sedum did not write, so it has no claim about what
+// the file contains and no business reporting an anchor missing from it.
+func TestUnmanagedPathsPlantNothing(t *testing.T) {
+	files := []resolve.File{{
+		Resolution: resolve.Resolution{
+			RecordID: "PR-014", Path: "Gemfile", Unmanaged: true, UnmanagedBy: "rails",
+		},
+		Rendered: "# sedum:anchor:gems\n",
+	}}
+
+	if got := Planted(files); len(got) != 0 {
+		t.Errorf("an unmanaged path reported planted anchors: %+v", got)
+	}
+}
+
+// A file whose template planted nothing leaves nothing unfilled. A migration or
+// a plain config file may legitimately start blank, and a run that reported one
+// as incomplete would make every such template a liability.
+func TestAFileWithNoMarkersLeavesNothingUnfilled(t *testing.T) {
+	set := loadSet(t, generators())
+	files := []resolve.File{rendered(t, set,
+		"app/controllers/plain_controller.rb", "rails", "class PlainController\nend\n")}
+
+	if got := Unfilled("PR-014", files, nil); len(got) != 0 {
+		t.Errorf("a file planting no markers reported %+v unfilled", got)
+	}
+}

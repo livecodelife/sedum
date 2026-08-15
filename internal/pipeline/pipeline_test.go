@@ -522,8 +522,13 @@ func TestEachRecordGetsItsOwnCall(t *testing.T) {
 		t.Fatalf("Run: %v", err)
 	}
 
-	if client.calls != 2 {
-		t.Fatalf("two records cost %d model calls, want 2", client.calls)
+	// Two per record. The stub selects nothing, so every anchor the model
+	// template plants is left unfilled and each record earns one completeness
+	// re-prompt before its answer stands (prov-2026-6d87dc11). What this test
+	// is about is that the records do not share a call, which the isolation
+	// check below is what actually asserts.
+	if client.calls != 4 {
+		t.Fatalf("two records cost %d model calls, want 4 - one call and one completeness re-prompt each", client.calls)
 	}
 	// The catalog names paths too, in its injects_into patterns, so the file
 	// list is what is counted rather than the prompt as a whole.

@@ -101,8 +101,14 @@ func Select(ctx context.Context, client Client, req Request, opts Options) ([]re
 	}
 	messages := prompt
 
+	// Two budgets, deliberately separate. A validation retry says the answer
+	// was wrong; a completeness re-prompt says it may be incomplete. Exhausting
+	// one must not consume the other, and they are reported differently
+	// (prov-2026-6d87dc11).
 	var rejected []attempt
-	for i := 0; i <= opts.Retries; i++ {
+	askedForCompleteness := false
+
+	for i := 0; ; i++ {
 		log.Info("invoking model", "record", req.RecordID, "attempt", i+1,
 			"actions", len(cat.Actions), "files", len(req.Files))
 		// The prompt is logged as well as the response. "Why did the model
@@ -125,6 +131,25 @@ func Select(ctx context.Context, client Client, req Request, opts Options) ([]re
 		if len(violations) == 0 {
 			log.Info("model output validated", "record", req.RecordID,
 				"attempt", i+1, "invocations", len(invocations))
+
+			// The answer is valid either way. What remains is whether it is
+			// complete, which is a question rather than a verdict: the model
+			// keeps the judgment and simply stops making it blind. A response
+			// leaving nothing unfilled is never re-prompted, so the case that
+			// was already complete costs nothing.
+			if !askedForCompleteness {
+				unfilled := expand.Unfilled(req.RecordID, req.Files, invocations)
+				if len(unfilled) > 0 {
+					askedForCompleteness = true
+					log.Info("selection leaves anchors unfilled", "record", req.RecordID,
+						"attempt", i+1, "unfilled", anchorSummary(unfilled))
+					messages = append(messages,
+						Message{Role: RoleAssistant, Content: raw},
+						Message{Role: RoleUser, Content: note(unfilled)},
+					)
+					continue
+				}
+			}
 			return invocations, nil
 		}
 
@@ -133,6 +158,9 @@ func Select(ctx context.Context, client Client, req Request, opts Options) ([]re
 				"rule", v.Rule, "detail", v.Detail)
 		}
 		rejected = append(rejected, attempt{number: i + 1, violations: violations})
+		if len(rejected) > opts.Retries {
+			return nil, exhausted(req.RecordID, opts.Retries, rejected)
+		}
 
 		// The rejected response stays in the conversation. Re-prompting with
 		// the violations but without what they refer to would ask the model to
@@ -142,8 +170,6 @@ func Select(ctx context.Context, client Client, req Request, opts Options) ([]re
 			Message{Role: RoleUser, Content: rejection(violations)},
 		)
 	}
-
-	return nil, exhausted(req.RecordID, opts.Retries, rejected)
 }
 
 // attempt is one rejected response, kept so that exhaustion reports every

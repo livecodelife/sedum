@@ -662,3 +662,100 @@ func TestDeclaredAndDerivedRequirementsAreDistinctViolations(t *testing.T) {
 		`{"invocations":[{"action":"createControllerMethod","kwargs":{"name":"index"}}]}`,
 		"missing_kwarg", "controller")
 }
+
+// Under-selection is the one failure class Phase 5 is structurally blind to: a
+// short list is valid output, so a run that selects thirteen of fourteen correct
+// invocations passes every rule, first try, with no retry. The observation is
+// fed back once and the model keeps the judgment (prov-2026-6d87dc11).
+func TestAnIncompleteSelectionIsFedBackOnce(t *testing.T) {
+	req := railsRequest(t)
+	req.Files[0].Rendered = "class UsersController\n  # sedum:anchor:class_body\nend\n"
+
+	// The first answer selects nothing, leaving class_body unfilled. The second
+	// fills it, and the run accepts that.
+	got, client, err := selectWith(t, req, 0,
+		`{"invocations":[]}`,
+		validResponse,
+	)
+	if err != nil {
+		t.Fatalf("a completeness re-prompt was treated as a failure: %v", err)
+	}
+	if len(got) != 1 {
+		t.Fatalf("got %d invocations, want the second answer's 1", len(got))
+	}
+	if len(client.seen) != 2 {
+		t.Fatalf("the model was called %d time(s), want 2 - one answer and one completeness re-prompt", len(client.seen))
+	}
+
+	// The observation names the file and the anchor, which is the bar every
+	// Phase 5 diagnostic is held to.
+	followUp := client.seen[1][len(client.seen[1])-1].Content
+	for _, want := range []string{"users_controller.rb", "class_body"} {
+		if !strings.Contains(followUp, want) {
+			t.Errorf("the completeness note does not mention %q:\n%s", want, followUp)
+		}
+	}
+}
+
+// The model keeps the judgment. An anchor with nothing in it is not necessarily
+// a mistake - a template may plant a region a given change does not need - so a
+// second declining answer stands and the run continues.
+func TestADecliningAnswerStandsAndTheRunContinues(t *testing.T) {
+	req := railsRequest(t)
+	req.Files[0].Rendered = "class UsersController\n  # sedum:anchor:class_body\nend\n"
+
+	got, client, err := selectWith(t, req, 0,
+		`{"invocations":[]}`,
+		`{"invocations":[]}`,
+	)
+	if err != nil {
+		t.Fatalf("a twice-empty selection became an error; an unfilled anchor is never a hard error: %v", err)
+	}
+	if len(got) != 0 {
+		t.Errorf("got %d invocations, want the model's own answer of none", len(got))
+	}
+	if len(client.seen) != 2 {
+		t.Errorf("the model was called %d time(s), want exactly 2 - the observation is fed back at most once", len(client.seen))
+	}
+}
+
+// A response that leaves nothing unfilled is never re-prompted, so the common
+// case costs nothing.
+func TestACompleteSelectionIsNotReprompted(t *testing.T) {
+	req := railsRequest(t)
+	req.Files[0].Rendered = "class UsersController\n  # sedum:anchor:class_body\nend\n"
+
+	_, client, err := selectWith(t, req, 0, validResponse)
+	if err != nil {
+		t.Fatalf("a complete selection was rejected: %v", err)
+	}
+	if len(client.seen) != 1 {
+		t.Errorf("the model was called %d time(s), want 1 - nothing was left unfilled", len(client.seen))
+	}
+}
+
+// A completeness re-prompt is not a validation retry. Exhausting one must not
+// consume the other, so an invalid answer still gets its full retry budget after
+// the observation has been spent.
+func TestCompletenessAndValidationDrawFromSeparateBudgets(t *testing.T) {
+	req := railsRequest(t)
+	req.Files[0].Rendered = "class UsersController\n  # sedum:anchor:class_body\nend\n"
+
+	// Empty (triggers the observation), then invalid (consumes the one retry),
+	// then valid. With Retries=1 this must succeed: the completeness call is
+	// not drawn from the retry budget.
+	got, client, err := selectWith(t, req, 1,
+		`{"invocations":[]}`,
+		`{"invocations":[{"action":"noSuchAction","kwargs":{}}]}`,
+		validResponse,
+	)
+	if err != nil {
+		t.Fatalf("the completeness re-prompt consumed a validation retry: %v", err)
+	}
+	if len(got) != 1 {
+		t.Errorf("got %d invocations, want 1", len(got))
+	}
+	if len(client.seen) != 3 {
+		t.Errorf("the model was called %d time(s), want 3", len(client.seen))
+	}
+}

@@ -422,6 +422,18 @@ The third check is the one that keeps the phase boundary honest. Without it Phas
 
 On failure, re-prompt with the specific violations appended, up to a configured retry limit. This loop costs one model call — no compilation, no service startup, no test execution.
 
+### Completeness
+
+Every check above reads what the model returned. None of them can read what it did not return, and **a short list is valid output** — so a run that selects thirteen of fourteen correct invocations passes every rule, first try, with no retry, because nothing about it was wrong. Under-selection is the one failure class this design is otherwise blind to.
+
+A created file states on disk what work it expects: a file template plants the markers an action's anchor targets. So the anchors a run planted, minus the anchors its selections fill, is the set of regions this run made and nothing it chose writes into. That observation is fed back to the model **once**.
+
+**It is never a hard error.** A template may plant a region a given change does not need, or one a later record will fill, and a run that refused to proceed would make every such template a liability. If the model declines again, its answer stands and the run continues — the judgment stays the model's; it simply stops making it blind.
+
+**A completeness re-prompt is not a validation retry.** One says the answer was wrong, the other says it may be incomplete, so they are reported differently and drawn from separate budgets. A response that leaves nothing unfilled is never re-prompted, so the common case costs nothing.
+
+Only marker anchors participate. `start_of_file`, `end_of_file`, and the match anchors name no region a file can be observed to be missing. Replay runs no completeness pass: a recording is a caller's own selection, so an unfilled anchor there is a decision rather than an oversight, and there is nobody to re-prompt.
+
 ### Phase 6 — Expand and resolve
 
 Expand composites into ordered children, mapping union kwargs to each child's schema. Render every `injects_into` pattern. Select the variant template for each discriminated action. Apply transforms.
