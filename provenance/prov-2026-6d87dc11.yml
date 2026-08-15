@@ -202,9 +202,17 @@ constraints:
     replayed recording is a caller's own selection, so an unfilled anchor there is
     a decision rather than an oversight, and there is nobody to re-prompt.
   - >-
-    Planted markers per created file are computed once in genpkg and shared with
+    Planted markers per created file are computed once and shared with
     prov-2026-14c832bf's Phase 5 check and its file list. Three consumers, one
-    function - not three call sites each reading files for themselves.
+    function - not three call sites each reading files for themselves. It lives
+    in expand rather than genpkg, because the per-file mapping needs
+    resolve.File and resolve imports genpkg; genpkg keeps the MarkersIn
+    primitive it already has.
+  - >-
+    The unfilled set is also a completeness metric, and is reported as one. It
+    is derived from the package and the record rather than from hand-authored
+    expectations, which is what makes it worth more to the eval harness
+    (prov-2026-e6969eb3) than the counts it has today.
   - >-
     The rate this record is measured against is a rate, not a certainty. Any
     claim here about how often selection misses states its sample size and the
@@ -216,8 +224,7 @@ constraints:
     covers derived requirements only; descriptions are untested.
 affected_scope:
   - internal/selection/**
-  - internal/pipeline/**
-  - internal/genpkg/**
+  - internal/expand/**
   - testdata/**
   - PRD.md
 forbidden_scope: []
@@ -233,7 +240,14 @@ related:
   - prov-2026-14c832bf
   - prov-2026-59535684
 sealed_at_sha: ""
-associated_specs: []
+associated_specs:
+  # expand owns the shared planted-marker computation; selection owns the
+  # observation, the single re-prompt, and the rule that it never becomes an
+  # error.
+  - path: internal/expand/expand_test.go
+    run_command: go test -count=1 ./$(dirname {{path}})
+  - path: internal/selection/selection_test.go
+    run_command: go test -count=1 ./$(dirname {{path}})
 associated_traces: []
 monitors: []
 tags:
