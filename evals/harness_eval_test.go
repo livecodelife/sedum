@@ -13,11 +13,13 @@
 //	  -eval.samples   runs per model, default 5
 //	  -eval.concurrency  samples in flight at once, default 1
 //	  -eval.root      where the vendored fixtures live, default testdata
+//	  -eval.results   where results are appended, default results ("" disables)
 package evals
 
 import (
 	"context"
 	"flag"
+	"fmt"
 	"os"
 	"strings"
 	"testing"
@@ -31,6 +33,7 @@ var (
 	samples     = flag.Int("eval.samples", 5, "runs per model")
 	concurrency = flag.Int("eval.concurrency", 1, "samples in flight at once; raise it against a server with continuous batching")
 	root        = flag.String("eval.root", "testdata", "directory the vendored fixtures live under")
+	results     = flag.String("eval.results", "results", "directory results are appended to; empty disables recording")
 )
 
 func TestEval(t *testing.T) {
@@ -64,6 +67,23 @@ func TestEval(t *testing.T) {
 				// arrives unindented and can be pasted into a record as it
 				// stands.
 				Report(os.Stdout, m)
+
+				if *results != "" {
+					entry := NewEntry(m, 0, os.Getenv(selection.EnvBaseURL))
+					if !entry.Clean {
+						// The commit is what makes an entry re-runnable, and a
+						// dirty tree makes it a lie. The run is still recorded
+						// - refusing would rule out measuring mid-edit, which
+						// is most of how this gets used - but it says so here
+						// and in the entry (prov-2026-eb283c56).
+						fmt.Fprintf(os.Stdout,
+							"  WARNING: %d uncommitted change(s); this entry is not re-runnable from %s\n",
+							len(entry.Dirty), entry.Commit)
+					}
+					if err := Append(*results, entry); err != nil {
+						t.Errorf("recording the result: %v", err)
+					}
+				}
 
 				// A measurement does not fail. The one thing that does is a
 				// case that produced nothing to measure, because that is a

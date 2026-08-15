@@ -107,7 +107,12 @@ related:
   - prov-2026-d61010a4
   - prov-2026-6d87dc11
 sealed_at_sha: ""
-associated_specs: []
+associated_specs:
+  # The codec and the commit-pinning are deterministic and need no model: a
+  # round trip, an append that preserves what was there, and an entry that
+  # records a dirty tree as dirty.
+  - path: evals/results_test.go
+    run_command: go test -count=1 ./$(dirname {{path}})
 associated_traces: []
 monitors: []
 tags:
