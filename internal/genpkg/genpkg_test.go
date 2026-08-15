@@ -862,3 +862,109 @@ func TestAnUnderstatedRequirementWarnsAndOnlyForSingleTemplateActions(t *testing
 		}
 	}
 }
+
+// A description is authored prose carried untouched. Nothing parses one,
+// validates one, or derives a constraint from one - a description must never
+// become a place where a rule lives, because a rule the model can read and
+// Phase 5 cannot enforce is worse than no rule (prov-2026-c5697387).
+func TestDescriptionsAreCarriedAndOptional(t *testing.T) {
+	files := map[string]string{
+		"rails/sedum.yaml":                 "name: rails\nextensions: [\".rb\"]\ncomment_prefix: \"#\"\n",
+		"rails/files/app/models/{name}.rb": "class X\n  # sedum:anchor:body\nend\n",
+		"rails/actions/actions.yaml": `actions:
+  createModelClass:
+    description: Defines the model class body.
+    kwargs:
+      name:
+        type: string
+        required: true
+        description: the model's singular name, bare
+    injects_into: "app/models/{{name|snake}}.rb"
+    anchor: body
+
+  addConcern:
+    kwargs:
+      name: { type: string, required: true }
+    injects_into: "app/models/{{name|snake}}.rb"
+    anchor: body
+`,
+		"rails/actions/createModelClass.rb": "class {{name}}\nend\n",
+		"rails/actions/addConcern.rb":       "include {{name}}\n",
+	}
+
+	set, findings := loadTree(t, files)
+	for _, f := range findings {
+		if f.Kind == KindError {
+			t.Fatalf("a package declaring descriptions does not load: %s", f)
+		}
+	}
+	pkg, _ := set.Lookup("rails")
+
+	described := pkg.Actions["createModelClass"]
+	if described.Description != "Defines the model class body." {
+		t.Errorf("action description is %q, want it carried verbatim", described.Description)
+	}
+	if got := described.Kwargs["name"].Description; got != "the model's singular name, bare" {
+		t.Errorf("kwarg description is %q, want it carried verbatim", got)
+	}
+
+	// Absent means absent. Nothing is synthesised to fill the gap.
+	bare := pkg.Actions["addConcern"]
+	if bare.Description != "" {
+		t.Errorf("an undescribed action gained a description: %q", bare.Description)
+	}
+	if got := bare.Kwargs["name"].Description; got != "" {
+		t.Errorf("an undescribed kwarg gained a description: %q", got)
+	}
+}
+
+// A composite's schema is the union of its children's, so a description a
+// child wrote has to survive the union or it is written where nothing reads
+// it. Two children describing one kwarg differently is an authoring problem
+// the composite cannot resolve, so the first in declaration order wins rather
+// than the two being concatenated into a sentence neither author wrote.
+func TestACompositeInheritsItsChildrensDescriptions(t *testing.T) {
+	files := map[string]string{
+		"chi/sedum.yaml":                        "name: chi\nextensions: [\".go\"]\ncomment_prefix: \"//\"\n",
+		"chi/files/internal/handlers/{name}.go": "package handlers\n\n// sedum:anchor:handlers\n",
+		"chi/actions/actions.yaml": `actions:
+  createHandler:
+    composes: [addHandlerFunc, addRoute]
+
+  addHandlerFunc:
+    kwargs:
+      resource:
+        type: string
+        required: true
+        description: the resource's plural name, lowercase
+    injects_into: "internal/handlers/{{resource}}.go"
+    anchor: handlers
+    exposed: false
+
+  addRoute:
+    kwargs:
+      resource:
+        type: string
+        required: true
+        description: a second sentence about the same kwarg
+    injects_into: "internal/handlers/{{resource}}.go"
+    anchor: end_of_file
+    exposed: false
+`,
+		"chi/actions/addHandlerFunc.go": "func {{resource}}() {}\n",
+		"chi/actions/addRoute.go":       "// route {{resource}}\n",
+	}
+
+	set, findings := loadTree(t, files)
+	for _, f := range findings {
+		if f.Kind == KindError {
+			t.Fatalf("package does not load: %s", f)
+		}
+	}
+	pkg, _ := set.Lookup("chi")
+
+	got := pkg.Actions["createHandler"].Kwargs["resource"].Description
+	if got != "the resource's plural name, lowercase" {
+		t.Errorf("composite kwarg description is %q, want the first child's", got)
+	}
+}

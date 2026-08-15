@@ -106,6 +106,10 @@ func printCatalog(out io.Writer, c catalog.Catalog, cfg ActionsConfig) {
 		}
 		fmt.Fprintf(out, "%s%s\n", a.Name, hidden)
 
+		if a.Description != "" {
+			fmt.Fprintf(out, "  %s\n", a.Description)
+		}
+
 		if len(a.Composes) > 0 {
 			fmt.Fprintf(out, "  composes: %s\n", strings.Join(a.Composes, ", "))
 		}
@@ -117,6 +121,12 @@ func printCatalog(out io.Writer, c catalog.Catalog, cfg ActionsConfig) {
 				requirement = "required"
 			}
 			fmt.Fprintf(out, "  %-14s %-8s %s\n", name, k.Type, requirement)
+			// On its own line rather than a fourth column, because a
+			// description is a sentence and a column would truncate it or
+			// wrap it into the next kwarg's row.
+			if k.Description != "" {
+				fmt.Fprintf(out, "    %s\n", k.Description)
+			}
 		}
 
 		if a.Discriminator != "" {
@@ -127,6 +137,8 @@ func printCatalog(out io.Writer, c catalog.Catalog, cfg ActionsConfig) {
 			fmt.Fprintf(out, "  %s selects a template: %s (%s)\n",
 				a.Discriminator, strings.Join(a.Variants, ", "), fallback)
 		}
+
+		printRequirements(out, a)
 	}
 
 	exposed := 0
@@ -136,6 +148,37 @@ func printCatalog(out io.Writer, c catalog.Catalog, cfg ActionsConfig) {
 		}
 	}
 	fmt.Fprintf(out, "\n%d action(s), %d exposed to the model\n", len(c.Actions), exposed)
+}
+
+// printRequirements shows what an action's templates need beyond what the kwarg
+// schema declares.
+//
+// This is in the human rendering because the command's whole claim is that it
+// is evidence of what the model receives. A field carried in --json and omitted
+// here would make the two disagree, which is the one thing this command cannot
+// afford (prov-2026-369544c1).
+func printRequirements(out io.Writer, a catalog.Action) {
+	if len(a.Requires) > 0 {
+		fmt.Fprintf(out, "  its template renders: %s\n", strings.Join(a.Requires, ", "))
+	}
+	if len(a.VariantRequires) == 0 {
+		return
+	}
+
+	variants := make([]string, 0, len(a.VariantRequires))
+	for variant := range a.VariantRequires {
+		variants = append(variants, variant)
+	}
+	sort.Strings(variants)
+
+	fmt.Fprintln(out, "  each template renders, and so needs bound:")
+	for _, variant := range variants {
+		needs := "nothing beyond the schema"
+		if len(a.VariantRequires[variant]) > 0 {
+			needs = strings.Join(a.VariantRequires[variant], ", ")
+		}
+		fmt.Fprintf(out, "    %-12s %s\n", variant, needs)
+	}
 }
 
 func sortedKwargs(kwargs map[string]catalog.Kwarg) []string {

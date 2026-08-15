@@ -178,6 +178,34 @@ actions:
 
 `kwargs` is the schema the model is held to. Types come from a closed set — `string`, `int`, `bool`, `list` — sufficient for argument binding and nothing more.
 
+### Descriptions
+
+A kwarg may declare a `description`, and so may an action:
+
+```yaml
+addColumn:
+  description: Adds a column to a migration's change block.
+  kwargs:
+    name:
+      type: string
+      required: true
+      description: the column name, bare — the template writes the leading colon
+    options:
+      type: string
+      required: false
+      description: the rest of the line after the column name, e.g. "null: false"
+```
+
+The type set is deliberately tiny, so it cannot express *a comma-separated list of bare names* or *the rest of the line after the column name* — and should not try. An author can say it in a sentence, and until they had somewhere to say it, they said it in a YAML comment the model never sees.
+
+The retry loop is not the alternative. A wrong value here is usually a **valid string for a required string kwarg**, so every Phase 5 check passes and the failure surfaces as an error in the running target, which is past the last point Sedum looks. Where a check can tell, it names a rendered path or a template file rather than the convention that was missed, so the model corrects toward the symptom. The retry loop is a backstop for mistakes, not a channel for information the catalog could have carried.
+
+Both are optional, both are passed through untouched, and absent means absent — nothing is synthesised to fill the gap, because an invented description reads with an authority it has not earned.
+
+**Nothing interprets a description.** Sedum does not parse one, validate one, derive a constraint from one, or check that a bound value agrees with one. A description must never become a place where a rule lives: a rule the model can read and Phase 5 cannot enforce is worse than no rule. If a rule matters, it belongs in the schema where it is checked.
+
+This makes catalog quality an authoring responsibility rather than a property of the model, which is the right place for it. `sedum actions` is where an author sees what the model will see.
+
 A kwarg every one of an action's templates renders unconditionally should be declared `required`, as `collection` is above, and Sedum warns when a single-template action declares one optional. But the declaration is not the only source of the requirement, because it cannot be: a discriminated action shares one kwarg schema across every variant, so a value that `index` needs and `destroy` forbids can only be declared optional.
 
 **So a requirement is also derived from the template.** Sedum's grammar has no conditionals, no loops, and no field access — `{{name}}` and `{{name|op}}` are the whole of it — so a value a template references is a value that template unconditionally needs. There is no shape of template for which *referenced* and *required* differ, which makes the derivation exact rather than approximate.
@@ -368,7 +396,7 @@ This is a governance position. `forbidden_scope` means Sedum does not touch what
 
 ### Phase 4 — Model invocation
 
-One call per provenance record. The prompt contains the record's `intent`, its `constraints`, the paths created for it in Phase 3, and the action catalog — the **union of exposed actions across every package the record's paths resolved to**, with their kwarg schemas, variant lists, per-variant derived requirements, and `injects_into` patterns.
+One call per provenance record. The prompt contains the record's `intent`, its `constraints`, the paths created for it in Phase 3, and the action catalog — the **union of exposed actions across every package the record's paths resolved to**, with their kwarg schemas, authored descriptions, variant lists, per-variant derived requirements, and `injects_into` patterns.
 
 Variant lists are included deliberately. Without them there is an invisible cliff: `name: index` gets a full implementation while `name: search` falls to `_default`, and the model has no way to know it fell off. Exposing the list lets it prefer covered values where intent maps cleanly, and take the fallback knowingly where it does not. Whether a `_default` exists is carried alongside, because *knowingly* is not available to a model that cannot see whether there is a fallback to take.
 
@@ -725,7 +753,7 @@ sedum resolve --generators ./generators --records ./provenance
 
 ### `sedum actions`
 
-Prints a package's action catalog exactly as the model would receive it — exposed actions, kwarg schemas, variant lists, derived requirements. The authoring feedback loop for exposure and catalog clarity.
+Prints a package's action catalog exactly as the model would receive it — exposed actions, kwarg schemas, descriptions, variant lists, derived requirements. The authoring feedback loop for exposure and catalog clarity.
 
 ```
 sedum actions --generators ./generators --package rails

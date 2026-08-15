@@ -38,6 +38,7 @@ type actionsFile struct {
 // and hiding is the deliberate act.
 type actionDecl struct {
 	Kwargs        map[string]Kwarg `yaml:"kwargs"`
+	Description   string           `yaml:"description"`
 	Discriminator string           `yaml:"discriminator"`
 	Variants      []string         `yaml:"variants"`
 	InjectsInto   string           `yaml:"injects_into"`
@@ -54,6 +55,18 @@ type actionDecl struct {
 type Kwarg struct {
 	Type     string `yaml:"type"`
 	Required bool   `yaml:"required"`
+
+	// Description is the author's sentence about what a correct value looks
+	// like. It exists because the type set is deliberately tiny - string, int,
+	// bool, list - so it cannot express "a comma-separated list of bare names"
+	// and should not try, while an author can say it in a sentence.
+	//
+	// Nothing interprets it. Sedum does not parse a description, validate one,
+	// derive a constraint from one, or check that a bound value agrees with
+	// one. A description must never become a place where a rule lives, because
+	// a rule the model can read and Phase 5 cannot enforce is worse than no
+	// rule at all (prov-2026-c5697387).
+	Description string `yaml:"description"`
 }
 
 // KwargTypes is the closed set an action's kwarg may declare. It is
@@ -99,7 +112,14 @@ type Action struct {
 	// Kwargs is the declared schema for a simple action, and the union of
 	// its children's schemas for a composite - union of names, union of
 	// required flags.
-	Kwargs        map[string]Kwarg
+	Kwargs map[string]Kwarg
+
+	// Description is the author's sentence about what this action does,
+	// carried to the catalog untouched. Empty means the author wrote none,
+	// and nothing is invented to fill it - a synthesised description is worse
+	// than none, because it reads with the same authority and carries none.
+	Description string
+
 	Discriminator string
 	Variants      []string
 	InjectsInto   string

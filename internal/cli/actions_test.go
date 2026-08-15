@@ -178,3 +178,61 @@ func TestActionsNamesTheMissingPackage(t *testing.T) {
 	}
 	wantErr(t, err, "rails2")
 }
+
+// Everything an author writes to explain a kwarg was previously written in a
+// YAML comment, which is exactly where the model cannot see it. A description
+// puts it on the surface the model actually reads - and this command is where
+// the author confirms that it landed (prov-2026-c5697387).
+func TestActionsPrintsAuthoredDescriptions(t *testing.T) {
+	out, err := exec(t, "actions", "--generators", fixtureGenerators(), "--package", "rails")
+	if err != nil {
+		t.Fatalf("actions: %v\n%s", err, out)
+	}
+
+	if !strings.Contains(out, "Registers a before_action callback") {
+		t.Errorf("the action's own description is missing:\n%s", out)
+	}
+	if !strings.Contains(out, "the template writes the leading colon") {
+		t.Errorf("a kwarg description is missing:\n%s", out)
+	}
+
+	// Absent means absent. An action with no description gets no placeholder,
+	// because an invented sentence reads with an authority it has not earned.
+	if strings.Contains(out, "addFileHeader\n  <") || strings.Contains(out, "no description") {
+		t.Errorf("an undescribed action was given placeholder text:\n%s", out)
+	}
+}
+
+// The command's claim is that it is evidence of what the model receives. A
+// field carried in --json and omitted from the human rendering would make the
+// two disagree, which is the one thing it cannot afford (prov-2026-369544c1).
+func TestActionsAndJSONAgreeOnWhatTemplatesNeed(t *testing.T) {
+	human, err := exec(t, "actions", "--generators", fixtureGenerators(), "--package", "rails")
+	if err != nil {
+		t.Fatalf("actions: %v\n%s", err, human)
+	}
+	raw, err := exec(t, "actions", "--generators", fixtureGenerators(), "--package", "rails", "--json")
+	if err != nil {
+		t.Fatalf("actions --json: %v\n%s", err, raw)
+	}
+
+	var payload catalog.Catalog
+	if err := json.Unmarshal([]byte(raw), &payload); err != nil {
+		t.Fatalf("payload does not decode: %v", err)
+	}
+
+	for _, a := range payload.Actions {
+		for variant, needs := range a.VariantRequires {
+			if len(needs) == 0 {
+				continue
+			}
+			if !strings.Contains(human, variant) {
+				t.Errorf("--json reports %s needs %v, but the printed catalog never names it:\n%s",
+					variant, needs, human)
+			}
+		}
+		if a.Description != "" && !strings.Contains(human, a.Description) {
+			t.Errorf("--json carries a description the printed catalog drops: %q", a.Description)
+		}
+	}
+}

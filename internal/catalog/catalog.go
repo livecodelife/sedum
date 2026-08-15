@@ -30,6 +30,17 @@ import (
 type Kwarg struct {
 	Type     string `json:"type"`
 	Required bool   `json:"required"`
+
+	// Description is the author's sentence about what a correct value looks
+	// like, passed through untouched.
+	//
+	// It is here because the catalog is the only thing the model reads, and
+	// everything an author writes to explain a kwarg is otherwise written in a
+	// YAML comment the model never sees. The type set cannot express "bare
+	// names, comma separated" or "the rest of the line after the column name";
+	// a sentence can, and getting it wrong is not a failure any Phase 5 check
+	// can catch, because the wrong value is a valid string (prov-2026-c5697387).
+	Description string `json:"description,omitempty"`
 }
 
 // Action is one entry as the model receives it.
@@ -42,6 +53,11 @@ type Kwarg struct {
 type Action struct {
 	Name    string `json:"action"`
 	Package string `json:"package"`
+
+	// Description is the author's sentence about what this action does. Absent
+	// means the author wrote none; nothing is synthesised to fill it, because
+	// an invented description reads with an authority it has not earned.
+	Description string `json:"description,omitempty"`
 
 	Kwargs map[string]Kwarg `json:"kwargs,omitempty"`
 
@@ -153,6 +169,7 @@ func entry(pkg *genpkg.Package, action *genpkg.Action, opts Options) Action {
 	out := Action{
 		Name:          action.Name,
 		Package:       pkg.Name,
+		Description:   action.Description,
 		Discriminator: action.Discriminator,
 		Variants:      action.Variants,
 		Composes:      action.Composes,
@@ -161,7 +178,7 @@ func entry(pkg *genpkg.Package, action *genpkg.Action, opts Options) Action {
 	if len(action.Kwargs) > 0 {
 		out.Kwargs = make(map[string]Kwarg, len(action.Kwargs))
 		for name, k := range action.Kwargs {
-			out.Kwargs[name] = Kwarg{Type: k.Type, Required: k.Required}
+			out.Kwargs[name] = Kwarg{Type: k.Type, Required: k.Required, Description: k.Description}
 		}
 	}
 

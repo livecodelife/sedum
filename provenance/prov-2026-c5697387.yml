@@ -129,7 +129,9 @@ constraints:
 affected_scope:
   - internal/genpkg/**
   - internal/catalog/**
-  - internal/cli/actions.go
+  # actions.go alone, as this was first scoped, excludes the test beside it -
+  # which this record's own associated_specs names as its proof.
+  - internal/cli/**
   - internal/selection/**
   - testdata/**
   - PRD.md

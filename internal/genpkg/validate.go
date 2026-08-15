@@ -53,6 +53,7 @@ func buildAction(name string, decl *actionDecl, pkg *Package, r *reporter) *Acti
 	a := &Action{
 		Name:          name,
 		Kwargs:        decl.Kwargs,
+		Description:   decl.Description,
 		Discriminator: decl.Discriminator,
 		Variants:      decl.Variants,
 		InjectsInto:   decl.InjectsInto,
@@ -278,7 +279,21 @@ func resolveComposite(a *Action, pkg *Package, r *reporter) {
 			}
 			// Union of names, union of required flags: if any child
 			// requires it, the composite requires it.
-			union[kw] = Kwarg{Type: declared.Type, Required: existing.Required || declared.Required}
+			//
+			// The description is the first one a child gives, in
+			// declaration order. Two children describing one kwarg
+			// differently is an authoring problem the composite cannot
+			// resolve, and concatenating them would produce a sentence
+			// neither author wrote.
+			description := existing.Description
+			if description == "" {
+				description = declared.Description
+			}
+			union[kw] = Kwarg{
+				Type:        declared.Type,
+				Required:    existing.Required || declared.Required,
+				Description: description,
+			}
 		}
 	}
 	a.Kwargs = union

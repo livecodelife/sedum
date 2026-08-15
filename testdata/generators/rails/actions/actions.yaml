@@ -1,9 +1,23 @@
 actions:
+  # Descriptions are the author's prose, carried to the catalog untouched. They
+  # exist because a kwarg whose type is string and whose meaning is a
+  # convention cannot say what it means in the type system - and a comment like
+  # this one is written where the model never sees it (prov-2026-c5697387).
   addBeforeFilter:
+    description: Registers a before_action callback at the top of the controller class.
     kwargs:
-      controller: { type: string, required: true }
-      filter: { type: string, required: true }
-      only: { type: list, required: false }
+      controller:
+        type: string
+        required: true
+        description: the controller's resource name, singular or plural, without the Controller suffix
+      filter:
+        type: string
+        required: true
+        description: the method name to call, bare - the template writes the leading colon
+      only:
+        type: list
+        required: false
+        description: method names to restrict the callback to; omit to apply it to every action
     injects_into: "app/controllers/{{controller|snake}}_controller.rb"
     anchor: class_body_top
 

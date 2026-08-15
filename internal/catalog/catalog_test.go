@@ -374,3 +374,52 @@ func TestVariantRequirementsReachBothConsumers(t *testing.T) {
 		t.Errorf("the encoded catalog omits variant_requires:\n%s", raw)
 	}
 }
+
+// The catalog is the only thing the model reads, so a description that does not
+// reach it is a sentence written where nobody looks. Both consumers get it
+// through the one encoder (prov-2026-c5697387).
+func TestDescriptionsReachTheEncodedCatalog(t *testing.T) {
+	files := generators()
+	files["rails/actions/actions.yaml"] = `actions:
+  addBeforeFilter:
+    description: Registers a before_action callback.
+    kwargs:
+      controller:
+        type: string
+        required: true
+        description: the resource name, without the Controller suffix
+      filter:
+        type: string
+        required: true
+        description: the method name, bare - the template writes the leading colon
+    injects_into: "app/controllers/{{controller|snake}}_controller.rb"
+    anchor: class_body
+`
+	delete(files, "rails/actions/createControllerMethod/index.rb")
+	delete(files, "rails/actions/createControllerMethod/show.rb")
+	delete(files, "rails/actions/createControllerMethod/_default.rb")
+
+	c := Build(loadPackages(t, files, "rails"), Options{})
+	entry := find(t, c, "addBeforeFilter")
+
+	if entry.Description != "Registers a before_action callback." {
+		t.Errorf("action description is %q, want it carried verbatim", entry.Description)
+	}
+	if got := entry.Kwargs["filter"].Description; !strings.Contains(got, "leading colon") {
+		t.Errorf("kwarg description is %q, want the author's sentence", got)
+	}
+
+	raw, err := c.JSON()
+	if err != nil {
+		t.Fatalf("JSON: %v", err)
+	}
+	if !strings.Contains(string(raw), "leading colon") {
+		t.Errorf("the encoded catalog drops kwarg descriptions:\n%s", raw)
+	}
+
+	// An undescribed kwarg carries no key at all, rather than an empty string
+	// the model would have to read as meaningful.
+	if strings.Contains(string(raw), `"description": ""`) {
+		t.Errorf("an absent description was encoded as empty rather than omitted:\n%s", raw)
+	}
+}
