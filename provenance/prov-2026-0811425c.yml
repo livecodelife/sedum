@@ -1,6 +1,6 @@
 id: prov-2026-0811425c
 title: Phase 5 reports what it spent, and a rejected answer is a type rather than a string
-status: draft
+status: open
 created_at: "2026-08-15"
 author: calebcowen@gmail.com
 intent: |
