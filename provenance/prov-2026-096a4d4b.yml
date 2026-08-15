@@ -1,0 +1,99 @@
+id: prov-2026-096a4d4b
+title: A call is not a unit of cost, so the run counts tokens as well
+status: draft
+created_at: "2026-08-15"
+author: calebcowen@gmail.com
+intent: |
+  [[prov-2026-0811425c]] made cost a call count, and the first run to use it
+  showed immediately what a call count cannot say. Both arms at commit 90fe770,
+  five samples each, retries two:
+
+  | Arm | Calls/sample | Wall | Seconds per call |
+  |---|---|---|---|
+  | todo-rails-defined | 1.00 | 7m01s | ~150 |
+  | todo-chi-defined | 1.80 | 18m46s | ~247 |
+
+  The call count explains part of the gap and stops there. Chi makes 1.8 times
+  the calls *and* its calls take 1.6 times as long, and the second factor has at
+  least two causes with completely different responses: a larger catalog making
+  a longer prompt, which is an authoring property of the package, or more
+  invocations to emit, which is a property of the work the record asks for.
+  Nothing recorded today distinguishes them.
+
+  ## The number is already on the wire
+
+  An OpenAI-compatible response carries a usage block with prompt and completion
+  token counts. Sedum reads the content out of the response and drops the rest at
+  the client boundary, so the harness measures a quantity the server already
+  reported.
+
+  ## Tokens are also the unit hosted rows are rationed in
+
+  [[prov-2026-98ab639c]] plans hosted rows and prices them against a free tier of
+  8,000 tokens per minute, using an estimate of about 2,700 tokens per sample -
+  the figure the whole throughput argument for those rows rests on. Per-call
+  counts turn that estimate into a measurement, before it is used to decide
+  whether a row is worth running.
+
+  ## The interface changes shape, and keeps its one property
+
+  Client returns text today, and the reason is written into it: a client that can
+  only return a string cannot quietly become a tool-calling one, which matters
+  because most of the open-weight range this design exists for has no tool
+  support.
+
+  A Completion carrying the message and two integers keeps that property exactly.
+  It is text and counts, and there is nothing in it a tool call could arrive
+  through. The property was never "returns a string" - it was "carries no channel
+  for anything but the answer", and this is still that.
+
+  ## Absent is not zero
+
+  Not every server fills usage. A run against one that does not must record that
+  it reported none, not that the calls cost nothing, because a zero here would
+  read as a measurement and would average into one.
+constraints:
+  - >-
+    Every model call's prompt and completion token counts leave Phase 5 with the
+    calls that made them, per record and summed per sample.
+  - >-
+    A server that reports no usage is recorded as reporting none, never as zero
+    tokens. A zero would average into a rate as though it were measured.
+  - >-
+    The client returns the message and its token counts and nothing else. The
+    interface stays incapable of carrying a tool call, which is the property the
+    string return was protecting rather than the string itself.
+  - >-
+    Tokens are reported beside calls, never instead of them. A call is what a
+    retry budget is spent from; tokens are what a call costs. Neither derives
+    the other.
+  - >-
+    Entry fields are additive and the schema does not move, so entries written
+    before this stay readable and keep meaning what they meant.
+affected_scope:
+  - internal/selection/**
+  - internal/pipeline/**
+  - evals/**
+  - PRD.md
+forbidden_scope: []
+type: bug
+extends: prov-2026-0811425c
+supersedes: ""
+superseded_by: ""
+related:
+  - prov-2026-98ab639c
+  - prov-2026-e6969eb3
+  - prov-2026-4bcabb2f
+sealed_at_sha: ""
+associated_specs:
+  - path: internal/selection/selection_test.go
+    run_command: go test -count=1 ./$(dirname {{path}})
+  - path: evals/run_test.go
+    run_command: go test -count=1 ./$(dirname {{path}})
+associated_traces: []
+monitors: []
+tags:
+  - sedum
+  - selection
+  - evals
+  - measurement
