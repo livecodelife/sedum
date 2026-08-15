@@ -33,6 +33,75 @@ The measurement that corrected `prov-2026-6d87dc11` was nineteen shell loops wit
 mangled by a bad `sed`, and every number in that record was hand-tallied. The
 finding was worth having; the method was not repeatable.
 
+## Reading a report
+
+A real run, annotated:
+
+```
+todo-chi-defined  model=qwen2.5-coder-14b-instruct/llama.cpp-q4_k_m  arm=sedum  tightness=defined  n=5  retries=2
+  wall 18m46.1s  per-sample fastest 4m22.9s / mean 7m24s / slowest 9m59.3s  concurrency 2  (2.0x over sequential)
+  valid within 3 calls: 5/5 [0.57,1.00]
+  valid first call: 4/5 [0.38,0.96]
+  cost: 9 call(s) over 5 sample(s), mean 1.80  (3 completeness observation(s))
+  tokens: 24.1k prompt + 3.2k completion, per call 2680 + 356
+  throughput: 24.2 tok/s at concurrency 2 (prompt 21.4, completion 2.8)
+  action                    want           selected              exact    mean   first
+  addQueryTest                 5    4/5 [0.38,0.96]    4/5 [0.38,0.96]    4.00      0%
+```
+
+**Header** — what was measured. `n` is independent runs of the same case;
+`retries` is the budget each got. The model is `id/engine-quant` because one
+checkpoint under two engines is two rows, not one.
+
+**`wall` / per-sample spread** — total elapsed, then how the individual samples
+were distributed. The fastest-to-slowest spread is the *throttling* detector: on
+a fanless machine, later samples much slower than earlier ones means the box is
+heat-limited and every number is soft.
+
+**`(2.0x over sequential)`** — the sum of sample times over the wall clock. Read
+it as *how much the samples overlapped*, *never* as a speedup. If per-sample
+latency inflates by the same factor you are overlapping, this reads 2.0x while
+the run took exactly as long — which is what the concurrency sweep below
+measured on this hardware.
+
+**`valid within N calls` / `valid first call`** — how many samples produced
+something Phase 5 accepted, and how many needed no retry to do it. **The gap
+between the two lines is what the retry budget rescued.** The denominator
+excludes samples that never reached the model.
+
+**`cost:`** — model calls per sample. The decomposition of `9` above is 5 first
+calls + 1 retry + 3 completeness observations, and the mean is the number to
+compare against another arm's.
+
+**`tokens:`** — prompt against completion. **The ratio is a diagnosis.** A
+prompt-dominated case is slow because the catalog is being re-read every call,
+which prefix caching removes; a completion-dominated one is slow because the
+model has more to write, which caching cannot touch.
+
+**`throughput:`** — counted tokens over the wall clock, at that concurrency.
+Comparable across runs *only* when the server was run the same way both times.
+
+**The action table** — `want` is what a complete answer contains. `selected` is
+samples that included the action at all; `exact` is samples that included
+exactly `want` of them. **The gap between those two is the diagnosis**: equal
+means all-or-nothing (the model either does it or forgets it), while `selected`
+above `exact` means it is showing up short. `first` is how often the action
+opened the answer, which sounds trivial and was once the whole story — a dropped
+action appeared if and only if it appeared first, meaning the model was not
+weighing and rejecting it, it was never arriving there.
+
+### Which number answers which question
+
+| You want to know | Look at |
+|---|---|
+| Is one call enough? | `valid first call` |
+| Are the answers complete? | the `exact` column |
+| Missing entirely, or showing up short? | `selected` against `exact` |
+| What does a run cost? | `cost:` calls per sample |
+| *Why* is this case slow? | the `tokens:` prompt/completion ratio |
+| Is the box throttling? | the fastest-to-slowest spread |
+| Did my change do anything? | the `~` marks in `history` |
+
 ## What a number here means
 
 **Rates, not verdicts.** Nothing fails a build on a selection rate. What is being
