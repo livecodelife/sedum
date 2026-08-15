@@ -1,0 +1,133 @@
+id: prov-2026-206fa618
+title: The completeness pass asks about anchors Phase 0 knows nothing can fill
+status: draft
+created_at: "2026-08-15"
+author: calebcowen@gmail.com
+intent: |
+  [[prov-2026-6d87dc11]] compares the anchors a run planted against the anchors
+  its selections fill, and re-prompts about the difference. It does not ask
+  whether the difference is *fillable*, so a package carrying an anchor no action
+  targets earns a second model call on every sample, forever, for a question with
+  no available answer.
+
+  Sedum already knows better at load time. [[prov-2026-a9e59197]] warns when a
+  package's file templates plant a marker no action in that package targets -
+  so the same run that reports "nothing can inject there" then asks a model to
+  inject there.
+
+  ## Measured
+
+  The chi eval fixture plants four such anchors and, after its record's scope was
+  cut to functionality, one survives: init.sql carries both extensions and
+  tables, createTable fills tables, and nothing fills extensions. It is not a
+  mistake - it is a deliberate extension point for a CREATE EXTENSION a later
+  record might want.
+
+  The cost of asking about it anyway, five samples each at commit 3e38d7c:
+
+  | Case | Unfillable anchors | Valid | Wall |
+  |---|---|---|---|
+  | todo-rails-defined | none | 5/5 | 7m43s |
+  | todo-chi-defined | one | 5/5 | 31m03s |
+
+  Chi is four times slower for work of comparable size, and roughly half of that
+  is the completeness re-prompt firing on every sample and being declined every
+  time. The earlier chi run makes the mechanism visible from the other side: it
+  took 17m45s with only 3 of 5 valid, because an invalid sample fails before it
+  can earn a re-prompt. **The case gets slower the better the model does**, which
+  is the wrong shape for a cost.
+
+  ## The cause is not the package
+
+  Worth saying plainly, because the obvious reading is that the fixture is badly
+  authored. It is not. Planting a region a later record will fill is exactly the
+  case 6d87dc11 wrote its own "never a hard error" rule for:
+
+    A template may plant a region for an action a later record will fill, or for
+    one this change legitimately does not need. A run that refused to proceed
+    would make every such template a liability.
+
+  That reasoning is right and is not being revisited. The defect is that having
+  correctly decided not to *fail* on such an anchor, the implementation still
+  *asks* about it - and asking has a price that recurs.
+
+  ## The fix
+
+  Subtract the statically-unfillable markers from the unfilled set before
+  deciding whether to re-prompt. An anchor no action can fill is not an omission
+  the model can act on.
+
+  **Fillability is computed across every package the run loaded, not per
+  package.** a9e59197's check is package-scoped because it asks an authoring
+  question - is this package internally coherent - and that is the right scope
+  for a warning. This asks a different question: can anything in this run fill
+  this anchor. An action's injects_into renders to a path, and that path resolves
+  to a package by extension, so an action in one package can target a file owned
+  by another. Scoping the subtraction per package would drop an anchor something
+  else could have filled, and [[prov-2026-14c832bf]]'s free targets make that
+  more likely rather than less.
+
+  **The subtraction is silent.** An author who wants to know their package has
+  dead anchors already gets told at load, by name, with the reason. Repeating it
+  per run would be the same warning charged per sample.
+
+  ## What does not change
+
+  An anchor that is fillable and was not filled is still the whole point, and
+  the measurement behind it stands: addColumn went from 1 of 6 to 6 of 6 once the
+  observation was fed back. This narrows the question rather than the feature.
+
+  Nor does the rule that an unfilled anchor is never a hard error. Both halves
+  survive - the model still keeps the judgment, and still gets asked at most once
+  about anything it could actually have done.
+constraints:
+  - >-
+    An anchor no action in the run can fill is excluded from the unfilled set
+    before any re-prompt decision. It is not an omission the model can act on.
+  - >-
+    Fillability is computed across every package the run loaded, not per package.
+    An action's rendered target may be a file another package owns, and a
+    per-package rule would drop anchors something else could fill.
+  - >-
+    The subtraction is silent at run time. Phase 0 already names every dead
+    anchor at load, and repeating it per sample would charge an authoring
+    warning by the sample.
+  - >-
+    An anchor that is fillable and unfilled still produces the observation. This
+    narrows which anchors are asked about and changes nothing about what happens
+    when one is.
+  - >-
+    An unfilled anchor remains never a hard error, and the observation is still
+    fed back at most once per record.
+  - >-
+    A package planting an anchor no action fills stays legal. Planting a region
+    for a later record is the case prov-2026-6d87dc11's own rule was written for,
+    and the defect is asking about it rather than tolerating it.
+affected_scope:
+  - internal/expand/**
+  - internal/selection/**
+  - testdata/**
+  - PRD.md
+forbidden_scope: []
+type: bug
+extends: prov-2026-6d87dc11
+supersedes: ""
+superseded_by: ""
+related:
+  - prov-2026-a9e59197
+  - prov-2026-14c832bf
+  - prov-2026-e6969eb3
+sealed_at_sha: ""
+associated_specs:
+  # expand owns the fillable set and the subtraction; selection owns the rule
+  # that a wholly-unfillable difference earns no re-prompt at all.
+  - path: internal/expand/expand_test.go
+    run_command: go test -count=1 ./$(dirname {{path}})
+  - path: internal/selection/selection_test.go
+    run_command: go test -count=1 ./$(dirname {{path}})
+associated_traces: []
+monitors: []
+tags:
+  - sedum
+  - selection
+  - evals
