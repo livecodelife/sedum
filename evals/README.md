@@ -213,28 +213,56 @@ comparison across two entries is only a comparison when the server was run the
 same way both times**, and that fact belongs beside the numbers rather than in
 someone's memory.
 
-The invocation the entries in `results/` were measured against:
+What the entries in `results/` were actually measured against, read off the
+running server rather than reconstructed:
 
 ```
-# LM Studio / llama.cpp server, Qwen2.5-Coder-14B-Instruct Q4_K_M
-llama-server -m qwen2.5-coder-14b-instruct-q4_k_m.gguf \
-  -c 16384 -np 4 --cont-batching --cache-reuse 256
+$ lms ps
+IDENTIFIER                  MODEL                       STATUS  SIZE     CONTEXT  PARALLEL  DEVICE
+qwen2.5-coder-14b-instruct  qwen2.5-coder-14b-instruct  IDLE    8.99 GB  16292    4         Local
+
+$ curl -s localhost:1234/api/v0/models | jq '.data[] | select(.state=="loaded")'
+  quantization: Q4_K_M   arch: qwen2   compatibility_type: gguf
+  max_context_length: 131072   loaded_context_length: 16292
 ```
 
-`-np` is the number of parallel slots and bounds what `-eval.concurrency` can
-actually overlap; asking for more concurrency than slots queues rather than
-parallelizes. `--cont-batching` is what makes concurrent samples share a decode
-batch instead of taking turns.
+LM Studio, serving GGUF Q4_K_M over an OpenAI-compatible endpoint, 16292 tokens
+of loaded context and 4 parallel slots. `PARALLEL 4` is what bounds
+`-eval.concurrency`: asking for more than that queues rather than parallelizes,
+which is why the c=8 row in the sweep below is not a different experiment from
+c=4.
 
-### Why prefix caching matters here
+**Run those two commands rather than trusting this block.** A configuration
+written down from memory is worse than none: a wrong number is caught by
+re-running, while a wrong account of how a number was produced survives the
+re-run, because the re-run reproduces what the document says instead of what
+happened (`prov-2026-6f728c95`).
+
+**What the server does not expose, this does not claim.** Batch policy and cache
+configuration are not in either output, so they are unknown here rather than
+assumed.
+
+### Prefix caching is unmeasured, not configured
 
 A case's prompt is the record plus the catalog, and it is **byte-identical
 across every sample of that case** — samples differ only in the model's
-sampling. Without prefix reuse the server re-evaluates those thousands of prompt
-tokens for every sample, and the `tokens:` line says exactly how many: at
+sampling. If the server recomputes that prefix per call it is doing the same
+work over and over, and the `tokens:` line says how much is at stake: at
 `90fe770` the chi case spent about 2.6k prompt tokens per call against a few
-hundred completion tokens. That ratio is the argument for `--cache-reuse`, and
-it is a measurement rather than a suspicion only because the token counts exist.
+hundred completion tokens.
+
+**Whether any of it is being cached today is unknown**, and nothing here has
+enabled it. Two things make that harder to settle than it sounds:
+
+- **Token counts cannot detect it.** `usage` reports the prompt length whether
+  or not the prefix was recomputed, so a cache hit and a cache miss are
+  indistinguishable in the entry.
+- **The only external signal is the wall clock**, which the sweep below measured
+  at ±31% on this machine. An A/B of caching therefore needs repeated conditions
+  before it needs a flag.
+
+So this is an open question with a known method, not a setting someone forgot to
+turn on.
 
 ### What the concurrency sweep found
 
