@@ -1,0 +1,133 @@
+id: prov-2026-98ab639c
+title: The matrix covers more models, frameworks, and generator variants
+status: draft
+created_at: "2026-08-15"
+author: calebcowen@gmail.com
+intent: |
+  Widen the eval matrix along the three axes [[prov-2026-e6969eb3]] declared and
+  populated with one value each. It follows [[prov-2026-d61010a4]] rather than
+  preceding it, because a signal added after the matrix is broad means re-running
+  every cell to collect it, and every cell is a model call.
+
+  ## Models
+
+  Two sources, and the split between them is the point.
+
+  **Local**, for claims about on-device viability: qwen2.5-coder-14b under both
+  MLX and llama.cpp, qwen3-4b, and qwen2.5-0.5b. All are on disk. The 4b is the
+  smaller-model row and the 0.5b is a harness smoke test that will produce
+  nonsense and prove the plumbing in seconds.
+
+  **Hosted**, for questions about the mechanism rather than the device: Groq
+  serves open-weight models over an OpenAI-compatible endpoint at roughly fifty
+  times the local token rate, so llama-3.1-8b, gpt-oss-20b and qwen3.6-27b are
+  rows that cost minutes rather than half-hours.
+
+  Two things about the hosted rows have to travel with them. Its free tier is
+  **8,000 tokens per minute**, and a sample is about 2,700, so the wall is the
+  quota rather than the silicon - roughly a sixfold gain over local, not fifty.
+  And a hosted run **sends the record and the generator package to a third
+  party**. The fixtures are toy projects, so the exposure is low, but it is a
+  property of those rows and not of the others.
+
+  A hosted row is never evidence about on-device viability, and a local row is
+  never the fast way to answer a mechanism question. Recording engine on the
+  model ([[prov-2026-e6969eb3]]) is what keeps the two from being read as one.
+
+  ## Frameworks
+
+  Rails and Chi exist. Spring for Java, and Angular or React for TypeScript, are
+  the ones worth adding next, because they are the furthest from what has been
+  measured: a compiled language with heavy annotation conventions, and a
+  component framework whose file layout is the convention.
+
+  **The honest cost is that each one needs a generator package written, and that
+  is the expensive part - not the case file.** A package is a team's conventions
+  expressed as file templates, actions, variants and anchors, and authoring one
+  well is the work Sedum exists to make worth doing. A thin package would widen
+  the matrix and measure nothing, because a model selecting from four actions
+  over two files says nothing about a model selecting from twelve over six.
+
+  So a framework is added when its package is good enough to be worth measuring,
+  and the record for a new framework is authored under the rules the existing two
+  already follow: functionality only, constraints an action can serve, scope
+  trimmed to paths an action injects into ([[prov-2026-e6969eb3]]'s fixture
+  rules).
+
+  ## Generator variants
+
+  The tightness axis has one value. It needs a second: a *loose* package set over
+  a record that already has a *defined* one, differing only in how much the
+  actions constrain the output - fewer variants, more falling to _default, wider
+  kwargs.
+
+  This is the axis most likely to produce a result that changes how packages are
+  authored, and it is also the cheapest to add, because the record and the
+  application stay fixed. It is the comparison generators/ was made a directory
+  of sets to support.
+
+  ## What this does not add
+
+  No baseline arm and no behavioral pass rate. Both stay reserved and rejected at
+  run time. A baseline has no actions to count and can only be scored by running
+  the application, which is the behavioral rung, and both are out of scope here
+  as they are in d61010a4.
+
+  ## Ordering
+
+  Signals first, then breadth. Within breadth: models before frameworks before
+  generator variants, because a model row is a line of YAML, a generator variant
+  is a package edited from one that exists, and a framework is a package written
+  from nothing.
+constraints:
+  - >-
+    Engine and quantization stay part of a model row's identity. A hosted row is
+    never read as evidence about on-device viability, and a local row is never
+    the fast path for a mechanism question.
+  - >-
+    A hosted row carries its rate limit and its data-egress property wherever it
+    is cited. The free tier's 8,000 tokens per minute is the constraint on
+    throughput, not the provider's token rate.
+  - >-
+    A framework is added when its generator package is worth measuring. A thin
+    package widens the matrix and measures nothing, because selection difficulty
+    is a property of the catalog rather than of the language.
+  - >-
+    A new framework's record follows the rules the existing two do: functionality
+    only, no constraint an action cannot serve, and affected_scope trimmed to the
+    paths an action injects into.
+  - >-
+    The tightness axis varies the package and holds the record and application
+    fixed. Anything else varying alongside it makes the comparison measure
+    something nobody chose.
+  - >-
+    No baseline arm and no behavioral measurement. Both remain declared in the
+    schema and refused at run time.
+  - >-
+    This follows prov-2026-d61010a4. Widening first would mean re-running every
+    cell to collect a signal that could have been collected the first time.
+affected_scope:
+  - evals/**
+forbidden_scope: []
+type: blueprint
+implements: prov-2026-d554bfc3
+supersedes: ""
+superseded_by: ""
+related:
+  - prov-2026-e6969eb3
+  - prov-2026-d61010a4
+sealed_at_sha: ""
+associated_specs:
+  # The matrix's own invariants are checkable without a model: that every case
+  # loads, that its fixtures resolve, and that the arms of a comparison differ
+  # in exactly one thing.
+  - path: evals/run_test.go
+    run_command: go test -count=1 ./$(dirname {{path}})
+  - path: evals/testdata/README.md
+    run_command: test -f {{path}}
+associated_traces: []
+monitors: []
+tags:
+  - sedum
+  - evals
+  - matrix
