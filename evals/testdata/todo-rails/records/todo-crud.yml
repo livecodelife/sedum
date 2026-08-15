@@ -1,0 +1,88 @@
+# Rewritten to functionality only.
+#
+# The source record also specified PostgreSQL through the pg adapter, a
+# connection read from the environment, a compose healthcheck instead of a retry
+# loop, CSRF handling, Docker build shape, and where the linespec suite lives.
+# All of it is real and none of it belongs here, for one reason: **no action in
+# this package can act on any of it.** Those files are produced whole by file
+# templates, so a constraint about them is text in the prompt that no selection
+# can satisfy or violate.
+#
+# That matters more than tidiness. The eval measures action selection, so a
+# constraint no action serves cannot move the number - it can only add tokens,
+# and at worst send the model looking for an action that does not exist. The
+# boot-ordering constraint was the clearest case: Rails put the wait in
+# docker-compose.yml and Chi put it in main.go, both hardcoded in file
+# templates, and a record asking for either was describing something already
+# decided before Phase 4 ran.
+#
+# What is left maps one-to-one onto what the package can do: columns,
+# endpoints, a validation, permitted parameters, and tests.
+#
+# affected_scope is trimmed the same way, to the six paths an action injects
+# into. Authorizing Dockerfile, Gemfile, config/database.yml and the rest put
+# files in the prompt's file list that no invocation could ever target.
+id: eval-todo-rails
+title: Todo resource with full CRUD over /todos
+status: open
+created_at: "2026-08-15"
+author: calebcowen@gmail.com
+intent: |
+  Add the todo resource: a JSON API over /todos with full CRUD - list, get by
+  id, create, update by id, delete by id - with todos addressed by integer
+  primary key.
+
+  A todo has a title and a completed flag, and nothing else of its own.
+
+  One property is called out because it is the one an otherwise reasonable
+  implementation gets wrong by omission rather than by mistake. A PUT applies
+  only the attributes the caller sent: a client that toggles completed must not
+  blank the title it never mentioned, so the update path assigns what arrived
+  and nothing else.
+constraints:
+  - >-
+    Five endpoints on /todos and /todos/:id, addressed by integer id per REST
+    convention: index, show, create, update, destroy.
+  - >-
+    The todos table carries exactly two columns of its own: title, a string that
+    is not null and carries no default, and completed, a boolean that is not
+    null and defaults to false. The primary key and the created_at and
+    updated_at timestamps are supplied by the framework, so declaring any of
+    those three again is a duplicate column.
+  - >-
+    JSON responses carry id, title, completed, created_at and updated_at.
+  - >-
+    A todo requires a title. The model carries that one validation and no
+    others - completed needs none, because a column default supplies it and a
+    default is not something a validator can express.
+  - >-
+    PUT applies only the attributes present in the body. An attribute the caller
+    omitted keeps its stored value, and a body carrying no usable attributes is
+    a 400 rather than a write of nothing.
+  - >-
+    Only title and completed are accepted from a request body. Anything else is
+    ignored rather than assigned.
+  - >-
+    A missing record is a 404, decided the same way for every action rather than
+    per action.
+  - >-
+    Each endpoint carries a test asserting the status it returns, and the model
+    carries a test for its validation.
+# Six paths, one per thing an action injects into.
+affected_scope:
+  - app/controllers/todos_controller.rb
+  - app/models/todo.rb
+  - config/routes.rb
+  - db/migrate/20260814000000_create_todos.rb
+  - test/controllers/todos_controller_test.rb
+  - test/models/todo_test.rb
+forbidden_scope: []
+type: blueprint
+supersedes: ""
+superseded_by: ""
+related: []
+sealed_at_sha: ""
+associated_specs: []
+associated_traces: []
+monitors: []
+tags: []

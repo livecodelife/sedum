@@ -11,17 +11,16 @@ package and the record, so the application source is neither copied nor read.
 
 ```
 <application>/
-  records/
-    native/              the record as the stack's own author would write it
-    parity/              a record mirroring another stack's, for a controlled comparison
+  records/               one record: what to build
   generators/
     defined/             a generator package set: how to build it
-    loose/               a second package set over the same records
+    loose/               a second package set over the same record
 ```
 
-Both axes are **sets**, so either can be varied while the other is held fixed.
-Swapping `generators` isolates the package; swapping `records` isolates the
-intent.
+`generators/` holds package *sets* so the package can be varied while the record
+is held fixed. `records/` is flat because each fixture needs exactly one — Sedum
+makes one model call per record, so a second would measure a second selection
+and charge the eval for it.
 
 The record directory is `records/` and the files are named for what they
 describe rather than `prov-<id>.yml`. Both are deliberate: LineSpec's hooks
@@ -47,70 +46,31 @@ The rule: a fixture exists to make a measurement mean something, not to mirror a
 project. Where those pull apart, the measurement wins and the deviation is
 recorded.
 
-## native and parity
+## Records carry functionality, and nothing else
 
-The native records are each stack's own, and they are **not comparable to each
-other**. Both ask for the same functionality — full CRUD, PostgreSQL, partial
-updates, no boot race — but they prescribe opposite solutions to the last one:
-the Rails record says the application "holds no retry loop of its own" and lets
-the database declare itself healthy first, while the native Chi record mandates
-a 30-attempt retry loop. A model satisfying either has violated the other.
+Both records were cut back to what the API does. The source records also
+specified the database adapter, how the connection is configured, whether the
+service retries at boot or waits on a compose healthcheck, CSRF handling, the
+Docker build, and where the test suite lives.
 
-So a rails-vs-chi delta across the native records is not a language result. It
-confounds language, framework, package count, and two records that disagree
-about the answer.
+All of that is real, and none of it belongs in a record used for this
+measurement, for one reason: **no action in either package can act on any of
+it.** Those files are produced whole by file templates, so a constraint about
+them is text in the prompt that no selection can satisfy or violate.
 
-`records/parity/` exists to remove that. It mirrors the Rails record's
-functionality, prescribed approach and constraint specificity, translated for Go
-where a concept has a counterpart and dropped where it has none. Against the
-Rails case it varies the stack; against the native Chi case it varies the record
-while holding the package fixed.
+The boot-ordering constraint was the clearest case. Rails put the wait in
+`docker-compose.yml`, Chi put it in `main.go`, both hardcoded in file templates
+— and the two records prescribed *opposite* answers, so a model satisfying one
+had violated the other. That looked like a reason for a third "parity" record.
+It was not: stripping both records to functionality removed the disagreement
+along with everything else no action served, and two records now reach parity
+where three were needed before.
 
-## Why these are vendored rather than referenced
+`affected_scope` is trimmed the same way, to the paths an action injects into —
+six in each. Authorizing a file no invocation can target only puts it in the
+prompt's file list, and in the Chi fixture it also planted two anchors nothing
+could fill, which cost a completeness re-prompt on every sample.
 
-They were previously read from sibling projects in the workspace, which made
-every measurement unreproducible on any other machine and unversioned against
-the package that produced it.
+The test for this is `TestTheLanguageArmsAreControlled`: it fails if the two
+cases ever differ in more than the stack.
 
-That already cost us once. `prov-2026-6d87dc11` records a finding that could not
-be re-measured because the package had been revised in the meantime:
-
-> The package on disk is not the one the original finding was measured
-> against… Neither the before nor the after reproduces the original conditions.
-
-A vendored fixture is a snapshot. It changes when someone deliberately changes
-it, in a commit, alongside the results that cite it. The live projects stay
-where real usage happens; these exist so a number can be re-run.
-
-## Swapping generators over one record
-
-`generators/` holds package *sets*, not packages — each subdirectory is what
-`--generators` is pointed at, and the packages live inside it. That is the axis
-for asking whether a tighter package selects better than a looser one over
-identical intent:
-
-```yaml
-records:    todo-rails/records
-generators: todo-rails/generators/defined   # change this line only
-```
-
-Both arms then differ in exactly one thing, which is what makes the comparison
-mean anything.
-
-## What can and cannot be shared
-
-A record's `affected_scope` names real paths — `app/controllers/todos_controller.rb`
-is Rails, `internal/handlers/todo.go` is Chi. So a record is **tied to its
-framework** and cannot be pointed at a package for another one.
-
-What is shareable is the layer above: *the same application idea* expressed once
-per framework. `todo-rails` and `todo-api` are the same todo service under Ruby
-and Go, which is what makes their rows comparable on the application axis even
-though neither record could run against the other's package.
-
-## Adding a framework
-
-Copy a package set and its record under a new application directory, then add a
-case naming them. Nothing else in the harness needs to know the framework
-exists — `framework` and `language` are labels for grouping results, and Sedum
-reads neither.

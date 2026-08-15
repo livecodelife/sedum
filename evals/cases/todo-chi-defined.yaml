@@ -1,70 +1,45 @@
-# The same todo service in Go, which is what makes it comparable to
-# todo-rails-defined on the application axis.
+# The Go arm of the language comparison.
 #
-# The records cannot be shared - this one's affected_scope names handlers/todos.go
-# where the Rails record names app/controllers/todos_controller.rb - so what is
-# shared is the application idea, expressed once per framework.
-#
-# It is also a harder case than the Rails one: four packages rather than one,
-# and a record whose scope spans a router, a db layer, their tests, a compose
-# file and an init.sql.
+# Its record asks for the same functionality as todo-rails-defined's, constraint
+# for constraint, so the stack is what differs. A third "parity" case existed
+# briefly to control for records that disagreed about deployment; stripping both
+# records to functionality removed the disagreement, and two cases now do what
+# three were needed for.
 id: todo-chi-defined
 
 application:
   name: todo
-  # Tier 2 rather than 1, but not because it asks for more behavior. The Rails
-  # record asks for partial updates and boot ordering too. What raises this is
-  # the structure: four generator packages against Rails' one, and constraints
-  # about query protocol and driver choice the Rails record has no equivalent
-  # of.
-  #
-  # It is also not comparable to Rails on approach - this record mandates a
-  # retry loop where the Rails one forbids exactly that. todo-chi-parity is the
-  # arm that removes that difference.
-  complexity: 2
+  # Tier 1, same as the Rails arm. Complexity describes the application, and it
+  # is the same application - five endpoints, two fields, no auth, no relations.
+  # The Go arm spreads over two packages where Rails uses one, but that is a
+  # property of the generator package rather than of what is being asked for,
+  # and rating it higher would put a package difference on the application axis.
+  complexity: 1
 
 language: go
 framework: chi
 tightness: defined
 arm: sedum
 
-records: todo-api/records/native
+records: todo-api/records
 generators: todo-api/generators/defined
-
-# No `only:` - the fixture carries exactly one record.
-#
-# The source project has three: the CRUD build and two later records refining
-# it. Sedum makes one model call per record, so three would measure three
-# different selections and charge the eval for all of them to learn about one.
-# The fixture condenses them into a single record stating the whole intent,
-# which is a deliberate deviation from the sibling project and is explained at
-# the top of records/todo-crud.yml.
 
 models:
   - id: qwen2.5-coder-14b-instruct
     engine: llama.cpp
     quant: q4_k_m
 
-# Expect every sample here to cost two model calls.
+# One unfillable anchor remains: init.sql plants "extensions" and no action
+# targets it, so the completeness pass (prov-2026-6d87dc11) fires once per
+# sample and the model correctly declines. That is a standing second model call
+# this case pays and the Rails one does not - worth knowing before reading a
+# timing comparison between them.
 #
-# sedum validate reports four anchor_marker_unfilled warnings against these
-# packages (prov-2026-a9e59197): the file templates plant "body", "config",
-# "services" and "extensions", and no action in any package targets them. Those
-# anchors are unfillable by construction, so the completeness pass
-# (prov-2026-6d87dc11) fires on every run and the model correctly declines.
-#
-# That is the "never a hard error" rule doing its job, and it is also a standing
-# cost this fixture pays that todo-rails does not. Worth knowing before reading
-# any timing comparison between the two.
+# It used to be four. The others belonged to docker-compose.yml and .gitignore,
+# which left the record's scope when it was cut to functionality.
 
-# Deliberately empty.
-#
-# Expectations are what a *complete* answer contains, and nothing has produced
-# one here yet. Inventing counts from reading the package would make the first
-# run agree with them by construction, which is the one thing that would make
-# every later number meaningless.
-#
-# Until then this case still measures first-call validity and cost, and a run
-# reports the actions it observed - which is how the counts get established.
+# Deliberately empty. Expectations are what a complete answer contains, and
+# nothing has produced one here yet - writing counts from reading the package
+# would make the first run agree with them by construction.
 expect:
   actions: {}

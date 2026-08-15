@@ -1,0 +1,85 @@
+# The same functionality as todo-rails/records/todo-crud.yml, expressed for Go
+# and Chi. Read that file's header first - the reasoning for stripping these
+# records to functionality is written there and is not repeated.
+#
+# A third "parity" record existed briefly, because the two native records
+# prescribed opposite solutions to boot ordering and so could not be compared.
+# Stripping both to functionality removed the disagreement along with everything
+# else that no action could serve, and two records now reach parity where three
+# were needed before.
+#
+# What differs between this and the Rails record is only what the stack forces:
+# /todos/{id} rather than /todos/:id, and a validation expressed as a NOT NULL
+# column plus a handler check rather than as a model validation. The behavior
+# asked for is the same, constraint for constraint.
+#
+# affected_scope is six paths, matching the Rails record's six. The compose and
+# repo packages are unused as a result - they own docker-compose.yml,
+# .linespec.yml and .gitignore, which are produced whole by file templates and
+# which no action targets. Dropping them also drops the two unfillable anchors
+# they plant.
+id: eval-todo-chi
+title: Todo resource with full CRUD over /todos
+status: open
+created_at: "2026-08-15"
+author: calebcowen@gmail.com
+intent: |
+  Add the todo resource: a JSON API over /todos with full CRUD - list, get by
+  id, create, update by id, delete by id - with todos addressed by integer
+  primary key.
+
+  A todo has a title and a completed flag, and nothing else of its own.
+
+  One property is called out because it is the one an otherwise reasonable
+  implementation gets wrong by omission rather than by mistake. A PUT applies
+  only the attributes the caller sent: a client that toggles completed must not
+  blank the title it never mentioned, so the update path assigns what arrived
+  and nothing else.
+constraints:
+  - >-
+    Five endpoints on /todos and /todos/{id}, addressed by integer id per REST
+    convention: list, get, create, update, delete.
+  - >-
+    The todos table carries exactly two columns of its own: title, text that is
+    not null and carries no default, and completed, a boolean that is not null
+    and defaults to false. The primary key and the created_at and updated_at
+    timestamps are supplied by the schema, so declaring any of those three again
+    is a duplicate column.
+  - >-
+    JSON responses carry id, title, completed, created_at and updated_at.
+  - >-
+    A todo requires a title. A create without one is rejected rather than
+    stored, and completed needs no such check because its column default
+    supplies it.
+  - >-
+    PUT applies only the attributes present in the body. An attribute the caller
+    omitted keeps its stored value, and a body carrying no usable attributes is
+    a 400 rather than a write of nothing. Request fields are pointers so that an
+    omitted field is distinguishable from one set to its zero value.
+  - >-
+    Only title and completed are read from a request body. Anything else is
+    ignored rather than assigned.
+  - >-
+    A missing record is a 404, decided the same way in every handler that
+    resolves one.
+  - >-
+    Each endpoint carries a handler test asserting the status it returns, and
+    each query carries a test of its own.
+# Six paths, matching the Rails record's six.
+affected_scope:
+  - db/todos.go
+  - db/todos_test.go
+  - handlers/todos.go
+  - handlers/todos_test.go
+  - init.sql
+  - main.go
+forbidden_scope: []
+type: blueprint
+supersedes: ""
+superseded_by: ""
+related: []
+sealed_at_sha: ""
+associated_specs: []
+associated_traces: []
+monitors: []
+tags: []

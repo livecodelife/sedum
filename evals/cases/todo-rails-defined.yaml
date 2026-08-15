@@ -1,18 +1,14 @@
-# The case the harness was built from.
+# The Ruby arm of the language comparison, and the case the harness was built
+# from.
 #
-# Expectations are what a complete answer contains, taken from runs where the
-# model produced one - not from what it usually produces, which is the thing
-# being measured. Fitting the expectation to observed behavior would make every
-# rate 100% by construction.
-#
-# addColumn is the interesting row. Before the completeness pass
-# (prov-2026-6d87dc11) it was selected in 1 of 6 valid samples; after, 6 of 6.
+# Its record and todo-chi-defined's ask for the same functionality, constraint
+# for constraint, so the stack is what differs between them.
 id: todo-rails-defined
 
 application:
   name: todo
-  # Tier 1. A single resource, five endpoints, no auth and no relations. The
-  # floor of the complexity axis rather than a representative sample of it.
+  # Tier 1. Five endpoints, two fields, no auth and no relations. The floor of
+  # the complexity axis rather than a representative sample of it.
   complexity: 1
 
 language: ruby
@@ -23,7 +19,7 @@ arm: sedum
 # Vendored, so a number measured today can be re-run tomorrow. Swapping the
 # generators line to another package set over this same record is the tightness
 # comparison; nothing else about the case changes.
-records: todo-rails/records/native
+records: todo-rails/records
 generators: todo-rails/generators/defined
 
 # On a 24GB machine one 14B is resident at a time, so -eval.model narrows a run
@@ -39,6 +35,15 @@ models:
     engine: mlx
     quant: 4bit
 
+# These were established from runs that produced a complete answer, not from
+# reading the package. addColumn is the row with history: before the
+# completeness pass (prov-2026-6d87dc11) it was selected in 1 of 6 valid
+# samples, and after, 6 of 6.
+#
+# They are also now due a re-check. The record was cut to functionality and its
+# scope from seventeen paths to six, so the file list the model sees has
+# changed - and an expectation carried across that edit is a claim about a
+# prompt that no longer exists.
 expect:
   actions:
     # Two columns on the migration: title and completed.
