@@ -1,0 +1,92 @@
+id: prov-2026-b4555efc
+title: A retry budget the harness can spend, and a number that says which it spent
+status: draft
+created_at: "2026-08-15"
+author: calebcowen@gmail.com
+intent: |
+  The harness hard-codes zero retries, and the reason is good: the question it
+  was built to answer is what *one* call produces, and a retry loop folds Phase
+  5's recovery into a number meant to describe a first answer.
+
+  It is not the only question. [[prov-2026-206fa618]]'s re-measurement drew five
+  samples of the chi case and scored two, because three first answers did not
+  validate. Nothing was wrong with the run - first-call validity on that case
+  varies between 2 and 5 out of 5 across three runs at three commits - but a
+  comparison of *what a complete answer contains*, or of what a sample costs, is
+  then being made from two samples instead of five. Sampling noise in one number
+  is eating the sample size of a different one.
+
+  So: a retry budget, spendable from the command line, zero by default.
+
+  ## Why the default cannot move
+
+  Every entry already in evals/results/ was measured at zero, and "valid" there
+  means "validated on the first call". A default of anything else would silently
+  re-point that word at a different measurement while the field name, the report
+  line and the file stay the same - which is precisely the failure
+  [[prov-2026-eb283c56]] wrote its no-field-changes-meaning rule against.
+
+  ## A number carries the budget it was measured under
+
+  The entry schema already has the field; it was written as a constant zero. It
+  now carries what was actually spent, and the report header prints it, because
+  the validity line means different things at 0 and at 2 and there is no reading
+  of the table that recovers which one it was.
+
+  The report line also stops calling itself "first call" unconditionally. At a
+  budget of two it is "valid within 3 call(s)", which is a weaker claim and has
+  to read as one.
+
+  ## What a retried run must not be used for
+
+  Timing. A sample that retries pays for every rejected answer, so per-sample
+  and wall figures at different budgets are not comparable - and the chi
+  measurement that motivated this is a timing measurement. Two entries at the
+  same budget compare; two at different budgets do not, and the field is in the
+  entry so that is checkable rather than remembered.
+
+  The completeness re-prompt is untouched. It draws from its own budget in
+  internal/selection and always has ([[prov-2026-6d87dc11]]), so raising the
+  validation budget does not buy the model more chances to be asked about an
+  unfilled anchor.
+constraints:
+  - >-
+    The default retry budget stays zero. Every entry already recorded means
+    "validated on the first call", and moving the default would re-point that
+    word without renaming anything.
+  - >-
+    An entry records the budget it was run with, in the field the schema already
+    reserves. A rate is not interpretable without it.
+  - >-
+    The report header prints the budget, and the validity line names the number
+    of calls it allowed rather than saying "first call" when it was not.
+  - >-
+    Two entries at different budgets are not compared on timing or validity. A
+    retried sample pays for its rejected answers, so the cost figures are of
+    different things.
+  - >-
+    The completeness re-prompt keeps its own separate budget. Raising the
+    validation budget buys retries of a rejected answer and nothing else.
+affected_scope:
+  - evals/**
+forbidden_scope: []
+type: imprint
+implements: prov-2026-e6969eb3
+supersedes: ""
+superseded_by: ""
+related:
+  - prov-2026-206fa618
+  - prov-2026-eb283c56
+  - prov-2026-6d87dc11
+sealed_at_sha: ""
+associated_specs:
+  # The budget is plumbed to the pipeline and recorded in the entry; both are
+  # deterministic and need no model.
+  - path: evals/run_test.go
+    run_command: go test -count=1 ./$(dirname {{path}})
+associated_traces: []
+monitors: []
+tags:
+  - sedum
+  - evals
+  - measurement
