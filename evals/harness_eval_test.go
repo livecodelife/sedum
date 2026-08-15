@@ -12,8 +12,7 @@
 //	  -eval.model     run only models whose label contains this substring
 //	  -eval.samples   runs per model, default 5
 //	  -eval.concurrency  samples in flight at once, default 1
-//	  -eval.root      where the fixture applications live, default ../..
-//	                  (go test runs with cwd at evals/, so this is the workspace)
+//	  -eval.root      where the vendored fixtures live, default testdata
 package evals
 
 import (
@@ -31,7 +30,7 @@ var (
 	modelID     = flag.String("eval.model", "", "run only models whose label contains this; one row at a time when memory is tight")
 	samples     = flag.Int("eval.samples", 5, "runs per model")
 	concurrency = flag.Int("eval.concurrency", 1, "samples in flight at once; raise it against a server with continuous batching")
-	root        = flag.String("eval.root", "../..", "directory the fixture applications live under")
+	root        = flag.String("eval.root", "testdata", "directory the vendored fixtures live under")
 )
 
 func TestEval(t *testing.T) {

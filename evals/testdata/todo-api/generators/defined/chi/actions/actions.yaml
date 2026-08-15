@@ -1,0 +1,127 @@
+actions:
+  # A file template declares the imports the standard always needs and no more.
+  # Everything else - the service's own packages, whose paths start with a
+  # module name no template can know, and any dependency a later invocation
+  # brings in - arrives here, one import per invocation against the anchor the
+  # template opened inside its import block.
+  #
+  # One action per file rather than one action taking the file as an argument.
+  # Which files a service has is the standard's business and lives in
+  # configuration; which package to import is the service's, and is data. An
+  # action taking the path would hand the second decision to the caller along
+  # with the first.
+  #
+  # Identity is the import path, so repeated invocations accumulate distinct
+  # imports rather than replacing one region, and re-running with the same path
+  # rewrites in place. Repetition comes from invocations, the same way fields
+  # and queries do.
+  addMainImport:
+    kwargs:
+      path: { type: string, required: true }
+    injects_into: "main.go"
+    anchor: imports
+
+  addHandlerImport:
+    kwargs:
+      resource: { type: string, required: true }
+      path: { type: string, required: true }
+    injects_into: "handlers/{{resource|table}}.go"
+    anchor: imports
+
+  addDBImport:
+    kwargs:
+      resource: { type: string, required: true }
+      path: { type: string, required: true }
+    injects_into: "db/{{resource|table}}.go"
+    anchor: imports
+
+  addHandlerTestImport:
+    kwargs:
+      resource: { type: string, required: true }
+      path: { type: string, required: true }
+    injects_into: "handlers/{{resource|table}}_test.go"
+    anchor: imports
+
+  addDBTestImport:
+    kwargs:
+      resource: { type: string, required: true }
+      path: { type: string, required: true }
+    injects_into: "db/{{resource|table}}_test.go"
+    anchor: imports
+
+  # One endpoint is a handler plus its route registration, in two files that
+  # are not valid apart - the same shape as a C++ declaration and definition.
+  createEndpoint:
+    composes: [createCRUDHandler, addRoute]
+
+  createCRUDHandler:
+    kwargs:
+      resource: { type: string, required: true }
+      verb: { type: string, required: true }
+    discriminator: verb
+    variants: [create, list, get, update, delete]
+    injects_into: "handlers/{{resource|table}}.go"
+    anchor: handlers
+    exposed: false
+
+  addRoute:
+    kwargs:
+      resource: { type: string, required: true }
+      verb: { type: string, required: true }
+    discriminator: verb
+    variants: [create, list, get, update, delete]
+    injects_into: "main.go"
+    anchor: routes
+    exposed: false
+
+  # Repetition comes from repeated invocations, never from a loop in a
+  # template: the template grammar has no loops by design. One field is one
+  # invocation.
+  addModelField:
+    kwargs:
+      resource: { type: string, required: true }
+      name: { type: string, required: true }
+      go_type: { type: string, required: true }
+    injects_into: "db/{{resource|table}}.go"
+    anchor: fields
+
+  createQuery:
+    kwargs:
+      resource: { type: string, required: true }
+      operation: { type: string, required: true }
+      # The query patterns are the standard; which columns a resource has is
+      # the service's business, so they arrive as bound arguments. Optional
+      # because a delete needs none of them - one kwarg schema covers every
+      # variant, so per-variant requirements cannot be declared here.
+      columns: { type: string, required: false }
+      placeholders: { type: string, required: false }
+      insert_values: { type: string, required: false }
+      set_clause: { type: string, required: false }
+      update_values: { type: string, required: false }
+      scan_targets: { type: string, required: false }
+    discriminator: operation
+    variants: [insert, selectAll, selectByID, update, delete]
+    injects_into: "db/{{resource|table}}.go"
+    anchor: queries
+
+  # Unit tests are generated; integration specs are not. A unit test asserts
+  # the shape this standard promises - the status code a verb returns, the
+  # error a missing row produces - which is boilerplate. What a service is
+  # supposed to do belongs to a human-authored contract.
+  addHandlerTest:
+    kwargs:
+      resource: { type: string, required: true }
+      verb: { type: string, required: true }
+    discriminator: verb
+    variants: [create, list, get, update, delete]
+    injects_into: "handlers/{{resource|table}}_test.go"
+    anchor: tests
+
+  addQueryTest:
+    kwargs:
+      resource: { type: string, required: true }
+      operation: { type: string, required: true }
+    discriminator: operation
+    variants: [insert, selectAll, selectByID, update, delete]
+    injects_into: "db/{{resource|table}}_test.go"
+    anchor: tests

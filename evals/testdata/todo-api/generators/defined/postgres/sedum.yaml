@@ -1,0 +1,9 @@
+# Schema conventions. A separate package from chi because a package declares
+# one comment_prefix, and a marker planted with // is not a SQL comment.
+name: postgres
+extensions: [".sql"]
+comment_prefix: "--"
+
+transforms:
+  table: [plural, snake]
+  column: [singular, snake]

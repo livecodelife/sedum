@@ -1,0 +1,11 @@
+# Repository-level files every service in this standard carries.
+#
+# Only .gitignore. go.mod and go.sum belong to the Go toolchain - `go mod init`
+# and `go mod tidy` write them - the same way a Dockerfile belongs to a human.
+# Sedum claims neither, so no record should name them.
+name: repo
+extensions: [".gitignore"]
+comment_prefix: "#"
+
+transforms:
+  service: [singular, kebab]

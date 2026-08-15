@@ -1,0 +1,120 @@
+id: prov-2026-6952d810
+title: Todo REST API on Rails with PostgreSQL
+status: open
+created_at: "2026-08-14"
+author: calebcowen@gmail.com
+intent: |
+  Add the todo resource: a JSON API over /todos with full CRUD - create, list,
+  get by id, update by id, delete by id - with todos addressed by integer primary
+  key. The linespec suite in linespec/ is the acceptance contract, and this
+  record is what may change to satisfy it.
+
+  The application has no resources yet and is configured for SQLite, so the same
+  change moves it onto PostgreSQL: the pg adapter, a connection read from the
+  environment rather than written into a file, and a database that comes up
+  alongside the application.
+
+  Two properties are called out because they are the ones an otherwise
+  reasonable implementation gets wrong by omission rather than by mistake.
+
+  A PUT applies only the attributes the caller sent. A client that toggles
+  completed must not blank the title it never mentioned, so the update path
+  assigns what arrived and nothing else. An implementation that gets this right
+  by accident is indistinguishable from one that means it, until somebody edits
+  the update path and only the accident was holding it up.
+
+  The application does not race its database at boot. Ordering between a web
+  process and the database it depends on belongs to whatever starts them, so the
+  database is declared healthy before the application is started at all, and the
+  application carries no connection retry loop. A retry loop is the same wait
+  spelled worse: it hides the dependency from anything reading the deployment
+  description, and it runs on every boot rather than only where the ordering is
+  genuinely unknown.
+constraints:
+  - Rails 7.2 on Ruby 3.2.2, PostgreSQL through the pg adapter.
+  - >-
+    The database connection is read from the environment in every environment,
+    so the same build runs anywhere without a file edit.
+  - >-
+    Five endpoints on /todos and /todos/:id, addressed by integer id per REST
+    convention: index, show, create, update, destroy.
+  - >-
+    PUT applies only the attributes present in the body. An attribute the caller
+    omitted keeps its stored value, and a body carrying no usable attributes is
+    a 400 rather than a write of nothing.
+  - >-
+    A missing record is a 404, handled once for the whole controller rather than
+    per action. Every action resolves its own record and none of them depends on
+    a value another produced.
+  - >-
+    JSON responses carry id, title, completed, created_at and updated_at, which
+    is the shape the acceptance contract asserts.
+  - A todo requires a title. completed defaults to false and is never null.
+  - >-
+    Requests are JSON from callers that are not browsers, so the controller
+    declines the token check that protects form posts once for the class rather
+    than exempting it per action.
+  - >-
+    The application starts only once the database reports healthy, and holds no
+    retry loop of its own.
+  - >-
+    Unit tests are minitest files beside what they cover, asserting what the API
+    promises: the status each verb returns and the 404 a missing record
+    produces.
+  - >-
+    The todos table carries exactly two columns of its own: title, a string that
+    is not null and carries no default, and completed, a boolean that is not
+    null and defaults to false. Rails creates the primary key and t.timestamps
+    creates created_at and updated_at, so declaring any of those three again is
+    a duplicate column.
+  - >-
+    The model carries one validation and no others, written as the Ruby that
+    follows the attribute name: validates :title, presence: true. completed
+    needs no validation because its column default supplies it, and a default is
+    not something a validator can express.
+  - >-
+    The linespec suite is the acceptance contract for this change and is not
+    modified by it. A contract edited to match an implementation has stopped
+    being a contract.
+affected_scope:
+  - .linespec.yml
+  - Dockerfile
+  - Gemfile.lock
+  - _generators/rails/**
+  - Gemfile
+  - app/controllers/todos_controller.rb
+  - app/models/todo.rb
+  - config/database.yml
+  - config/environments/production.rb
+  - app/controllers/health_controller.rb
+  - config/routes.rb
+  - db/migrate/20260814000000_create_todos.rb
+  - db/linespec_init.sql
+  - db/schema_cache.yml
+  - docker-compose.yml
+  - test/controllers/todos_controller_test.rb
+  - test/models/todo_test.rb
+forbidden_scope: []
+type: blueprint
+supersedes: ""
+superseded_by: ""
+related: []
+sealed_at_sha: ""
+associated_specs:
+  - path: linespec/create_todo.linespec
+    type: linespec
+  - path: linespec/list_todos.linespec
+    type: linespec
+  - path: linespec/get_todo.linespec
+    type: linespec
+  - path: linespec/update_todo.linespec
+    type: linespec
+  - path: linespec/partial_update_todo.linespec
+    type: linespec
+  - path: linespec/delete_todo.linespec
+    type: linespec
+associated_traces: []
+monitors: []
+tags:
+  - todo-rails
+  - rails

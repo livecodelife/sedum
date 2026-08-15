@@ -1,0 +1,32 @@
+id: prov-2026-e36db3d5
+title: PUT /todos/{id} requires full body, should support partial updates
+status: open
+created_at: "2026-06-03"
+author: calebcowen@gmail.com
+intent: UpdateTodoRequest uses value types (string, bool), so omitted fields get zero values. UpdateTodo always runs SET title=$1, completed=$2 regardless of what was sent, overwriting fields the caller didn't intend to change. Fix by using pointer fields (*string, *bool) and building the SET clause dynamically from only the non-nil fields. Dynamic direct-assignment SQL preserves VERIFY_WRITTEN_VALUES compatibility with the linespec proxy.
+constraints:
+    - UpdateTodoRequest fields are pointers (*string, *bool); nil means not provided
+    - Build SET clause dynamically including only non-nil fields
+    - At least one field must be present; return 400 if body is empty
+    - Preserve direct-assignment SQL (no COALESCE) so VERIFY_WRITTEN_VALUES still works
+    - Unit tests cover a body with one field set, a body with several, and an empty body
+affected_scope:
+    - db/todos.go
+    - db/todos_test.go
+    - handlers/todos.go
+    - handlers/todos_test.go
+forbidden_scope: []
+type: blueprint
+supersedes: ""
+superseded_by: ""
+related:
+ - prov-2026-4317fe6c
+sealed_at_sha: ""
+associated_specs:
+    - path: linespecs/update_todo.linespec
+      run_command: linespec test linespecs/update_todo.linespec
+    - path: linespecs/partial_update_todo.linespec
+      run_command: linespec test linespecs/partial_update_todo.linespec
+associated_traces: []
+monitors: []
+tags: []

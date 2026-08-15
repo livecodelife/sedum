@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"os"
 	"strings"
 	"testing"
 	"time"
@@ -249,5 +250,71 @@ func TestTheBaselineArmIsRefusedRatherThanSkipped(t *testing.T) {
 	c := Case{ID: "fixture", Arm: "baseline"}
 	if _, err := Run(context.Background(), c, Model{ID: "none", Engine: "test"}, 1, 1); err == nil {
 		t.Fatal("the baseline arm ran; it is not implemented and must say so")
+	}
+}
+
+// The fixtures are vendored so a number measured today can be re-run tomorrow.
+// This asserts both load and resolve to real directories - a case pointing at a
+// path that moved is the failure mode that made prov-2026-6d87dc11's original
+// finding unreproducible.
+func TestVendoredCasesLoad(t *testing.T) {
+	cases, err := Load("cases", "testdata")
+	if err != nil {
+		t.Fatalf("loading cases: %v", err)
+	}
+	if len(cases) < 2 {
+		t.Fatalf("loaded %d cases, want at least the rails and chi fixtures", len(cases))
+	}
+
+	seen := map[string]bool{}
+	for _, c := range cases {
+		seen[c.Language] = true
+		for _, dir := range []string{c.Generators, c.Records} {
+			if _, err := os.Stat(dir); err != nil {
+				t.Errorf("case %s points at a directory that is not there: %v", c.ID, err)
+			}
+		}
+	}
+
+	// Two languages, which is what makes the framework axis more than a label.
+	for _, lang := range []string{"ruby", "go"} {
+		if !seen[lang] {
+			t.Errorf("no vendored case covers %s", lang)
+		}
+	}
+}
+
+// A new fixture has no expectations, because inventing them from the package
+// would make the first run agree by construction. The report says what it
+// observed instead, which is how they get established.
+func TestACaseWithNoExpectationsReportsWhatItObserved(t *testing.T) {
+	m := measurement(
+		valid(map[string]int{"createEndpoint": 5, "createQuery": 5}, "createEndpoint"),
+		valid(map[string]int{"createEndpoint": 4, "createQuery": 5}, "createEndpoint"),
+	)
+	m.Case.Expect.Actions = nil
+
+	var buf bytes.Buffer
+	Report(&buf, m)
+	out := buf.String()
+
+	if !strings.Contains(out, "no expectations declared") {
+		t.Errorf("report does not say the case declares none:\n%s", out)
+	}
+	// 5 and 4 across two samples.
+	if !strings.Contains(out, "createEndpoint") || !strings.Contains(out, "4.50") {
+		t.Errorf("report does not carry the observed mean:\n%s", out)
+	}
+}
+
+// Observed counts every action selected, including ones no expectation names -
+// otherwise an action the model reaches for that nobody anticipated is
+// invisible.
+func TestObservedIncludesUnexpectedActions(t *testing.T) {
+	m := measurement(valid(map[string]int{"addColumn": 2, "somethingNobodyExpected": 1}, "addColumn"))
+
+	got := m.Observed()
+	if got["somethingNobodyExpected"] != 1 {
+		t.Errorf("observed is %v; an unexpected action was dropped", got)
 	}
 }

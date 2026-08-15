@@ -1,0 +1,3 @@
+func {{verb|exported}}{{resource|exported}}(w http.ResponseWriter, r *http.Request) {
+	http.Error(w, "not implemented", http.StatusNotImplemented)
+}

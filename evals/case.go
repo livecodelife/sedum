@@ -27,16 +27,25 @@ type Case struct {
 		Complexity int    `yaml:"complexity"`
 	} `yaml:"application"`
 
-	// Framework names the target stack, matching the generator package that
-	// serves it. It is a label for grouping results, and Sedum reads nothing
-	// from it.
+	// Framework and Language name the target stack. Both are labels for
+	// grouping results and Sedum reads neither - it has no language knowledge
+	// and resolves packages by file extension.
+	//
+	// Language is carried separately because it groups differently: Rails and
+	// Sinatra are one language and two frameworks, and a result that held
+	// across both would be saying something about Ruby rather than about
+	// either.
 	Framework string `yaml:"framework"`
+	Language  string `yaml:"language"`
 
 	// Tightness is how much the generator package constrains the model:
 	// "defined" for a package whose actions and variants cover the intended
-	// output closely, "loose" for one that leaves more to a fallback. Two
-	// packages over one application, differing only here, is the comparison
-	// this field exists for.
+	// output closely, "loose" for one that leaves more to a fallback.
+	//
+	// This is the axis Generators swaps along. Two cases naming one record and
+	// two package sets differ in exactly one thing, which is what makes the
+	// comparison mean anything - and it is why generators/ holds package sets
+	// rather than packages.
 	Tightness string `yaml:"tightness"`
 
 	// Arm is "sedum" or "baseline". A baseline arm asks the same model for the
@@ -45,10 +54,20 @@ type Case struct {
 	Arm string `yaml:"arm"`
 
 	// Generators and Records are directories, resolved against the root passed
-	// to Load. They are usually outside this repository, because the fixture
-	// applications are real projects rather than testdata.
+	// to Load - evals/fixtures by default, so a case names a vendored snapshot
+	// rather than a path into someone's workspace. An absolute path still
+	// works, for pointing a case at a live project deliberately.
+	//
+	// Generators names a package *set*: the directory --generators is given,
+	// whose subdirectories are the packages. Swapping it is how one record is
+	// measured against two packages.
 	Generators string `yaml:"generators"`
 	Records    string `yaml:"records"`
+
+	// Only narrows the run to named records, as --only does. A fixture holding
+	// several records costs one model call each per sample, so a case that
+	// cares about one of them says so rather than paying for the rest.
+	Only []string `yaml:"only"`
 
 	// Models are the models to measure, each run independently.
 	Models []Model `yaml:"models"`

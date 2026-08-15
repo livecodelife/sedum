@@ -1,0 +1,9 @@
+actions:
+  createTable:
+    kwargs:
+      resource: { type: string, required: true }
+      # Column definitions are SQL data, not logic. Every table in this
+      # standard carries id, created_at, and updated_at; these are the rest.
+      columns: { type: string, required: true }
+    injects_into: "init.sql"
+    anchor: tables

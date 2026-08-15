@@ -1,0 +1,21 @@
+# Conventions for the Go service: Chi v5 router, lib/pq, sources in the repo
+# root. The package name is a label for these conventions, not a language
+# identifier - an echo package would claim .go too and shape it differently.
+name: chi
+extensions: [".go"]
+comment_prefix: "//"
+
+transforms:
+  # A file template captures a plural path segment (handlers/todos.go), while a
+  # type name is singular and a slice of them is plural. Both directions are
+  # needed, so both are named.
+  exported: [singular, pascal]
+  collection: [plural, pascal]
+  receiver: [singular, camel]
+  table: [plural, snake]
+
+op_exceptions:
+  pascal:
+    id: ID
+    url: URL
+    api: API

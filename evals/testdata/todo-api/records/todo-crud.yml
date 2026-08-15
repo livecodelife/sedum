@@ -1,0 +1,45 @@
+id: prov-2026-4317fe6c
+title: Todo REST API with Chi and PostgreSQL
+status: open
+created_at: "2026-05-28"
+author: calebcowen@gmail.com
+intent: 'Build a REST todo API using Chi v5 and PostgreSQL with full CRUD: create, list all, get by ID, update by ID, delete by ID. Todos are accessed by integer primary key. Go source files live in the repo root. Unit tests live beside the code they cover.'
+constraints:
+    - Chi v5 router, lib/pq driver (not pgx)
+    - All endpoints address todos by integer ID per REST conventions
+    - INSERT uses two-step pattern (RETURNING id then SELECT) for linespec proxy compatibility
+    - UPDATE uses Exec (no RETURNING), RowsAffected check, then SELECT
+    - LIST query uses PrepareContext + stmt.QueryContext to force Extended Query Protocol
+    - Docker multi-stage build; postgres 16-alpine with md5 auth; host port 5433
+    - Single root .linespec.yml covers both service config and provenance
+    - Unit tests are _test.go siblings of the file they cover; handlers and db packages each carry one
+affected_scope:
+    - .gitignore
+    - .linespec.yml
+    - db/todos.go
+    - db/todos_test.go
+    - docker-compose.yml
+    - handlers/todos.go
+    - handlers/todos_test.go
+    - init.sql
+    - main.go
+forbidden_scope: []
+type: blueprint
+supersedes: ""
+superseded_by: ""
+related: []
+sealed_at_sha: ""
+associated_specs:
+    - path: linespecs/create_todo.linespec
+      run_command: linespec test linespecs/create_todo.linespec
+    - path: linespecs/get_todo.linespec
+      run_command: linespec test linespecs/get_todo.linespec
+    - path: linespecs/list_todos.linespec
+      run_command: linespec test linespecs/list_todos.linespec
+    - path: linespecs/update_todo.linespec
+      run_command: linespec test linespecs/update_todo.linespec
+    - path: linespecs/delete_todo.linespec
+      run_command: linespec test linespecs/delete_todo.linespec
+associated_traces: []
+monitors: []
+tags: []

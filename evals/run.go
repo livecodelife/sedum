@@ -3,6 +3,7 @@ package evals
 import (
 	"context"
 	"fmt"
+	"os"
 	"sort"
 	"strings"
 	"sync"
@@ -125,10 +126,26 @@ func sample(ctx context.Context, c Case, model string) Sample {
 		return Sample{Err: err, Elapsed: time.Since(started)}
 	}
 
+	// A fresh output directory per sample, rather than the working directory.
+	//
+	// Nothing is written under a dry run, but Phase 3 still stats each
+	// authorized path to decide whether it already exists - and a path it finds
+	// is marked as existing and has its markers verified, which can halt the
+	// run. Against the working directory that behavior depends on where the
+	// harness happened to be invoked from, which is a silent confound of
+	// exactly the kind these measurements keep getting bitten by. An empty
+	// directory makes every sample see the same world.
+	output, err := os.MkdirTemp("", "sedum-eval-")
+	if err != nil {
+		return Sample{Err: err, Elapsed: time.Since(started)}
+	}
+	defer os.RemoveAll(output)
+
 	result, err := pipeline.Run(ctx, pipeline.Config{
 		Generators: c.Generators,
 		Records:    c.Records,
-		Output:     "",
+		Output:     output,
+		Only:       c.Only,
 		DryRun:     true,
 		Client:     client,
 		Retries:    0,
@@ -203,6 +220,40 @@ func (m Measurement) Tally() Totals {
 		}
 	}
 	return t
+}
+
+// Observed returns the mean invocation count of every action the valid samples
+// actually selected, whether or not an expectation names it.
+//
+// This is how a new fixture's expectations get established. Writing them by
+// reading the generator package would make the first run agree with them by
+// construction, which is the one thing that would make every later number
+// meaningless - so a case starts with none, a run reports what it saw, and the
+// counts are set from an answer that was actually complete.
+//
+// It is also worth having on a case that does have expectations, because an
+// action the model selects that nothing expects is invisible otherwise.
+func (m Measurement) Observed() map[string]float64 {
+	totals := map[string]int{}
+	valid := 0
+	for _, s := range m.Samples {
+		if s.Err != nil || s.Invalid {
+			continue
+		}
+		valid++
+		for name, n := range s.Counts {
+			totals[name] += n
+		}
+	}
+	if valid == 0 {
+		return nil
+	}
+
+	out := make(map[string]float64, len(totals))
+	for name, n := range totals {
+		out[name] = float64(n) / float64(valid)
+	}
+	return out
 }
 
 // Details returns the distinct reasons samples were invalid or failed, so that a

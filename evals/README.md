@@ -20,7 +20,8 @@ OPENAI_BASE_URL=http://127.0.0.1:1234/v1 OPENAI_API_KEY=local \
 |---|---|
 | `-eval.case <id>` | Run one case. Default: all. |
 | `-eval.samples <n>` | Runs per model. Default 5. |
-| `-eval.root <dir>` | Where the fixture applications live. Default `../..` — `go test` runs with cwd at `evals/`, so this is the workspace. |
+| `-eval.model <substr>` | Run only models whose label contains this. One row at a time when memory is tight. |
+| `-eval.root <dir>` | Where the vendored fixtures live. Default `testdata`. |
 
 Without an endpoint configured the runner skips rather than fails.
 
@@ -61,12 +62,25 @@ growing the matrix adds files rather than changing the schema.
 
 | Axis | Field | Today |
 |---|---|---|
-| Model | `models` | one local 14B |
-| Framework | `framework` | `rails` |
+| Model | `models` | one local 14B, two engines |
+| Engine / quant | `models[].engine`, `.quant` | `mlx-4bit`, `llama.cpp-q4_k_m` |
+| Language | `language` | `ruby`, `go` |
+| Framework | `framework` | `rails`, `chi` |
 | Application | `application.name` | `todo` |
-| Complexity | `application.complexity` | tier 1 |
+| Complexity | `application.complexity` | tiers 1 and 2 |
 | Generator tightness | `tightness` | `defined` |
 | Arm | `arm` | `sedum` |
+
+**Engine and quant are part of a model's identity, not decoration.** One
+checkpoint under MLX 4-bit and under llama.cpp Q4_K_M uses different
+quantization and does not produce identical output, so folding them into one row
+would let a rate measured on one read as a claim about the other. Only the
+llama.cpp engine supports continuous batching today, which is the other reason
+they differ in practice.
+
+**Language groups differently from framework.** Rails and Sinatra are one
+language and two frameworks; a result holding across both says something about
+Ruby rather than about either.
 
 Two of these are declared and not yet runnable, and both matter more than the
 ones that are:
@@ -81,15 +95,33 @@ completeness is a proxy; this is the thing it is a proxy *for*. It costs a
 container and a database per sample rather than one model call, which is why it
 is reserved rather than built.
 
+## Fixtures
+
+Cases read vendored generator packages and provenance records from `testdata/`,
+not from projects in your workspace. That directory is named `testdata` because
+the Go toolchain ignores it — the packages contain `.go` template files that are
+not valid source.
+
+See `testdata/README.md` for the layout and for why swapping generators over one
+record is the comparison the structure is built around.
+
+**Only the package and the record are vendored, never the application.**
+Selection depends on nothing else: each sample runs with a fresh empty output
+directory, so Phase 3 sees the same world every time regardless of where the
+harness was invoked from.
+
 ## Adding a case
 
-Drop a YAML file in `cases/`. See `cases/todo-rails.yaml`; the schema is
+Drop a YAML file in `cases/`. See `cases/todo-rails-defined.yaml`; the schema is
 `Case` in `case.go` and decoding is strict, so a typo is an error rather than a
 silently ignored key.
 
 Expectations are what a *complete* answer contains — taken from runs where the
 model produced one, not from what it usually produces, which is the thing being
-measured.
+measured. **A new fixture therefore starts with none.** Run it, read the observed
+selections the report prints, and set the counts from an answer that was
+actually complete. Writing them by reading the generator package would make the
+first run agree with them by construction.
 
 ## Known rough edges
 

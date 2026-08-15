@@ -1,0 +1,61 @@
+# The same todo service in Go, which is what makes it comparable to
+# todo-rails-defined on the application axis.
+#
+# The records cannot be shared - this one's affected_scope names handlers/todos.go
+# where the Rails record names app/controllers/todos_controller.rb - so what is
+# shared is the application idea, expressed once per framework.
+#
+# It is also a harder case than the Rails one: four packages rather than one,
+# and a record whose scope spans a router, a db layer, their tests, a compose
+# file and an init.sql.
+id: todo-chi-defined
+
+application:
+  name: todo
+  # Tier 2 rather than 1. Same five endpoints, but the record spans four
+  # generator packages and carries constraints about query protocol and driver
+  # choice that the Rails record has no equivalent of.
+  complexity: 2
+
+language: go
+framework: chi
+tightness: defined
+arm: sedum
+
+records: todo-api/records
+generators: todo-api/generators/defined
+
+# The fixture carries three records: the CRUD build, and two later bug records
+# that refine it. A sample costs one model call per record, so this case names
+# the one it is about rather than paying for all three.
+only:
+  - prov-2026-4317fe6c
+
+models:
+  - id: qwen2.5-coder-14b-instruct
+    engine: llama.cpp
+    quant: q4_k_m
+
+# Expect every sample here to cost two model calls.
+#
+# sedum validate reports four anchor_marker_unfilled warnings against these
+# packages (prov-2026-a9e59197): the file templates plant "body", "config",
+# "services" and "extensions", and no action in any package targets them. Those
+# anchors are unfillable by construction, so the completeness pass
+# (prov-2026-6d87dc11) fires on every run and the model correctly declines.
+#
+# That is the "never a hard error" rule doing its job, and it is also a standing
+# cost this fixture pays that todo-rails does not. Worth knowing before reading
+# any timing comparison between the two.
+
+# Deliberately empty.
+#
+# Expectations are what a *complete* answer contains, and nothing has produced
+# one here yet. Inventing counts from reading the package would make the first
+# run agree with them by construction, which is the one thing that would make
+# every later number meaningless.
+#
+# Until then this case still measures first-call validity and cost, and a run
+# reports the actions it observed - which is how the counts get established.
+expect:
+  actions: {}

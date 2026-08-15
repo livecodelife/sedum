@@ -3,6 +3,7 @@ package evals
 import (
 	"fmt"
 	"io"
+	"sort"
 	"strings"
 	"time"
 )
@@ -36,6 +37,24 @@ func Report(out io.Writer, m Measurement) {
 
 	if scored == 0 {
 		fmt.Fprintln(out, "  no valid samples to score")
+		return
+	}
+
+	// A case with no expectations is a new fixture, not a broken one. Report
+	// what was selected so the counts can be set from an answer that was
+	// actually complete, rather than written by reading the package and then
+	// agreed with by construction.
+	if len(m.Case.Expect.Actions) == 0 {
+		fmt.Fprintln(out, "  no expectations declared - observed selections, for establishing them:")
+		observed := m.Observed()
+		names := make([]string, 0, len(observed))
+		for name := range observed {
+			names = append(names, name)
+		}
+		sort.Strings(names)
+		for _, name := range names {
+			fmt.Fprintf(out, "    %-24s mean %.2f\n", name, observed[name])
+		}
 		return
 	}
 

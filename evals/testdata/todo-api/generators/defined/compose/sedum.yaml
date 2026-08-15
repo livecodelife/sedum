@@ -1,0 +1,8 @@
+# Infrastructure and tool configuration. A third package for the same reason
+# postgres is a second one: # is the comment syntax here.
+name: compose
+extensions: [".yml"]
+comment_prefix: "#"
+
+transforms:
+  service: [singular, kebab]

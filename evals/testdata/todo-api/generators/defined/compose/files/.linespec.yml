@@ -1,0 +1,7 @@
+service:
+  base_url: http://localhost:8080
+
+provenance:
+  dir: provenance
+
+# sedum:anchor:config
