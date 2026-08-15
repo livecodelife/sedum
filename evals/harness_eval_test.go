@@ -12,6 +12,7 @@
 //	  -eval.model     run only models whose label contains this substring
 //	  -eval.samples   runs per model, default 5
 //	  -eval.concurrency  samples in flight at once, default 1
+//	  -eval.retries   re-prompts a rejected answer may spend, default 0
 //	  -eval.root      where the vendored fixtures live, default testdata
 //	  -eval.results   where results are appended, default results ("" disables)
 package evals
@@ -34,6 +35,7 @@ var (
 	concurrency = flag.Int("eval.concurrency", 1, "samples in flight at once; raise it against a server with continuous batching")
 	root        = flag.String("eval.root", "testdata", "directory the vendored fixtures live under")
 	results     = flag.String("eval.results", "results", "directory results are appended to; empty disables recording")
+	retries     = flag.Int("eval.retries", 0, "re-prompts a rejected answer may spend; zero measures what one call produces, and raising it buys valid samples at the cost of comparable timing")
 )
 
 func TestEval(t *testing.T) {
@@ -58,7 +60,11 @@ func TestEval(t *testing.T) {
 				continue
 			}
 			t.Run(c.ID+"/"+model.Label(), func(t *testing.T) {
-				m, err := Run(context.Background(), c, model, *samples, *concurrency)
+				m, err := Run(context.Background(), c, model, Options{
+					Samples:     *samples,
+					Concurrency: *concurrency,
+					Retries:     *retries,
+				})
 				if err != nil {
 					t.Fatalf("running case: %v", err)
 				}
@@ -69,7 +75,7 @@ func TestEval(t *testing.T) {
 				Report(os.Stdout, m)
 
 				if *results != "" {
-					entry := NewEntry(m, 0, os.Getenv(selection.EnvBaseURL))
+					entry := NewEntry(m, os.Getenv(selection.EnvBaseURL))
 					if !entry.Clean {
 						// The commit is what makes an entry re-runnable, and a
 						// dirty tree makes it a lie. The run is still recorded

@@ -31,10 +31,13 @@ type Sample struct {
 	// Invalid marks a run where the model answered and Phase 5 rejected it.
 	//
 	// This is a measurement, not a failure, and the harness got it wrong the
-	// first time by treating the two alike. Retries are zero here, so an answer
-	// that would have been repaired by the retry loop shows up as no answer at
-	// all - and how often a first call validates is one of the more interesting
-	// things to know about a model, not noise to drop.
+	// first time by treating the two alike. At the default budget of zero
+	// retries, an answer that would have been repaired by the retry loop shows
+	// up as no answer at all - and how often a first call validates is one of
+	// the more interesting things to know about a model, not noise to drop. At
+	// a raised budget this means the answer was rejected every time it was
+	// asked, which is a different and weaker claim; Measurement.Retries is what
+	// says which was measured.
 	Invalid bool
 
 	// Detail is why a sample was invalid or failed, kept so a rate is never
@@ -69,6 +72,39 @@ type Measurement struct {
 	Wall time.Duration
 	// Concurrency is how many samples were in flight at once.
 	Concurrency int
+	// Retries is the validation budget each sample was given.
+	//
+	// It travels with the measurement because "valid" means a different thing
+	// at 0 than at 2, and no reading of the table recovers which one it was
+	// (prov-2026-b4555efc).
+	Retries int
+}
+
+// Options is what a measurement is drawn with.
+//
+// A struct rather than three positional ints, because samples, concurrency and
+// retries are all small integers and nothing about a call site would look wrong
+// if two of them were swapped.
+type Options struct {
+	// Samples is how many runs to draw per model.
+	Samples int
+
+	// Concurrency is how many samples may be in flight at once. Anything below
+	// one is sequential.
+	Concurrency int
+
+	// Retries is how many times a rejected answer may be re-prompted, and it
+	// is zero by default on purpose: the question the harness was built for is
+	// what one call produces, and a retry loop folds Phase 5's recovery into a
+	// number meant to describe a first answer.
+	//
+	// Raising it answers a different question - what a complete answer contains
+	// once the model has got past validating - and it buys sample size for that
+	// question when first-call validity is varying. The cost is that a retried
+	// sample pays for every rejected answer, so timing at one budget is not
+	// comparable with timing at another. The budget is recorded in the entry so
+	// that stays checkable rather than remembered.
+	Retries int
 }
 
 // Run measures one case against one model, samples times.
@@ -79,9 +115,10 @@ type Measurement struct {
 // a dry run injects into what Phase 3 would have written - which keeps this
 // measuring the same path a real run takes rather than a shortcut through it.
 //
-// Retries are zero on purpose. The question is what one call produces, and a
-// retry loop would fold Phase 5's recovery into a number meant to describe the
-// model's first answer.
+// Retries default to zero, and Options.Retries says what raising them measures
+// instead. The default cannot move: every entry already recorded was drawn at
+// zero and means "validated on the first call", so a new default would re-point
+// that word while the field name and the report line stayed put.
 //
 // Samples run concurrently up to concurrency, because drawing N independent
 // samples is the canonical batched-inference workload and running them one at a
@@ -91,26 +128,32 @@ type Measurement struct {
 // Results are written by index rather than appended, so the report reads the
 // same way whatever order they finish in. A measurement that reordered between
 // runs would make two of them harder to compare for no reason.
-func Run(ctx context.Context, c Case, model Model, samples, concurrency int) (Measurement, error) {
+func Run(ctx context.Context, c Case, model Model, opts Options) (Measurement, error) {
 	if c.Arm != "sedum" {
 		return Measurement{}, fmt.Errorf("case %s has arm %q; only the sedum arm can be run today", c.ID, c.Arm)
 	}
-	if concurrency < 1 {
-		concurrency = 1
+	if opts.Concurrency < 1 {
+		opts.Concurrency = 1
 	}
 
-	m := Measurement{Case: c, Model: model, Concurrency: concurrency, Samples: make([]Sample, samples)}
+	m := Measurement{
+		Case:        c,
+		Model:       model,
+		Concurrency: opts.Concurrency,
+		Retries:     opts.Retries,
+		Samples:     make([]Sample, opts.Samples),
+	}
 
 	started := time.Now()
 	var wg sync.WaitGroup
-	slots := make(chan struct{}, concurrency)
-	for i := 0; i < samples; i++ {
+	slots := make(chan struct{}, opts.Concurrency)
+	for i := 0; i < opts.Samples; i++ {
 		wg.Add(1)
 		go func(i int) {
 			defer wg.Done()
 			slots <- struct{}{}
 			defer func() { <-slots }()
-			m.Samples[i] = sample(ctx, c, model.ID)
+			m.Samples[i] = sample(ctx, c, model.ID, opts.Retries)
 		}(i)
 	}
 	wg.Wait()
@@ -119,7 +162,7 @@ func Run(ctx context.Context, c Case, model Model, samples, concurrency int) (Me
 	return m, nil
 }
 
-func sample(ctx context.Context, c Case, model string) Sample {
+func sample(ctx context.Context, c Case, model string, retries int) Sample {
 	started := time.Now()
 	client, err := selection.NewOpenAI(model)
 	if err != nil {
@@ -148,7 +191,7 @@ func sample(ctx context.Context, c Case, model string) Sample {
 		Only:       c.Only,
 		DryRun:     true,
 		Client:     client,
-		Retries:    0,
+		Retries:    retries,
 	})
 	if err != nil {
 		// Provisional classification. internal/selection exports no error type

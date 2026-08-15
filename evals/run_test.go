@@ -229,7 +229,7 @@ func TestConcurrentSamplesKeepTheirOrder(t *testing.T) {
 
 	// Every sample fails identically here - there is no endpoint - which is
 	// enough to prove the slice is filled by index rather than appended.
-	m, err := Run(context.Background(), c, Model{ID: "none", Engine: "test"}, 6, 4)
+	m, err := Run(context.Background(), c, Model{ID: "none", Engine: "test"}, Options{Samples: 6, Concurrency: 4})
 	if err != nil {
 		t.Fatalf("Run: %v", err)
 	}
@@ -244,11 +244,66 @@ func TestConcurrentSamplesKeepTheirOrder(t *testing.T) {
 	}
 }
 
+// The retry budget travels with the measurement and into the entry, because
+// "valid" means a different thing at zero than at two and nothing in the table
+// recovers which was measured (prov-2026-b4555efc).
+func TestTheRetryBudgetIsCarriedNotAssumed(t *testing.T) {
+	c := Case{ID: "fixture", Arm: "sedum", Generators: "x", Records: "y"}
+
+	m, err := Run(context.Background(), c, Model{ID: "none", Engine: "test"},
+		Options{Samples: 1, Concurrency: 1, Retries: 2})
+	if err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+	if m.Retries != 2 {
+		t.Errorf("measurement recorded %d retries, want 2", m.Retries)
+	}
+	if got := NewEntry(m, "http://x").Retries; got != 2 {
+		t.Errorf("entry recorded %d retries, want the budget the run was given", got)
+	}
+
+	// The default is zero and cannot drift: every entry already recorded means
+	// "validated on the first call", and a new default would re-point that word
+	// while the field name and the report line stayed put.
+	zero, err := Run(context.Background(), c, Model{ID: "none", Engine: "test"}, Options{Samples: 1})
+	if err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+	if zero.Retries != 0 {
+		t.Errorf("an unset budget came out as %d, want 0", zero.Retries)
+	}
+}
+
+// The validity line names the budget it was measured under. A run that spent
+// retries did not measure first-call validity, and a line that read the same
+// either way would be the entry format's one prohibited move - a field that
+// changes meaning without changing name.
+func TestTheValidityLineNamesItsBudget(t *testing.T) {
+	m := measurement(valid(map[string]int{"addColumn": 2}, "addColumn"))
+
+	var buf bytes.Buffer
+	Report(&buf, m)
+	if out := buf.String(); !strings.Contains(out, "valid first call:") || !strings.Contains(out, "retries=0") {
+		t.Errorf("a zero-budget report does not say so:\n%s", out)
+	}
+
+	m.Retries = 2
+	buf.Reset()
+	Report(&buf, m)
+	out := buf.String()
+	if !strings.Contains(out, "valid within 3 calls:") {
+		t.Errorf("a raised budget still claims first-call validity:\n%s", out)
+	}
+	if !strings.Contains(out, "retries=2") {
+		t.Errorf("the header omits the budget:\n%s", out)
+	}
+}
+
 // A baseline arm has no generator package and no action vocabulary, so it is
 // declared in the matrix and refused at run time rather than silently skipped.
 func TestTheBaselineArmIsRefusedRatherThanSkipped(t *testing.T) {
 	c := Case{ID: "fixture", Arm: "baseline"}
-	if _, err := Run(context.Background(), c, Model{ID: "none", Engine: "test"}, 1, 1); err == nil {
+	if _, err := Run(context.Background(), c, Model{ID: "none", Engine: "test"}, Options{Samples: 1, Concurrency: 1}); err == nil {
 		t.Fatal("the baseline arm ran; it is not implemented and must say so")
 	}
 }

@@ -22,6 +22,7 @@ OPENAI_BASE_URL=http://127.0.0.1:1234/v1 OPENAI_API_KEY=local \
 | `-eval.samples <n>` | Runs per model. Default 5. |
 | `-eval.model <substr>` | Run only models whose label contains this. One row at a time when memory is tight. |
 | `-eval.root <dir>` | Where the vendored fixtures live. Default `testdata`. |
+| `-eval.retries <n>` | Re-prompts a rejected answer may spend. Default 0. See below before raising it. |
 
 Without an endpoint configured the runner skips rather than fails.
 
@@ -49,10 +50,33 @@ bug:
 
 - **valid** — the model answered and Phase 5 accepted it. Scored.
 - **invalid** — the model answered and Phase 5 rejected it. *A measurement*, not a
-  failure. Retries are zero here on purpose, so this is how often one call
+  failure. At the default budget of zero retries, this is how often one call
   produces something acceptable.
 - **failed** — the run never reached the model. Excluded from every denominator,
   because an unreachable endpoint is not a model that chose badly.
+
+### The retry budget
+
+Zero by default, and the default cannot move: every entry in `results/` was
+drawn at zero and means *validated on the first call*, so a new default would
+re-point that word while the field name and the report line stayed put.
+
+Raise it with `-eval.retries` when first-call validity is varying enough to eat
+the sample size of a different question. The chi case has come in at 5/5, 3/5
+and 2/5 across three runs; a comparison of what a complete answer contains, made
+from the two samples that survived, is a worse measurement than the same
+comparison made from five.
+
+What a raised budget costs is **timing**. A sample that retries pays for every
+rejected answer, so per-sample and wall figures at one budget are not comparable
+with another's. Two entries at the same budget compare; two at different budgets
+do not. The budget is in the entry and on the report header so that is checkable
+rather than remembered, and the validity line says `within N calls` rather than
+`first call` whenever it was not one.
+
+The completeness re-prompt is untouched by this. It draws from its own budget in
+`internal/selection` and always has, so retries buy re-prompts of a *rejected*
+answer and nothing else.
 
 ## The matrix
 

@@ -15,7 +15,7 @@ func entryFor(t *testing.T, samples ...Sample) Entry {
 	t.Helper()
 	m := measurement(samples...)
 	m.Wall = 90 * time.Second
-	return NewEntry(m, 0, "http://127.0.0.1:1234/v1")
+	return NewEntry(m, "http://127.0.0.1:1234/v1")
 }
 
 // Appending must preserve what was already there. A run adds lines and rewrites

@@ -18,14 +18,16 @@ func Report(out io.Writer, m Measurement) {
 	rows, scored, _ := m.Scored()
 	t := m.Tally()
 
-	fmt.Fprintf(out, "%s  model=%s  arm=%s  tightness=%s  n=%d\n",
-		m.Case.ID, m.Model.Label(), m.Case.Arm, m.Case.Tightness, len(m.Samples))
+	fmt.Fprintf(out, "%s  model=%s  arm=%s  tightness=%s  n=%d  retries=%d\n",
+		m.Case.ID, m.Model.Label(), m.Case.Arm, m.Case.Tightness, len(m.Samples), m.Retries)
 	fmt.Fprintln(out, "  "+timing(m))
 
-	// First-call validity before anything else. Retries are zero here, so this
-	// is how often one call produced something Phase 5 accepted - the number
-	// every rate below is conditioned on.
-	fmt.Fprintf(out, "  valid first call: %s", ratio(t.Valid, t.Answered()))
+	// Validity before anything else: it is the number every rate below is
+	// conditioned on. At the default budget of no retries this is how often one
+	// call produced something Phase 5 accepted. At a raised budget it is a
+	// weaker claim about more calls, so the line says which it is rather than
+	// calling itself "first call" either way (prov-2026-b4555efc).
+	fmt.Fprintf(out, "  valid %s: %s", calls(m.Retries), ratio(t.Valid, t.Answered()))
 	if t.Failed > 0 {
 		fmt.Fprintf(out, "   (%d run(s) never reached the model and are excluded)", t.Failed)
 	}
@@ -110,6 +112,19 @@ func round(d time.Duration) time.Duration {
 		return d.Round(100 * time.Millisecond)
 	}
 	return d.Round(time.Millisecond)
+}
+
+// calls names the budget a validity rate was measured under.
+//
+// "first call" is the strongest form of the claim and the one every entry
+// recorded so far carries. A raised budget makes it a different measurement,
+// and a line that read the same either way would be the field-changing-meaning
+// failure the entry format exists to avoid.
+func calls(retries int) string {
+	if retries <= 0 {
+		return "first call"
+	}
+	return fmt.Sprintf("within %d calls", retries+1)
 }
 
 func ratio(n, of int) string {

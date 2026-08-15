@@ -89,7 +89,11 @@ type SampleRun struct {
 const EntrySchema = 1
 
 // NewEntry builds an entry from a finished measurement.
-func NewEntry(m Measurement, retries int, endpoint string) Entry {
+//
+// The retry budget is read off the measurement rather than passed alongside it,
+// because the two disagreeing would put a number in the file that describes a
+// run nobody made (prov-2026-b4555efc).
+func NewEntry(m Measurement, endpoint string) Entry {
 	commit, clean, dirty := gitState()
 	t := m.Tally()
 
@@ -108,7 +112,7 @@ func NewEntry(m Measurement, retries int, endpoint string) Entry {
 		Endpoint:    endpoint,
 		Samples:     len(m.Samples),
 		Concurrency: m.Concurrency,
-		Retries:     retries,
+		Retries:     m.Retries,
 		Valid:       t.Valid,
 		Invalid:     t.Invalid,
 		Failed:      t.Failed,
