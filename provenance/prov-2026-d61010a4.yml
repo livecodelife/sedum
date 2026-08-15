@@ -1,0 +1,143 @@
+id: prov-2026-d61010a4
+title: The harness measures more than whether an action was selected
+status: draft
+created_at: "2026-08-15"
+author: calebcowen@gmail.com
+intent: |
+  Three signals beyond the selection counts [[prov-2026-e6969eb3]] reports today,
+  none of them requiring a container, a database, or the application to run.
+  They land before the matrix widens, because a signal added after the matrix is
+  broad means re-running every cell to collect it.
+
+  ## Why the counts are not enough
+
+  The harness scores an action list against expectations an author wrote. That
+  has two defects, and the second is worse than the first.
+
+  It is hand-authored, so it can be fitted. The record already carries a
+  constraint against writing expectations by reading the package, because doing
+  so would make the first run agree with them by construction - but the
+  constraint is a rule asking to be followed rather than a mechanism, and the
+  only thing enforcing it is care.
+
+  And it measures selection, not output. Every wrong binding
+  [[prov-2026-c5697387]] was written from produced a *selected* action with a
+  *bad argument*: t.string :title:string, null: false is a perfect catalog count
+  and broken Ruby. The number the harness reports today would have been green
+  for all four.
+
+  ## Anchor fill rate
+
+  Planted minus filled, which [[prov-2026-6d87dc11]] already computes as
+  expand.Unfilled. The run has it in hand; nothing new is calculated.
+
+  Its virtue is that it is **derived rather than declared**. A file template
+  plants the markers an action's anchor targets, so the created files state what
+  work they expect, and the fraction of that work a selection accounted for
+  comes from the package and the record rather than from anybody's expectation.
+  It cannot be fitted, which is what the hand-authored counts cannot say.
+
+  It is not a replacement for them. An anchor filled by the wrong action counts
+  as filled, and a package with unfillable anchors - init.sql plants "extensions"
+  and nothing targets it - has a ceiling below 100% that is a property of the
+  package rather than of the answer. Both numbers are worth having and neither
+  subsumes the other.
+
+  ## Syntactic validity of the rendered output
+
+  Run the target's own parser over what Phase 7 wrote: ruby -c, gofmt -e,
+  tsc --noEmit. Milliseconds, no container, no database.
+
+  This is the rung that catches what selection counts structurally cannot. It
+  would have caught t.string :title:string directly.
+
+  Two things have to be said plainly or it will be over-read.
+
+  **It is not correctness.** It catches malformed output, not wrong output.
+  params.permit(title, completed) parses as valid Ruby and raises NameError at
+  runtime, so the failure c5697387's third example describes passes this check.
+  Anything claiming otherwise is claiming the behavioral rung, which is not this.
+
+  **It is target knowledge, and it goes in the case rather than the harness.**
+  The command is configuration - check: ["ruby", "-c"] on the case, keyed by
+  nothing the harness interprets - for the same reason Sedum's core carries no
+  language knowledge. A harness with a switch on language is a harness that has
+  to be edited to add a framework, which is the thing the matrix exists to make
+  cheap.
+
+  ## Idempotency
+
+  Run the same selection twice and compare bytes. A rerun that differs from its
+  input is an injection or marker defect, and it is the property M4's tests
+  assert on fixtures - checked here against real packages and model-selected
+  invocations instead.
+
+  Cheapest of the three to reason about and the one most likely to find nothing,
+  which is the point: it is a regression signal rather than a discovery one.
+
+  ## What this changes about how a sample runs
+
+  Samples stop running as dry runs. [[prov-2026-e6969eb3]] already gives each
+  sample a fresh temporary output directory, so writing into it costs nothing and
+  is discarded with it - and both new signals need the files to exist. A dry run
+  reports what Phase 7 would have done; inject.Result carries a path, an action
+  and a variant, and no content, so nothing downstream can parse what was never
+  written.
+
+  This is a change to what is measured and is worth stating: a sample now
+  exercises the write path as well as the decision path. That is closer to what a
+  real run does, not further from it.
+constraints:
+  - >-
+    Anchor fill rate is derived from the package and the record, never from a
+    declared expectation. It is the one completeness number that cannot be
+    fitted, which is why it is worth having beside the counts rather than
+    instead of them.
+  - >-
+    A signal that cannot be collected without running the application is out of
+    scope here. Behavioral pass rate and the baseline arm stay reserved and
+    unimplemented.
+  - >-
+    The syntax check command is case configuration, never a switch on language
+    inside the harness. A harness edited to add a framework defeats the matrix.
+  - >-
+    Syntactic validity is reported as syntactic validity and never as
+    correctness. Output that parses and misbehaves is the failure mode
+    prov-2026-c5697387 was written from, and this check passes it.
+  - >-
+    Every signal is reported per sample and aggregated with its sample size,
+    like every other rate the harness prints.
+  - >-
+    Samples write into the per-sample temporary directory rather than running
+    dry, because two of the three signals need the files to exist. Nothing is
+    written outside that directory and it does not survive the sample.
+  - >-
+    These land before the matrix widens. A signal added after the matrix is
+    broad means re-running every cell to collect it, which is the whole reason
+    for the ordering.
+affected_scope:
+  - evals/**
+forbidden_scope: []
+type: blueprint
+implements: prov-2026-d554bfc3
+supersedes: ""
+superseded_by: ""
+related:
+  - prov-2026-e6969eb3
+  - prov-2026-6d87dc11
+  - prov-2026-c5697387
+sealed_at_sha: ""
+associated_specs:
+  # The harness's own logic is deterministic and tested as such; the signals are
+  # no different. A fixture with known rendered output exercises the syntax
+  # check and the fill-rate arithmetic without a model.
+  - path: evals/run_test.go
+    run_command: go test -count=1 ./$(dirname {{path}})
+  - path: evals/README.md
+    run_command: test -f {{path}}
+associated_traces: []
+monitors: []
+tags:
+  - sedum
+  - evals
+  - measurement
