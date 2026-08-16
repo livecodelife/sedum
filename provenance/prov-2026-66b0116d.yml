@@ -1,0 +1,92 @@
+id: prov-2026-66b0116d
+title: A kwarg may expect any of several literals, because some distinctions the package erases
+status: draft
+created_at: "2026-08-16"
+author: calebcowen@gmail.com
+intent: |
+  The first coarse run scored with bindings reported `resource` at 2 of 5
+  samples. The model bound `todos` three times and `todo` twice, and both are
+  correct.
+
+  This package's transforms are built so that they are. `table` is
+  [plural, snake] and `record` is [singular, snake], so `todo|table` and
+  `todos|table` both render `todos`, and `todo|record` and `todos|record` both
+  render `todo`. Its README states the intent outright: "Rails names the same
+  resource five ways ... every pipeline is written to produce the same answer
+  from either, so no template has to know which form reached it."
+
+  The expectation named one of two values the package guarantees are
+  interchangeable. Nothing downstream can tell them apart, so scoring one wrong
+  measures the author's preference rather than the model's correctness.
+
+  ## The fix is a list, and it was already the design
+
+  [[prov-2026-2b121b62]] refused regular expressions and said "a literal or a
+  list of acceptable literals covers every case the fixtures have". The list
+  half was never implemented. A kwarg expecting `[todo, todos]` matches either
+  and nothing else, which is the whole of what is needed.
+
+  A list is not a pattern. It enumerates values a reader can check against the
+  package one by one, where a regex is a rule that lives in a fixture with
+  nothing to validate it - that refusal stands.
+
+  ## Why this is a correction and not a capitulation
+
+  The distinction matters more than the change does.
+
+  An expectation edited because a rate came back low is the failure
+  [[prov-2026-eb283c56]] guards counts against and the one
+  [[prov-2026-2b121b62]] admits is harder to see in a binding, where a wrong
+  value reads as a detail. Every reason to be suspicious of this edit applies.
+
+  What separates it is that the justification does not mention the rate. The
+  package's transform table makes the two forms identical, its README says so on
+  purpose, and the expectation would have been wrong had no model ever run. The
+  measurement is what exposed the error, not what argues for the change.
+
+  The test of that is simple and worth stating: `default` also came back low, at
+  0 of 5, and is not being touched. The record says the column carries no
+  default, `nil` is what that renders as, and the empty string the model
+  produced renders `default: ` and does not parse. Nothing there is a preference
+  the package erases, so nothing there is edited.
+
+  ## What it costs to have gotten this wrong
+
+  Nothing, and that is the point of storing invocations
+  ([[prov-2026-2256e6fa]]). The undescribed arm's samples are on disk with every
+  argument they bound, so the corrected expectation can be applied to the run
+  that has already happened rather than paying for it again.
+
+  There is no command for that yet, which is now clearly worth having: a scoring
+  rule that changes is exactly the case re-scorability was stored for, and the
+  first instance of it arrived within a day.
+constraints:
+  - A kwarg expectation may be a single literal or a list of them, and a list matches any member and nothing else. Patterns and regular expressions stay refused, because a list can be checked against the package value by value and a regex cannot.
+  - A list is justified by the package making its members interchangeable, and the justification is written where the expectation is. Widening a kwarg because a rate was low is the failure this format exists to resist.
+  - The comparison stays type-sensitive inside a list. Every member is compared as itself, so a list of strings never matches a boolean.
+  - Only resource is widened. default is equally low and is not touched, because nothing in the package makes an unparseable default equivalent to nil.
+affected_scope:
+  - evals/binding.go
+  - evals/binding_test.go
+  - evals/case.go
+  - evals/cases/**
+  - evals/README.md
+forbidden_scope: []
+type: imprint
+implements: prov-2026-e6969eb3
+supersedes: ""
+superseded_by: ""
+related:
+  - prov-2026-2b121b62
+  - prov-2026-2256e6fa
+  - prov-2026-eb283c56
+sealed_at_sha: ""
+associated_specs:
+  - path: evals/binding_test.go
+    run_command: go test -count=1 ./$(dirname {{path}})
+associated_traces: []
+monitors: []
+tags:
+  - sedum
+  - evals
+  - measurement
