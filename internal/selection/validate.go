@@ -163,6 +163,7 @@ func checkKwargs(entry catalog.Action, inv recording.Invocation, index int) []Vi
 	var out []Violation
 
 	var missing, empty []string
+	emptied := map[string]bool{}
 	for name, k := range entry.Kwargs {
 		if !k.Required {
 			continue
@@ -173,6 +174,29 @@ func checkKwargs(entry catalog.Action, inv recording.Invocation, index int) []Vi
 			missing = append(missing, name)
 		case isEmpty(v):
 			empty = append(empty, name)
+			emptied[name] = true
+		}
+	}
+
+	// A kwarg the schema calls optional and the selected template renders is
+	// not optional (prov-2026-369544c1), and that has to hold for what it
+	// contains as well as for whether it is there. Checking only the schema
+	// flag would let an empty value through on exactly the shape this most
+	// matters for: a discriminated action whose variants need different
+	// arguments declares every one of them optional, because optional is the
+	// only thing a shared schema can say about a value one variant needs and
+	// another forbids.
+	//
+	// Absence is left to checkDerived. Reporting it here as well would make one
+	// mistake read as two.
+	derived, _ := derivedRequirements(entry, inv)
+	for _, name := range derived {
+		if emptied[name] {
+			continue
+		}
+		if v, bound := inv.Kwargs[name]; bound && isEmpty(v) {
+			empty = append(empty, name)
+			emptied[name] = true
 		}
 	}
 	if len(missing) > 0 {
@@ -191,8 +215,13 @@ func checkKwargs(entry catalog.Action, inv recording.Invocation, index int) []Vi
 			Index:  index,
 			Action: inv.Action,
 			Rule:   RuleEmptyKwarg,
-			Detail: fmt.Sprintf("required %s bound to nothing: %s; give each a value or say why the action applies without one",
-				plural(len(empty), "kwarg is", "kwargs are"), quoteList(empty)),
+			// Not worded as "required", because half of what this catches is
+			// declared optional and made necessary by the template that
+			// renders it. "Needed here" is true of both.
+			Detail: fmt.Sprintf("%s bound to nothing: %s; %s needed here, so give %s a value or leave the invocation out",
+				plural(len(empty), "kwarg is", "kwargs are"), quoteList(empty),
+				plural(len(empty), "it is", "they are"),
+				plural(len(empty), "it", "them")),
 		})
 	}
 
@@ -258,25 +287,7 @@ func checkKwargs(entry catalog.Action, inv recording.Invocation, index int) []Vi
 // absent is a binding mistake; a derived one is usually the author's schema
 // understating what a variant needs.
 func checkDerived(entry catalog.Action, inv recording.Invocation, index int) *Violation {
-	required := append([]string{}, entry.Requires...)
-
-	variant := ""
-	if entry.Discriminator != "" && len(entry.VariantRequires) > 0 {
-		// Selection falls back exactly as template selection does, so a value
-		// with no dedicated template inherits the fallback's requirements
-		// rather than none. A discriminator that is absent or not a string is
-		// already reported by checkVariant; adding a second violation for one
-		// mistake would make the diagnostic harder to act on.
-		if raw, bound := inv.Kwargs[entry.Discriminator]; bound {
-			if value, ok := raw.(string); ok {
-				variant = value
-				if _, covered := entry.VariantRequires[value]; !covered {
-					variant = genpkg.DefaultVariant
-				}
-				required = append(required, entry.VariantRequires[variant]...)
-			}
-		}
-	}
+	required, variant := derivedRequirements(entry, inv)
 
 	var missing []string
 	seen := map[string]bool{}
@@ -515,4 +526,39 @@ func isEmpty(v any) bool {
 		return len(value) == 0
 	}
 	return false
+}
+
+// derivedRequirements is every value the template this invocation selects will
+// render, with the variant it was chosen for.
+//
+// A template rendering a value is what makes that value required, whatever the
+// schema calls it (prov-2026-369544c1). Two checks read this: absence is
+// checkDerived's, and emptiness is checkKwargs' - a kwarg the schema calls
+// optional and the selected template renders is not optional, and that has to
+// hold for what it contains as well as for whether it is there
+// (prov-2026-9a554c93).
+func derivedRequirements(entry catalog.Action, inv recording.Invocation) (names []string, variant string) {
+	names = append(names, entry.Requires...)
+
+	if entry.Discriminator == "" || len(entry.VariantRequires) == 0 {
+		return names, ""
+	}
+	// Selection falls back exactly as template selection does, so a value with
+	// no dedicated template inherits the fallback's requirements rather than
+	// none. A discriminator that is absent or not a string is already reported
+	// by checkVariant; adding a second violation for one mistake would make the
+	// diagnostic harder to act on.
+	raw, bound := inv.Kwargs[entry.Discriminator]
+	if !bound {
+		return names, ""
+	}
+	value, ok := raw.(string)
+	if !ok {
+		return names, ""
+	}
+	variant = value
+	if _, covered := entry.VariantRequires[value]; !covered {
+		variant = genpkg.DefaultVariant
+	}
+	return append(names, entry.VariantRequires[variant]...), variant
 }

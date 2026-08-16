@@ -993,11 +993,11 @@ func TestOnlyValuesThatCanCarryNothingCountAsEmpty(t *testing.T) {
 	}
 }
 
-// An optional kwarg is untouched. Absence is what optional means, and an author
-// who made one optional has already said the template can do without it.
-func TestAnEmptyOptionalKwargIsNotRejected(t *testing.T) {
-	// The show variant renders nothing, so collection is not derived-required
-	// here and its emptiness is the only thing under test.
+// A kwarg nothing needs is untouched. Absence is what optional means, and an
+// author who made one optional has already said the template can do without it.
+func TestAnEmptyKwargNothingNeedsIsNotRejected(t *testing.T) {
+	// The show variant renders nothing, so collection is neither schema- nor
+	// derived-required here, and its emptiness is the only thing under test.
 	got, _, err := selectWith(t, railsRequest(t), 0,
 		`{"invocations":[{"action":"createControllerMethod","kwargs":{"controller":"users","name":"show","collection":""}}]}`)
 	if err != nil {
@@ -1005,5 +1005,31 @@ func TestAnEmptyOptionalKwargIsNotRejected(t *testing.T) {
 	}
 	if len(got) != 1 {
 		t.Fatalf("got %d invocations, want 1", len(got))
+	}
+}
+
+// A kwarg the schema calls optional and the selected template renders is not
+// optional, and that holds for what it contains as well as for whether it is
+// there. Checking only the schema flag missed exactly the shape this matters
+// most for: a discriminated action whose variants need different arguments has
+// to declare every one of them optional (prov-2026-9a554c93).
+func TestAnEmptyDerivedRequiredKwargIsRejected(t *testing.T) {
+	// collection is required:false, and the index template renders
+	// {{collection|instantize}} - so index needs it and show does not.
+	wantViolation(t, railsRequest(t),
+		`{"invocations":[{"action":"createControllerMethod","kwargs":{"controller":"users","name":"index","collection":""}}]}`,
+		RuleEmptyKwarg, `"collection"`)
+
+	// Absence stays checkDerived's to report. One mistake, one violation.
+	_, _, err := selectWith(t, railsRequest(t), 0,
+		`{"invocations":[{"action":"createControllerMethod","kwargs":{"controller":"users","name":"index"}}]}`)
+	if err == nil {
+		t.Fatal("an absent derived-required kwarg was accepted")
+	}
+	if !strings.Contains(err.Error(), RuleMissingDerivedKwarg) {
+		t.Errorf("absence is not reported as a derived requirement:\n%s", err)
+	}
+	if strings.Contains(err.Error(), RuleEmptyKwarg) {
+		t.Errorf("an absent kwarg was also reported as empty:\n%s", err)
 	}
 }

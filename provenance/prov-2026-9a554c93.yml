@@ -48,8 +48,34 @@ intent: |
   model declining to answer. A string and a list are the two types with a shape
   that carries nothing, and they are the two this reads.
 
-  An optional kwarg is untouched. Absence is what optional means, and an author
-  who made a kwarg optional has already said the template can do without it.
+  A kwarg nothing needs is untouched. Absence is what optional means, and an
+  author who made a kwarg optional has already said the template can do without
+  it.
+
+  ## Optional is not the same as unneeded
+
+  Reading only the schema's `required` flag would have missed the shape this
+  matters most for, and the first draft of this record did.
+
+  [[prov-2026-369544c1]] established that a template rendering a value is what
+  makes that value required, whatever the schema says - and a discriminated
+  action has to declare every kwarg optional when its variants need different
+  ones, because optional is the only thing a shared schema can say about a value
+  one variant needs and another forbids. So the kwarg most likely to be bound
+  to nothing is precisely the one the schema calls optional.
+
+  The fixture package already had the shape: `collection` is declared optional
+  and the index template renders it, and `collection: ""` was accepted while
+  `default: ""` was refused - the same fault, caught or not depending on a flag
+  that has nothing to do with whether the value is needed.
+
+  So emptiness reads the union: the schema's required kwargs and the ones the
+  selected template renders. Absence stays checkDerived's to report, because one
+  mistake should produce one violation.
+
+  It also decides the wording. "Required kwarg bound to nothing" is untrue of
+  half of what this catches, so the diagnostic says the value is needed here
+  instead, which is true of both.
 
   ## Why this is not a workaround for a bad kwarg
 
@@ -82,7 +108,9 @@ intent: |
 constraints:
   - A required kwarg bound to an empty string or an empty list is a violation, reported per invocation and naming the kwarg, so the retry loop can tell the model what to put there.
   - Only string and list are read for emptiness. Zero and false are values an author may legitimately want, and neither is the model declining to answer.
-  - An optional kwarg is untouched, because absence is what optional already means.
+  - Emptiness is read over the schema-required kwargs and the derived-required ones together. A kwarg the schema calls optional and the selected template renders is not optional (prov-2026-369544c1), and that holds for what it contains as well as for whether it is there.
+  - A kwarg neither schema-required nor rendered by the selected template is untouched, because absence is what optional already means.
+  - Absence stays checkDerived's to report and emptiness this check's. One mistake produces one violation.
   - The violation is distinct from missing_kwarg. A kwarg the model never mentioned and one it deliberately emptied are different mistakes, and a shared slug would make them one row in every count drawn from a results file.
   - Every rule slug is a named constant declared in one place, because storing them in an append-only file made them a format rather than an implementation detail.
   - This does not reshape the default kwarg. A sentinel string standing for absence is a house-standard decision, and this holds only that a required kwarg holding nothing is a fault whatever shape it ends up with.
