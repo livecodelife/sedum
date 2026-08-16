@@ -1,0 +1,96 @@
+id: prov-2026-7cb96bf0
+title: A binding rate is cited per sample, because two invocations in one answer are not two observations
+status: draft
+created_at: "2026-08-16"
+author: calebcowen@gmail.com
+intent: |
+  [[prov-2026-2b121b62]] scores binding per kwarg and puts a Wilson interval on
+  the result. The denominator is invocations, and it should not be.
+
+  A sample is one prompt, one call, one act of reasoning. The rails fixture asks
+  for two columns, so `default` is bound twice in every answer - and a model
+  that has decided on `"false"` writes it in both. Those two comparisons are one
+  observation seen twice, not two observations, and the interval is computed as
+  though they were independent:
+
+      addColumn  default  0/4 [0.00,0.49]
+
+  Four comparisons from two samples. The honest denominator is two.
+
+  ## Why this matters more than it looks
+
+  Wilson narrows with n, so a clustered denominator does not shift the rate - it
+  shrinks the interval around it, which is precisely the failure mode this
+  harness keeps legislating against. [[prov-2026-0baaa119]] added intervals
+  because a column of bare fractions invites a reader to see a change five
+  samples cannot support. [[prov-2026-3039750e]] refuses a run drawn below its
+  resolution because a null result from an underpowered run reads exactly like
+  a finding. An interval computed over correlated trials is the same error
+  arriving from the other direction: it reports more confidence than was bought.
+
+  A fixture asking for five endpoints would inflate an addRoute kwarg by five.
+  The distortion grows with the fixture, which means it grows precisely as the
+  measurements get more ambitious.
+
+  ## The unit is the sample, and the kwarg survives
+
+  Both properties are worth keeping: the rate must be per sample to be honest,
+  and per kwarg to be useful - naming which argument is wrong is why the
+  scoring was built per kwarg rather than per invocation.
+
+  They compose. A kwarg is bound correctly *in a sample* when every invocation
+  of it in that sample is correct, and the citable rate is how many samples
+  cleared that bar. `default` at 0 of 2 samples says the same thing as 0 of 4
+  invocations and says it with the uncertainty two samples actually give it.
+
+  ## The invocation counts stay, without an interval
+
+  A rate of 3 of 5 samples hides whether the failing samples got one column
+  wrong or both, and that is a real difference: one is a slip, the other is a
+  decision applied consistently. So the invocation tally is printed beside the
+  sample rate as a bare ratio.
+
+  An interval belongs on the independent unit and nowhere else. Printing one on
+  the clustered count would be the original error with an extra column, so the
+  invocation figure carries no interval and is labelled as detail rather than as
+  a result.
+
+  ## What is not being fixed here
+
+  Samples within an arm are independent; invocations within a sample are not.
+  That is the whole of the clustering in this harness today and this addresses
+  it.
+
+  It does not attempt a design-effect correction, a mixed model, or anything
+  else that would put a second statistical apparatus behind a number this small.
+  Counting the sample as the unit is the conservative reading and it is exact
+  rather than approximate.
+constraints:
+  - The interval is computed over samples, never over invocations. A sample is one prompt and one act of reasoning, and two invocations inside it are one observation seen twice.
+  - A kwarg counts as bound in a sample only when every scored invocation of it in that sample is correct. The rate stays per kwarg, because naming the wrong argument is why binding is scored per kwarg at all.
+  - The invocation tally is still printed, as a bare ratio with no interval, because a sample rate cannot say whether a failing sample got one invocation wrong or all of them.
+  - No interval is printed on a clustered count anywhere. That is the original error with an extra column.
+affected_scope:
+  - evals/binding.go
+  - evals/binding_test.go
+  - evals/report.go
+  - evals/README.md
+forbidden_scope: []
+type: imprint
+implements: prov-2026-e6969eb3
+supersedes: ""
+superseded_by: ""
+related:
+  - prov-2026-2b121b62
+  - prov-2026-0baaa119
+  - prov-2026-3039750e
+sealed_at_sha: ""
+associated_specs:
+  - path: evals/binding_test.go
+    run_command: go test -count=1 ./$(dirname {{path}})
+associated_traces: []
+monitors: []
+tags:
+  - sedum
+  - evals
+  - measurement
