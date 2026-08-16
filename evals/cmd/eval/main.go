@@ -48,13 +48,25 @@ const (
 	// requires.
 	defaultAPIKey = "local"
 
-	// perSample is what one sample is budgeted at when sizing the timeout. The
-	// observed range on the local 14B row is about 66 to 90 seconds, so this is
-	// generous by roughly a factor of two - which is the right direction to be
-	// wrong in, because the cost of overestimating is a timeout that never
-	// fires and the cost of underestimating is a run killed after forty
-	// minutes with nothing recorded.
-	perSample = 3 * time.Minute
+	// perSample is how long one sample is expected to take. The observed range
+	// on the local 14B row is 66 to 90 seconds, so this is the top of it: the
+	// estimate is what decides whether a run gets started now, and an estimate
+	// that runs short is the one that annoys.
+	//
+	// It is a constant rather than a rate read back from results/, which holds
+	// the wall clock of every previous run. A plan that changed with the last
+	// run could not be reproduced from the invocation that printed it, and a
+	// new case has no history to read - so the constant has to exist anyway,
+	// and a second path used only sometimes is a second thing to be wrong
+	// (prov-2026-6e3c846c).
+	perSample = 90 * time.Second
+
+	// headroom is what separates the expected duration from the timeout. A
+	// budget with none fires on a run that is merely slow, and the cost of
+	// being generous is a timeout that never fires while the cost of being
+	// tight is a run killed at forty minutes with nothing recorded.
+	headroom = 2
+
 	// minTimeout keeps a two-sample smoke run from being given a budget so
 	// small that a cold model load eats it.
 	minTimeout = 15 * time.Minute
@@ -69,18 +81,19 @@ func main() {
 		retries     = flag.Int("retries", 0, "re-prompts a rejected answer may spend")
 		caseDir     = flag.String("cases", "evals/cases", "directory the case files live in")
 		root        = flag.String("root", "evals/testdata", "directory the vendored fixtures live under")
+		timeout     = flag.Duration("timeout", 0, "what one case is allowed to take; zero derives it from the samples about to be drawn")
 		allowDirty  = flag.Bool("dirty", false, "run against a dirty tree; the entry records as not re-runnable")
 		dry         = flag.Bool("dry", false, "print the invocation and the plan, run nothing")
 	)
 	flag.Parse()
 
-	if err := run(*res, *model, *samples, *concurrency, *retries, *caseDir, *root, *allowDirty, *dry, flag.Args()); err != nil {
+	if err := run(*res, *model, *samples, *concurrency, *retries, *caseDir, *root, *timeout, *allowDirty, *dry, flag.Args()); err != nil {
 		fmt.Fprintf(os.Stderr, "eval: %v\n", err)
 		os.Exit(1)
 	}
 }
 
-func run(res, model string, samples, concurrency, retries int, caseDir, root string, allowDirty, dry bool, want []string) error {
+func run(res, model string, samples, concurrency, retries int, caseDir, root string, timeout time.Duration, allowDirty, dry bool, want []string) error {
 	// Parsed first, so a misspelled resolution costs a second rather than the
 	// minutes it takes to find out after a case has run - the same reason the
 	// runner parses it before loading anything.
@@ -100,7 +113,7 @@ func run(res, model string, samples, concurrency, retries int, caseDir, root str
 
 	plans := make([]plan, 0, len(selected))
 	for _, c := range selected {
-		plans = append(plans, planFor(c, model, resolution, samples))
+		plans = append(plans, planFor(c, model, resolution, samples, timeout))
 	}
 	for _, p := range plans {
 		if p.Models == 0 {
@@ -138,20 +151,33 @@ func run(res, model string, samples, concurrency, retries int, caseDir, root str
 }
 
 // plan is what one case is about to cost.
+//
+// Expect and Timeout answer different questions and neither substitutes for the
+// other: the first is whether this can be started now, the second is when the
+// run should be considered hung.
 type plan struct {
 	Case    string
 	Models  int
 	Samples int
+	Expect  time.Duration
 	Timeout time.Duration
+	// Fixed records that the ceiling was given rather than derived, so the plan
+	// does not print a number nobody computed as though it had computed it.
+	Fixed bool
 }
 
 // planFor sizes one case: how many model rows the filter leaves, how many
-// samples each draws, and how long that is allowed to take.
+// samples each draws, how long that is expected to take, and how long it is
+// allowed to take.
 //
 // The timeout is computed rather than defaulted because go test's own default
 // is ten minutes and a fine run is forty-five. A forgotten -timeout does not
 // fail fast - it kills the run partway and no entry is written.
-func planFor(c evals.Case, model string, res evals.Resolution, samples int) plan {
+//
+// A non-zero override replaces the computation entirely, in either direction. A
+// deliberately short budget is a legitimate way to find out whether an endpoint
+// is answering at all.
+func planFor(c evals.Case, model string, res evals.Resolution, samples int, override time.Duration) plan {
 	n := samples
 	if n < res.Samples() {
 		n = res.Samples()
@@ -164,11 +190,18 @@ func planFor(c evals.Case, model string, res evals.Resolution, samples int) plan
 		}
 	}
 
-	timeout := time.Duration(models*n) * perSample
+	expect := time.Duration(models*n) * perSample
+	timeout := expect * headroom
 	if timeout < minTimeout {
 		timeout = minTimeout
 	}
-	return plan{Case: c.ID, Models: models, Samples: n, Timeout: timeout}
+	if override > 0 {
+		timeout = override
+	}
+	return plan{
+		Case: c.ID, Models: models, Samples: n,
+		Expect: expect, Timeout: timeout, Fixed: override > 0,
+	}
 }
 
 // selectCases resolves the requested ids against what is on disk. An unknown id
@@ -217,20 +250,41 @@ func labels(models []evals.Model) []string {
 
 // summarize says what the run will cost before it starts, because the number
 // worth knowing at that point is hours rather than flags.
+//
+// The expectation and the ceiling are printed as two labelled numbers. Printing
+// only the ceiling read as the cost and doubled it, which is the difference
+// between a run somebody starts now and one they defer to the evening. The
+// total is of the expectations, because that is the question a total is asked
+// for.
 func summarize(plans []plan, res evals.Resolution) string {
 	var b strings.Builder
 	var total time.Duration
 
 	fmt.Fprintf(&b, "%s resolution, %d case(s):\n", res, len(plans))
 	for _, p := range plans {
-		fmt.Fprintf(&b, "  %-24s %d model(s) x %d samples, up to %s\n",
-			p.Case, p.Models, p.Samples, p.Timeout)
-		total += p.Timeout
+		ceiling := "timeout " + dur(p.Timeout)
+		if p.Fixed {
+			ceiling += ", given"
+		}
+		fmt.Fprintf(&b, "  %-24s %d model(s) x %d samples   ~%-7s (%s)\n",
+			p.Case, p.Models, p.Samples, dur(p.Expect), ceiling)
+		total += p.Expect
 	}
 	if len(plans) > 1 {
-		fmt.Fprintf(&b, "  %-24s up to %s in total\n", "", total)
+		fmt.Fprintf(&b, "  %-24s ~%s in total\n", "", dur(total))
 	}
 	return b.String()
+}
+
+// dur formats a duration the way a plan is read: 45m and 1h30m rather than
+// 45m0s and 1h30m0s. Duration.String always carries the seconds component, and
+// a plan measured in tens of minutes does not have anything to say with it.
+func dur(d time.Duration) string {
+	if d < time.Minute {
+		return d.Round(time.Second).String()
+	}
+	s := strings.TrimSuffix(d.Round(time.Minute).String(), "0s")
+	return strings.Replace(s, "h0m", "h", 1)
 }
 
 // testArgs is the go test invocation for one case. Every flag here is one the

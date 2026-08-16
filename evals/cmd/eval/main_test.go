@@ -22,11 +22,14 @@ func fixture(id string, models ...string) evals.Case {
 // and a forgotten -timeout does not fail fast - it kills the run partway and no
 // entry is written.
 func TestTheTimeoutIsSizedFromTheRunNotDefaulted(t *testing.T) {
-	fine := planFor(fixture("x", "llama.cpp", "mlx"), "", evals.Fine, 0)
+	fine := planFor(fixture("x", "llama.cpp", "mlx"), "", evals.Fine, 0, 0)
 	if fine.Samples != 30 || fine.Models != 2 {
 		t.Fatalf("planned %d models x %d samples, want 2 x 30", fine.Models, fine.Samples)
 	}
-	if want := 60 * perSample; fine.Timeout != want {
+	if want := 60 * perSample; fine.Expect != want {
+		t.Errorf("expected duration is %s, want %s", fine.Expect, want)
+	}
+	if want := fine.Expect * headroom; fine.Timeout != want {
 		t.Errorf("timeout is %s, want %s", fine.Timeout, want)
 	}
 	// The number that matters: comfortably past go test's own default, which is
@@ -37,18 +40,78 @@ func TestTheTimeoutIsSizedFromTheRunNotDefaulted(t *testing.T) {
 
 	// One row, because a 24GB machine holds one 14B resident and the arms have
 	// to face the same one.
-	pinned := planFor(fixture("x", "llama.cpp", "mlx"), "llama.cpp", evals.Fine, 0)
+	pinned := planFor(fixture("x", "llama.cpp", "mlx"), "llama.cpp", evals.Fine, 0, 0)
 	if pinned.Models != 1 {
 		t.Errorf("the model filter left %d rows, want 1", pinned.Models)
 	}
-	if pinned.Timeout != fine.Timeout/2 {
-		t.Errorf("half the rows did not halve the budget: %s against %s", pinned.Timeout, fine.Timeout)
+	if pinned.Timeout != fine.Timeout/2 || pinned.Expect != fine.Expect/2 {
+		t.Errorf("half the rows did not halve the plan: %s/%s against %s/%s",
+			pinned.Expect, pinned.Timeout, fine.Expect, fine.Timeout)
 	}
 
 	// A smoke run is two samples and would otherwise be given six minutes, which
 	// a cold model load can eat on its own.
-	if smoke := planFor(fixture("x", "llama.cpp"), "", evals.Smoke, 0); smoke.Timeout != minTimeout {
+	if smoke := planFor(fixture("x", "llama.cpp"), "", evals.Smoke, 0, 0); smoke.Timeout != minTimeout {
 		t.Errorf("a smoke run got %s, want the %s floor", smoke.Timeout, minTimeout)
+	}
+}
+
+// The expectation and the ceiling answer different questions - whether this can
+// be started now, and when it should be considered hung - so the plan prints
+// both and says which is which. Printing only the ceiling read as the cost and
+// doubled it (prov-2026-6e3c846c).
+func TestThePlanSeparatesWhatARunTakesFromWhatItIsAllowed(t *testing.T) {
+	arm := planFor(fixture("todo-rails-described", "llama.cpp"), "", evals.Fine, 0, 0)
+
+	// 30 samples at the observed rate is the three quarters of an hour this has
+	// been quoted at all along; the ceiling is twice it, and neither is the
+	// other.
+	if arm.Expect != 45*time.Minute {
+		t.Errorf("a fine arm is expected to take %s, want 45m", arm.Expect)
+	}
+	if arm.Timeout != 90*time.Minute {
+		t.Errorf("a fine arm is allowed %s, want 90m", arm.Timeout)
+	}
+
+	out := summarize([]plan{arm, arm}, evals.Fine)
+	if !strings.Contains(out, "~45m") {
+		t.Errorf("the plan does not say what the run takes:\n%s", out)
+	}
+	if !strings.Contains(out, "timeout 1h30m") {
+		t.Errorf("the plan does not label the ceiling as a timeout:\n%s", out)
+	}
+	// The total is of the expectations. A total of the ceilings said three
+	// hours for a pair that costs ninety minutes.
+	if !strings.Contains(out, "~1h30m in total") {
+		t.Errorf("the total is not of the expected durations:\n%s", out)
+	}
+}
+
+// There was no way to set the timeout at all, which made the computed number a
+// ceiling in the ordinary case and a wall in every other one.
+func TestTheCeilingCanBeGivenRatherThanDerived(t *testing.T) {
+	given := planFor(fixture("x", "llama.cpp"), "", evals.Fine, 0, 20*time.Minute)
+	if given.Timeout != 20*time.Minute {
+		t.Errorf("the override was not honoured: %s", given.Timeout)
+	}
+	// Downward too. A deliberately short budget is a legitimate way to find out
+	// whether an endpoint is answering at all.
+	if given.Timeout >= given.Expect {
+		t.Errorf("a budget below the expectation was raised to %s", given.Timeout)
+	}
+	// The expectation is untouched by it: what the run will take does not change
+	// because it was given less room.
+	if given.Expect != 45*time.Minute {
+		t.Errorf("the override moved the expectation to %s", given.Expect)
+	}
+
+	// A given ceiling is shown as given, so the plan never prints a number
+	// nobody computed as though it had computed it.
+	if !strings.Contains(summarize([]plan{given}, evals.Fine), "timeout 20m, given") {
+		t.Errorf("the plan does not say the ceiling was given:\n%s", summarize([]plan{given}, evals.Fine))
+	}
+	if strings.Contains(summarize([]plan{planFor(fixture("x", "llama.cpp"), "", evals.Fine, 0, 0)}, evals.Fine), "given") {
+		t.Error("a derived ceiling was reported as given")
 	}
 }
 
@@ -56,11 +119,11 @@ func TestTheTimeoutIsSizedFromTheRunNotDefaulted(t *testing.T) {
 // is a cost decision and misleads nobody. Below it the runner refuses, so the
 // budget is sized for what will actually be drawn (prov-2026-3039750e).
 func TestTheBudgetFollowsTheSampleCountThatWillBeDrawn(t *testing.T) {
-	over := planFor(fixture("x", "llama.cpp"), "", evals.Coarse, 40)
+	over := planFor(fixture("x", "llama.cpp"), "", evals.Coarse, 40, 0)
 	if over.Samples != 40 {
 		t.Errorf("planned %d samples, want the explicit 40", over.Samples)
 	}
-	under := planFor(fixture("x", "llama.cpp"), "", evals.Fine, 5)
+	under := planFor(fixture("x", "llama.cpp"), "", evals.Fine, 5, 0)
 	if under.Samples != 30 {
 		t.Errorf("planned %d samples for a count the runner will refuse, want the resolution's 30", under.Samples)
 	}
@@ -224,5 +287,25 @@ func TestTheDefaultPathsFindTheRealCases(t *testing.T) {
 	}
 	if len(cases) == 0 {
 		t.Fatal("the command's default paths found no cases")
+	}
+}
+
+// A plan is read in tens of minutes, and Duration.String always carries a
+// seconds component it has nothing to say with.
+func TestDurationsReadAsAPlanRatherThanAStopwatch(t *testing.T) {
+	for _, tc := range []struct {
+		d    time.Duration
+		want string
+	}{
+		{45 * time.Minute, "45m"},
+		{90 * time.Minute, "1h30m"},
+		{60 * time.Minute, "1h"},
+		{10 * time.Minute, "10m"},
+		{2 * time.Hour, "2h"},
+		{30 * time.Second, "30s"},
+	} {
+		if got := dur(tc.d); got != tc.want {
+			t.Errorf("%s formats as %q, want %q", tc.d, got, tc.want)
+		}
 	}
 }

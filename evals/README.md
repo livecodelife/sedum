@@ -26,12 +26,34 @@ go run ./evals/cmd/eval -dry -res fine todo-rails-defined  # print the plan, run
 | `-n <n>` | Runs per model. Default: whatever the resolution calls for. A count *below* it is refused. |
 | `-c <n>` | Samples in flight at once. Default 1. |
 | `-retries <n>` | Re-prompts a rejected answer may spend. Default 0. See below before raising it. |
+| `-timeout <d>` | What one case is allowed to take. Default: derived from the samples about to be drawn. |
 | `-dirty` | Run against a dirty tree anyway; the entry records as not re-runnable. |
 | `-dry` | Print the plan and the invocation, run nothing. |
 
 It prints what the run will cost before spending it, and the exact `go test`
 line it is about to execute — it is a wrapper, and every flag it passes is one
 the runner already accepts.
+
+```
+fine resolution, 2 case(s):
+  todo-rails-defined       1 model(s) x 30 samples   ~45m     (timeout 1h30m)
+  todo-rails-described     1 model(s) x 30 samples   ~45m     (timeout 1h30m)
+                           ~1h30m in total
+```
+
+**`~45m` is what the run takes; `1h30m` is when it should be considered hung.**
+Two numbers because they answer different questions, and the total is of the
+expectations — a total of the ceilings said three hours for a pair that costs
+ninety minutes. The estimate is 90 seconds a sample, the top of the 66–90s
+observed on the local 14B row, and the ceiling is twice it. `-timeout` replaces
+the ceiling in either direction and the plan then says `given`, so a number
+nobody derived is never printed as though it had been.
+
+The estimate is a constant rather than a rate read back from `results/`,
+which does hold the wall clock of every previous run. A plan that changed with
+the last run could not be reproduced from the invocation that printed it, and a
+new case has no history to read — so the constant has to exist anyway, and a
+second path used only sometimes is a second thing to be wrong.
 
 Three things it does that the raw invocation does not:
 
