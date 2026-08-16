@@ -427,6 +427,7 @@ growing the matrix adds files rather than changing the schema.
 | Application | `application.name` | `todo` |
 | Complexity | `application.complexity` | tiers 1 and 2 |
 | Generator tightness | `tightness` | `defined` |
+| Catalog descriptions | which set `generators` names | present, absent |
 | Arm | `arm` | `sedum` |
 
 **Engine and quant are part of a model's identity, not decoration.** One
@@ -452,6 +453,58 @@ pass once the selection is applied and the target actually runs. Selection
 completeness is a proxy; this is the thing it is a proxy *for*. It costs a
 container and a database per sample rather than one model call, which is why it
 is reserved rather than built.
+
+### The description comparison
+
+`todo-rails-defined` and `todo-rails-described` name one record and two package
+sets, and the second set is the first with `description` fields added to its
+actions and kwargs. It is the harness's first real job (prov-2026-ac15ed2b),
+because descriptions shipped on four hand-observed wrong bindings and have had
+no measurement behind them since.
+
+One model row at a time, because a 24GB machine holds one 14B resident and the
+two arms have to face the same one:
+
+```
+OPENAI_BASE_URL=http://127.0.0.1:1234/v1 OPENAI_API_KEY=local \
+  go test -tags eval ./evals -v -timeout 180m -eval.resolution fine \
+    -eval.model llama.cpp -eval.case todo-rails-defined
+
+OPENAI_BASE_URL=http://127.0.0.1:1234/v1 OPENAI_API_KEY=local \
+  go test -tags eval ./evals -v -timeout 180m -eval.resolution fine \
+    -eval.model llama.cpp -eval.case todo-rails-described
+
+go run ./evals/cmd/history todo-rails-described
+```
+
+About 45 minutes an arm on the local 14B row, by the timing table above.
+
+**Thirty per arm, fixed before the run.** The rails arm has come in at 4/4 and
+5/5 across its whole history, so this is a fine question by the taxonomy below:
+moving a rate that is already at the ceiling. At five samples 4/5 is [0.38,0.96]
+and 5/5 is [0.57,1.00] — overlapping, so a run that size cannot see the effect
+in either direction while its null result reads exactly like a finding.
+
+**Both arms are drawn fresh.** The entries already in `results/` are not the
+undescribed arm: every one is five samples or fewer, none states a resolution,
+and all were taken against a dirty tree.
+
+**A null result is a result.** If the rate does not move, that is evidence for
+prov-2026-6d87dc11's claim that enriching the catalog will not fix
+under-selection, and it gets recorded as readily as a positive one would. The
+temptation to keep sampling until the number moves is the specific failure the
+fixed size exists to prevent.
+
+**It measures selection, not binding.** Every wrong binding that motivated
+descriptions produced a correctly *selected* action with a bad *argument*, and
+would have scored a perfect catalog count. Whether descriptions help the model
+bind needs the rendered output checked, which is deferred with `expect.behavior`.
+A moved rate here is not validation of that feature.
+
+The two sets are held to differing only by descriptions mechanically:
+`TestTheDescribedSetDiffersOnlyByDescriptions` loads both and compares them field
+by field with descriptions excluded, so a renamed kwarg, a flipped `required`, a
+new variant, or an edited template fails the default suite.
 
 ## Fixtures
 

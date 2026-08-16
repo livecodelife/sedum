@@ -1,0 +1,64 @@
+# The described arm of prov-2026-ac15ed2b.
+#
+# todo-rails-defined with one line changed: generators points at the package set
+# whose actions and kwargs carry description fields. Everything else - the
+# record, the application, the models, the expectations - is the same, because
+# the comparison is only worth reading if descriptions are the one thing that
+# varies.
+#
+# Run as a pair, at the fine resolution, against one model row. The invocation
+# is in ../README.md under "The description comparison".
+#
+# Thirty samples per arm, fixed in the record before the run. The rails arm has
+# come in at 4/4 and 5/5 across its whole history, so this is a question about
+# moving a rate that is already at the ceiling: at five samples 4/5 is
+# [0.38,0.96] and 5/5 is [0.57,1.00], which overlap. A run that size cannot see
+# this effect in either direction, and its null result would read exactly like a
+# finding.
+#
+# The entries already in results/ are not the undescribed arm. Every one is five
+# samples or fewer, none states a resolution, and all were taken against a dirty
+# tree - so both arms are drawn fresh.
+id: todo-rails-described
+
+application:
+  name: todo
+  # Tier 1. Five endpoints, two fields, no auth and no relations. The floor of
+  # the complexity axis rather than a representative sample of it.
+  complexity: 1
+
+language: ruby
+framework: rails
+# Unchanged from the defined arm, and deliberately so. Tightness is how closely
+# the actions and variants cover the intended output, and adding a description
+# to a kwarg changes none of that - the same eight actions cover the same
+# output either way. Descriptions are a different axis, and this pair varies it
+# by naming a different package set while every declared field stays put.
+tightness: defined
+arm: sedum
+
+records: todo-rails/records
+# The one line that differs from todo-rails-defined.
+generators: todo-rails/generators/described
+
+models:
+  - id: qwen2.5-coder-14b-instruct
+    engine: llama.cpp
+    quant: q4_k_m
+  - id: qwen2.5-coder-14b-instruct-mlx
+    engine: mlx
+    quant: 4bit
+
+# Identical to the defined arm's, and not independently derived. An expectation
+# is a property of the record - what a complete answer to it contains - and both
+# arms answer the same record with the same action names available. Two
+# expectation blocks that drifted apart would be measuring two questions and
+# reporting one number.
+expect:
+  actions:
+    addColumn: 2
+    createEndpoint: 5
+    addControllerTest: 5
+    definePermittedParams: 1
+    addValidation: 1
+    addModelTest: 1

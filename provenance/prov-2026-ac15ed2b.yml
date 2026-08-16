@@ -149,6 +149,9 @@ affected_scope:
   - evals/testdata/todo-rails/generators/**
   - evals/run_test.go
   - evals/README.md
+  # The fixture layout doc lists what generators/ holds, so a set added without
+  # touching it leaves the one map of the directory wrong by omission.
+  - evals/testdata/README.md
 forbidden_scope: []
 type: imprint
 implements: prov-2026-e6969eb3

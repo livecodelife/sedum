@@ -14,6 +14,7 @@ package and the record, so the application source is neither copied nor read.
   records/               one record: what to build
   generators/
     defined/             a generator package set: how to build it
+    described/           the same set with catalog descriptions added
     loose/               a second package set over the same record
 ```
 
@@ -45,6 +46,21 @@ a fixture diverges, the reason is written at the top of the file it diverges in.
 The rule: a fixture exists to make a measurement mean something, not to mirror a
 project. Where those pull apart, the measurement wins and the deviation is
 recorded.
+
+`todo-rails/generators/described` is the same rule applied to a package. It is
+the `defined` set with `description` fields added and nothing else changed, and
+it exists here rather than in the todo-rails repository because a package edited
+to find out whether descriptions are worth adopting is not that project's
+package yet — changing a real project in order to answer the question inverts
+it. If the rate moves, todo-rails adopts them afterwards under its own record,
+with a measurement behind it (prov-2026-ac15ed2b).
+
+The confound that argues for the other placement is real: a hand-written second
+package drifts, and a reworded action name or a dropped required flag would make
+the comparison measure something nobody chose. The guard against that is a diff,
+not a rule about which repository holds the file —
+`TestTheDescribedSetDiffersOnlyByDescriptions` loads both sets and fails the
+default suite on any difference between them that is not a description.
 
 ## Records carry functionality, and nothing else
 

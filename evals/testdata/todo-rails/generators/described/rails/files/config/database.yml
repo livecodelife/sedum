@@ -1,0 +1,24 @@
+# The connection comes from the environment, so the same image runs on a laptop
+# and in compose without a file edit. The fallbacks point at the database
+# docker-compose publishes, so bin/rails works locally the moment compose is up
+# and nothing has to be exported by hand.
+#
+# No database name appears in the defaults that matter: this template generates
+# every service in the standard, and which database a service uses is not the
+# standard's business - DATABASE_URL carries it.
+default: &default
+  adapter: postgresql
+  encoding: unicode
+  pool: <%= ENV.fetch("RAILS_MAX_THREADS") { 5 } %>
+
+development:
+  <<: *default
+  url: <%= ENV.fetch("DATABASE_URL") { "postgres://postgres:postgres@localhost:5433/app" } %>
+
+test:
+  <<: *default
+  url: <%= ENV.fetch("TEST_DATABASE_URL") { "postgres://postgres:postgres@localhost:5433/app_test" } %>
+
+production:
+  <<: *default
+  url: <%= ENV.fetch("DATABASE_URL") %>

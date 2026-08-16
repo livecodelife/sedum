@@ -1,0 +1,235 @@
+# The described arm of prov-2026-ac15ed2b. Identical to
+# ../../../defined/rails/actions/actions.yaml except that every explanation
+# sitting in a YAML comment there is also written as a description field here,
+# where the model can read it.
+#
+# The comments are kept rather than replaced. They are not what varies: the
+# catalog carries description fields and has never carried a comment, so
+# deleting them would change what a human reads without changing what the model
+# does. TestTheDescribedSetDiffersOnlyByDescriptions compares the two sets after
+# loading, which is the level at which "differs only by descriptions" is a fact
+# rather than a claim about text.
+
+actions:
+  # One endpoint is a controller action plus the route that reaches it, in two
+  # files that are not valid apart: an action nothing routes to is dead, and a
+  # route to a missing action is a 500. Neither child is exposed, because
+  # neither is worth invoking alone.
+  createEndpoint:
+    description: >-
+      One REST endpoint: the controller action and the route that reaches it.
+      Invoke once per endpoint the service exposes. The two halves are not
+      valid apart - an action nothing routes to is unreachable, and a route to
+      a missing action is a 500 - so they are created together and neither can
+      be invoked on its own.
+    composes: [addControllerAction, addRoute]
+
+  addControllerAction:
+    kwargs:
+      resource:
+        type: string
+        required: true
+        description: >-
+          The resource this endpoint belongs to, singular and lowercase - todo,
+          not Todos. The template names the controller and the model from it.
+      verb:
+        type: string
+        required: true
+        description: >-
+          Which of the five REST endpoints this is: index, show, create,
+          update, or destroy. It selects the template, so a value outside that
+          set has nothing to render.
+    discriminator: verb
+    variants: [index, show, create, update, destroy]
+    injects_into: "app/controllers/{{resource|table}}_controller.rb"
+    anchor: actions
+    exposed: false
+
+  addRoute:
+    kwargs:
+      resource:
+        type: string
+        required: true
+        description: >-
+          The resource this route reaches, singular and lowercase - todo, not
+          Todos. The path segment is pluralized from it.
+      verb:
+        type: string
+        required: true
+        description: >-
+          Which of the five REST endpoints this route reaches: index, show,
+          create, update, or destroy. It selects the template and fixes both
+          the HTTP method and whether the path carries an :id.
+    discriminator: verb
+    variants: [index, show, create, update, destroy]
+    injects_into: "config/routes.rb"
+    anchor: routes
+    exposed: false
+
+  # Strong parameters are one method per resource, so this is one invocation
+  # rather than one per attribute. The permitted list arrives as a bound
+  # fragment for the same reason a SQL column list does: it is data the service
+  # owns, and the grammar has no loops to build it from a list.
+  definePermittedParams:
+    description: >-
+      The strong-parameters method for one resource. Rails permits attributes
+      in a single method per controller, so this is invoked once per resource
+      and names every settable attribute at once - not once per attribute.
+    kwargs:
+      resource:
+        type: string
+        required: true
+        description: >-
+          The resource whose controller gets the method, singular and
+          lowercase - todo, not Todos.
+      # The attribute names a caller may set, separated by commas or spaces.
+      # Names only - the template turns them into symbols, so a value carrying
+      # Ruby punctuation is wrong rather than merely redundant.
+      attributes:
+        type: string
+        required: true
+        description: >-
+          The attribute names a caller may set, separated by commas - "title,
+          completed". Bare names only. The template prefixes each with a colon
+          to make it a symbol, so a value that already carries Ruby
+          punctuation (":title" or "title: string") renders as a syntax error
+          rather than as a duplicate.
+    injects_into: "app/controllers/{{resource|table}}_controller.rb"
+    anchor: private
+
+  addValidation:
+    description: >-
+      One ActiveRecord validation on one attribute. Invoke once per rule; two
+      rules on the same attribute are two invocations.
+    kwargs:
+      resource:
+        type: string
+        required: true
+        description: >-
+          The model being validated, singular and lowercase - todo, not Todos.
+      attribute:
+        type: string
+        required: true
+        description: >-
+          The attribute the rule applies to, as the column is named - title,
+          not :title.
+      rule:
+        type: string
+        required: true
+        description: >-
+          The validation written as the Ruby the macro takes, everything after
+          the attribute name - "presence: true", "length: { maximum: 80 }". It
+          is rendered verbatim after "validates :<attribute>,", so it carries
+          Ruby punctuation and the attribute name is not repeated in it.
+    injects_into: "app/models/{{resource|record}}.rb"
+    anchor: validations
+
+  # The migration's filename carries its timestamp, and injects_into is
+  # rendered from bound kwargs, so the stamp has to be one of them. It is the
+  # one place in this standard where an argument names a file rather than
+  # describing the code going into it - the record author chose the stamp when
+  # they wrote the path into affected_scope, and expansion has no way to
+  # rediscover it.
+  addColumn:
+    description: >-
+      One column on a resource's create migration. Invoke once per column;
+      timestamps are already in the template and are not columns this adds.
+    kwargs:
+      resource:
+        type: string
+        required: true
+        description: >-
+          The resource whose table gains the column, singular and lowercase -
+          todo, not Todos. The table name is pluralized from it.
+      stamp:
+        type: string
+        required: true
+        description: >-
+          The migration's timestamp, exactly as it appears in the filename the
+          record authorizes - the 14 digits before the first underscore in
+          db/migrate/20260101120000_create_todos.rb. It is read off that path,
+          never invented: a stamp that does not match names a file the record
+          does not authorize.
+      name:
+        type: string
+        required: true
+        description: >-
+          The column name, as it should appear in the database - title, not
+          :title.
+      type:
+        type: string
+        required: true
+        description: >-
+          The Rails column type, bare - string, text, integer, boolean,
+          datetime. The template writes it as the migration method, so it
+          carries no colon and no options.
+      # Every option is its own kwarg with its own type, rather than one string
+      # holding the rest of the line. A single options string needs the caller
+      # to know a convention - where the comma goes, whether the type repeats -
+      # and the catalog has nowhere to say what that convention is, so the
+      # caller guesses and the template renders the guess. Two named values
+      # cannot be got wrong that way.
+      # Named nullable rather than null: "null" is a JSON keyword, and a kwarg
+      # whose name is a literal in the format the caller answers in is a name
+      # worth not having.
+      nullable:
+        type: bool
+        required: true
+        description: >-
+          Whether the column accepts NULL. True is Rails' own default, so bind
+          it unless the column is required.
+      # Written as the Ruby literal it becomes. nil means the column carries no
+      # default, which is what Rails would do anyway, so there is always
+      # something correct to bind.
+      default:
+        type: string
+        required: true
+        description: >-
+          The column's default, written as the Ruby literal it becomes -
+          "nil", "false", "0", or a quoted string including its quotes. There
+          is always a correct value: nil means the column carries no default,
+          which is what Rails would do anyway.
+    injects_into: "db/migrate/{{stamp}}_create_{{resource|table}}.rb"
+    anchor: columns
+
+  addControllerTest:
+    description: >-
+      The minitest integration test for one endpoint, asserting the status and
+      body that endpoint's contract promises. Invoke once per endpoint, beside
+      the createEndpoint that made it.
+    kwargs:
+      resource:
+        type: string
+        required: true
+        description: >-
+          The resource under test, singular and lowercase - todo, not Todos.
+      verb:
+        type: string
+        required: true
+        description: >-
+          Which endpoint is under test: index, show, create, update, or
+          destroy. It selects the template, so a value outside that set has
+          nothing to render.
+    discriminator: verb
+    variants: [index, show, create, update, destroy]
+    injects_into: "test/controllers/{{resource|table}}_controller_test.rb"
+    anchor: tests
+
+  addModelTest:
+    description: >-
+      The minitest unit test for one model validation. Invoke once per
+      validated attribute, beside the addValidation that constrains it.
+    kwargs:
+      resource:
+        type: string
+        required: true
+        description: >-
+          The model under test, singular and lowercase - todo, not Todos.
+      attribute:
+        type: string
+        required: true
+        description: >-
+          The attribute whose validation is under test, as the column is named
+          - title, not :title.
+    injects_into: "test/models/{{resource|record}}_test.rb"
+    anchor: tests

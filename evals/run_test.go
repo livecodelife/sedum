@@ -5,11 +5,16 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"maps"
 	"math"
 	"os"
+	"reflect"
+	"slices"
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/calebcowen/sedum/internal/genpkg"
 )
 
 // The harness's own arithmetic is deterministic and is tested as such. Only the
@@ -648,6 +653,208 @@ func TestTheLanguageArmsAreControlled(t *testing.T) {
 		t.Errorf("the arms are tier %d and tier %d; they ask for the same functionality, so rating them differently puts a package difference on the application axis",
 			rails.Application.Complexity, chi.Application.Complexity)
 	}
+}
+
+// The description arms differ in exactly one thing: which package set they name.
+// The record is the same file, the models are the same rows, and the
+// expectations are the same map - because an expectation is a property of the
+// record, and two blocks that drifted apart would measure two questions and
+// report one number (prov-2026-ac15ed2b).
+func TestTheDescriptionArmsAreControlled(t *testing.T) {
+	cases, err := Load("cases", "testdata")
+	if err != nil {
+		t.Fatalf("loading cases: %v", err)
+	}
+
+	by := map[string]Case{}
+	for _, c := range cases {
+		by[c.ID] = c
+	}
+	plain, described := by["todo-rails-defined"], by["todo-rails-described"]
+	if plain.ID == "" || described.ID == "" {
+		t.Fatal("both description arms must exist")
+	}
+
+	if plain.Generators == described.Generators {
+		t.Error("the arms name one package set; nothing is being varied")
+	}
+	for _, f := range []struct{ name, a, b string }{
+		{"records", plain.Records, described.Records},
+		{"language", plain.Language, described.Language},
+		{"framework", plain.Framework, described.Framework},
+		{"tightness", plain.Tightness, described.Tightness},
+		{"arm", plain.Arm, described.Arm},
+		{"application", plain.Application.Name, described.Application.Name},
+	} {
+		if f.a != f.b {
+			t.Errorf("the arms differ in %s (%s vs %s), which is a second variable", f.name, f.a, f.b)
+		}
+	}
+	if plain.Application.Complexity != described.Application.Complexity {
+		t.Errorf("the arms are tier %d and tier %d over one application",
+			plain.Application.Complexity, described.Application.Complexity)
+	}
+	if !reflect.DeepEqual(plain.Models, described.Models) {
+		t.Errorf("the arms name different models:\n  %v\n  %v", plain.Models, described.Models)
+	}
+	if !reflect.DeepEqual(plain.Expect.Actions, described.Expect.Actions) {
+		t.Errorf("the arms expect different actions:\n  %v\n  %v", plain.Expect.Actions, described.Expect.Actions)
+	}
+}
+
+// The described set is the defined set with descriptions added, and this is what
+// holds that true. A hand-written second package drifts, and a reworded kwarg or
+// a dropped required flag would make the A/B measure something nobody chose -
+// so the guard is a diff in the default suite rather than a rule about who may
+// edit the directory (prov-2026-ac15ed2b).
+//
+// It compares loaded packages rather than file bytes, because "differs only by
+// descriptions" is a statement about what reaches the catalog. Comments are the
+// prose the model cannot see, and both sets keep theirs; a textual diff would
+// fail on that and say nothing about the experiment.
+func TestTheDescribedSetDiffersOnlyByDescriptions(t *testing.T) {
+	plain := loadPackageSet(t, "testdata/todo-rails/generators/defined")
+	described := loadPackageSet(t, "testdata/todo-rails/generators/described")
+
+	if len(plain) != len(described) {
+		t.Fatalf("the sets hold %d and %d packages", len(plain), len(described))
+	}
+
+	var descriptions int
+	for name, a := range plain {
+		b, ok := described[name]
+		if !ok {
+			t.Errorf("the described set has no package %s", name)
+			continue
+		}
+
+		for _, f := range []struct {
+			name string
+			a, b any
+		}{
+			{"extensions", a.Extensions, b.Extensions},
+			{"comment_prefix", a.CommentPrefix, b.CommentPrefix},
+			{"transforms", a.Transforms, b.Transforms},
+			{"op_exceptions", a.OpExceptions, b.OpExceptions},
+			{"unmanaged", a.Unmanaged, b.Unmanaged},
+			{"file templates", a.FileTemplates, b.FileTemplates},
+		} {
+			if !reflect.DeepEqual(f.a, f.b) {
+				t.Errorf("%s: the sets declare different %s:\n  %v\n  %v", name, f.name, f.a, f.b)
+			}
+		}
+
+		for _, pattern := range a.FileTemplates {
+			x, _ := a.FileTemplate(pattern)
+			y, ok := b.FileTemplate(pattern)
+			if !ok {
+				t.Errorf("%s: the described set has no file template %s", name, pattern)
+				continue
+			}
+			if x != y {
+				t.Errorf("%s: file template %s differs between the sets", name, pattern)
+			}
+		}
+
+		if len(a.Actions) != len(b.Actions) {
+			t.Errorf("%s: the sets declare %d and %d actions", name, len(a.Actions), len(b.Actions))
+		}
+		for action, x := range a.Actions {
+			y, ok := b.Actions[action]
+			if !ok {
+				t.Errorf("%s: the described set has no action %s", name, action)
+				continue
+			}
+
+			// Every field is compared, descriptions excluded, so an action
+			// field added later is covered without this test being revisited.
+			if !reflect.DeepEqual(undescribed(x), undescribed(y)) {
+				t.Errorf("%s: action %s differs between the sets by more than a description:\n  %+v\n  %+v",
+					name, action, undescribed(x), undescribed(y))
+			}
+
+			for _, path := range templatePaths(x) {
+				p, _ := a.ActionTemplate(path)
+				q, ok := b.ActionTemplate(path)
+				if !ok {
+					t.Errorf("%s: the described set has no template %s", name, path)
+					continue
+				}
+				if p != q {
+					t.Errorf("%s: template %s differs between the sets", name, path)
+				}
+			}
+
+			if x.Description != "" {
+				t.Errorf("%s: action %s carries a description in the undescribed arm", name, action)
+			}
+			if y.Description != "" {
+				descriptions++
+			}
+			for kwarg, k := range x.Kwargs {
+				if k.Description != "" {
+					t.Errorf("%s: %s.%s carries a description in the undescribed arm", name, action, kwarg)
+				}
+			}
+			for _, k := range y.Kwargs {
+				if k.Description != "" {
+					descriptions++
+				}
+			}
+		}
+	}
+
+	// Two identical sets would satisfy every assertion above, and would be an
+	// A/B that varies nothing while reading like one that does.
+	if descriptions == 0 {
+		t.Error("the described set carries no descriptions; the arms are identical and the comparison measures nothing")
+	}
+}
+
+// loadPackageSet loads a generator package set, keyed by package name. A set
+// that does not load clean is not an arm - it is a broken fixture that would
+// hand every sample a different catalog.
+func loadPackageSet(t *testing.T, dir string) map[string]*genpkg.Package {
+	t.Helper()
+
+	set, findings, err := genpkg.Load(dir, genpkg.Options{})
+	if err != nil {
+		t.Fatalf("loading %s: %v", dir, err)
+	}
+	for _, f := range findings {
+		t.Errorf("%s: %s", dir, f)
+	}
+
+	out := map[string]*genpkg.Package{}
+	for _, p := range set.Packages {
+		out[p.Name] = p
+	}
+	if len(out) == 0 {
+		t.Fatalf("%s holds no packages", dir)
+	}
+	return out
+}
+
+// undescribed is an action with every description blanked, which is the form the
+// two arms must be identical in.
+func undescribed(a *genpkg.Action) genpkg.Action {
+	out := *a
+	out.Description = ""
+	out.Kwargs = maps.Clone(a.Kwargs)
+	for name, k := range out.Kwargs {
+		k.Description = ""
+		out.Kwargs[name] = k
+	}
+	return out
+}
+
+// templatePaths is every template an action renders from, simple or
+// discriminated. A composite has none of its own.
+func templatePaths(a *genpkg.Action) []string {
+	if a.Template != "" {
+		return []string{a.Template}
+	}
+	return slices.Sorted(maps.Values(a.Templates))
 }
 
 // The sample size follows from the question. Five was never chosen against one -

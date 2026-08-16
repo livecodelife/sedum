@@ -1,0 +1,44 @@
+# Conventions for the Rails service: Rails 7.2, PostgreSQL, JSON responses,
+# minitest siblings under test/. The package name is a label for these
+# conventions, not a language identifier - a sinatra package would claim .rb too
+# and shape it completely differently.
+#
+# One package covers both .rb and .yml, which is where this standard parts
+# company with the Go one next door. That standard is four packages because a
+# package declares one comment_prefix and a marker planted with // is not a SQL
+# comment. Ruby and YAML both comment with #, so the boundary that forced the
+# split there does not exist here. Package boundaries follow comment syntax, not
+# file type.
+name: rails
+extensions: [".rb", ".yml"]
+
+# Paths this standard does not write. A Gemfile is a dependency list a person
+# edits and a lockfile is the resolver's output; both are named by records that
+# change dependencies, and neither is boilerplate anything can render.
+unmanaged:
+  - Gemfile
+  - Gemfile.lock
+  # A Dockerfile has no extension, so no package can claim it by one. It is
+  # named here for the same reason the Gemfile is: a record that changes how the
+  # service is built has to be free to say so, and the person who owns the build
+  # is who changes it.
+  - Dockerfile
+  # Harness infrastructure, in a language this package does not claim. A record
+  # that wires a service up for acceptance testing names these; a person writes
+  # them.
+  - "db/linespec_init.sql"
+  - "db/schema_cache.yml"
+  - db/schema.rb
+  - config/master.key
+comment_prefix: "#"
+
+transforms:
+  # Rails names the same resource five ways, and a file template captures
+  # whichever one its path segment happens to carry: todos from
+  # app/controllers/todos_controller.rb, todo from app/models/todo.rb. Every
+  # pipeline is written to produce the same answer from either, so no template
+  # has to know which form reached it.
+  model: [singular, pascal]
+  models: [plural, pascal]
+  table: [plural, snake]
+  record: [singular, snake]
