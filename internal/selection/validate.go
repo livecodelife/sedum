@@ -21,6 +21,44 @@ import (
 // the model is told exactly what was wrong, and a generic rejection would spend
 // a call teaching it nothing.
 
+// The rules Phase 5 can report.
+//
+// Named constants rather than literals at the point of use, because these
+// outlived being an implementation detail: the eval harness stores them in an
+// append-only results file (prov-2026-2256e6fa), so a slug written today is
+// read by something a year from now with only the file to resolve it against.
+// That makes the set a format, in the same sense the ownership marker is one
+// (prov-2026-72775ae5), and a format defined by ten scattered literals drifts
+// the first time one is reworded.
+//
+// Declared together so the vocabulary can be read in one place, and so a
+// caller can test for a rule without matching on prose (prov-2026-9a554c93).
+const (
+	// RuleUnknownAction names an invocation of an action no package exposes.
+	RuleUnknownAction = "unknown_action"
+	// RuleAmbiguousAction names an action more than one package claims.
+	RuleAmbiguousAction = "ambiguous_action"
+	// RuleMissingKwarg names a required kwarg the model did not mention.
+	RuleMissingKwarg = "missing_kwarg"
+	// RuleEmptyKwarg names a required kwarg the model mentioned and left
+	// empty. Distinct from RuleMissingKwarg on purpose: a kwarg nobody wrote
+	// and one deliberately emptied are different mistakes, and a shared slug
+	// would make them one row in every count drawn from a results file.
+	RuleEmptyKwarg = "empty_kwarg"
+	// RuleUnknownKwarg names a kwarg the action does not declare.
+	RuleUnknownKwarg = "unknown_kwarg"
+	// RuleKwargType names a kwarg bound to a value of the wrong type.
+	RuleKwargType = "kwarg_type"
+	// RuleMissingDerivedKwarg names a kwarg the selected template renders but
+	// the invocation did not bind, whatever the schema calls optional.
+	RuleMissingDerivedKwarg = "missing_derived_kwarg"
+	// RuleVariant names a discriminator bound to a value with no template.
+	RuleVariant = "variant"
+	// RuleUnauthorizedPath names an invocation whose rendered target is not a
+	// path the record authorizes.
+	RuleUnauthorizedPath = "unauthorized_path"
+)
+
 // Violation is one Phase 5 failure.
 //
 // Rule is a short stable name for the run log, so that a run's failures can be
@@ -93,7 +131,7 @@ func resolveEntry(cat catalog.Catalog, inv recording.Invocation, index int) (cat
 		return catalog.Action{}, &Violation{
 			Index:  index,
 			Action: inv.Action,
-			Rule:   "unknown_action",
+			Rule:   RuleUnknownAction,
 			Detail: fmt.Sprintf(
 				"no action named %q is available for this change; the catalog offers %s",
 				inv.Action, quoteList(cat.Names())),
@@ -110,7 +148,7 @@ func resolveEntry(cat catalog.Catalog, inv recording.Invocation, index int) (cat
 		return catalog.Action{}, &Violation{
 			Index:  index,
 			Action: inv.Action,
-			Rule:   "ambiguous_action",
+			Rule:   RuleAmbiguousAction,
 			Detail: fmt.Sprintf(
 				"more than one package this change spans declares %q (%s), so nothing says which is meant",
 				inv.Action, strings.Join(owners, ", ")),
@@ -124,13 +162,17 @@ func resolveEntry(cat catalog.Catalog, inv recording.Invocation, index int) (cat
 func checkKwargs(entry catalog.Action, inv recording.Invocation, index int) []Violation {
 	var out []Violation
 
-	var missing []string
+	var missing, empty []string
 	for name, k := range entry.Kwargs {
 		if !k.Required {
 			continue
 		}
-		if _, bound := inv.Kwargs[name]; !bound {
+		v, bound := inv.Kwargs[name]
+		switch {
+		case !bound:
 			missing = append(missing, name)
+		case isEmpty(v):
+			empty = append(empty, name)
 		}
 	}
 	if len(missing) > 0 {
@@ -138,9 +180,19 @@ func checkKwargs(entry catalog.Action, inv recording.Invocation, index int) []Vi
 		out = append(out, Violation{
 			Index:  index,
 			Action: inv.Action,
-			Rule:   "missing_kwarg",
+			Rule:   RuleMissingKwarg,
 			Detail: fmt.Sprintf("required %s not bound: %s",
 				plural(len(missing), "kwarg is", "kwargs are"), quoteList(missing)),
+		})
+	}
+	if len(empty) > 0 {
+		sort.Strings(empty)
+		out = append(out, Violation{
+			Index:  index,
+			Action: inv.Action,
+			Rule:   RuleEmptyKwarg,
+			Detail: fmt.Sprintf("required %s bound to nothing: %s; give each a value or say why the action applies without one",
+				plural(len(empty), "kwarg is", "kwargs are"), quoteList(empty)),
 		})
 	}
 
@@ -159,7 +211,7 @@ func checkKwargs(entry catalog.Action, inv recording.Invocation, index int) []Vi
 		out = append(out, Violation{
 			Index:  index,
 			Action: inv.Action,
-			Rule:   "unknown_kwarg",
+			Rule:   RuleUnknownKwarg,
 			Detail: fmt.Sprintf("%s not declared by this action: %s; it declares %s",
 				plural(len(unknown), "kwarg is", "kwargs are"), quoteList(unknown), quoteList(declaredNames(entry))),
 		})
@@ -177,7 +229,7 @@ func checkKwargs(entry catalog.Action, inv recording.Invocation, index int) []Vi
 			out = append(out, Violation{
 				Index:  index,
 				Action: inv.Action,
-				Rule:   "kwarg_type",
+				Rule:   RuleKwargType,
 				Detail: fmt.Sprintf("kwarg %q is declared %s but was bound to %s",
 					name, k.Type, describe(inv.Kwargs[name])),
 			})
@@ -249,7 +301,7 @@ func checkDerived(entry catalog.Action, inv recording.Invocation, index int) *Vi
 	return &Violation{
 		Index:  index,
 		Action: inv.Action,
-		Rule:   "missing_derived_kwarg",
+		Rule:   RuleMissingDerivedKwarg,
 		Detail: fmt.Sprintf("%s %s, so %s must be bound even where the schema declares %s optional",
 			where, quoteList(missing),
 			plural(len(missing), "it", "they"),
@@ -280,7 +332,7 @@ func checkVariant(entry catalog.Action, inv recording.Invocation, index int) []V
 		return []Violation{{
 			Index:  index,
 			Action: inv.Action,
-			Rule:   "variant",
+			Rule:   RuleVariant,
 			Detail: fmt.Sprintf(
 				"kwarg %q selects this action's template but nothing bound it; bind it to one of %s",
 				entry.Discriminator, quoteList(entry.Variants)),
@@ -306,7 +358,7 @@ func checkVariant(entry catalog.Action, inv recording.Invocation, index int) []V
 	return []Violation{{
 		Index:  index,
 		Action: inv.Action,
-		Rule:   "variant",
+		Rule:   RuleVariant,
 		Detail: fmt.Sprintf(
 			"%s %q has no template and this action has no fallback; it covers %s",
 			entry.Discriminator, value, quoteList(entry.Variants)),
@@ -328,7 +380,7 @@ func checkTargets(packages []*genpkg.Package, files []resolve.File, inv recordin
 		return []Violation{{
 			Index:  index,
 			Action: inv.Action,
-			Rule:   "unauthorized_path",
+			Rule:   RuleUnauthorizedPath,
 			Detail: err.Error(),
 		}}
 	}
@@ -441,4 +493,26 @@ func plural(n int, one, many string) string {
 		return one
 	}
 	return many
+}
+
+// isEmpty reports whether a bound value carries nothing.
+//
+// A required kwarg the model mentioned and left empty is not bound. It renders:
+// the rails standard's addColumn writes "default: {{default}}" verbatim, and an
+// empty default produced "t.string :title, null: false, default:" - Ruby that
+// does not parse, from an answer every other Phase 5 check passed
+// (prov-2026-9a554c93).
+//
+// Only string and list are read. Zero is a number and false is a boolean, and
+// both are values an author may legitimately want - neither is the model
+// declining to answer, which is what this reads for. A string of spaces counts
+// as empty for the same reason: it is a value nobody chose that renders as one.
+func isEmpty(v any) bool {
+	switch value := v.(type) {
+	case string:
+		return strings.TrimSpace(value) == ""
+	case []any:
+		return len(value) == 0
+	}
+	return false
 }

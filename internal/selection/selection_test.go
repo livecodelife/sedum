@@ -333,6 +333,36 @@ func TestMissingRequiredKwargIsRejected(t *testing.T) {
 		"missing_kwarg", `"name"`)
 }
 
+// A required kwarg the model mentioned and left empty is not bound. It passed
+// every check before this: it is a string, so the type is right, and it is
+// present, so nothing called it missing - and the rails standard's addColumn
+// rendered "t.string :title, null: false, default:", which is Ruby that does
+// not parse (prov-2026-9a554c93).
+func TestARequiredKwargBoundToNothingIsRejected(t *testing.T) {
+	req := railsRequest(t)
+
+	wantViolation(t, req,
+		`{"invocations":[{"action":"createControllerMethod","kwargs":{"controller":"users","name":""}}]}`,
+		RuleEmptyKwarg, `"name"`)
+
+	// Whitespace is a value nobody chose that renders as one.
+	wantViolation(t, req,
+		`{"invocations":[{"action":"createControllerMethod","kwargs":{"controller":"users","name":"   "}}]}`,
+		RuleEmptyKwarg, `"name"`)
+
+	// Distinct from missing_kwarg, because a kwarg nobody wrote and one
+	// deliberately emptied are different mistakes - and a shared slug would
+	// make them one row in every count drawn from a results file.
+	_, _, err := selectWith(t, req, 0,
+		`{"invocations":[{"action":"createControllerMethod","kwargs":{"controller":"users","name":""}}]}`)
+	if err == nil {
+		t.Fatal("an empty required kwarg was accepted")
+	}
+	if strings.Contains(err.Error(), RuleMissingKwarg) {
+		t.Errorf("an empty kwarg was reported as missing:\n%s", err)
+	}
+}
+
 // Rule three: no kwarg the action does not declare. The diagnostic lists what
 // it does declare, so the correction does not need another round trip.
 func TestUnknownKwargIsRejected(t *testing.T) {
@@ -936,5 +966,44 @@ func TestCompletenessAndValidationDrawFromSeparateBudgets(t *testing.T) {
 	}
 	if len(client.seen) != 3 {
 		t.Errorf("the model was called %d time(s), want 3", len(client.seen))
+	}
+}
+
+// Only string and list are read for emptiness. Zero is a number and false is a
+// boolean, and both are values an author may legitimately want - neither is the
+// model declining to answer, which is the thing this reads for.
+func TestOnlyValuesThatCanCarryNothingCountAsEmpty(t *testing.T) {
+	for _, tc := range []struct {
+		name  string
+		value any
+		empty bool
+	}{
+		{"the empty string", "", true},
+		{"whitespace", "  \t ", true},
+		{"an empty list", []any{}, true},
+		{"a value", "nil", false},
+		{"a list with a member", []any{"title"}, false},
+		// The two that must not be read as empty.
+		{"zero", float64(0), false},
+		{"false", false, false},
+	} {
+		if got := isEmpty(tc.value); got != tc.empty {
+			t.Errorf("%s: isEmpty(%#v) = %v, want %v", tc.name, tc.value, got, tc.empty)
+		}
+	}
+}
+
+// An optional kwarg is untouched. Absence is what optional means, and an author
+// who made one optional has already said the template can do without it.
+func TestAnEmptyOptionalKwargIsNotRejected(t *testing.T) {
+	// The show variant renders nothing, so collection is not derived-required
+	// here and its emptiness is the only thing under test.
+	got, _, err := selectWith(t, railsRequest(t), 0,
+		`{"invocations":[{"action":"createControllerMethod","kwargs":{"controller":"users","name":"show","collection":""}}]}`)
+	if err != nil {
+		t.Fatalf("an empty optional kwarg was rejected: %v", err)
+	}
+	if len(got) != 1 {
+		t.Fatalf("got %d invocations, want 1", len(got))
 	}
 }
