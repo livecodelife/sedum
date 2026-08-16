@@ -304,8 +304,16 @@ func (b ActionBinding) validate(file, caseID, action string) error {
 	seen := map[string]bool{}
 	for i, inv := range b.Invocations {
 		for _, k := range b.Key {
-			if _, ok := inv[k]; !ok {
+			v, ok := inv[k]
+			if !ok {
 				return fmt.Errorf("%s: case %s binding for %s invocation %d carries no %q, which is one of its key kwargs",
+					file, caseID, action, i+1, k)
+			}
+			// A kwarg may expect any of several literals, but not one that
+			// identifies the invocation: pairing looks a value up, and a key
+			// that could be two things cannot be looked up as either.
+			if _, isList := v.([]any); isList {
+				return fmt.Errorf("%s: case %s binding for %s invocation %d expects several values for %q, which is one of its key kwargs; a key is looked up rather than compared",
 					file, caseID, action, i+1, k)
 			}
 		}

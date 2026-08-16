@@ -83,7 +83,13 @@ expect:
       invocations:
         # A string column with no default. nil is what "carries no default"
         # renders as; an empty string renders "default: " and does not parse.
-        - resource: todo
+        #
+        # resource accepts either form. This package's transforms are
+        # [plural, snake] and [singular, snake], so todo and todos render
+        # identically everywhere the templates use them - its README says so
+        # outright - and naming one would score the author's preference rather
+        # than the model's correctness (prov-2026-66b0116d).
+        - resource: [todo, todos]
           # Read off the path the record authorizes, never invented. It is
           # scored because it is knowable here; a kwarg that were not would be
           # left out and report as not scored rather than be given a pattern to
@@ -95,7 +101,7 @@ expect:
           default: "nil"
         # An unquoted false. The string "false" renders default: "false", which
         # is a string default on a boolean column.
-        - resource: todo
+        - resource: [todo, todos]
           stamp: "20260814000000"
           name: completed
           type: boolean

@@ -200,7 +200,22 @@ func scoreSample(action string, want ActionBinding, invocations []recording.Invo
 // YAML, where 5 decodes to int - so an int kwarg would never match its own
 // expectation on representation alone. That is a difference between two
 // decoders rather than between two values.
+// An expectation may also be a list, which matches any member and nothing else.
+// It exists because some distinctions the package erases: this standard's
+// transforms are [plural, snake] and [singular, snake], so `todo` and `todos`
+// render identically and scoring one wrong would measure the fixture author's
+// preference rather than the model's correctness. A list enumerates values a
+// reader can check against the package one at a time, which is what a regular
+// expression could not do and why one is still refused (prov-2026-66b0116d).
 func equalBinding(want, got any) bool {
+	if alternatives, ok := want.([]any); ok {
+		for _, alternative := range alternatives {
+			if equalBinding(alternative, got) {
+				return true
+			}
+		}
+		return false
+	}
 	if wantNum, ok := numeric(want); ok {
 		gotNum, ok := numeric(got)
 		return ok && wantNum == gotNum

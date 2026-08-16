@@ -381,3 +381,51 @@ func TestOnlyTheSampleRateCarriesAnInterval(t *testing.T) {
 		t.Errorf("the row carries %d intervals, want 1 - only the sample rate gets one:\n%s", n, line)
 	}
 }
+
+// Some distinctions the package erases. This standard's transforms are
+// [plural, snake] and [singular, snake], so todo and todos render identically
+// and scoring one wrong would measure the fixture author's preference rather
+// than the model's correctness (prov-2026-66b0116d).
+func TestAKwargMayExpectAnyOfSeveralLiterals(t *testing.T) {
+	either := []any{"todo", "todos"}
+
+	for _, got := range []any{"todo", "todos"} {
+		if !equalBinding(either, got) {
+			t.Errorf("%q did not match [todo todos]", got)
+		}
+	}
+	// A list matches its members and nothing else - it is an enumeration, not a
+	// pattern.
+	for _, got := range []any{"Todo", "todoes", "", "to"} {
+		if equalBinding(either, got) {
+			t.Errorf("%q matched [todo todos]", got)
+		}
+	}
+	// And the comparison stays type-sensitive inside one, so a list of strings
+	// never matches a boolean the way a stringifying compare would.
+	if equalBinding([]any{"false", "nil"}, false) {
+		t.Error("a boolean matched a list of strings")
+	}
+	if !equalBinding([]any{5, 6}, float64(6)) {
+		t.Error("a json number did not match an int member")
+	}
+}
+
+// A key is looked up rather than compared, so a key kwarg that could be two
+// things cannot be looked up as either.
+func TestAKeyKwargMayNotExpectSeveralValues(t *testing.T) {
+	b := addColumnBinding()
+	b.Invocations[0]["name"] = []any{"title", "titles"}
+	c := Case{
+		ID: "x", Arm: "baseline", Models: []Model{{ID: "m", Engine: "test"}},
+		Expect: Expectations{Bindings: map[string]ActionBinding{"addColumn": b}},
+	}
+
+	err := c.validate("x.yaml")
+	if err == nil {
+		t.Fatal("a key kwarg expecting several values was accepted")
+	}
+	if !strings.Contains(err.Error(), "key") {
+		t.Errorf("the error does not say the fault is in the key: %v", err)
+	}
+}

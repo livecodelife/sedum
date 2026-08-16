@@ -751,6 +751,7 @@ them, and a slip and a decision applied consistently are different findings
 |---|---|
 | `key` declares what identifies an invocation | Order carries no meaning, and best-match pairing would pair a wrong key with the expectation it least resembles — reporting a fumbled argument where the model addressed the wrong thing. A wrong key reads as one miss plus one unexpected invocation. |
 | Only named kwargs are scored | Silence is *not measured*, not *passing*. Adopt one kwarg at a time instead of specifying every fixture first. |
+| A kwarg may name a **list** of acceptable literals | Some distinctions the package erases. `resource: [todo, todos]` because this standard's transforms are `[plural, snake]` and `[singular, snake]`, so both render identically — naming one would score the author's preference. A list is an enumeration a reader can check value by value; a regex is still refused. |
 | Comparison never stringifies | The string `"false"` is not the boolean `false`, and `""` is not `nil`. Rendering both sides to text would erase the distinction the whole thing exists for. Numbers are the one normalisation: JSON decodes to float64, YAML to int. |
 | `because` is required | Loading refuses a binding without it. |
 
@@ -762,6 +763,20 @@ belongs on a not-null boolean column is stated in the record and settled by
 Rails — asking a run would be letting the thing under test grade itself. No
 sample has ever bound `default` correctly, so there was never an observation to
 establish these from; that is the finding, not a reason to wait.
+
+**Widening a kwarg is the edit to be suspicious of.** `resource` was widened
+after a run reported it at 2/5 — legitimately, because the package's transform
+table makes the two forms interchangeable and the expectation would have been
+wrong had no model ever run. The test that it was a correction rather than a
+capitulation: `default` came back equally low, at 0/5, and was not touched,
+because nothing in the package makes an unparseable default equivalent to `nil`.
+If the justification for a widening mentions the rate, it is the wrong
+justification.
+
+**A changed scoring rule does not cost a re-run.** Stored invocations
+(`prov-2026-2256e6fa`) meant the corrected `resource` expectation could be
+applied to the run that had already happened — 2/5 became 5/5 without spending
+another six minutes.
 
 **Nothing mechanical can check that an expectation is right.** The diff test
 holds the described package to one difference and cannot say the descriptions
