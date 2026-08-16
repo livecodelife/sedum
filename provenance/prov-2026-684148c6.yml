@@ -1,6 +1,6 @@
 id: prov-2026-684148c6
 title: The scope index is derived state, not a tracked artifact
-status: draft
+status: open
 created_at: "2026-08-15"
 author: calebcowen@gmail.com
 intent: |
