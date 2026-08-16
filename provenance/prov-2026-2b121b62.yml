@@ -1,0 +1,163 @@
+id: prov-2026-2b121b62
+title: An expectation may name the arguments, and binding is scored per kwarg
+status: draft
+created_at: "2026-08-16"
+author: calebcowen@gmail.com
+intent: |
+  `expect.actions` says how many invocations of each action a complete answer
+  contains. It cannot say what any of them should be bound to, so the harness
+  measures whether the model reached for the right actions and nothing about
+  whether it reached for them correctly.
+
+  [[prov-2026-2256e6fa]] made the arguments available. This scores them.
+
+  ## The four samples that made this concrete
+
+  Two smoke samples an arm, after invocations began being stored. Every one
+  scored six-of-six exact on selection - a perfect row in the table the
+  description A/B was reported from - and every one bound `default` wrong on at
+  least one column:
+
+      arm           title (string)          completed (boolean)
+      undescribed   "" -> "default: "       false                (correct)
+      undescribed   false                   false                (correct)
+      described     "false"                 "false"
+      described     "false"                 "false"
+
+  The fixture record is not ambiguous about this. It says the todos table
+  carries "title, a string that is not null and carries no default, and
+  completed, a boolean that is not null and defaults to false", so the correct
+  bindings are `nil` and `false` written as the Ruby literals the template
+  renders verbatim.
+
+  One arm emitted an empty string, which renders `default: ` and does not parse.
+  One rendered `default: "false"` on a boolean column. Both scored 100%.
+
+  ## Per kwarg, not per invocation
+
+  An invocation scored whole would report the described arm as wrong and stop
+  there. Per kwarg it reports `default` at 0 of 4 and `resource`, `name`, `type`
+  and `nullable` at 4 of 4, which names the broken thing instead of reporting
+  that something is broken. It is the same reason Selected and Exact are
+  separate columns ([[prov-2026-9dcf2658]] draws the same distinction for a
+  different question): a single rate hides which of two failures happened.
+
+  ## Pairing an answer with an expectation
+
+  Fifteen invocations arrive in whatever order the model produced them, so
+  scoring has to decide which expected invocation each one answers. Three ways
+  to do it, and only one is honest.
+
+  Position fails immediately - order varies between samples and carries no
+  meaning. Best-match pairing, scoring every candidate and taking the closest,
+  is worse than it looks: an invocation that got its identifying kwarg wrong
+  would be silently paired with the expectation it least resembles, and the
+  scoring would report a near-miss where the model actually addressed the wrong
+  thing.
+
+  So an expectation declares which kwargs identify an invocation, and pairing is
+  by that key. addColumn is keyed by `name`, addRoute and addControllerTest by
+  `verb`. An expected invocation with no partner is a miss; an actual one with
+  no expectation is unexpected, and both are reported rather than dropped -
+  which is the rule `Observed` already follows for actions nobody named
+  ([[prov-2026-eb283c56]]).
+
+  A key that is itself bound wrong therefore reads as one miss and one
+  unexpected invocation, not as a near-miss. That is the correct reading and it
+  is worth stating: the model did not fumble an argument, it wrote about a
+  column nobody asked for.
+
+  ## Silence is not a claim
+
+  Only kwargs the expectation names are scored. An expectation that mentions
+  `default` and nothing else produces a rate for `default`, which is what makes
+  this cheap enough to adopt one kwarg at a time rather than requiring every
+  fixture to be fully specified before any of it can be measured.
+
+  This also keeps `stamp` honest. It is knowable here - the record authorizes
+  db/migrate/20260814000000_create_todos.rb and the model reads the timestamp
+  off that path - so it can be named. Somewhere it is not knowable, it is left
+  out and reported as not scored rather than being given a pattern to satisfy.
+
+  ## Comparison is type-sensitive, and this is the whole point
+
+  Kwargs arrive as map[string]any decoded from the model's JSON. `nullable` is a
+  bool; `default` is a string carrying Ruby source. The expectation is decoded
+  from YAML into the same shape and compared without stringifying either side.
+
+  Rendering both to text before comparing would make the string "false" equal
+  the boolean false, which is precisely the distinction the four samples above
+  turn on. A scoring rule that erases the finding that motivated it is not a
+  scoring rule.
+
+  ## An expected binding is authored, not observed
+
+  [[prov-2026-eb283c56]] establishes expected counts from runs that produced a
+  complete answer, because inventing them from the package would make the first
+  run agree by construction. Binding cannot work that way, and the asymmetry
+  matters.
+
+  No sample has ever bound `default` correctly. There is nothing to establish an
+  expectation from, and waiting for one would mean never writing it down. But
+  unlike a count, a binding has a ground truth that does not depend on any run:
+  the record says what the table carries and Rails says what a migration means,
+  so the correct value is knowable by reading rather than by sampling.
+
+  The risk runs the other way instead. An authored expectation can be quietly
+  edited to match what the model produced, which is the same failure eb283c56
+  guarded against and harder to notice, because a binding looks like a detail
+  rather than a claim. So a binding expectation cites the constraint it comes
+  from, and changing one after seeing a rate is a change that says so.
+
+  ## What this does not do
+
+  It does not score the entries already in results/. Those were drawn before
+  invocations were stored and have nothing to score; re-scoring stored samples
+  is worth having and belongs with the first entries that can use it.
+
+  It does not accept patterns or regular expressions. A literal or a list of
+  acceptable literals covers every case the fixtures have, and a regex in an
+  expectation is a place for a rule to live where nothing checks it. If a real
+  case needs one it can be argued for then.
+
+  And it is not behavior. A correct binding still says nothing about whether the
+  rendered application runs, which needs the target started and its contracts
+  exercised, and remains reserved as `expect.behavior`.
+constraints:
+  - Binding is scored per kwarg, not per invocation. A rate names which argument was wrong rather than reporting that an invocation was.
+  - An expectation declares the kwargs that identify an invocation, and pairing is by that key. Position and best-match pairing are both refused - the second would report a near-miss where the model addressed the wrong thing.
+  - An expected invocation with no partner is a miss and an actual one with no expectation is unexpected. Both are reported; neither is dropped.
+  - Only kwargs the expectation names are scored. An unnamed kwarg reports as not scored rather than as passing, so a fixture can adopt this one kwarg at a time.
+  - Comparison is type-sensitive and neither side is stringified. The string "false" is not the boolean false, which is the distinction the samples that motivated this record turn on.
+  - A binding expectation is authored from the record's constraints rather than established from a run, because no run has yet produced a correct one. It cites the constraint it comes from, and editing one after seeing a rate is a change that says so.
+  - Binding is reported beside selection, never folded into it. They are different measurements and a combined rate would hide a perfect selection with a wrong argument, which is the case this exists to surface.
+  - Expectations stay optional. A case that names no bindings measures exactly what it measures today.
+affected_scope:
+  - evals/case.go
+  - evals/run.go
+  - evals/report.go
+  - evals/run_test.go
+  - evals/results_test.go
+  - evals/cases/**
+  - evals/README.md
+forbidden_scope: []
+type: imprint
+implements: prov-2026-e6969eb3
+supersedes: ""
+superseded_by: ""
+related:
+  - prov-2026-2256e6fa
+  - prov-2026-c5697387
+  - prov-2026-ac15ed2b
+  - prov-2026-eb283c56
+  - prov-2026-9dcf2658
+sealed_at_sha: ""
+associated_specs:
+  - path: evals/run_test.go
+    run_command: go test -count=1 ./$(dirname {{path}})
+associated_traces: []
+monitors: []
+tags:
+  - sedum
+  - evals
+  - measurement
