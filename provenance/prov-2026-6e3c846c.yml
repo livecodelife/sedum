@@ -1,0 +1,84 @@
+id: prov-2026-6e3c846c
+title: The plan says what a run will take and what it is allowed to take, and the ceiling can be overridden
+status: draft
+created_at: "2026-08-15"
+author: calebcowen@gmail.com
+intent: |
+  [[prov-2026-d31cbfee]] sizes the go test timeout from the run rather than
+  leaving it at a default shorter than the run. It then prints that number as
+  the only duration in the plan:
+
+      todo-rails-defined       1 model(s) x 30 samples, up to 1h30m0s
+      todo-rails-described     1 model(s) x 30 samples, up to 1h30m0s
+                               up to 3h0m0s in total
+
+  Three hours is not what that run costs. It is twice what it costs, because a
+  timeout with no headroom is a timeout that fires on a slow run - and the
+  budget was deliberately set at about double the observed rate. The word "up
+  to" carries that honestly and nobody reads it, because a duration printed
+  beside a sample count is read as the cost.
+
+  The description A/B is where this surfaced: the pair is about ninety minutes
+  of GPU and the plan announced three hours, which is the difference between a
+  run somebody starts now and one they defer to the evening.
+
+  ## Two numbers, because they answer different questions
+
+  The expected duration answers "can I start this now". The ceiling answers
+  "when should this be considered hung". They are related by a headroom factor
+  and neither substitutes for the other, so the plan prints both and says which
+  is which.
+
+  The expectation comes from what the results already show: between 66 and 90
+  seconds a sample on the local 14B row, so 90 is the estimate and the error is
+  on the side that does not surprise anyone. The ceiling stays at twice that.
+
+  ## Why the estimate is a constant rather than read from history
+
+  results/ holds the wall clock of every previous run and could supply a
+  per-case rate. Two reasons it does not.
+
+  A plan that changes with the last run is a plan that cannot be reproduced
+  from the command line that produced it, and this command exists to make an
+  invocation reproducible. And a new case has no history at all, so the
+  constant has to exist anyway - at which point a second path that is used
+  sometimes is a second thing to be wrong.
+
+  The constant is documented, and it is wrong in the direction where being
+  wrong is cheap. When it is wrong enough to matter, -timeout says so.
+
+  ## The override
+
+  There was no way to set the timeout at all, which made the computed number a
+  ceiling in the ordinary case and a wall in every other one - a slower model,
+  a hosted endpoint, a machine doing something else. -timeout takes what go
+  test would have taken and replaces the computation entirely, including
+  downward: a deliberately short budget is a legitimate way to find out whether
+  an endpoint is answering.
+constraints:
+  - The plan prints the expected duration and the ceiling as separate numbers, each labelled as what it is. A total is of the expectations, because that is the question a total is asked for.
+  - The expectation is a documented constant taken from the observed per-sample range, not read from results/. A plan that changed with the last run could not be reproduced from the invocation that printed it, and a new case has no history to read.
+  - -timeout replaces the computed ceiling entirely, in either direction, and the plan shows that it was overridden rather than silently printing a number nobody derived.
+  - The headroom factor between the expectation and the ceiling is named once and derived from, so the two numbers cannot drift apart.
+affected_scope:
+  - evals/cmd/eval/**
+  - evals/README.md
+forbidden_scope: []
+type: imprint
+implements: prov-2026-e6969eb3
+supersedes: ""
+superseded_by: ""
+related:
+  - prov-2026-d31cbfee
+  - prov-2026-ac15ed2b
+  - prov-2026-945fa0aa
+sealed_at_sha: ""
+associated_specs:
+  - path: evals/cmd/eval/main_test.go
+    run_command: go test -count=1 ./$(dirname {{path}})
+associated_traces: []
+monitors: []
+tags:
+  - sedum
+  - evals
+  - tooling
