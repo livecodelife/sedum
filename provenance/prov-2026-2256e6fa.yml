@@ -96,6 +96,11 @@ affected_scope:
   - evals/run_test.go
   - evals/results_test.go
   - evals/README.md
+  # The smoke runs that verify the two fields populate from a real answer
+  # rather than from a hand-built fixture. A test proves the shape; only a run
+  # proves the wiring.
+  - evals/results/todo-rails-described.jsonl
+  - evals/results/todo-rails-defined.jsonl
 forbidden_scope: []
 type: imprint
 implements: prov-2026-e6969eb3
