@@ -592,11 +592,47 @@ in either direction while its null result reads exactly like a finding.
 undescribed arm: every one is five samples or fewer, none states a resolution,
 and all were taken against a dirty tree.
 
-**A null result is a result.** If the rate does not move, that is evidence for
-prov-2026-6d87dc11's claim that enriching the catalog will not fix
-under-selection, and it gets recorded as readily as a positive one would. The
-temptation to keep sampling until the number moves is the specific failure the
-fixed size exists to prevent.
+#### What it found
+
+Both arms drawn 2026-08-16 at n=30, fine, retries 0, concurrency 1, on
+`qwen2.5-coder-14b-instruct/llama.cpp-q4_k_m`, against clean trees —
+`634f02a` and `e1849dd`.
+
+| | undescribed | described |
+|---|---|---|
+| First-call validity | 23/30 `[0.59,0.88]` | 19/30 `[0.46,0.78]` |
+| Exact selection, among valid | 23/23 `[0.86,1.00]` | 18/19 `[0.75,0.99]` |
+| Prompt tokens per call | 1799 | 2677 |
+| Wall clock | 39m40s | 40m29s |
+
+**Nothing moved that these samples can distinguish.** Both pairs of intervals
+overlap, so on the question as posed — do descriptions move the selection rate
+— this is a null result, and it is recorded as readily as a positive one would
+have been.
+
+**Selection had nowhere to go.** Every valid sample in the undescribed arm
+matched the expectation exactly, all six action counts. That is the ceiling the
+sample size was chosen for, and it means a positive result was only ever
+available as an improvement in *validity*, not in selection.
+
+**Both numbers are lower with descriptions, not higher.** The described arm's
+one off-target valid sample asked for three endpoints and three controller
+tests instead of five. Four fewer answers validated on the first call. Neither
+gap clears its interval, so the honest statement is "not distinguished" rather
+than "worse" — but nothing here points the way the feature was argued for.
+
+**They are not free.** 878 more prompt tokens a call, about half again, for a
+rate that did not move.
+
+**What this does not say.** One application, one model, one framework: a
+difference here would have been a difference *there*, not a property of
+descriptions. And selection is not binding — every wrong binding that motivated
+`prov-2026-c5697387` produced a correctly selected action with a bad argument
+and would have scored a perfect count in this table. This is evidence for
+`prov-2026-6d87dc11`'s claim that enriching the catalog does not fix
+under-selection. It is not a verdict on the feature descriptions were added
+for, which needs the rendered output checked and is deferred with
+`expect.behavior`.
 
 **It measures selection, not binding.** Every wrong binding that motivated
 descriptions produced a correctly *selected* action with a bad *argument*, and
