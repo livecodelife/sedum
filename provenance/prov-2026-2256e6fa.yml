@@ -1,6 +1,6 @@
 id: prov-2026-2256e6fa
 title: A rejected sample records which rules rejected it, and a valid one records what it bound
-status: draft
+status: open
 created_at: "2026-08-16"
 author: calebcowen@gmail.com
 intent: |
@@ -56,15 +56,27 @@ intent: |
   here would mean designing a scoring rule in the same change that first makes
   the data available to look at.
 
-  ## A stored rule slug is a format
+  ## A stored rule slug becomes a format, and that is Sedum's problem
 
   The rule slugs are string literals scattered through validate.go. Writing
   them into an append-only file makes them a format that outlives the code
   that produced them, in the same way the ownership marker is one
   ([[prov-2026-72775ae5]]), and a format defined by nine separate literals
-  drifts the first time one is reworded. They become named constants, which is
-  what lets a reader of an old entry find out what "missing_derived_kwarg"
-  meant.
+  drifts the first time one is reworded. They should be named constants.
+
+  They are not named constants here. This record was drafted with validate.go
+  in its scope and the linter refused it: an imprint of the eval-harness
+  blueprint cannot govern a file the blueprint does not, and that blueprint's
+  scope is evals/** on purpose. The harness is not part of Sedum, nothing
+  under internal/ imports it ([[prov-2026-c0f55691]]), and a harness record
+  reaching into the validator would have made that boundary untrue by
+  amendment.
+
+  So the constants are a separate record under the Sedum brief, and this one
+  stores whatever Violation.Rule holds today. Nothing here depends on the
+  hardening having happened first - a slug that is later renamed makes an old
+  entry harder to read, which is the argument for the follow-up rather than a
+  reason to hold this.
 
   ## Size
 
@@ -77,15 +89,13 @@ constraints:
   - A rejected sample records the rule slugs it was rejected under, per attempt, rather than a rendered message. The prose stays in Detail; the slug is what can be counted.
   - A valid sample records every invocation it produced with the arguments bound to it, so binding can be scored later without drawing the samples again.
   - This record stores and does not score. No expectation, report column or rate is derived from either field here - that is a separate decision.
-  - The rule slugs become named constants, because an append-only file makes them a format rather than an implementation detail.
+  - The slugs are stored as the validator emits them. Hardening them into named constants is Sedum's change under its own record, because the eval-harness blueprint's scope is evals/** and a harness record must not amend that boundary.
 affected_scope:
   - evals/run.go
   - evals/results.go
   - evals/run_test.go
   - evals/results_test.go
   - evals/README.md
-  - internal/selection/validate.go
-  - internal/selection/selection_test.go
 forbidden_scope: []
 type: imprint
 implements: prov-2026-e6969eb3
@@ -97,11 +107,10 @@ related:
   - prov-2026-c5697387
   - prov-2026-eb283c56
   - prov-2026-72775ae5
+  - prov-2026-c0f55691
 sealed_at_sha: ""
 associated_specs:
   - path: evals/run_test.go
-    run_command: go test -count=1 ./$(dirname {{path}})
-  - path: internal/selection/selection_test.go
     run_command: go test -count=1 ./$(dirname {{path}})
 associated_traces: []
 monitors: []
