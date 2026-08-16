@@ -1,6 +1,6 @@
 id: prov-2026-6e3c846c
 title: The plan says what a run will take and what it is allowed to take, and the ceiling can be overridden
-status: open
+status: implemented
 created_at: "2026-08-15"
 author: calebcowen@gmail.com
 intent: |
@@ -72,7 +72,7 @@ related:
   - prov-2026-d31cbfee
   - prov-2026-ac15ed2b
   - prov-2026-945fa0aa
-sealed_at_sha: ""
+sealed_at_sha: b4c99ae9585e8b2d0037cc1119d5d3aaf4e44497
 associated_specs:
   - path: evals/cmd/eval/main_test.go
     run_command: go test -count=1 ./$(dirname {{path}})
