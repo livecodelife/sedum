@@ -109,6 +109,42 @@ intent: |
   rather than a claim. So a binding expectation cites the constraint it comes
   from, and changing one after seeing a rate is a change that says so.
 
+  ## Two opposite disciplines, and which one applies
+
+  This repository now holds two rules for authoring the same expect block, and
+  they point in opposite directions. Counts are established from a run that
+  produced a complete answer and must not be written from reading the package.
+  Bindings are written from the record and must not be established from a run.
+
+  That is not a contradiction, and the distinguishing question is whether the
+  correct answer exists independently of the model. How many invocations a
+  complete answer contains is a property of the package and the record together
+  that nobody has computed, so observation is the honest source. What `default`
+  should be on a not-null boolean column is stated in the record and settled by
+  Rails, so observation is the dishonest source - it would be asking the thing
+  under test to grade itself.
+
+  ## The guard is that the judgment is written down, not that it is checked
+
+  A fixture is a judgment: this package, this record, these arguments are the
+  objectively correct answer. That holds for the generator packages and the
+  fixture records as much as for these expectations, and nothing mechanical can
+  check it. The described package set has a test that holds it to one difference
+  from the undescribed one; no test can say the descriptions are good. Type
+  comparison can say "false" is not false; nothing can say `nil` was the right
+  default except the record saying so.
+
+  So the guards this repository builds - the diff test, type-sensitive
+  comparison, the append-only results file - protect against drift and accident.
+  They do not protect against a wrong judgment, and a design that behaved as
+  though they did would be worse than one that admits they do not.
+
+  What protects a judgment is that it is stated where someone can disagree with
+  it. That is what provenance is for, and it is why a binding expectation
+  carries the constraint it came from in the case file itself rather than only
+  in this record: the reader deciding whether an expectation is right should not
+  have to find the record to do it.
+
   ## What this does not do
 
   It does not score the entries already in results/. Those were drawn before
@@ -129,7 +165,8 @@ constraints:
   - An expected invocation with no partner is a miss and an actual one with no expectation is unexpected. Both are reported; neither is dropped.
   - Only kwargs the expectation names are scored. An unnamed kwarg reports as not scored rather than as passing, so a fixture can adopt this one kwarg at a time.
   - Comparison is type-sensitive and neither side is stringified. The string "false" is not the boolean false, which is the distinction the samples that motivated this record turn on.
-  - A binding expectation is authored from the record's constraints rather than established from a run, because no run has yet produced a correct one. It cites the constraint it comes from, and editing one after seeing a rate is a change that says so.
+  - A binding expectation is authored from the record's constraints rather than established from a run, because no run has yet produced a correct one. Counts keep the opposite discipline, and which applies is decided by whether the correct answer exists independently of the model.
+  - A binding block states the constraint it was authored from, in the case file, and loading refuses one that does not. The guard against a wrong expectation is that the judgment is legible where someone can disagree with it, not that anything mechanical can check it.
   - Binding is reported beside selection, never folded into it. They are different measurements and a combined rate would hide a perfect selection with a wrong argument, which is the case this exists to surface.
   - Expectations stay optional. A case that names no bindings measures exactly what it measures today.
 affected_scope:
