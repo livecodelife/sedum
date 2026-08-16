@@ -28,14 +28,61 @@ intent: |
   Two cases over todo-rails, differing in exactly one thing. Everything else -
   model, record, sample size, retries - held fixed, and Compare reports the pair.
 
-  Where the described package lives is the decision worth stating. todo-rails
-  explains its kwargs in YAML comments today, and adding description fields there
-  is a change to that repository under its own record, not this one. That is the
-  honest place for it: the fixture applications are real projects, and a package
-  edited only to make an eval look good is not a fixture, it is a confound.
+  ## Where the described package lives
 
-  So the described variant is authored in todo-rails, and this record's scope is
-  the second case file that points at it.
+  Here, as a second package set under `generators/`, derived from the existing
+  one by adding description fields and changing nothing else.
+
+  An earlier draft of this record put it in the todo-rails repository instead, on
+  the grounds that a package edited only to make an eval look good is a confound
+  rather than a fixture. The instinct is right and the remedy was wrong, for
+  three reasons.
+
+  The fixtures already do not mirror their projects, by a rule this repository
+  wrote down before this record existed: a fixture exists to make a measurement
+  mean something rather than to mirror a project, and where those pull apart the
+  measurement wins and the deviation is recorded. todo-api's three records are
+  condensed here into one, under an id of its own so it does not claim to be the
+  original.
+
+  Package *sets* are the mechanism this harness was built around. `generators/`
+  holds sets rather than packages precisely so one can be swapped while the
+  record is held fixed, which is what makes a comparison mean anything. A
+  described set is the intended use of a structure that already exists, not a
+  liberty taken with it.
+
+  And the ordering was backwards. Descriptions are a Sedum feature of unknown
+  value; changing a real project to adopt them in order to find out whether
+  they are worth adopting inverts the question. If the rate moves, todo-rails
+  adopts them afterwards under its own record, with a measurement behind it.
+
+  ## What replaces the safeguard
+
+  The confound the earlier draft feared is real: a hand-written second package
+  drifts, and a reworded action name or a dropped required flag would make the
+  comparison measure something nobody chose. A procedural rule about which
+  repository holds the file is a weak guard against that, because it constrains
+  the author's location rather than the diff.
+
+  So the guard is mechanical and lives in the default test suite. The described
+  set is produced by copying the original and adding description fields, and a
+  test diffs the two sets and fails on any difference that is not a description.
+  That is the shape TestTheLanguageArmsAreControlled already uses to keep the
+  rails and chi arms honest, and it holds whoever edits the package next.
+
+  ## The sample size, fixed before the run
+
+  Thirty per arm, at the fine resolution, per [[prov-2026-3039750e]].
+
+  The rails arm has come in at 4/4 and 5/5 across its whole history, so this is
+  the question that taxonomy calls fine: moving a rate that is already at the
+  ceiling. At five samples 4/5 is [0.38,0.96] and 5/5 is [0.57,1.00], which
+  overlap - a run that size cannot see this effect in either direction, and its
+  null result would mean nothing while reading exactly like a finding.
+
+  Both arms are drawn fresh at thirty. The entries already in results/ cannot
+  serve as the undescribed arm: every one is five samples or fewer, none states
+  a resolution, and all were taken against a dirty tree.
 
   ## What would make the result mean anything
 
@@ -80,15 +127,28 @@ constraints:
     A null result is recorded as readily as a positive one. Sampling does not
     continue until the number moves.
   - >-
-    The described package is authored in the fixture's own repository under its
-    own record. A package edited only to make an eval look good is a confound
-    rather than a fixture.
+    Thirty samples per arm, at the fine resolution, fixed here before the run.
+    The rails arm sits at the ceiling, and five samples cannot distinguish 4/5
+    from 5/5 in either direction.
+  - >-
+    Both arms are drawn fresh at that size. The entries already in results/ are
+    not the undescribed arm - they are smaller, unlabelled, and were taken
+    against a dirty tree.
+  - >-
+    The described set is derived from the existing one by adding descriptions,
+    and a test in the default suite fails on any difference between the two sets
+    that is not a description. The guard is the diff, not which repository holds
+    the file.
   - >-
     This measures selection, not binding. Every wrong binding that motivated
     prov-2026-c5697387 would have scored a perfect catalog count, so the result
     must not be reported as validating that record's feature.
 affected_scope:
   - evals/cases/**
+  # The described package set, and the test that holds it to one difference.
+  - evals/testdata/todo-rails/generators/**
+  - evals/run_test.go
+  - evals/README.md
 forbidden_scope: []
 type: imprint
 implements: prov-2026-e6969eb3
@@ -97,8 +157,11 @@ superseded_by: ""
 related:
   - prov-2026-c5697387
   - prov-2026-6d87dc11
+  - prov-2026-3039750e
 sealed_at_sha: ""
-associated_specs: []
+associated_specs:
+  - path: evals/run_test.go
+    run_command: go test -count=1 ./$(dirname {{path}})
 associated_traces: []
 monitors: []
 tags:
