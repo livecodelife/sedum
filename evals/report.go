@@ -140,10 +140,17 @@ func bindings(out io.Writer, m Measurement, scored int) {
 		return
 	}
 
-	fmt.Fprintf(out, "  %-24s %-12s %18s %s\n", "action", "kwarg", "bound", "")
+	// The interval goes on samples and nowhere else. Two invocations inside one
+	// answer are one observation seen twice, so an interval over invocations
+	// would report confidence nobody bought - and the invocation ratio is
+	// printed beside it without one, because a sample rate cannot say whether a
+	// failing sample got one invocation wrong or all of them
+	// (prov-2026-7cb96bf0).
+	fmt.Fprintf(out, "  %-24s %-12s %18s %s\n", "action", "kwarg", "samples bound", "invocations")
 	for _, r := range results {
 		for _, k := range r.Kwargs {
-			fmt.Fprintf(out, "  %-24s %-12s %18s\n", r.Action, k.Kwarg, wilson(k.Correct, k.Scored))
+			fmt.Fprintf(out, "  %-24s %-12s %18s %d/%d\n",
+				r.Action, k.Kwarg, wilson(k.CleanSamples, k.Samples), k.Correct, k.Scored)
 		}
 		// An expected invocation nothing answered and an answered one nothing
 		// expected are reported rather than dropped. A key bound wrong produces

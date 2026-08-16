@@ -728,6 +728,25 @@ an invocation was wrong — and printed as its own table, never folded into
 selection. Four smoke samples scored a perfect 6/6 on selection while every one
 of them bound `default` wrong; a combined rate would have hidden exactly that.
 
+```
+  action                   kwarg           samples bound  invocations
+  addColumn                default       0/2 [0.00,0.66]  0/4
+  addColumn                name          2/2 [0.34,1.00]  4/4
+```
+
+**The interval is on samples, and only on samples.** A sample is one prompt and
+one act of reasoning; the rails fixture asks for two columns, so a model that
+has decided on `"false"` binds it twice — and those two comparisons are one
+observation seen twice. An interval over invocations would not move the rate, it
+would shrink the uncertainty around it, reporting confidence nobody bought. A
+kwarg counts as bound in a sample only if *every* invocation of it in that
+sample is correct.
+
+The invocation ratio stays beside it, deliberately without an interval: a sample
+rate cannot say whether a failing sample got one invocation wrong or all of
+them, and a slip and a decision applied consistently are different findings
+(`prov-2026-7cb96bf0`).
+
 | Rule | Why |
 |---|---|
 | `key` declares what identifies an invocation | Order carries no meaning, and best-match pairing would pair a wrong key with the expectation it least resembles — reporting a fumbled argument where the model addressed the wrong thing. A wrong key reads as one miss plus one unexpected invocation. |

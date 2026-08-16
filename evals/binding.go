@@ -19,21 +19,38 @@ import (
 // `default: ` and does not parse (prov-2026-2b121b62).
 
 // KwargResult is one kwarg's binding rate across a measurement's samples.
+//
+// Two denominators, and only one of them may carry an interval. A sample is one
+// prompt and one act of reasoning; the rails fixture asks for two columns, so a
+// model that has decided on `"false"` binds it twice and those two comparisons
+// are one observation seen twice. An interval over invocations would not move
+// the rate - it would shrink the uncertainty around it, reporting more
+// confidence than was bought (prov-2026-7cb96bf0).
 type KwargResult struct {
 	Action string
 	Kwarg  string
-	// Correct is how many paired invocations bound the expected value, and
-	// Scored is how many were compared at all.
+
+	// CleanSamples is how many samples bound this kwarg correctly in every
+	// invocation of it, out of Samples that bound it at all. This is the
+	// citable rate and the only one an interval goes on.
+	CleanSamples int
+	Samples      int
+
+	// Correct and Scored are the same comparison counted per invocation. Kept
+	// because a sample rate cannot say whether a failing sample got one
+	// invocation wrong or all of them - a slip and a decision applied
+	// consistently are different findings - and reported as a bare ratio
+	// because an interval here is the error this record exists to remove.
 	Correct int
 	Scored  int
 }
 
-// Rate is the fraction bound correctly.
+// Rate is the fraction of samples that bound this kwarg correctly throughout.
 func (k KwargResult) Rate() float64 {
-	if k.Scored == 0 {
+	if k.Samples == 0 {
 		return 0
 	}
-	return float64(k.Correct) / float64(k.Scored)
+	return float64(k.CleanSamples) / float64(k.Samples)
 }
 
 // BindingResult is one action's binding outcome across a measurement.
@@ -94,8 +111,17 @@ func (m Measurement) ScoredBindings() []BindingResult {
 	return out
 }
 
+// sampleTally is one kwarg's comparisons within a single sample, which is the
+// grain the clustering lives at.
+type sampleTally struct{ correct, scored int }
+
 // scoreSample pairs one sample's invocations of an action against the
 // expectation and tallies the comparison.
+//
+// The per-invocation counts accumulate straight into byKwarg. The per-sample
+// verdict is decided here and folded in once at the end, because "bound
+// correctly in this sample" means every invocation of it in this sample was
+// correct.
 func scoreSample(action string, want ActionBinding, invocations []recording.Invocation, res *BindingResult, byKwarg map[string]*KwargResult) {
 	// Pairing is by the declared key, never by position and never by
 	// closest-match. An invocation the key does not match is unexpected rather
@@ -109,6 +135,8 @@ func scoreSample(action string, want ActionBinding, invocations []recording.Invo
 	}
 
 	matched := map[string]bool{}
+	within := map[string]*sampleTally{}
+
 	for _, expected := range want.Invocations {
 		id := keyOf(expected, want.Key)
 		got, ok := actual[id]
@@ -124,15 +152,35 @@ func scoreSample(action string, want ActionBinding, invocations []recording.Invo
 				k = &KwargResult{Action: action, Kwarg: kwarg}
 				byKwarg[kwarg] = k
 			}
+			t := within[kwarg]
+			if t == nil {
+				t = &sampleTally{}
+				within[kwarg] = t
+			}
+
 			k.Scored++
+			t.scored++
 			if equalBinding(wantValue, got[kwarg]) {
 				k.Correct++
+				t.correct++
 			}
 		}
 	}
 	for id := range actual {
 		if !matched[id] {
 			res.Unexpected++
+		}
+	}
+
+	// One observation per kwarg per sample. A kwarg the sample never bound -
+	// because none of its invocations paired - contributes no observation
+	// rather than a failed one, which is the same rule that keeps a rejected
+	// sample out of the selection denominator.
+	for kwarg, t := range within {
+		k := byKwarg[kwarg]
+		k.Samples++
+		if t.correct == t.scored {
+			k.CleanSamples++
 		}
 	}
 }

@@ -282,3 +282,102 @@ func TestABindingExpectationStatesWhereItCameFrom(t *testing.T) {
 		}
 	}
 }
+
+// The rate is cited per sample. Two invocations inside one answer are one
+// observation seen twice: a model that has decided on "false" writes it in both
+// columns, and counting that as two failures buys confidence nobody paid for
+// (prov-2026-7cb96bf0).
+func TestABindingRateCountsSamplesNotInvocations(t *testing.T) {
+	wrongBoth := bound(
+		map[string]any{"name": "title", "type": "string", "nullable": false, "default": `"false"`},
+		map[string]any{"name": "completed", "type": "boolean", "nullable": false, "default": `"false"`},
+	)
+	m := measurementWithBindings(wrongBoth, wrongBoth)
+
+	var def KwargResult
+	for _, k := range m.ScoredBindings()[0].Kwargs {
+		if k.Kwarg == "default" {
+			def = k
+		}
+	}
+
+	// Two samples, each binding it wrong twice.
+	if def.Samples != 2 || def.CleanSamples != 0 {
+		t.Errorf("default bound in %d/%d samples, want 0/2", def.CleanSamples, def.Samples)
+	}
+	// The invocation tally survives, because 0/4 and a sample that got one of
+	// two wrong are different findings.
+	if def.Correct != 0 || def.Scored != 4 {
+		t.Errorf("invocation tally is %d/%d, want 0/4", def.Correct, def.Scored)
+	}
+
+	// The point of the whole record: the interval is the one two samples give,
+	// not the tighter one four correlated comparisons would have implied.
+	got := wilson(def.CleanSamples, def.Samples)
+	want := wilson(0, 2)
+	if got.String() != want.String() {
+		t.Errorf("interval is %s, want the two-sample %s", got, want)
+	}
+	if inflated := wilson(0, 4); got.High <= inflated.High {
+		t.Errorf("the sample interval %s is no wider than the invocation interval %s; the clustering is still being counted as independence", got, inflated)
+	}
+}
+
+// A kwarg is bound in a sample only when every invocation of it in that sample
+// is correct. One right and one wrong is not half an observation.
+func TestASampleIsCleanOnlyIfEveryInvocationIs(t *testing.T) {
+	m := measurementWithBindings(bound(
+		map[string]any{"name": "title", "type": "string", "nullable": false, "default": "nil"},
+		map[string]any{"name": "completed", "type": "boolean", "nullable": false, "default": `"false"`},
+	))
+
+	for _, k := range m.ScoredBindings()[0].Kwargs {
+		if k.Kwarg != "default" {
+			continue
+		}
+		if k.CleanSamples != 0 || k.Samples != 1 {
+			t.Errorf("default bound in %d/%d samples, want 0/1 - one of its two invocations was wrong", k.CleanSamples, k.Samples)
+		}
+		// And the invocation tally is what says only one of the two was wrong,
+		// which is the reason it is kept.
+		if k.Correct != 1 || k.Scored != 2 {
+			t.Errorf("invocation tally is %d/%d, want 1/2", k.Correct, k.Scored)
+		}
+	}
+}
+
+// The report puts an interval on the sample rate and none on the invocation
+// ratio. An interval on a clustered count is the original error with an extra
+// column.
+func TestOnlyTheSampleRateCarriesAnInterval(t *testing.T) {
+	m := measurementWithBindings(bound(
+		map[string]any{"name": "title", "type": "string", "nullable": false, "default": `"false"`},
+		map[string]any{"name": "completed", "type": "boolean", "nullable": false, "default": `"false"`},
+	))
+
+	var buf bytes.Buffer
+	Report(&buf, m)
+
+	var line string
+	for _, l := range strings.Split(buf.String(), "\n") {
+		if strings.Contains(l, "default") {
+			line = l
+		}
+	}
+	if line == "" {
+		t.Fatalf("no default row:\n%s", buf.String())
+	}
+
+	// One sample, bound wrong: 0/1 with its interval, then 0/4... no - 0/2
+	// invocations, bare.
+	if !strings.Contains(line, wilson(0, 1).String()) {
+		t.Errorf("the row does not carry the sample interval:\n%s", line)
+	}
+	if !strings.HasSuffix(strings.TrimSpace(line), "0/2") {
+		t.Errorf("the row does not end in a bare invocation ratio:\n%s", line)
+	}
+	// Exactly one bracketed interval on the row.
+	if n := strings.Count(line, "["); n != 1 {
+		t.Errorf("the row carries %d intervals, want 1 - only the sample rate gets one:\n%s", n, line)
+	}
+}
