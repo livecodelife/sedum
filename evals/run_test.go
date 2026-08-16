@@ -702,6 +702,16 @@ func TestTheDescriptionArmsAreControlled(t *testing.T) {
 	if !reflect.DeepEqual(plain.Expect.Actions, described.Expect.Actions) {
 		t.Errorf("the arms expect different actions:\n  %v\n  %v", plain.Expect.Actions, described.Expect.Actions)
 	}
+	// Bindings are a property of the record too, and the arms answer one
+	// record. Two expectations that drifted apart would grade the same answer
+	// differently depending on which package produced it, which is the one
+	// thing a controlled comparison cannot survive (prov-2026-2b121b62).
+	if !reflect.DeepEqual(plain.Expect.Bindings, described.Expect.Bindings) {
+		t.Errorf("the arms expect different bindings:\n  %+v\n  %+v", plain.Expect.Bindings, described.Expect.Bindings)
+	}
+	if len(plain.Expect.Bindings) == 0 {
+		t.Error("neither arm expects any binding; the comparison measures selection only")
+	}
 }
 
 // The described set is the defined set with descriptions added, and this is what

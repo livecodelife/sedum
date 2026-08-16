@@ -703,6 +703,55 @@ selections the report prints, and set the counts from an answer that was
 actually complete. Writing them by reading the generator package would make the
 first run agree with them by construction.
 
+### `expect.bindings` — and the opposite discipline
+
+Counts say the model reached for the right actions. `expect.bindings` says
+whether it reached for them *correctly*:
+
+```yaml
+expect:
+  actions: {addColumn: 2}
+  bindings:
+    addColumn:
+      because: >-
+        The record: "the todos table carries exactly two columns of its own:
+        title, a string that is not null and carries no default, and completed,
+        a boolean that is not null and defaults to false."
+      key: [name]
+      invocations:
+        - {name: title,     type: string,  nullable: false, default: "nil"}
+        - {name: completed, type: boolean, nullable: false, default: "false"}
+```
+
+Scored **per kwarg**, so the report names the broken argument rather than saying
+an invocation was wrong — and printed as its own table, never folded into
+selection. Four smoke samples scored a perfect 6/6 on selection while every one
+of them bound `default` wrong; a combined rate would have hidden exactly that.
+
+| Rule | Why |
+|---|---|
+| `key` declares what identifies an invocation | Order carries no meaning, and best-match pairing would pair a wrong key with the expectation it least resembles — reporting a fumbled argument where the model addressed the wrong thing. A wrong key reads as one miss plus one unexpected invocation. |
+| Only named kwargs are scored | Silence is *not measured*, not *passing*. Adopt one kwarg at a time instead of specifying every fixture first. |
+| Comparison never stringifies | The string `"false"` is not the boolean `false`, and `""` is not `nil`. Rendering both sides to text would erase the distinction the whole thing exists for. Numbers are the one normalisation: JSON decodes to float64, YAML to int. |
+| `because` is required | Loading refuses a binding without it. |
+
+**Bindings are authored from the record; counts are established from a run.**
+Two opposite disciplines in one block, and which applies turns on whether the
+correct answer exists independently of the model. How many invocations a
+complete answer contains is nobody's computation — observe it. What `default`
+belongs on a not-null boolean column is stated in the record and settled by
+Rails — asking a run would be letting the thing under test grade itself. No
+sample has ever bound `default` correctly, so there was never an observation to
+establish these from; that is the finding, not a reason to wait.
+
+**Nothing mechanical can check that an expectation is right.** The diff test
+holds the described package to one difference and cannot say the descriptions
+are good. Type comparison says `"false"` is not `false` and cannot say `nil` was
+correct — only the record says that. The guards here catch drift and accident,
+not bad judgment. What protects a judgment is that it is written where someone
+can disagree with it, which is why `because` lives in the case file rather than
+only in `prov-2026-2b121b62`.
+
 ## Known rough edges
 
 - **Only the `sedum` arm runs.** `baseline` is declared and rejected at run time.

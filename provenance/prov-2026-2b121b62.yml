@@ -171,6 +171,10 @@ constraints:
   - Expectations stay optional. A case that names no bindings measures exactly what it measures today.
 affected_scope:
   - evals/case.go
+  # Scoring is its own file rather than more of run.go, which already holds the
+  # sampling loop and the selection tally.
+  - evals/binding.go
+  - evals/binding_test.go
   - evals/run.go
   - evals/report.go
   - evals/run_test.go

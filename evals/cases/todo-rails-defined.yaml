@@ -59,6 +59,49 @@ expect:
     # (prov-2026-eb283c56), within minutes of there being any.
     addModelTest: 1
 
+  # Authored from the record rather than established from a run, which is the
+  # opposite discipline the counts above are under. A count is a property of
+  # the package and the record together that nobody has computed, so it is set
+  # from an answer that was actually complete. A binding is stated in the
+  # record and settled by Rails, so setting it from a run would be asking the
+  # thing under test to grade itself (prov-2026-2b121b62).
+  #
+  # No sample has yet bound `default` correctly on either column, so there was
+  # never an observation to establish these from - and that is the finding, not
+  # a reason to wait.
+  bindings:
+    addColumn:
+      because: >-
+        The record: "The todos table carries exactly two columns of its own:
+        title, a string that is not null and carries no default, and completed,
+        a boolean that is not null and defaults to false." default is rendered
+        into the migration verbatim, so the correct values are the Ruby
+        literals nil and false - as text, because the kwarg's type is string.
+        The primary key and the timestamps are the framework's, so a third
+        column would be a duplicate.
+      key: [name]
+      invocations:
+        # A string column with no default. nil is what "carries no default"
+        # renders as; an empty string renders "default: " and does not parse.
+        - resource: todo
+          # Read off the path the record authorizes, never invented. It is
+          # scored because it is knowable here; a kwarg that were not would be
+          # left out and report as not scored rather than be given a pattern to
+          # satisfy.
+          stamp: "20260814000000"
+          name: title
+          type: string
+          nullable: false
+          default: "nil"
+        # An unquoted false. The string "false" renders default: "false", which
+        # is a string default on a boolean column.
+        - resource: todo
+          stamp: "20260814000000"
+          name: completed
+          type: boolean
+          nullable: false
+          default: "false"
+
 # Reserved. Measuring this means applying the selection, starting the target and
 # running its contracts - a container and a database per sample rather than one
 # model call. Declared so the schema does not change once it is implemented.

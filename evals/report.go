@@ -120,8 +120,39 @@ func Report(out io.Writer, m Measurement) {
 			r.Mean, r.FirstRate*100)
 	}
 
+	bindings(out, m, scored)
+
 	if m.Case.Expect.Behavior != nil {
 		fmt.Fprintln(out, "  behavior: declared but not measured; applying and running the target is not implemented")
+	}
+}
+
+// bindings renders what the model bound, beside the selection table and never
+// folded into it.
+//
+// A combined rate would hide the case this exists to surface: four smoke
+// samples scored a perfect six-of-six on selection while every one of them
+// bound `default` wrong (prov-2026-2b121b62). Selection and binding are
+// different measurements and the table says so by being a different table.
+func bindings(out io.Writer, m Measurement, scored int) {
+	results := m.ScoredBindings()
+	if len(results) == 0 {
+		return
+	}
+
+	fmt.Fprintf(out, "  %-24s %-12s %18s %s\n", "action", "kwarg", "bound", "")
+	for _, r := range results {
+		for _, k := range r.Kwargs {
+			fmt.Fprintf(out, "  %-24s %-12s %18s\n", r.Action, k.Kwarg, wilson(k.Correct, k.Scored))
+		}
+		// An expected invocation nothing answered and an answered one nothing
+		// expected are reported rather than dropped. A key bound wrong produces
+		// one of each, which is the honest reading: the model did not fumble an
+		// argument, it addressed something nobody asked for.
+		if r.Missing > 0 || r.Unexpected > 0 {
+			fmt.Fprintf(out, "  %-24s %d expected invocation(s) unanswered, %d answered invocation(s) nobody expected, over %d sample(s)\n",
+				r.Action, r.Missing, r.Unexpected, scored)
+		}
 	}
 }
 

@@ -122,11 +122,59 @@ type Expectations struct {
 	// contains. An action listed with count 0 is one that should not appear.
 	Actions map[string]int `yaml:"actions"`
 
+	// Bindings is what a complete answer binds those invocations to, keyed by
+	// action. Optional: a case that names none measures exactly what it
+	// measured before this field existed.
+	//
+	// Counts and bindings are authored under opposite disciplines, and which
+	// applies turns on whether the correct answer exists independently of the
+	// model. A count is a property of the package and the record together that
+	// nobody has computed, so it is established from a run that produced a
+	// complete answer. A binding is stated in the record and settled by the
+	// target framework, so establishing it from a run would be asking the thing
+	// under test to grade itself (prov-2026-2b121b62).
+	Bindings map[string]ActionBinding `yaml:"bindings,omitempty"`
+
 	// Behavior is the fraction of the application's linespec contracts a
 	// complete answer would satisfy. Reserved: measuring it means applying the
 	// selection, starting the target and running its suite, which is a
 	// different order of cost from a model call and is not implemented.
 	Behavior *BehaviorExpectation `yaml:"behavior,omitempty"`
+}
+
+// ActionBinding is what one action's invocations should carry.
+type ActionBinding struct {
+	// Because is the constraint this expectation was authored from, quoted or
+	// paraphrased from the record the case runs.
+	//
+	// Required, and loading refuses a binding block without one. Nothing
+	// mechanical can check that an expectation is right - type comparison can
+	// say the string "false" is not the boolean false, and nothing can say nil
+	// was the correct default except the record saying so. What protects the
+	// judgment is that it is legible where someone can disagree with it, and a
+	// reader deciding whether an expectation is correct should not have to find
+	// the provenance record to do it (prov-2026-2b121b62).
+	Because string `yaml:"because"`
+
+	// Key names the kwargs that identify an invocation, and pairing an answer
+	// against Invocations is by their values.
+	//
+	// Declared rather than inferred because the alternatives are both wrong.
+	// Position carries no meaning - the model emits invocations in whatever
+	// order it produced them. Best-match pairing would silently pair an
+	// invocation whose identifying kwarg is wrong with the expectation it least
+	// resembles, reporting a near-miss where the model addressed the wrong
+	// thing entirely.
+	Key []string `yaml:"key"`
+
+	// Invocations is one entry per invocation a complete answer contains, each
+	// holding the kwargs being expected of it.
+	//
+	// Only the kwargs named here are scored. An unnamed one reports as not
+	// scored rather than as passing, so a fixture can adopt this one kwarg at a
+	// time instead of having to be fully specified before any of it can be
+	// measured.
+	Invocations []map[string]any `yaml:"invocations"`
 }
 
 // BehaviorExpectation reserves the shape of the expensive half.
@@ -211,6 +259,12 @@ func (c Case) validate(file string) error {
 		}
 	}
 
+	for action, b := range c.Expect.Bindings {
+		if err := b.validate(file, c.ID, action); err != nil {
+			return err
+		}
+	}
+
 	switch c.Arm {
 	case "sedum":
 		for label, dir := range map[string]string{"generators": c.Generators, "records": c.Records} {
@@ -230,4 +284,53 @@ func (c Case) validate(file string) error {
 		return fmt.Errorf("%s: case %s has arm %q, want \"sedum\" or \"baseline\"", file, c.ID, c.Arm)
 	}
 	return nil
+}
+
+// validate refuses a binding block that cannot be scored or cannot be argued
+// with.
+func (b ActionBinding) validate(file, caseID, action string) error {
+	if strings.TrimSpace(b.Because) == "" {
+		return fmt.Errorf("%s: case %s binding for %s states no `because`; a binding expectation is a judgment about what is correct, and one nobody can check against the record is worse than none",
+			file, caseID, action)
+	}
+	if len(b.Key) == 0 {
+		return fmt.Errorf("%s: case %s binding for %s declares no key; an answer's invocations arrive in no particular order and something has to say which expectation each one answers",
+			file, caseID, action)
+	}
+	if len(b.Invocations) == 0 {
+		return fmt.Errorf("%s: case %s binding for %s expects no invocations", file, caseID, action)
+	}
+
+	seen := map[string]bool{}
+	for i, inv := range b.Invocations {
+		for _, k := range b.Key {
+			if _, ok := inv[k]; !ok {
+				return fmt.Errorf("%s: case %s binding for %s invocation %d carries no %q, which is one of its key kwargs",
+					file, caseID, action, i+1, k)
+			}
+		}
+		// Two expected invocations sharing a key would each match the same
+		// answer, so one of them could never be missed however wrong the
+		// answer was.
+		id := keyOf(inv, b.Key)
+		if seen[id] {
+			return fmt.Errorf("%s: case %s binding for %s has two invocations keyed %s; a key that does not distinguish them cannot pair either one",
+				file, caseID, action, id)
+		}
+		seen[id] = true
+	}
+	return nil
+}
+
+// keyOf is an invocation's identity under a key, as a comparable string.
+//
+// This is the one place values are rendered to text, and it is safe here
+// because it decides *which* expectation an invocation answers rather than
+// whether it answers it correctly. Scoring never stringifies (prov-2026-2b121b62).
+func keyOf(kwargs map[string]any, key []string) string {
+	parts := make([]string, 0, len(key))
+	for _, k := range key {
+		parts = append(parts, fmt.Sprintf("%s=%v", k, kwargs[k]))
+	}
+	return strings.Join(parts, " ")
 }
