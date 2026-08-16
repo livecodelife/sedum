@@ -1,0 +1,113 @@
+id: prov-2026-9a554c93
+title: A required kwarg bound to nothing is not bound, and the rules that say so are a named vocabulary
+status: draft
+created_at: "2026-08-16"
+author: calebcowen@gmail.com
+intent: |
+  Phase 5 checks that a required kwarg is present and never that it holds
+  anything:
+
+      if _, bound := inv.Kwargs[name]; !bound {
+          missing = append(missing, name)
+      }
+
+  So `default: ""` satisfies `required: true`. It passes the type check, it is
+  a string. It passes the derived-requirement check, it is present. It renders.
+
+  ## What it rendered
+
+  Found by measurement rather than argued for. The eval harness began storing
+  bound arguments ([[prov-2026-2256e6fa]]), and the first coarse run of the
+  rails fixture produced this:
+
+      t.string :title, null: false, default:
+
+  Ruby that does not parse, from an answer every Phase 5 check passed. The
+  model bound the empty string twice across nine samples, on a kwarg whose
+  description tells it to write `nil` when a column carries no default.
+
+  [[prov-2026-c5697387]] predicted the shape of this exactly - "it often cannot
+  tell; a valid string for a required string kwarg, every Phase 5 check passes,
+  and the failure surfaces in a running Rails app" - and offered descriptions as
+  the answer. This is the same failure with a different remedy available:
+  nothing about `""` needs prose to diagnose. The author already said the value
+  is required, and an empty one is the model reporting it had nothing to put
+  there.
+
+  ## Required means holds a value
+
+  A required kwarg bound to an empty string, or to an empty list, is not bound.
+  It becomes a violation the retry loop can act on, which is where this belongs:
+  the loop's value is telling the model exactly what was wrong, and "kwarg
+  default is required and was bound to an empty string" is precisely actionable
+  in a way that a NameError in a running application three phases later is not
+  ([[prov-2026-9dcf2658]]).
+
+  Only emptiness, and only where empty is expressible. Zero is a number and
+  false is a boolean; both are values an author may want and neither is the
+  model declining to answer. A string and a list are the two types with a shape
+  that carries nothing, and they are the two this reads.
+
+  An optional kwarg is untouched. Absence is what optional means, and an author
+  who made a kwarg optional has already said the template can do without it.
+
+  ## Why this is not a workaround for a bad kwarg
+
+  `default` is badly shaped and this does not fix that. It asks for a sentinel
+  string to mean absence because the template grammar has no conditionals, and
+  across nine samples the model produced `nil` once. Restructuring it - most
+  likely as a discriminated action with a variant that omits the clause - is a
+  change to the house standard and belongs to whoever owns that standard.
+
+  This is the narrower and unconditional half: whatever `default` is eventually
+  shaped like, a required kwarg holding nothing is a fault, and Sedum should say
+  so rather than render it.
+
+  ## The rules become a vocabulary
+
+  The nine rule slugs are string literals scattered through validate.go, and
+  this adds a tenth. [[prov-2026-2256e6fa]] began storing them in an append-only
+  results file, which makes them a format outliving the code that emits them, in
+  the same way the ownership marker is one ([[prov-2026-72775ae5]]).
+
+  A format defined by ten separate literals drifts the first time one is
+  reworded, and the entry written last year keeps the old spelling with nothing
+  to resolve it against. They become named constants, declared together, so a
+  reader of an old entry can find out what a slug meant and a caller can test
+  for one without matching prose.
+
+  That record wanted to do this and could not: an imprint of the eval blueprint
+  cannot govern a file that blueprint does not, and the harness is deliberately
+  not part of Sedum. It waited for a record on this side, which is this one.
+constraints:
+  - A required kwarg bound to an empty string or an empty list is a violation, reported per invocation and naming the kwarg, so the retry loop can tell the model what to put there.
+  - Only string and list are read for emptiness. Zero and false are values an author may legitimately want, and neither is the model declining to answer.
+  - An optional kwarg is untouched, because absence is what optional already means.
+  - The violation is distinct from missing_kwarg. A kwarg the model never mentioned and one it deliberately emptied are different mistakes, and a shared slug would make them one row in every count drawn from a results file.
+  - Every rule slug is a named constant declared in one place, because storing them in an append-only file made them a format rather than an implementation detail.
+  - This does not reshape the default kwarg. A sentinel string standing for absence is a house-standard decision, and this holds only that a required kwarg holding nothing is a fault whatever shape it ends up with.
+affected_scope:
+  - internal/selection/validate.go
+  - internal/selection/selection.go
+  - internal/selection/selection_test.go
+forbidden_scope: []
+type: blueprint
+implements: prov-2026-d554bfc3
+supersedes: ""
+superseded_by: ""
+related:
+  - prov-2026-c5697387
+  - prov-2026-2256e6fa
+  - prov-2026-9dcf2658
+  - prov-2026-72775ae5
+  - prov-2026-0811425c
+sealed_at_sha: ""
+associated_specs:
+  - path: internal/selection/selection_test.go
+    run_command: go test -count=1 ./$(dirname {{path}})
+associated_traces: []
+monitors: []
+tags:
+  - sedum
+  - selection
+  - validation
