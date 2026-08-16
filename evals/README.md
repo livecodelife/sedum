@@ -12,6 +12,47 @@ non-goal untrue by adjacency if it shipped as part of the tool.
 ## Running it
 
 ```
+go run ./evals/cmd/eval                                    # every case, coarse
+go run ./evals/cmd/eval todo-rails-described               # one case
+go run ./evals/cmd/eval -res fine -model llama.cpp \
+  todo-rails-defined todo-rails-described                  # the description A/B
+go run ./evals/cmd/eval -dry -res fine todo-rails-defined  # print the plan, run nothing
+```
+
+| Flag | Meaning |
+|---|---|
+| `-res <r>` | The question being asked: `smoke`, `coarse` or `fine`. Default `coarse`. Sets the sample size. |
+| `-model <substr>` | Run only models whose label contains this. One row at a time when memory is tight. |
+| `-n <n>` | Runs per model. Default: whatever the resolution calls for. A count *below* it is refused. |
+| `-c <n>` | Samples in flight at once. Default 1. |
+| `-retries <n>` | Re-prompts a rejected answer may spend. Default 0. See below before raising it. |
+| `-dirty` | Run against a dirty tree anyway; the entry records as not re-runnable. |
+| `-dry` | Print the plan and the invocation, run nothing. |
+
+It prints what the run will cost before spending it, and the exact `go test`
+line it is about to execute — it is a wrapper, and every flag it passes is one
+the runner already accepts.
+
+Three things it does that the raw invocation does not:
+
+**It sizes the timeout from the run.** `go test` defaults to ten minutes and a
+fine run takes forty-five. A forgotten `-timeout` does not fail fast; it kills
+the run partway and no entry is written.
+
+**It refuses a dirty tree.** An entry taken mid-edit is recorded as not
+re-runnable from its commit, which is a thing to discover before spending
+forty-five minutes rather than after. `-dirty` says otherwise deliberately.
+
+**It stops between cases when the previous entry is uncommitted.** The first
+arm's own result file is untracked when it finishes, and `clean` is read from
+`git status --porcelain`, so the second arm would record dirty *because the
+first one succeeded*. It names the file to commit and stops. It commits nothing
+itself — that commit needs a provenance tag the command has no way to choose.
+
+<details>
+<summary>The underlying invocation</summary>
+
+```
 OPENAI_BASE_URL=http://127.0.0.1:1234/v1 OPENAI_API_KEY=local \
   go test -tags eval ./evals -v -timeout 60m
 ```
@@ -19,13 +60,19 @@ OPENAI_BASE_URL=http://127.0.0.1:1234/v1 OPENAI_API_KEY=local \
 | Flag | Meaning |
 |---|---|
 | `-eval.case <id>` | Run one case. Default: all. |
-| `-eval.resolution <r>` | The question being asked: `smoke`, `coarse` or `fine`. Default `coarse`. Sets the sample size. |
-| `-eval.samples <n>` | Runs per model. Default: whatever the resolution calls for. A count *below* it is refused. |
-| `-eval.model <substr>` | Run only models whose label contains this. One row at a time when memory is tight. |
+| `-eval.resolution <r>` | The question being asked: `smoke`, `coarse` or `fine`. Default `coarse`. |
+| `-eval.samples <n>` | Runs per model. Default: whatever the resolution calls for. |
+| `-eval.model <substr>` | Run only models whose label contains this. |
 | `-eval.root <dir>` | Where the vendored fixtures live. Default `testdata`. |
-| `-eval.retries <n>` | Re-prompts a rejected answer may spend. Default 0. See below before raising it. |
+| `-eval.retries <n>` | Re-prompts a rejected answer may spend. Default 0. |
+| `-eval.concurrency <n>` | Samples in flight at once. Default 1. |
+| `-eval.results <dir>` | Where results are appended. Empty disables recording. |
 
-Without an endpoint configured the runner skips rather than fails.
+</details>
+
+The endpoint defaults to `http://127.0.0.1:1234/v1` and the key to `local`, and
+neither overrides what the environment already sets. Without an endpoint
+configured the runner skips rather than fails.
 
 ## Reading the history
 
@@ -495,13 +542,11 @@ One model row at a time, because a 24GB machine holds one 14B resident and the
 two arms have to face the same one:
 
 ```
-OPENAI_BASE_URL=http://127.0.0.1:1234/v1 OPENAI_API_KEY=local \
-  go test -tags eval ./evals -v -timeout 180m -eval.resolution fine \
-    -eval.model llama.cpp -eval.case todo-rails-defined
+go run ./evals/cmd/eval -res fine -model llama.cpp \
+  todo-rails-defined todo-rails-described
 
-OPENAI_BASE_URL=http://127.0.0.1:1234/v1 OPENAI_API_KEY=local \
-  go test -tags eval ./evals -v -timeout 180m -eval.resolution fine \
-    -eval.model llama.cpp -eval.case todo-rails-described
+# it stops after the first arm; commit that entry, then:
+go run ./evals/cmd/eval -res fine -model llama.cpp todo-rails-described
 
 go run ./evals/cmd/history todo-rails-described
 ```
@@ -512,7 +557,8 @@ About 45 minutes an arm on the local 14B row, by the timing table above.
 status --porcelain`, which counts untracked files, so the first arm's own result
 file is what makes the tree dirty for the second — and an arm that records
 `clean: false` is not pinned to a commit and cannot be re-run against the same
-fixture. This is how every entry already in `results/` came to be dirty.
+fixture. This is how every entry already in `results/` came to be dirty. The
+command stops rather than letting it happen; it does not commit for you.
 
 **Thirty per arm, fixed before the run.** The rails arm has come in at 4/4 and
 5/5 across its whole history, so this is a fine question by the taxonomy below:
