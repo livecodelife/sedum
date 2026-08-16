@@ -10,6 +10,8 @@ import (
 	"sort"
 	"strings"
 	"time"
+
+	"github.com/calebcowen/sedum/internal/recording"
 )
 
 // An Entry is one run, recorded as it happened.
@@ -110,6 +112,20 @@ type SampleRun struct {
 	// says "not measured" rather than "cost nothing".
 	PromptTokens     int `json:"prompt_tokens,omitempty"`
 	CompletionTokens int `json:"completion_tokens,omitempty"`
+
+	// Rules are the rule slugs an invalid sample was rejected under, and
+	// Invocations is what a valid one bound.
+	//
+	// Both are additive and both are stored rather than scored: nothing here
+	// derives a rate from them, because a scoring rule is a decision and the
+	// change that first makes data visible should not also decide what to
+	// conclude from it (prov-2026-2256e6fa).
+	//
+	// An entry written before these carries neither, which reads as "not
+	// recorded" exactly as the earlier additions do - the schema is additive
+	// and a reader ignores what it does not recognise (prov-2026-eb283c56).
+	Rules       []string               `json:"rules,omitempty"`
+	Invocations []recording.Invocation `json:"invocations,omitempty"`
 }
 
 // EntrySchema is the current entry format. Additive changes do not move it.
@@ -159,6 +175,8 @@ func NewEntry(m Measurement, endpoint string) Entry {
 			Completeness:     s.Completeness,
 			PromptTokens:     s.PromptTokens,
 			CompletionTokens: s.CompletionTokens,
+			Rules:            s.Rules,
+			Invocations:      s.Invocations,
 		}
 		switch {
 		case s.Err != nil:

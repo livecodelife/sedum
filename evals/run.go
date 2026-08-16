@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/calebcowen/sedum/internal/pipeline"
+	"github.com/calebcowen/sedum/internal/recording"
 	"github.com/calebcowen/sedum/internal/selection"
 )
 
@@ -44,6 +45,35 @@ type Sample struct {
 	// Detail is why a sample was invalid or failed, kept so a rate is never
 	// reported without the ability to say what the misses looked like.
 	Detail string
+
+	// Rules are the rule slugs this sample was rejected under, one entry per
+	// violation, in attempt order and with repeats kept.
+	//
+	// Detail is the rendered first line of the same thing and is unusable in
+	// aggregate: the description A/B produced 7 rejections in one arm and 11 in
+	// the other, and every one of them read "the model's output did not
+	// validate within 1 attempt(s)". A slug can be counted, which is the
+	// difference between knowing the model failed more often and knowing it
+	// failed differently (prov-2026-2256e6fa).
+	//
+	// Repeats are kept because a model making one mistake three times and three
+	// mistakes once are different problems, which is the same reason
+	// Rejection.Attempts keeps every attempt whole (prov-2026-0811425c).
+	Rules []string
+
+	// Invocations is what the model bound, action by action, for a sample that
+	// produced an answer.
+	//
+	// Counts are a projection of this and were until now the only thing kept.
+	// Every failure that motivated kwarg descriptions was a correctly selected
+	// action with a wrong argument (prov-2026-c5697387), so a count cannot see
+	// the thing they were added for, while the arguments were in memory one
+	// line before being discarded.
+	//
+	// Storing them makes an entry re-scorable: a rule invented later can be run
+	// against samples drawn before it existed, instead of re-drawing two arms
+	// at eighty minutes a pair every time a question is sharpened.
+	Invocations []recording.Invocation
 
 	// Calls, Rejected, Completeness and the token counts are what the sample
 	// cost, summed over the case's records.
@@ -263,6 +293,7 @@ func sample(ctx context.Context, c Case, model string, retries int) Sample {
 			return Sample{
 				Invalid:          true,
 				Detail:           firstLine(err.Error()),
+				Rules:            rulesOf(rejected),
 				Calls:            rejected.Calls,
 				Rejected:         rejected.Rejected,
 				Completeness:     rejected.Completeness,
@@ -288,8 +319,28 @@ func sample(ctx context.Context, c Case, model string, retries int) Sample {
 			s.Counts[inv.Action]++
 			s.Total++
 		}
+		// Kept whole beside the counts rather than instead of them. Counts are
+		// what every stored entry and every expectation is written in; the
+		// invocations are what a question about arguments has to be answered
+		// from (prov-2026-2256e6fa).
+		s.Invocations = append(s.Invocations, sel.Invocations...)
 	}
 	return s
+}
+
+// rulesOf is every rule slug a rejection cited, in attempt order, repeats kept.
+//
+// A slug rather than the rendered violation: the prose names an action and a
+// path and is different on every sample, so it cannot be counted, while the
+// slug is the field that exists to be.
+func rulesOf(r *selection.Rejection) []string {
+	var out []string
+	for _, a := range r.Attempts {
+		for _, v := range a.Violations {
+			out = append(out, v.Rule)
+		}
+	}
+	return out
 }
 
 // ActionResult is one action's observed behavior across a measurement's samples.

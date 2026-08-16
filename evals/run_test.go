@@ -15,6 +15,8 @@ import (
 	"time"
 
 	"github.com/calebcowen/sedum/internal/genpkg"
+	"github.com/calebcowen/sedum/internal/recording"
+	"github.com/calebcowen/sedum/internal/selection"
 )
 
 // The harness's own arithmetic is deterministic and is tested as such. Only the
@@ -1093,4 +1095,105 @@ func markOf(out, commit string) string {
 		}
 	}
 	return ""
+}
+
+// Eleven rejections that all render the same line are eleven rejections nobody
+// can compare. The slug is the field that can be counted, and it survives into
+// the entry beside the prose rather than instead of it (prov-2026-2256e6fa).
+func TestARejectedSampleRecordsWhichRulesRejectedIt(t *testing.T) {
+	rejection := &selection.Rejection{
+		RecordID: "eval-todo-rails",
+		Retries:  1,
+		Attempts: []selection.Attempt{
+			{Number: 1, Violations: []selection.Violation{
+				{Index: 1, Action: "addColumn", Rule: "missing_kwarg", Detail: "stamp"},
+				{Index: 3, Action: "addRoute", Rule: "unknown_action", Detail: "no such action"},
+			}},
+			// A model making one mistake twice and two mistakes once are
+			// different problems, so a repeat is kept rather than deduplicated.
+			{Number: 2, Violations: []selection.Violation{
+				{Index: 1, Action: "addColumn", Rule: "missing_kwarg", Detail: "stamp"},
+			}},
+		},
+	}
+
+	got := rulesOf(rejection)
+	want := []string{"missing_kwarg", "unknown_action", "missing_kwarg"}
+	if !reflect.DeepEqual(got, want) {
+		t.Errorf("recorded %v, want %v in attempt order with repeats kept", got, want)
+	}
+
+	// The rendered prose is what every sample shares and is why the arms were
+	// indistinguishable; it stays, because a rate still has to be able to say
+	// what its misses looked like.
+	e := NewEntry(Measurement{
+		Case:    Case{ID: "x"},
+		Model:   Model{ID: "m", Engine: "test"},
+		Samples: []Sample{{Invalid: true, Detail: "did not validate", Rules: got}},
+	}, "http://endpoint")
+
+	if len(e.Runs) != 1 || e.Runs[0].Outcome != "invalid" {
+		t.Fatalf("the sample was stored as %+v", e.Runs)
+	}
+	if !reflect.DeepEqual(e.Runs[0].Rules, want) {
+		t.Errorf("the entry stored rules %v, want %v", e.Runs[0].Rules, want)
+	}
+}
+
+// Counts are a projection of the invocations and were the only thing kept. A
+// wrong argument on a correctly selected action - which is every failure kwarg
+// descriptions were added for - is invisible in the projection and plain in the
+// original (prov-2026-2256e6fa).
+func TestAValidSampleRecordsWhatItBound(t *testing.T) {
+	invocations := []recording.Invocation{
+		{Action: "addColumn", Kwargs: map[string]any{"resource": "todo", "name": "title", "type": "string"}},
+		{Action: "addColumn", Kwargs: map[string]any{"resource": "todo", "name": "completed", "type": "boolean"}},
+	}
+
+	e := NewEntry(Measurement{
+		Case:    Case{ID: "x"},
+		Model:   Model{ID: "m", Engine: "test"},
+		Samples: []Sample{{Counts: map[string]int{"addColumn": 2}, First: "addColumn", Invocations: invocations}},
+	}, "http://endpoint")
+
+	if !reflect.DeepEqual(e.Runs[0].Invocations, invocations) {
+		t.Fatalf("stored %+v, want the bound arguments", e.Runs[0].Invocations)
+	}
+
+	// Through JSON, because the value of storing this is that a rule invented
+	// later can be run against a sample drawn before it existed.
+	raw, err := json.Marshal(e)
+	if err != nil {
+		t.Fatalf("marshalling: %v", err)
+	}
+	var back Entry
+	if err := json.Unmarshal(raw, &back); err != nil {
+		t.Fatalf("unmarshalling: %v", err)
+	}
+	if got := back.Runs[0].Invocations[1].Kwargs["name"]; got != "completed" {
+		t.Errorf("a bound argument did not survive the round trip: %v", got)
+	}
+
+	// Counts are unchanged by this. Every expectation and every stored entry is
+	// written in them, and the invocations are kept beside rather than instead.
+	if back.Runs[0].Counts["addColumn"] != 2 {
+		t.Errorf("the counts changed: %v", back.Runs[0].Counts)
+	}
+}
+
+// The fields are additive, so an entry written before them decodes and keeps
+// meaning what it meant - the same promise the retry and token fields were
+// added under (prov-2026-eb283c56).
+func TestAnEntryWrittenBeforeTheseFieldsStillDecodes(t *testing.T) {
+	var old Entry
+	raw := `{"schema":1,"case":"x","samples":5,"valid":5,"runs":[{"outcome":"valid","counts":{"addColumn":2}}]}`
+	if err := json.Unmarshal([]byte(raw), &old); err != nil {
+		t.Fatalf("an entry written before these fields no longer decodes: %v", err)
+	}
+	if old.Runs[0].Rules != nil || old.Runs[0].Invocations != nil {
+		t.Errorf("an older entry invented data it does not carry: %+v", old.Runs[0])
+	}
+	if old.Runs[0].Counts["addColumn"] != 2 {
+		t.Errorf("an older entry lost what it did carry: %v", old.Runs[0].Counts)
+	}
 }

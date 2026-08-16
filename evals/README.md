@@ -167,6 +167,36 @@ comparison.
 It reads committed files only — no endpoint, no model, no build tag — and never
 writes.
 
+### What a sample keeps
+
+Beyond the counts, each stored sample carries what produced it:
+
+| Field | On | What it is |
+|---|---|---|
+| `counts` / `first` | valid | invocations per action, and which one opened |
+| `rules` | invalid | the rule slugs it was rejected under, attempt order, repeats kept |
+| `invocations` | valid | every action **with the arguments bound to it** |
+| `calls` / `rejected` / tokens | both | what it cost |
+
+`rules` exists because `details` cannot be counted. The description A/B produced
+7 rejections in one arm and 11 in the other, and every one of them rendered as
+*"the model's output did not validate within 1 attempt(s)"* — so the run could
+say the model failed more often and not whether it failed *differently*. A slug
+can be tallied; the prose stays in `details` for reading.
+
+`invocations` exists because counts are a projection. Every failure that
+motivated kwarg descriptions was a correctly *selected* action with a *wrong
+argument*, which a count cannot see — and the arguments were in memory one line
+before being discarded. Keeping them also makes an entry re-scorable: a rule
+invented later runs against samples drawn before it existed, instead of
+re-drawing two arms at eighty minutes a pair every time a question is sharpened.
+
+**Both are stored and neither is scored.** No expectation, report column or rate
+is derived from them yet — a scoring rule is its own decision, and the change
+that first makes data visible should not also decide what to conclude from it
+(`prov-2026-2256e6fa`). Entries written before these fields carry neither and
+read as *not recorded*, exactly as the earlier additions do.
+
 ## Why it exists
 
 The measurement that corrected `prov-2026-6d87dc11` was nineteen shell loops with
