@@ -181,6 +181,9 @@ affected_scope:
   - evals/results_test.go
   - evals/cases/**
   - evals/README.md
+  # The smoke run that shows the two tables side by side on a real answer: a
+  # perfect selection row above default at zero.
+  - evals/results/todo-rails-described.jsonl
 forbidden_scope: []
 type: imprint
 implements: prov-2026-e6969eb3
