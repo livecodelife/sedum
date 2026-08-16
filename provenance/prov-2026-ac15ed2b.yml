@@ -152,6 +152,11 @@ affected_scope:
   # The fixture layout doc lists what generators/ holds, so a set added without
   # touching it leaves the one map of the directory wrong by omission.
   - evals/testdata/README.md
+  # The measurement itself. Results are append-only observations governed by
+  # prov-2026-eb283c56, and each entry is committed under the record whose
+  # question it answers - which for these two files is this one.
+  - evals/results/todo-rails-described.jsonl
+  - evals/results/todo-rails-defined.jsonl
 forbidden_scope: []
 type: imprint
 implements: prov-2026-e6969eb3

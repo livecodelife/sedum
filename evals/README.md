@@ -479,6 +479,12 @@ go run ./evals/cmd/history todo-rails-described
 
 About 45 minutes an arm on the local 14B row, by the timing table above.
 
+**Commit each arm's entry before running the next.** `clean` comes from `git
+status --porcelain`, which counts untracked files, so the first arm's own result
+file is what makes the tree dirty for the second — and an arm that records
+`clean: false` is not pinned to a commit and cannot be re-run against the same
+fixture. This is how every entry already in `results/` came to be dirty.
+
 **Thirty per arm, fixed before the run.** The rails arm has come in at 4/4 and
 5/5 across its whole history, so this is a fine question by the taxonomy below:
 moving a rate that is already at the ceiling. At five samples 4/5 is [0.38,0.96]
