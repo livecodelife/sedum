@@ -1,0 +1,111 @@
+id: prov-2026-2256e6fa
+title: A rejected sample records which rules rejected it, and a valid one records what it bound
+status: draft
+created_at: "2026-08-16"
+author: calebcowen@gmail.com
+intent: |
+  An eval entry keeps each sample's action counts and throws away everything
+  else the sample produced. Two things worth having are discarded at the point
+  they are already in hand, and both were wanted the moment
+  [[prov-2026-ac15ed2b]] returned a number nobody could explain.
+
+  ## Eleven rejections that all read the same
+
+  [[prov-2026-0811425c]] made a rejected answer a type rather than a string,
+  and Rejection.Attempts keeps every rejected answer with its violations "kept
+  whole" - each violation carrying an index, an action, a rule slug and a
+  detail. The harness reduces all of that to firstLine(err.Error()), the entry
+  deduplicates what survives, and thirty samples arrive as one line:
+
+      record eval-todo-rails: the model's output did not validate within 1
+      attempt(s)
+
+  So the description A/B produced 7 rejections in one arm and 11 in the other
+  and cannot say whether they were the same kind of rejection. That is the
+  difference between "descriptions made the model fail differently" and
+  "descriptions made it fail more often", and it was thrown away by a function
+  called firstLine.
+
+  A violation's Rule is the field for this. It is a slug rather than prose
+  precisely so a caller can count it, and counting rejections by rule turns an
+  invalid sample from a number into an observation.
+
+  ## Every bound argument, discarded one line after arriving
+
+  run.go loops over sel.Invocations and increments a counter per action. The
+  invocation it is looking at is a recording.Invocation, which carries
+  Kwargs - the actual arguments the model bound. Those are dropped.
+
+  This is the more expensive loss. Every failure that motivated
+  [[prov-2026-c5697387]] was a correctly *selected* action with a *wrong
+  argument*, so descriptions cannot be evaluated from counts at all, and
+  ac15ed2b said as much before it ran. The measurement that would settle it
+  needs no container, no database and no extra model call - the answer is
+  already in memory and is deleted rather than stored.
+
+  Storing it also makes an entry re-scorable. A scoring rule invented next
+  month can be run against every sample drawn before it existed, which is
+  worth more than any single rate: the alternative is re-running two arms at
+  eighty minutes a pair every time a question is sharpened.
+
+  ## What this record does not do
+
+  It stores. It does not score. Expectations stay counts, the report keeps the
+  columns it has, and no rate is derived from either field yet - binding
+  expectations are their own decision and their own record, and putting them
+  here would mean designing a scoring rule in the same change that first makes
+  the data available to look at.
+
+  ## A stored rule slug is a format
+
+  The rule slugs are string literals scattered through validate.go. Writing
+  them into an append-only file makes them a format that outlives the code
+  that produced them, in the same way the ownership marker is one
+  ([[prov-2026-72775ae5]]), and a format defined by nine separate literals
+  drifts the first time one is reworded. They become named constants, which is
+  what lets a reader of an old entry find out what "missing_derived_kwarg"
+  meant.
+
+  ## Size
+
+  Thirty samples of roughly fifteen invocations, each with a handful of short
+  kwargs. That is tens of kilobytes an entry against the few hundred bytes one
+  costs now. The file is read by a program and appended to a few times a day,
+  and the schema was designed to grow ([[prov-2026-eb283c56]]).
+constraints:
+  - Both fields are additive. An entry written before them stays readable and keeps meaning what it meant, and a reader ignores what it does not recognise.
+  - A rejected sample records the rule slugs it was rejected under, per attempt, rather than a rendered message. The prose stays in Detail; the slug is what can be counted.
+  - A valid sample records every invocation it produced with the arguments bound to it, so binding can be scored later without drawing the samples again.
+  - This record stores and does not score. No expectation, report column or rate is derived from either field here - that is a separate decision.
+  - The rule slugs become named constants, because an append-only file makes them a format rather than an implementation detail.
+affected_scope:
+  - evals/run.go
+  - evals/results.go
+  - evals/run_test.go
+  - evals/results_test.go
+  - evals/README.md
+  - internal/selection/validate.go
+  - internal/selection/selection_test.go
+forbidden_scope: []
+type: imprint
+implements: prov-2026-e6969eb3
+supersedes: ""
+superseded_by: ""
+related:
+  - prov-2026-ac15ed2b
+  - prov-2026-0811425c
+  - prov-2026-c5697387
+  - prov-2026-eb283c56
+  - prov-2026-72775ae5
+sealed_at_sha: ""
+associated_specs:
+  - path: evals/run_test.go
+    run_command: go test -count=1 ./$(dirname {{path}})
+  - path: internal/selection/selection_test.go
+    run_command: go test -count=1 ./$(dirname {{path}})
+associated_traces: []
+monitors: []
+tags:
+  - sedum
+  - evals
+  - measurement
