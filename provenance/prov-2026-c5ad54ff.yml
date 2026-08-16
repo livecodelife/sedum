@@ -1,0 +1,99 @@
+id: prov-2026-c5ad54ff
+title: An entry that cannot be re-run or does not state its question is marked and not compared
+status: draft
+created_at: "2026-08-15"
+author: calebcowen@gmail.com
+intent: |
+  History compares an entry against the last one that could be compared at all,
+  and the test for "could be compared" is wrong in both directions it can be.
+  It reads the resolution and never reads Clean, and it deliberately admits an
+  entry carrying no resolution at all:
+
+      if Resolution(e.Resolution).Cites() || e.Resolution == "" {
+
+  Cites() already answers false for the empty string. That clause was added to
+  keep the entries written before resolutions existed inside the chain, which
+  at the time meant keeping the only entries there were.
+
+  ## What it prints today
+
+  Every one of the thirteen entries in results/ is dirty and unlabelled. They
+  are the entire comparison chain, so every ~ mark printed against them says
+  "these runs do not distinguish each other" about runs that cannot be re-run
+  from their commit and whose sample size nobody chose.
+
+  That is the same sentence [[prov-2026-3039750e]] refused to let a run print
+  about itself and the same one [[prov-2026-0baaa119]] built the interval to
+  make honest. A mark is a claim, and these are being made from evidence the
+  file itself records as unusable - the fields saying so are right there in the
+  row, and nothing reads them.
+
+  ## The fix is the treatment smoke already gets
+
+  A smoke entry is printed in full, marked, and left out of the chain
+  ([[prov-2026-3039750e]]). A dirty entry and an unlabelled one earn the same
+  treatment for the same reason: the numbers are what was measured and stay on
+  the page, while the comparison declines to speak for them.
+
+  So an entry joins the chain only when it is clean and its resolution cites.
+  The chain skips what it does not admit rather than resetting at it, exactly
+  as it already skips smoke, so a run compares against the last real
+  measurement rather than against nothing.
+
+  ## Why the entries are not deleted instead
+
+  Deleting them was the other way to stop them being compared, and it is worse
+  on two counts.
+
+  [[prov-2026-eb283c56]] decided results are append-only: a result says what
+  happened and is never edited, and a measurement that turns out to be wrong is
+  superseded by a later entry rather than corrected in place. Nothing here
+  revises that. These entries are not wrong - they are honest records of runs
+  taken mid-edit, and they say so in a field.
+
+  They are also load-bearing. The concurrency sweep table in evals/README.md is
+  six of them ([[prov-2026-945fa0aa]]), and the sample size fixed in
+  [[prov-2026-ac15ed2b]] rests on the rails arm having come in at 4/4 and 5/5
+  across its whole history, which is seven more. Deleting the entries would
+  leave two written findings citing data no longer in the repository, which is
+  the failure vendoring the fixtures was meant to end.
+
+  ## Two marks that say different things
+
+  The commit column already carries * for a dirty tree, meaning not re-runnable
+  from that SHA. The row prefix means something else - whether this row took
+  part in the comparison - and after this change a row can carry both. They are
+  kept separate because they answer different questions, and a reader who wants
+  to re-run an entry is asking the first while a reader weighing a rate is
+  asking the second.
+constraints:
+  - No entry is deleted, rewritten, or reordered. The file stays append-only, and this changes only what History says about what is already in it.
+  - An entry joins the comparison chain only when it is clean and its resolution cites. Dirty, unlabelled and smoke are all excluded, and the chain skips them rather than resetting.
+  - An excluded entry is still printed in full, with its own numbers and interval. The mark withholds the comparison, not the measurement.
+  - Each mark has its own legend line and each legend prints only when the table used it, so a history of clean, labelled runs carries no legend at all.
+  - The commit column's * and the row prefix stay separate marks. One says an entry is not re-runnable from its SHA, the other says it did not take part in the comparison.
+affected_scope:
+  - evals/history.go
+  - evals/run_test.go
+  - evals/README.md
+forbidden_scope: []
+type: imprint
+implements: prov-2026-e6969eb3
+supersedes: ""
+superseded_by: ""
+related:
+  - prov-2026-eb283c56
+  - prov-2026-3039750e
+  - prov-2026-0baaa119
+  - prov-2026-945fa0aa
+  - prov-2026-ac15ed2b
+sealed_at_sha: ""
+associated_specs:
+  - path: evals/run_test.go
+    run_command: go test -count=1 ./$(dirname {{path}})
+associated_traces: []
+monitors: []
+tags:
+  - sedum
+  - evals
+  - measurement
