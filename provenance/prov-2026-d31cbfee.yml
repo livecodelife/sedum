@@ -1,6 +1,6 @@
 id: prov-2026-d31cbfee
 title: Running an eval is a command, not an invocation to remember
-status: draft
+status: open
 created_at: "2026-08-15"
 author: calebcowen@gmail.com
 intent: |
