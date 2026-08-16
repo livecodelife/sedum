@@ -34,12 +34,17 @@ func History(out io.Writer, caseID string, entries []Entry) {
 	var overlapped bool
 	var absent bool
 	var smoked bool
+	var unlabelled bool
 
 	// The interval the next row is compared against is the last one that could
 	// be compared at all. A smoke entry is not a measurement, so marking a real
 	// run as indistinguishable from a two-sample plumbing check - which it
 	// always will be, at that width - would read as a finding about the run
 	// (prov-2026-3039750e).
+	//
+	// A dirty or unlabelled entry is left out for the same reason and skipped
+	// the same way, so a run still compares against the last real measurement
+	// rather than against nothing (prov-2026-c5ad54ff).
 	var last *Interval
 
 	for _, e := range entries {
@@ -63,17 +68,30 @@ func History(out io.Writer, caseID string, entries []Entry) {
 		// A mark rather than a suppressed row: the numbers are what was
 		// measured, and what the mark says is that this entry and the one
 		// before it do not distinguish each other (prov-2026-0baaa119).
+		//
+		// The commit column's * and this prefix answer different questions -
+		// whether an entry can be re-run from its SHA, and whether it took part
+		// in the comparison - so a row may carry both.
 		row := " "
-		if Resolution(e.Resolution).Cites() || e.Resolution == "" {
+		switch {
+		case !e.Clean:
+			// Dirty first: an entry taken mid-edit is not re-runnable from its
+			// commit whatever else it says, so that is the fact worth printing
+			// when more than one applies.
+			row = "*"
+		case e.Resolution == "":
+			row = "?"
+			unlabelled = true
+		case !Resolution(e.Resolution).Cites():
+			row = "s"
+			smoked = true
+		default:
 			if last != nil && valid.Overlaps(*last) {
 				row = "~"
 				overlapped = true
 			}
 			carried := valid
 			last = &carried
-		} else {
-			row = "s"
-			smoked = true
 		}
 
 		fmt.Fprintf(out, "%s %-10s %-9s %-8s %2d %2d %2d  %-18s %-18s %-6s %-11s %-8s %s\n",
@@ -89,7 +107,10 @@ func History(out io.Writer, caseID string, entries []Entry) {
 	// Legends are printed only when something in the table used them, so a
 	// clean history stays short.
 	if dirty {
-		fmt.Fprintln(out, "  * tree was dirty: not re-runnable from that commit")
+		fmt.Fprintln(out, "  * tree was dirty: not re-runnable from that commit, and not compared")
+	}
+	if unlabelled {
+		fmt.Fprintln(out, "  ? no resolution stated: a sample size nobody chose, and not compared")
 	}
 	if smoked {
 		fmt.Fprintln(out, "  s smoke: plumbing only at that sample size, not a measurement and not compared")

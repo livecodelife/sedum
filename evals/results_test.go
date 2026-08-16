@@ -97,8 +97,11 @@ func TestHistoryPrintsAnAbsentFieldAsAbsent(t *testing.T) {
 // rate got an interval: a column of fractions invites a reader to see a change
 // that five samples cannot support (prov-2026-0baaa119).
 func TestHistoryMarksEntriesThatDoNotDistinguishEachOther(t *testing.T) {
+	// Clean and coarse, because those are what make an entry comparable at all -
+	// this is a test about the interval, and an entry that stated no question
+	// would be excluded before its interval was ever read (prov-2026-c5ad54ff).
 	entry := func(valid, invalid int) Entry {
-		e := Entry{Schema: EntrySchema, Clean: true, At: time.Now().UTC(),
+		e := Entry{Schema: EntrySchema, Clean: true, Resolution: string(Coarse), At: time.Now().UTC(),
 			Samples: valid + invalid, Valid: valid, Invalid: invalid, WallMS: 1000}
 		for i := 0; i < valid; i++ {
 			e.Runs = append(e.Runs, SampleRun{Outcome: "valid", Calls: 1})

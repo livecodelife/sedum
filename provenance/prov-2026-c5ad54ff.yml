@@ -76,6 +76,10 @@ affected_scope:
   - evals/history.go
   - evals/run_test.go
   - evals/README.md
+  # An overlap test built its fixtures without a resolution, which the old
+  # predicate admitted. Its subject is the interval, not the label, so it
+  # states one now.
+  - evals/results_test.go
 forbidden_scope: []
 type: imprint
 implements: prov-2026-e6969eb3

@@ -1030,3 +1030,67 @@ func TestHistoryDoesNotCompareAgainstASmokeEntry(t *testing.T) {
 		t.Errorf("a run was marked indistinguishable from a plumbing check:\n%s", out)
 	}
 }
+
+// An entry that cannot be re-run from its commit, or that never stated the
+// question it was asking, gets what a smoke entry gets: printed in full, marked,
+// and left out of the comparison. Every entry in results/ was both until this
+// held, and each one was being compared against the last (prov-2026-c5ad54ff).
+func TestHistoryComparesOnlyEntriesThatCanBeStoodOn(t *testing.T) {
+	at := time.Date(2026, 8, 15, 0, 0, 0, 0, time.UTC)
+	entries := []Entry{
+		{Case: "x", At: at, Commit: "aaaaaaa", Clean: true, Resolution: "coarse", Samples: 5, Invalid: 5},
+		{Case: "x", At: at, Commit: "bbbbbbb", Clean: false, Resolution: "coarse", Samples: 5, Valid: 5},
+		{Case: "x", At: at, Commit: "ccccccc", Clean: true, Resolution: "", Samples: 5, Valid: 5},
+		{Case: "x", At: at, Commit: "ddddddd", Clean: true, Resolution: "coarse", Samples: 5, Valid: 5},
+	}
+
+	var buf bytes.Buffer
+	History(&buf, "x", entries)
+	out := buf.String()
+
+	for commit, want := range map[string]string{
+		"aaaaaaa": " ",
+		"bbbbbbb": "*",
+		"ccccccc": "?",
+		"ddddddd": " ",
+	} {
+		if got := markOf(out, commit); got != want {
+			t.Errorf("the %s row is marked %q, want %q:\n%s", commit, got, want, out)
+		}
+	}
+
+	for _, legend := range []string{
+		"* tree was dirty",
+		"? no resolution stated",
+	} {
+		if !strings.Contains(out, legend) {
+			t.Errorf("the %q legend is missing:\n%s", legend, out)
+		}
+	}
+
+	// The chain skips what it does not admit rather than resetting at it, so the
+	// last row is compared against 0/5 [0.00,0.43] - the last entry that could
+	// be stood on - and those do not overlap. Both entries between them are 5/5
+	// [0.57,1.00], which does overlap, so a ~ here means one of them was
+	// silently serving as the baseline.
+	if strings.Contains(out, "~ interval overlaps") {
+		t.Errorf("a run was compared against an entry that cannot be stood on:\n%s", out)
+	}
+
+	// The mark withholds the comparison, not the measurement. Both excluded rows
+	// still carry their own rate and interval.
+	if strings.Count(out, "5/5 [0.57,1.00]") < 3 {
+		t.Errorf("an excluded entry lost its numbers:\n%s", out)
+	}
+}
+
+// markOf returns the row-prefix character History printed for the entry at the
+// given commit.
+func markOf(out, commit string) string {
+	for _, line := range strings.Split(out, "\n") {
+		if strings.Contains(line, commit) {
+			return line[:1]
+		}
+	}
+	return ""
+}

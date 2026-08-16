@@ -40,11 +40,13 @@ go run ./evals/cmd/history todo-chi-defined   # one case
 ```
 todo-rails-defined  (7 entries)
   date       commit    res       n  r  c  valid              first call         calls  tok/call    wall     tok/s
-  2026-08-15 3e38d7c*  -         1  0  1  1/1 [0.21,1.00]    -                  -      -           1m5.5s   -
-~ 2026-08-15 90fe770*  -         5  2  2  5/5 [0.57,1.00]    5/5 [0.57,1.00]    1.00   -           7m1s     -
+* 2026-08-15 3e38d7c*  -         1  0  1  1/1 [0.21,1.00]    -                  -      -           1m5.5s   -
+? 2026-08-15 90fe770   -         5  2  2  5/5 [0.57,1.00]    5/5 [0.57,1.00]    1.00   -           7m1s     -
 s 2026-08-15 1c4d0aa   smoke     2  0  1  2/2 [0.34,1.00]    2/2 [0.34,1.00]    1.00   1802+601    2m9.8s   35.9
-~ 2026-08-15 42a426f*  coarse    4  0  1  4/4 [0.51,1.00]    4/4 [0.51,1.00]    1.00   1799+605    4m24.4s  36.4
-  * tree was dirty: not re-runnable from that commit
+  2026-08-15 42a426f   coarse    4  0  1  4/4 [0.51,1.00]    4/4 [0.51,1.00]    1.00   1799+605    4m24.4s  36.4
+~ 2026-08-16 302f081   coarse    5  0  1  5/5 [0.57,1.00]    5/5 [0.57,1.00]    1.00   1799+604    5m6.9s   31.3
+  * tree was dirty: not re-runnable from that commit, and not compared
+  ? no resolution stated: a sample size nobody chose, and not compared
   s smoke: plumbing only at that sample size, not a measurement and not compared
   ~ interval overlaps the previous comparable entry: these runs do not distinguish each other
   - not recorded: the entry predates that field
@@ -62,9 +64,36 @@ overlaps the previous comparable entry, which is the harness saying *these two
 runs do not distinguish each other*. A history with `~` down the whole column is
 a history in which nothing measurable has changed.
 
-An `s` row is a smoke run and is skipped by that comparison entirely. Two
-samples overlap almost everything, so leaving one in the chain would print
-"these runs do not distinguish each other" about a plumbing check.
+### Only some entries are compared
+
+An entry joins the comparison chain when it is **clean and states a
+resolution**. Everything else is printed in full, marked, and skipped — the mark
+withholds the comparison, not the measurement, and the chain skips an excluded
+entry rather than resetting at it, so a run is still compared against the last
+entry that could be stood on.
+
+| Mark | Why it is not compared |
+|---|---|
+| `*` | The tree was dirty, so the entry is not re-runnable from its commit. |
+| `?` | No resolution was stated, so the sample size was nobody's decision. |
+| `s` | A smoke run. Two samples overlap almost everything. |
+
+Each was a claim being made from evidence the entry itself records as unusable.
+Before this held, every entry in `results/` was dirty *and* unlabelled and each
+one was compared against the last, so the `~` marks between them said "these
+runs do not distinguish each other" about runs that could not be re-run and
+whose sample size nobody chose (`prov-2026-c5ad54ff`).
+
+The `*` in the commit column and the `*` in the mark column are separate
+statements: the first says an entry cannot be re-run from its SHA, the second
+says it took no part in the comparison. A row can carry both, and the two
+answer different questions.
+
+**Nothing is deleted to achieve this.** Results are append-only
+(`prov-2026-eb283c56`) — a dirty entry is an honest record of a run taken
+mid-edit, and the ones in this repository are the evidence behind the
+concurrency sweep below and the sample size fixed for the description
+comparison.
 
 It reads committed files only — no endpoint, no model, no build tag — and never
 writes.
