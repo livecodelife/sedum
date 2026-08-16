@@ -1,0 +1,65 @@
+id: prov-2026-684148c6
+title: The scope index is derived state, not a tracked artifact
+status: draft
+created_at: "2026-08-15"
+author: calebcowen@gmail.com
+intent: |
+  `.linespec/scope-index.json` was tracked, and it is a cache. LineSpec
+  re-derives it on every `provenance next` and on `reconcile`, so it changed
+  under every command that read it and arrived in `git status` as a modification
+  nobody made - it showed up dirty in the middle of the sample-size work
+  ([[prov-2026-3039750e]]) for exactly that reason.
+
+  ## Why it is not just noise
+
+  A derived file that is tracked conflicts on every branch that touches
+  different files, and the merge is meaningless in both directions: whichever
+  side wins, the next command rewrites it. It also makes an eval entry's `clean`
+  flag lie. The harness records whether the tree was dirty because that is what
+  says a number is re-runnable from its commit
+  ([[prov-2026-eb283c56]]), and a cache that dirties itself makes every entry
+  read as not re-runnable whether or not anything real was edited.
+
+  ## The rule this states
+
+  The provenance graph is the tracked thing. `provenance/*.yml` is the source,
+  and `.linespec/hash_manifest.json` stays tracked because it is a checked-in
+  attestation over that source rather than a scan result. Anything LineSpec can
+  rebuild from the records without asking is not committed.
+
+  The ignore rule already existed and named `.linespec/scope-index.yml`, a file
+  this repository has never had - so it matched nothing, and the JSON form was
+  tracked by omission rather than by decision.
+constraints:
+  - >-
+    Derived LineSpec state is ignored, never tracked. The records under
+    provenance/ are the source, and anything rebuilt from them by next,
+    reconcile or compile is a cache.
+  - >-
+    The hash manifest stays tracked. It is an attestation over the records
+    rather than a scan of the working tree, and untracking it would remove the
+    check rather than the noise.
+  - >-
+    An ignore rule names a path that exists. The rule this replaces named a
+    .yml file that was never written here, so it silently covered nothing.
+affected_scope:
+  - .gitignore
+  - .linespec/**
+forbidden_scope: []
+type: blueprint
+implements: prov-2026-d554bfc3
+supersedes: ""
+superseded_by: ""
+related:
+  - prov-2026-3039750e
+  - prov-2026-eb283c56
+sealed_at_sha: ""
+associated_specs:
+  - path: .gitignore
+    run_command: git check-ignore -q .linespec/scope-index.json && test -f {{path}}
+associated_traces: []
+monitors: []
+tags:
+  - sedum
+  - provenance
+  - repo
