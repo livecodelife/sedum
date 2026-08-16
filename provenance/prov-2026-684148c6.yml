@@ -1,6 +1,6 @@
 id: prov-2026-684148c6
 title: The scope index is derived state, not a tracked artifact
-status: open
+status: implemented
 created_at: "2026-08-15"
 author: calebcowen@gmail.com
 intent: |
@@ -53,7 +53,7 @@ superseded_by: ""
 related:
   - prov-2026-3039750e
   - prov-2026-eb283c56
-sealed_at_sha: ""
+sealed_at_sha: 8a1c948a1fef6c4ff1adaee70fe5cbc2fa660b16
 associated_specs:
   - path: .gitignore
     run_command: git check-ignore -q .linespec/scope-index.json && test -f {{path}}
