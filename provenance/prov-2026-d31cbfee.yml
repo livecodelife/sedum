@@ -1,0 +1,95 @@
+id: prov-2026-d31cbfee
+title: Running an eval is a command, not an invocation to remember
+status: draft
+created_at: "2026-08-15"
+author: calebcowen@gmail.com
+intent: |
+  A measurement currently starts by retyping this:
+
+      OPENAI_BASE_URL=http://127.0.0.1:1234/v1 OPENAI_API_KEY=local \
+        go test -tags eval ./evals -v -timeout 180m -eval.resolution fine \
+          -eval.model llama.cpp -eval.case todo-rails-described
+
+  Two environment variables, a build tag, a verbosity flag, a timeout guessed
+  by hand, and four flags behind a prefix. `go run ./evals/cmd/eval -res fine
+  todo-rails-described` says the same thing, and the parts it drops are the
+  parts nobody was choosing anyway.
+
+  ## Three of those are failure modes, not verbosity
+
+  The timeout is the sharpest. `go test` defaults to ten minutes and a fine run
+  takes forty-five, so a forgotten `-timeout` does not fail fast - it kills the
+  run partway and the entry is never written. The command computes it from the
+  plan it is about to execute, which is a number it knows and the author does
+  not.
+
+  The dirty tree is next. An entry taken mid-edit is recorded as not
+  re-runnable ([[prov-2026-eb283c56]]), and every entry in results/ before this
+  one was ([[prov-2026-c5ad54ff]]). Nothing ever refused; the harness noted it
+  in a field and carried on. The command checks before spending forty-five
+  minutes on a number that will arrive un-pinned, and `-dirty` says otherwise
+  deliberately.
+
+  The third only appears when two arms are run in sequence. The first arm's own
+  result file is untracked, and Clean is read from `git status --porcelain`, so
+  the second arm records dirty because the first one succeeded. That is how the
+  A/B in [[prov-2026-ac15ed2b]] would have been half-spoiled by running it the
+  obvious way. The command stops between cases when the previous entry is
+  uncommitted, rather than recording an arm it already knows will be dirty.
+
+  ## It commits nothing
+
+  Stopping and printing the commit to make was the alternative to making it,
+  and the alternative is better. A tool that writes to git on the author's
+  behalf is a larger promise than "easier to run", and the commit needs a
+  provenance tag the command has no way to choose. So it names the file and
+  the reason, and stops.
+
+  ## A wrapper, not a second runner
+
+  Every flag it sets is one `go test` already accepts, and it prints the exact
+  invocation before running it. Nothing about how a sample is drawn, scored or
+  recorded lives here - that is the tagged runner's job, and a convenience that
+  quietly measured something different from the documented command would be
+  worse than the typing it saves.
+
+  It shells out to `go test` rather than calling the harness directly, because
+  the runner is deliberately behind a build tag in a test file: it needs an
+  endpoint, takes minutes, and reports a sampled rate rather than a verdict. A
+  second entry point into it would duplicate that judgement and eventually
+  disagree with it.
+
+  It sits beside cmd/history for the reason that one sits outside the sedum
+  binary: the harness is not part of Sedum, and nothing under internal/ or
+  cmd/ imports it ([[prov-2026-c0f55691]]).
+constraints:
+  - Every flag it passes is one the tagged runner already accepts, and it prints the invocation it ran. Nothing about how a sample is drawn, scored or recorded lives in this command.
+  - The endpoint and key default to the local server and never override what the environment already sets.
+  - The timeout is computed from the run it is about to execute rather than defaulted, because go test's own default is shorter than a fine run and kills it partway.
+  - A dirty tree stops the run before a model call is made. -dirty overrides it deliberately, and the override is what a mid-edit measurement now costs.
+  - Between cases it stops when the previous entry is uncommitted, rather than recording an arm it knows will be dirty.
+  - It commits nothing. It names the file to commit and why, and leaves the commit - which needs a provenance tag it cannot choose - to the author.
+affected_scope:
+  - evals/cmd/eval/**
+  - evals/README.md
+forbidden_scope: []
+type: imprint
+implements: prov-2026-e6969eb3
+supersedes: ""
+superseded_by: ""
+related:
+  - prov-2026-c0f55691
+  - prov-2026-eb283c56
+  - prov-2026-c5ad54ff
+  - prov-2026-ac15ed2b
+  - prov-2026-3039750e
+sealed_at_sha: ""
+associated_specs:
+  - path: evals/cmd/eval/main_test.go
+    run_command: go test -count=1 ./$(dirname {{path}})
+associated_traces: []
+monitors: []
+tags:
+  - sedum
+  - evals
+  - tooling
