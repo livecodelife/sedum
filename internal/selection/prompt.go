@@ -37,7 +37,11 @@ Rules:
   listed does not exist.
 - Bind every kwarg marked required. Do not bind a kwarg the action does not
   declare.
-- Each value must match its declared type: string, int, bool, or list.
+- Each value must match its declared type: string, int, bool, list, or literal.
+  A literal is written as a JSON string, but its contents are source code that
+  is emitted into the file exactly as you write it - so bind the code itself,
+  spelled the way the target language spells it, and never a description of it.
+  There is always something correct to write; a literal is never left empty.
 - Where an action lists variants, prefer one of them when the change maps
   cleanly onto it. A value outside the list is allowed only when the action
   reports a fallback, and it renders a stub rather than a full implementation.

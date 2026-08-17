@@ -182,7 +182,7 @@ actions:
       # default, which is what Rails would do anyway, so there is always
       # something correct to bind.
       default:
-        type: string
+        type: literal
         required: true
         description: >-
           The column's default, written as the Ruby literal it becomes -

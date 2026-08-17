@@ -70,10 +70,12 @@ actions:
       # whose name is a literal in the format the caller answers in is a name
       # worth not having.
       nullable: { type: bool, required: true }
-      # Written as the Ruby literal it becomes. nil means the column carries no
-      # default, which is what Rails would do anyway, so there is always
-      # something correct to bind.
-      default: { type: string, required: true }
+      # The Ruby literal this column defaults to, emitted verbatim. Declared
+      # literal rather than string and left without a description, to test
+      # whether the type alone carries what the sentence carried: nil is how a
+      # column with no default is written, and it is what the string type could
+      # never say.
+      default: { type: literal, required: true }
     injects_into: "db/migrate/{{stamp}}_create_{{resource|table}}.rb"
     anchor: columns
 

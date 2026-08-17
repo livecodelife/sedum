@@ -58,6 +58,17 @@ transforms:
     injects_into: "app/models/{{name|snake}}.rb"
     anchor: class_body
 
+  # A literal kwarg: the template emits it into a Ruby file verbatim, so what is
+  # bound is source rather than prose. Its own action rather than a kwarg added
+  # to one above, so that the type has a fixture no other test binds against
+  # (prov-2026-e3d7b9ac).
+  declareDefault:
+    kwargs:
+      name: { type: string, required: true }
+      value: { type: literal, required: true }
+    injects_into: "app/models/{{name|snake}}.rb"
+    anchor: class_body
+
   # A required list kwarg the template does not render, which is what every
   # list kwarg in every real package looks like. It exists so that "an empty
   # array is a legitimate value" is a case with a test rather than an argument.
@@ -93,6 +104,7 @@ transforms:
 		"rails/actions/addCallback/before.rb":              "before_action :x\n",
 		"rails/actions/addCallback/after.rb":               "after_action :x\n",
 		"rails/actions/createModelClass.rb":                "# {{name}}\n",
+		"rails/actions/declareDefault.rb":                  "# default {{value}}\n",
 		"rails/actions/tagResource.rb":                     "# tagged\n",
 		"rails/actions/hiddenHelper.rb":                    "# helper\n",
 
@@ -183,6 +195,19 @@ func railsRequest(t *testing.T) Request {
 		Intent:      "Add a read-only users controller.",
 		Constraints: []string{"No writes."},
 		Files:       created(t, set, "app/controllers/users_controller.rb@rails"),
+	}
+}
+
+// modelRequest authorizes the model file declareDefault injects into, which is
+// the action carrying the fixture's literal kwarg.
+func modelRequest(t *testing.T) Request {
+	t.Helper()
+	set := loadSet(t, generators())
+	return Request{
+		RecordID:    "PR-014",
+		Intent:      "Give the user model a default.",
+		Constraints: []string{"One default and nothing else."},
+		Files:       created(t, set, "app/models/user.rb@rails"),
 	}
 }
 
@@ -405,6 +430,60 @@ func TestKwargTypeMismatchIsRejected(t *testing.T) {
 	wantViolation(t, req,
 		`{"invocations":[{"action":"createControllerMethod","kwargs":{"controller":"users","name":"index","limit":2.5}}]}`,
 		"kwarg_type", "limit")
+}
+
+// A literal is carried on the wire as a JSON string, so a string satisfies it
+// and every other wire type does not. This is the one place a declared type and
+// a wire type differ, which is why it is asserted rather than left to the
+// equality that covers the other four (prov-2026-e3d7b9ac).
+func TestLiteralIsBoundAsAString(t *testing.T) {
+	req := modelRequest(t)
+
+	// Ruby source, bound as a string, emitted verbatim. Accepted.
+	got, _, err := selectWith(t, req, 0,
+		`{"invocations":[{"action":"declareDefault","kwargs":{"name":"user","value":"nil"}}]}`)
+	if err != nil {
+		t.Fatalf("a literal bound to a string should be accepted: %v", err)
+	}
+	if len(got) != 1 || got[0].Kwargs["value"] != "nil" {
+		t.Errorf("the bound literal did not survive validation: %#v", got)
+	}
+
+	// JSON has no way to carry source, so every non-string is a mistake the
+	// model can act on - including null, which is what a model reaches for when
+	// the literal it wants to write is the target language's absence.
+	wantViolation(t, req,
+		`{"invocations":[{"action":"declareDefault","kwargs":{"name":"user","value":null}}]}`,
+		"kwarg_type", "value", "literal")
+
+	wantViolation(t, req,
+		`{"invocations":[{"action":"declareDefault","kwargs":{"name":"user","value":3}}]}`,
+		"kwarg_type", "value", "literal")
+
+	wantViolation(t, req,
+		`{"invocations":[{"action":"declareDefault","kwargs":{"name":"user","value":true}}]}`,
+		"kwarg_type", "value", "literal")
+}
+
+// The catalog carries the declared type through untouched. Rewriting literal to
+// string on the way out would put the model back where this type exists to move
+// it from, and nothing downstream would notice (prov-2026-e3d7b9ac).
+func TestLiteralReachesTheModelAsLiteral(t *testing.T) {
+	req := modelRequest(t)
+
+	_, client, err := selectWith(t, req, 0,
+		`{"invocations":[{"action":"declareDefault","kwargs":{"name":"user","value":"nil"}}]}`)
+	if err != nil {
+		t.Fatalf("selection failed: %v", err)
+	}
+
+	var prompt string
+	for _, m := range client.seen[0] {
+		prompt += m.Content
+	}
+	if !strings.Contains(prompt, "literal") {
+		t.Errorf("the prompt never says literal, so the model cannot act on the type:\n%s", prompt)
+	}
 }
 
 // Rule five: a discriminator value with no template is legal when the package

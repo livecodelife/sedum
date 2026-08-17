@@ -47,6 +47,10 @@ actions:
   addFileHeader:
     kwargs:
       name: { type: string, required: true }
-      note: { type: string, required: true }
+      # A literal rather than a string: the template emits it into a Ruby file
+      # verbatim, so what is bound here is source and not prose. Nothing in
+      # Sedum reads it - the type exists to say that to the model, which is the
+      # only reader that was ever missing the distinction (prov-2026-e3d7b9ac).
+      note: { type: literal, required: true }
     injects_into: "config/initializers/{{name|snake}}.rb"
     anchor: start_of_body

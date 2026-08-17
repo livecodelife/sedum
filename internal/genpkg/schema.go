@@ -71,7 +71,19 @@ type Kwarg struct {
 
 // KwargTypes is the closed set an action's kwarg may declare. It is
 // deliberately small: sufficient for argument binding and nothing more.
-var KwargTypes = []string{"string", "int", "bool", "list"}
+//
+// literal is a string the template emits verbatim as source in the target
+// language - a Ruby default, a SQL set clause, a Go scan target. It is carried
+// on the wire as a JSON string and rendered exactly like one; nothing in Sedum
+// parses it, quotes it, or knows what language it is written in, and adding a
+// type that did would put a per-language rendering table in the core the PRD
+// keeps language-free.
+//
+// It exists because "string" was a true statement that told the model the wrong
+// thing. A kwarg whose value is prose and one whose value is code are bound
+// differently, and declaring both "string" left the difference sayable only in
+// a description - which is where it lived, in the one package that wrote one.
+var KwargTypes = []string{"string", "int", "bool", "list", "literal"}
 
 func validKwargType(t string) bool { return slices.Contains(KwargTypes, t) }
 

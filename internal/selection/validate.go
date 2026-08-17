@@ -254,7 +254,7 @@ func checkKwargs(entry catalog.Action, inv recording.Invocation, index int) []Vi
 			// mistake.
 			continue
 		}
-		if got, ok := typeOf(inv.Kwargs[name]); !ok || got != k.Type {
+		if got, ok := typeOf(inv.Kwargs[name]); !ok || !satisfies(k.Type, got) {
 			out = append(out, Violation{
 				Index:  index,
 				Action: inv.Action,
@@ -404,6 +404,26 @@ func checkTargets(packages []*genpkg.Package, files []resolve.File, inv recordin
 // integral rather than that it arrived differently from a float. A value that
 // is not one of the four is reported by its absence from this map: there is no
 // fifth type an action can declare, so anything else is a violation.
+// satisfies reports whether a value's wire type is acceptable for a declared
+// kwarg type.
+//
+// Every declared type but one is its own wire type. A literal is source code
+// the template emits verbatim, and JSON has no way to carry code, so it arrives
+// as a string - which makes this the one place the two vocabularies differ.
+// Comparing them directly, as this did before literal existed, would reject
+// every correctly bound literal.
+//
+// Nothing here inspects the value. A literal is not parsed, quoted, or checked
+// against a language, because Sedum does not know which language it is in - the
+// only thing Phase 5 can say about one is that it is not empty, which the
+// empty_kwarg rule already says about every string.
+func satisfies(declared, got string) bool {
+	if declared == "literal" {
+		return got == "string"
+	}
+	return declared == got
+}
+
 func typeOf(value any) (string, bool) {
 	switch v := value.(type) {
 	case string:
