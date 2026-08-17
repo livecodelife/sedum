@@ -60,8 +60,6 @@ expect:
     createEndpoint: 5
     addControllerTest: 5
     definePermittedParams: 1
-    addValidation: 1
-    addModelTest: 1
 
   # Authored from the record rather than established from a run, which is the
   # opposite discipline the counts above are under. A count is a property of

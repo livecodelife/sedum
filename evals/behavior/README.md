@@ -100,10 +100,17 @@ three seconds rather than building an image.
 
 ## What it found
 
-- **The todo-chi package cannot satisfy three constraints of its own record.**
-  No validation action, no way to express partial update, nothing that emits a
-  400 for an empty body. The model selects perfectly and the service is still
-  wrong. No selection can fix it.
+- **The todo-chi package could not satisfy three constraints of its own
+  record** — no validation action, no way to express partial update, nothing
+  emitting a 400 for an empty body. The model selected perfectly and the service
+  was still wrong, and no selection could have fixed it. Both records were cut
+  to what both stacks can express (`prov-2026-40bdd9ac`); restoring those
+  constraints means giving the Chi package the actions it lacks.
+- **The Chi service did not compile at all** until the module path stopped being
+  something the model was asked to guess (`prov-2026-6fc3d13d`). It bound the
+  five import actions to chi, sqlx, net/http, net/http/httptest and testify —
+  four unused, one already imported — because go.mod is in no record and no file
+  list.
 - **A migration with `default: ""` on a column the record says carries no
   default passed twenty-one HTTP assertions.** No HTTP call can observe a
   column default on a `NOT NULL` column the caller always supplies. The schema

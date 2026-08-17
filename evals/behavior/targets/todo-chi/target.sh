@@ -99,16 +99,9 @@ target_verify() {
   code=$(status GET /todos/999999)
   check "get of a missing record returns 404" "$code" "404"
 
-  code=$(status PUT "/todos/$id" '{"completed":true}')
-  check "partial update returns 200" "$code" "200"
-  check "partial update sets completed" "$(body '.completed')" "true"
-  check "partial update keeps the title it never sent" "$(body '.title')" "write the harness"
-
-  code=$(status PUT "/todos/$id" '{}')
-  check "an empty update is a 400" "$code" "400"
-
-  code=$(status POST /todos '{"completed":true}')
-  check "a todo with no title is rejected" "$code" "400"
+  code=$(status PUT "/todos/$id" '{"completed":true, "title":"write the harness"}')
+  check "update returns 200" "$code" "200"
+  check "update sets completed" "$(body '.completed')" "true"
 
   code=$(status PUT /todos/999999 '{"completed":true}')
   check "update of a missing record returns 404" "$code" "404"

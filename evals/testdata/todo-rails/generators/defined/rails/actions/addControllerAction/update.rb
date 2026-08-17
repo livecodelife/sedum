@@ -2,7 +2,6 @@
     # Only what the caller sent. Strong parameters drop everything unpermitted,
     # so an omitted attribute is simply absent here and keeps its stored value.
     attributes = {{resource|record}}_params
-    return render json: { error: "no attributes given" }, status: :bad_request if attributes.empty?
 
     # Write first, then read what the write produced. Loading the row, mutating
     # it and rendering from memory would spend a read before the write and none

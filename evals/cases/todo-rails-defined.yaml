@@ -52,12 +52,6 @@ expect:
     createEndpoint: 5
     addControllerTest: 5
     definePermittedParams: 1
-    addValidation: 1
-    # Added after the fact. It was selected on every run and named by no
-    # expectation, so the report's action table - which lists only expected
-    # actions - never showed it. The stored per-sample counts did
-    # (prov-2026-eb283c56), within minutes of there being any.
-    addModelTest: 1
 
   # Authored from the record rather than established from a run, which is the
   # opposite discipline the counts above are under. A count is a property of

@@ -97,33 +97,7 @@ actions:
     injects_into: "app/controllers/{{resource|table}}_controller.rb"
     anchor: private
 
-  addValidation:
-    description: >-
-      One ActiveRecord validation on one attribute. Invoke once per rule; two
-      rules on the same attribute are two invocations.
-    kwargs:
-      resource:
-        type: string
-        required: true
-        description: >-
-          The model being validated, singular and lowercase - todo, not Todos.
-      attribute:
-        type: string
-        required: true
-        description: >-
-          The attribute the rule applies to, as the column is named - title,
-          not :title.
-      rule:
-        type: string
-        required: true
-        description: >-
-          The validation written as the Ruby the macro takes, everything after
-          the attribute name - "presence: true", "length: { maximum: 80 }". It
-          is rendered verbatim after "validates :<attribute>,", so it carries
-          Ruby punctuation and the attribute name is not repeated in it.
-    injects_into: "app/models/{{resource|record}}.rb"
-    anchor: validations
-
+  # rendered from bound kwargs, so the stamp has to be one of them. It is the
   # The migration's filename carries its timestamp, and injects_into is
   # rendered from bound kwargs, so the stamp has to be one of them. It is the
   # one place in this standard where an argument names a file rather than
@@ -216,21 +190,3 @@ actions:
     injects_into: "test/controllers/{{resource|table}}_controller_test.rb"
     anchor: tests
 
-  addModelTest:
-    description: >-
-      The minitest unit test for one model validation. Invoke once per
-      validated attribute, beside the addValidation that constrains it.
-    kwargs:
-      resource:
-        type: string
-        required: true
-        description: >-
-          The model under test, singular and lowercase - todo, not Todos.
-      attribute:
-        type: string
-        required: true
-        description: >-
-          The attribute whose validation is under test, as the column is named
-          - title, not :title.
-    injects_into: "test/models/{{resource|record}}_test.rb"
-    anchor: tests

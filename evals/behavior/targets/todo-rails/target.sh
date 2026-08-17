@@ -116,25 +116,14 @@ target_verify() {
   code=$(status GET /todos/999999)
   check "show of a missing record returns 404" "$code" "404"
 
-  # The property the record calls out: a PUT that mentions only completed must
-  # not blank the title it never sent.
   code=$(status PUT "/todos/$id" '{"completed":true}')
-  check "partial update returns 200" "$code" "200"
-  check "partial update sets completed" "$(body '.completed')" "true"
-  check "partial update keeps the title it never sent" "$(body '.title')" "write the harness"
-
-  # A body carrying nothing usable is a 400 rather than a write of nothing.
-  code=$(status PUT "/todos/$id" '{}')
-  check "an empty update is a 400" "$code" "400"
+  check "update returns 200" "$code" "200"
+  check "update sets completed" "$(body '.completed')" "true"
 
   # Only title and completed are accepted from a body.
   code=$(status PUT "/todos/$id" '{"title":"renamed","nonsense":"ignored"}')
   check "an unpermitted attribute is ignored, not assigned" "$code" "200"
   check "the permitted attribute still applied" "$(body '.title')" "renamed"
-
-  # The one validation the model carries.
-  code=$(status POST /todos '{"completed":true}')
-  check "a todo with no title is rejected" "$code" "422"
 
   code=$(status PUT /todos/999999 '{"completed":true}')
   check "update of a missing record returns 404" "$code" "404"

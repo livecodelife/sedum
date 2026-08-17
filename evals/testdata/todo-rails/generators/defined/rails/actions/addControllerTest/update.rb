@@ -1,5 +1,7 @@
-  test "update rejects an empty body" do
-    put "/{{resource|table}}/1", params: {}, as: :json
+  test "update applies what the body carried" do
+    created = {{resource|model}}.create!(title: "before")
+    put "/{{resource|table}}/#{created.id}", params: { title: "after", completed: true }, as: :json
 
-    assert_response :bad_request
+    assert_response :success
+    assert_equal "after", response.parsed_body["title"]
   end

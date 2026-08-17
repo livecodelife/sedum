@@ -40,14 +40,7 @@ actions:
     injects_into: "app/controllers/{{resource|table}}_controller.rb"
     anchor: private
 
-  addValidation:
-    kwargs:
-      resource: { type: string, required: true }
-      attribute: { type: string, required: true }
-      rule: { type: string, required: true }
-    injects_into: "app/models/{{resource|record}}.rb"
-    anchor: validations
-
+  # rendered from bound kwargs, so the stamp has to be one of them. It is the
   # The migration's filename carries its timestamp, and injects_into is
   # rendered from bound kwargs, so the stamp has to be one of them. It is the
   # one place in this standard where an argument names a file rather than
@@ -93,9 +86,3 @@ actions:
     injects_into: "test/controllers/{{resource|table}}_controller_test.rb"
     anchor: tests
 
-  addModelTest:
-    kwargs:
-      resource: { type: string, required: true }
-      attribute: { type: string, required: true }
-    injects_into: "test/models/{{resource|record}}_test.rb"
-    anchor: tests

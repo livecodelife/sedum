@@ -30,11 +30,13 @@ intent: |
 
   A todo has a title and a completed flag, and nothing else of its own.
 
-  One property is called out because it is the one an otherwise reasonable
-  implementation gets wrong by omission rather than by mistake. A PUT applies
-  only the attributes the caller sent: a client that toggles completed must not
-  blank the title it never mentioned, so the update path assigns what arrived
-  and nothing else.
+  Basic CRUD and nothing more. The record asked for a title validation, for a
+  PUT that applies only the attributes present in the body, and for a 400 when a
+  body carries none. This package has no action that can express any of them, so
+  a run selecting perfectly still failed those assertions - and the Ruby record
+  this one is compared against dropped them in the same change, because an ask
+  only one arm can answer makes the language comparison a comparison of records
+  (prov-2026-40bdd9ac).
 constraints:
   - >-
     Five endpoints on /todos and /todos/{id}, addressed by integer id per REST
@@ -47,15 +49,6 @@ constraints:
     is a duplicate column.
   - >-
     JSON responses carry id, title, completed, created_at and updated_at.
-  - >-
-    A todo requires a title. A create without one is rejected rather than
-    stored, and completed needs no such check because its column default
-    supplies it.
-  - >-
-    PUT applies only the attributes present in the body. An attribute the caller
-    omitted keeps its stored value, and a body carrying no usable attributes is
-    a 400 rather than a write of nothing. Request fields are pointers so that an
-    omitted field is distinguishable from one set to its zero value.
   - >-
     Only title and completed are read from a request body. Anything else is
     ignored rather than assigned.
