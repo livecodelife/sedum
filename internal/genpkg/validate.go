@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -376,11 +377,18 @@ func deriveRequirements(pkg *Package, actionTemplates map[string]string, r *repo
 			refs[variant] = values
 
 			for _, value := range values {
+				// A run variable is bound by the run rather than by the
+				// invocation, so a template referencing one is declaring a
+				// dependency on the project and not a typo
+				// (prov-2026-6fc3d13d).
+				if _, isVariable := pkg.Variables[value]; isVariable {
+					continue
+				}
 				declared, ok := a.Kwargs[value]
 				if !ok {
 					r.errorf(path, RuleTemplateValueUndeclared,
-						"template renders {{%s}}, which action %s does not declare as a kwarg; it declares %s",
-						value, name, quoted(sortedKeys(a.Kwargs)))
+						"template renders {{%s}}, which action %s declares as neither a kwarg nor a variable; it declares kwargs %s and the package declares variables %s",
+						value, name, quoted(sortedKeys(a.Kwargs)), quoted(sortedKeys(pkg.Variables)))
 					continue
 				}
 				// Only a single-template action can restate itself. A
@@ -647,4 +655,44 @@ func describeDefault(value any) string {
 		return fmt.Sprintf("the string %q", s)
 	}
 	return fmt.Sprintf("the %s %v", got, value)
+}
+
+// checkVariables rejects a variable whose name is also bound by something else
+// a template can reference.
+//
+// The template grammar has one namespace and no field access - {{module}} is
+// the only spelling there is - so a name bound twice would resolve to one of
+// them by an ordering rule nobody declared. Caught at load, where the author
+// can see both declarations, rather than at render where only the winner is
+// visible (prov-2026-6fc3d13d).
+func checkVariables(pkg *Package, r *reporter) {
+	for _, name := range sortedKeys(pkg.Variables) {
+		for _, action := range sortedKeys(pkg.Actions) {
+			if _, clash := pkg.Actions[action].Kwargs[name]; clash {
+				r.errorf(manifestFile, RuleVariableCollides,
+					"variable %s is also a kwarg of action %s; a template has one namespace, so {{%s}} would resolve to one of them by a rule nothing declares",
+					name, action, name)
+			}
+		}
+		for _, pattern := range pkg.FileTemplates {
+			if slices.Contains(captureNames(pattern), name) {
+				r.errorf(manifestFile, RuleVariableCollides,
+					"variable %s is also a capture of file template %s; a template has one namespace, so {{%s}} would resolve to one of them by a rule nothing declares",
+					name, pattern, name)
+			}
+		}
+	}
+}
+
+// captureName is the {name} form a file template's path pattern binds. It is
+// single-braced, unlike the {{name}} a template body renders, because one names
+// a path segment and the other substitutes a value.
+var captureName = regexp.MustCompile(`\{([A-Za-z_][A-Za-z0-9_]*)\}`)
+
+func captureNames(pattern string) []string {
+	var out []string
+	for _, m := range captureName.FindAllStringSubmatch(pattern, -1) {
+		out = append(out, m[1])
+	}
+	return out
 }

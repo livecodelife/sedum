@@ -16,6 +16,11 @@ import (
 
 // Options controls Phase 3.
 type Options struct {
+	// Variables are the run's values for the project facts packages declare.
+	// They reach every template the same way, so a value behaves identically
+	// wherever an author writes it (prov-2026-6fc3d13d).
+	Variables map[string]string
+
 	// Output is the directory authorized paths are created under.
 	Output string
 	// DryRun runs every decision and writes nothing.
@@ -81,7 +86,7 @@ func createOne(res Resolution, opts Options, log *runlog.Log) (File, error) {
 		return file, nil
 	}
 
-	rendered, err := Render(res)
+	rendered, err := Render(res, opts.Variables)
 	if err != nil {
 		return File{}, err
 	}
@@ -143,7 +148,7 @@ func createOne(res Resolution, opts Options, log *runlog.Log) (File, error) {
 // that a caller wanting to see what would be written does not have to run the
 // half that does. `sedum resolve` is that caller: it reads the generators
 // directory and the records directory and nothing else (prov-2026-43808a47).
-func Render(res Resolution) (string, error) {
+func Render(res Resolution, variables map[string]string) (string, error) {
 	if res.Template == "" {
 		return "", nil
 	}
@@ -159,7 +164,14 @@ func Render(res Resolution) (string, error) {
 		return "", fmt.Errorf("package %s: file template %s: %w", res.Package.Name, res.Template, err)
 	}
 
-	values := make(map[string]any, len(res.Captures))
+	// Variables first, captures over them. They cannot actually collide - a
+	// package declaring a variable named like one of its own captures is a load
+	// error - so the order is a statement of which is more specific rather than
+	// a precedence rule anything relies on (prov-2026-6fc3d13d).
+	values := make(map[string]any, len(res.Captures)+len(variables))
+	for name, value := range variables {
+		values[name] = value
+	}
 	for name, value := range res.Captures {
 		values[name] = value
 	}

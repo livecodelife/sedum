@@ -687,6 +687,7 @@ sedum grow --generators ./generators --records ./provenance --output ./build
 | `--output <dir>` | Output directory. Defaults to the current directory. |
 | `--lang <name>` | Prefer the named package where an extension is contested. Repeatable. |
 | `--only <id>` | Generate only the named provenance record. Repeatable. |
+| `--var <name>=<value>` | Bind a variable a generator package declares. Repeatable. |
 | `--record <path>` | Write a recording of the run to the given path. |
 | `--execute <path>` | Replay a recording. Skips model invocation. Mutually exclusive with `--record`. |
 | `--dry-run` | Run every phase, write nothing. Reports the files that would be created and the injections that would be applied. |
@@ -765,6 +766,7 @@ sedum resolve --generators ./generators --records ./provenance
 | `--records <dir>` | Provenance records directory. Required. |
 | `--lang <name>` | Prefer the named package where an extension is contested. Repeatable. |
 | `--only <id>` | Resolve only the named provenance record. Repeatable. |
+| `--var <name>=<value>` | Bind a variable a generator package declares. Repeatable. |
 | `--show-template` | Include rendered template output for each path. |
 
 ### `sedum actions`

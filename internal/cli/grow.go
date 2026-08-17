@@ -45,6 +45,7 @@ Nothing is created that a provenance record did not authorize.`,
 	f.StringSliceVar(&cfg.Lang, "lang", nil, "Prefer the named package where an extension is contested. Repeatable.")
 	f.StringSliceVar(&cfg.Only, "only", nil, "Generate only the named provenance record. Repeatable.")
 	f.StringVar(&cfg.RecordTo, "record", "", "Write a recording of the run to the given path.")
+	f.StringArrayVar(&cfg.Vars, "var", nil, "Bind a variable a generator package declares, as name=value. Repeatable.")
 	f.StringVar(&cfg.Execute, "execute", "", "Replay a recording. Skips model invocation.")
 	f.BoolVar(&cfg.DryRun, "dry-run", false, "Run every phase, write nothing.")
 	f.StringVar(&cfg.StopAfter, "stop-after", "", "Halt after the named phase. One of: "+stopPointNames()+".")
@@ -107,6 +108,11 @@ func runGrow(ctx context.Context, out, errOut io.Writer, cfg GrowConfig) error {
 		client = built
 	}
 
+	variables, err := parseVars(cfg.Vars)
+	if err != nil {
+		return err
+	}
+
 	result, err := pipeline.Run(ctx, pipeline.Config{
 		Generators:     cfg.Generators,
 		Records:        cfg.Records,
@@ -117,6 +123,7 @@ func runGrow(ctx context.Context, out, errOut io.Writer, cfg GrowConfig) error {
 		StopAfterPhase: stopAfter,
 		Client:         client,
 		Retries:        cfg.Retries,
+		Variables:      variables,
 		Log:            log,
 	})
 	if err != nil {

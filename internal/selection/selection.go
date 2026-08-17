@@ -91,6 +91,15 @@ type Options struct {
 	// means the first response is the only one.
 	Retries int
 
+	// Variables are the run's values for the project facts packages declare.
+	//
+	// They are here only because the completeness check expands the answer to
+	// learn which anchors it fills, and expansion renders injects_into. They
+	// never reach the catalog or the prompt: a variable is a fact the model
+	// cannot know and must not be asked for, which is the whole reason it is
+	// supplied by the run (prov-2026-6fc3d13d).
+	Variables map[string]string
+
 	// Log is the run log. A nil log discards.
 	Log *runlog.Log
 }
@@ -265,7 +274,7 @@ func Select(ctx context.Context, client Client, req Request, opts Options) (Answ
 			// package whose templates plant a region reserved for a later
 			// record earns no call here at all (prov-2026-206fa618).
 			if !askedForCompleteness {
-				unfilled := expand.Unfilled(req.RecordID, req.Files, invocations)
+				unfilled := expand.Unfilled(req.RecordID, req.Files, invocations, opts.Variables)
 				if len(unfilled) > 0 {
 					askedForCompleteness = true
 					answer.Completeness = 1

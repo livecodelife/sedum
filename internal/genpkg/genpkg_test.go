@@ -312,6 +312,16 @@ func TestErrorRules(t *testing.T) {
 			rule:     RuleKwargDefaultType,
 			mentions: []string{"addBeforeFilter", "limit", "int"},
 		},
+		// One namespace, no field access: {{module}} would resolve to one of
+		// them by an ordering rule nothing declares (prov-2026-6fc3d13d).
+		{
+			name: "a variable colliding with a kwarg",
+			files: mutated(map[string]*string{
+				"rails/sedum.yaml": text("name: rails\nextensions: [\".rb\"]\ncomment_prefix: \"#\"\nvariables:\n  controller:\n    description: the module\n"),
+			}),
+			rule:     RuleVariableCollides,
+			mentions: []string{"controller", "addBeforeFilter"},
+		},
 		{
 			name:     "declared shape absent from disk",
 			files:    mutated(map[string]*string{"rails/actions/addBeforeFilter.rb": nil}),
@@ -989,5 +999,63 @@ func TestACompositeInheritsItsChildrensDescriptions(t *testing.T) {
 	got := pkg.Actions["createHandler"].Kwargs["resource"].Description
 	if got != "the resource's plural name, lowercase" {
 		t.Errorf("composite kwarg description is %q, want the first child's", got)
+	}
+}
+
+// A run supplies values for the project facts a package declares. The two
+// failures both happen before anything is written, and both name what the
+// author or the operator has to fix (prov-2026-6fc3d13d).
+func TestRunVariablesAreResolvedAgainstDeclarations(t *testing.T) {
+	files := validPackage()
+	files["rails/sedum.yaml"] = `name: rails
+extensions: [".rb"]
+comment_prefix: "#"
+variables:
+  module:
+    description: the import prefix this application's own packages live under
+  registry:
+    description: where built images are pushed
+    default: ghcr.io
+transforms:
+  constantize: [singular, pascal]
+  instantize: [plural, "prefix:@"]
+`
+	set, findings := loadTree(t, files)
+	for _, f := range findings {
+		if f.Kind == KindError {
+			t.Fatalf("a package declaring variables did not load: %s: %s", f.Rule, f.Message)
+		}
+	}
+
+	// A supplied value wins; a declared default fills the rest.
+	got, err := set.ResolveVariables(map[string]string{"module": "acme/todo"})
+	if err != nil {
+		t.Fatalf("ResolveVariables: %v", err)
+	}
+	if got["module"] != "acme/todo" || got["registry"] != "ghcr.io" {
+		t.Errorf("resolved %v, want the supplied module and the declared registry default", got)
+	}
+
+	// A variable with neither a value nor a default halts the run, and says
+	// which package wants it and what the author said it is for. That sentence
+	// is the whole reason a declaration carries a description.
+	_, err = set.ResolveVariables(nil)
+	if err == nil {
+		t.Fatal("a variable with no value and no default resolved anyway")
+	}
+	for _, want := range []string{"module", "rails", "import prefix"} {
+		if !strings.Contains(err.Error(), want) {
+			t.Errorf("the diagnostic does not mention %q:\n%s", want, err)
+		}
+	}
+
+	// A value for a variable nothing declares is a typo, and a typo silently
+	// ignored renders a template with nothing bound.
+	_, err = set.ResolveVariables(map[string]string{"module": "acme/todo", "moduel": "x"})
+	if err == nil {
+		t.Fatal("a value for an undeclared variable was accepted")
+	}
+	if !strings.Contains(err.Error(), "moduel") {
+		t.Errorf("the diagnostic does not name the undeclared variable:\n%s", err)
 	}
 }

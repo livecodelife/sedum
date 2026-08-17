@@ -22,6 +22,9 @@ func generators() map[string]string {
 		"rails/sedum.yaml": `name: rails
 extensions: [".rb"]
 comment_prefix: "#"
+variables:
+  module:
+    description: the import prefix this application's own packages live under
 transforms:
   constantize: [singular, pascal]
   instantize: [plural, "prefix:@"]
@@ -45,6 +48,15 @@ transforms:
     injects_into: "app/controllers/{{controller|snake}}_helper.rb"
     anchor: class_body
 
+  # A run variable, referenced by a template and bound by no kwarg. It is what
+  # a package reaches for when the value is a fact about the project rather
+  # than about the change (prov-2026-6fc3d13d).
+  wireOwnPackages:
+    injects_into: "app/controllers/{{controller|snake}}_controller.rb"
+    kwargs:
+      controller: { type: string, required: true }
+    anchor: class_body
+
   # An optional kwarg carrying a default the template always renders. It is the
   # shape a package author reaches for when the correct value is a property of
   # the standard rather than of the change (prov-2026-f03916ba).
@@ -55,7 +67,8 @@ transforms:
     injects_into: "app/controllers/{{controller|snake}}_controller.rb"
     anchor: class_body
 `,
-		"rails/actions/declareDefault.rb": "DEFAULT = {{value}}\n",
+		"rails/actions/declareDefault.rb":  "DEFAULT = {{value}}\n",
+		"rails/actions/wireOwnPackages.rb": "require \"{{module}}/support\"\n",
 		"rails/actions/createControllerMethod/index.rb": "def index\n" +
 			"  {{collection|instantize}} = {{collection|constantize}}.all\n" +
 			"  render json: {{collection|instantize}}\n" +
@@ -158,7 +171,7 @@ func TestExpandsSimpleInvocation(t *testing.T) {
 	got, err := Expand("PR-014", files, []recording.Invocation{{
 		Action: "createControllerMethod",
 		Kwargs: map[string]any{"controller": "users", "name": "index", "collection": "users"},
-	}})
+	}}, nil)
 	if err != nil {
 		t.Fatalf("Expand: %v", err)
 	}
@@ -197,7 +210,7 @@ func TestDeclaredDefaultFillsAnUnboundKwarg(t *testing.T) {
 		Action: "declareDefault",
 		Kwargs: map[string]any{"controller": "users"},
 	}
-	got, err := Expand("PR-014", files, []recording.Invocation{unbound})
+	got, err := Expand("PR-014", files, []recording.Invocation{unbound}, nil)
 	if err != nil {
 		t.Fatalf("an unbound kwarg with a declared default should render: %v", err)
 	}
@@ -215,7 +228,7 @@ func TestDeclaredDefaultFillsAnUnboundKwarg(t *testing.T) {
 	got, err = Expand("PR-014", files, []recording.Invocation{{
 		Action: "declareDefault",
 		Kwargs: map[string]any{"controller": "users", "value": "false"},
-	}})
+	}}, nil)
 	if err != nil {
 		t.Fatalf("Expand: %v", err)
 	}
@@ -234,7 +247,7 @@ func TestFallsBackToDefaultVariant(t *testing.T) {
 	got, err := Expand("PR-014", files, []recording.Invocation{{
 		Action: "createControllerMethod",
 		Kwargs: map[string]any{"controller": "users", "name": "search"},
-	}})
+	}}, nil)
 	if err != nil {
 		t.Fatalf("Expand: %v", err)
 	}
@@ -256,7 +269,7 @@ func TestInjectsIntoMustNameACreatedFile(t *testing.T) {
 	_, err := Expand("PR-014", files, []recording.Invocation{{
 		Action: "createMissingFile",
 		Kwargs: map[string]any{"controller": "users"},
-	}})
+	}}, nil)
 	if err == nil {
 		t.Fatal("an action injecting into a path no record authorized was expanded")
 	}
@@ -282,7 +295,7 @@ func TestCatalogSpansPackages(t *testing.T) {
 	}, {
 		Action: "addStep",
 		Kwargs: map[string]any{"unit": "user", "step": "build"},
-	}})
+	}}, nil)
 	if err != nil {
 		t.Fatalf("Expand: %v", err)
 	}
@@ -309,7 +322,7 @@ func TestUnknownActionIsAnError(t *testing.T) {
 	_, err := Expand("PR-014", files, []recording.Invocation{{
 		Action: "createControllerMehtod",
 		Kwargs: map[string]any{"controller": "users"},
-	}})
+	}}, nil)
 	if err == nil {
 		t.Fatal("an action no package declares was expanded")
 	}
@@ -332,7 +345,7 @@ func TestCompositeExpandsToItsChildrenInDeclarationOrder(t *testing.T) {
 	got, err := Expand("PR-014", files, []recording.Invocation{{
 		Action: "provisionStep",
 		Kwargs: map[string]any{"unit": "user", "name": "handle", "step": "build"},
-	}})
+	}}, nil)
 	if err != nil {
 		t.Fatalf("Expand: %v", err)
 	}
@@ -371,7 +384,7 @@ func TestExpandedChildOwnsItsRegionUnderItsOwnName(t *testing.T) {
 	got, err := Expand("PR-014", files, []recording.Invocation{{
 		Action: "provisionStep",
 		Kwargs: map[string]any{"unit": "user", "name": "handle", "step": "build"},
-	}})
+	}}, nil)
 	if err != nil {
 		t.Fatalf("Expand: %v", err)
 	}
@@ -398,7 +411,7 @@ func TestCompositeChildrenReceiveOnlyWhatTheyDeclare(t *testing.T) {
 	got, err := Expand("PR-014", files, []recording.Invocation{{
 		Action: "provisionStep",
 		Kwargs: map[string]any{"unit": "user", "name": "handle", "step": "build"},
-	}})
+	}}, nil)
 	if err != nil {
 		t.Fatalf("Expand: %v", err)
 	}
@@ -444,7 +457,7 @@ func TestCompositeChildTargetingAnUnauthorizedPathIsAnError(t *testing.T) {
 	_, err := Expand("PR-014", files, []recording.Invocation{{
 		Action: "provisionStep",
 		Kwargs: map[string]any{"unit": "user", "name": "handle", "step": "build"},
-	}})
+	}}, nil)
 	if err == nil {
 		t.Fatal("a composite whose child targets an unauthorized path was expanded")
 	}
@@ -472,7 +485,7 @@ func TestCompositeReportsEveryChildsProblem(t *testing.T) {
 	_, err := Expand("PR-014", files, []recording.Invocation{{
 		Action: "provisionStep",
 		Kwargs: map[string]any{"unit": "user", "name": "handle", "step": "build"},
-	}})
+	}}, nil)
 	if err == nil {
 		t.Fatal("a composite with two unauthorized children was expanded")
 	}
@@ -492,7 +505,7 @@ func TestAllProblemsAreReported(t *testing.T) {
 	_, err := Expand("PR-014", files, []recording.Invocation{
 		{Action: "noSuchAction", Kwargs: map[string]any{}},
 		{Action: "createMissingFile", Kwargs: map[string]any{"controller": "users"}},
-	})
+	}, nil)
 	if err == nil {
 		t.Fatal("an invocation list with two mistakes was expanded")
 	}
@@ -512,7 +525,7 @@ func TestUnboundKwargIsAnError(t *testing.T) {
 	_, err := Expand("PR-014", files, []recording.Invocation{{
 		Action: "createControllerMethod",
 		Kwargs: map[string]any{"controller": "users", "name": "index"},
-	}})
+	}}, nil)
 	if err == nil {
 		t.Fatal("an invocation whose template references an unbound value was expanded")
 	}
@@ -544,7 +557,7 @@ func TestActionTargetingAnUnmanagedPathSaysSo(t *testing.T) {
 	_, err := Expand("PR-014", resolved, []recording.Invocation{{
 		Action: "createMissingFile",
 		Kwargs: map[string]any{"controller": "users"},
-	}})
+	}}, nil)
 	if err == nil {
 		t.Fatal("an action injecting into an unmanaged path was expanded")
 	}
@@ -579,7 +592,7 @@ func TestUnfilledAnchorsAreWhatTheRunMadeAndNothingFills(t *testing.T) {
 		"class UsersController\n  # sedum:anchor:class_body\nend\n")}
 
 	// Nothing selected: the anchor the template planted is unfilled.
-	empty := Unfilled("PR-014", files, nil)
+	empty := Unfilled("PR-014", files, nil, nil)
 	if len(empty) != 1 || empty[0].Marker != "class_body" {
 		t.Fatalf("an empty selection left %+v unfilled, want class_body", empty)
 	}
@@ -591,7 +604,7 @@ func TestUnfilledAnchorsAreWhatTheRunMadeAndNothingFills(t *testing.T) {
 	filled := Unfilled("PR-014", files, []recording.Invocation{{
 		Action: "createControllerMethod",
 		Kwargs: map[string]any{"controller": "users", "name": "index", "collection": "users"},
-	}})
+	}}, nil)
 	if len(filled) != 0 {
 		t.Errorf("class_body reported unfilled after an action anchored to it was selected: %+v", filled)
 	}
@@ -607,7 +620,7 @@ func TestAnAnchorNothingCanFillIsNotReportedUnfilled(t *testing.T) {
 		"app/controllers/users_controller.rb", "rails",
 		"class UsersController\n  # sedum:anchor:audit_log\nend\n")}
 
-	if got := Unfilled("PR-014", files, nil); len(got) != 0 {
+	if got := Unfilled("PR-014", files, nil, nil); len(got) != 0 {
 		t.Errorf("an anchor no action targets was reported unfilled: %+v", got)
 	}
 }
@@ -621,7 +634,7 @@ func TestOnlyTheFillableHalfOfAMixedFileIsReported(t *testing.T) {
 		"app/controllers/users_controller.rb", "rails",
 		"class UsersController\n  # sedum:anchor:audit_log\n  # sedum:anchor:class_body\nend\n")}
 
-	got := Unfilled("PR-014", files, nil)
+	got := Unfilled("PR-014", files, nil, nil)
 	if len(got) != 1 || got[0].Marker != "class_body" {
 		t.Fatalf("mixed file reported %+v unfilled, want class_body alone", got)
 	}
@@ -638,7 +651,7 @@ func TestFillabilityIsComputedAcrossTheRunsPackages(t *testing.T) {
 		"app/controllers/users_controller.rb", "rails",
 		"class UsersController\n  # sedum:anchor:steps\nend\n")
 
-	if got := Unfilled("PR-014", []resolve.File{railsFile}, nil); len(got) != 0 {
+	if got := Unfilled("PR-014", []resolve.File{railsFile}, nil, nil); len(got) != 0 {
 		t.Errorf("steps was reported unfilled in a run cairn is not part of: %+v", got)
 	}
 
@@ -646,7 +659,7 @@ func TestFillabilityIsComputedAcrossTheRunsPackages(t *testing.T) {
 	cairnFile := rendered(t, set, "Units/orders/Manifest.crn", "cairn",
 		"unit Orders\n  ;; sedum:anchor:steps\nend\n")
 
-	got := Unfilled("PR-014", []resolve.File{railsFile, cairnFile}, nil)
+	got := Unfilled("PR-014", []resolve.File{railsFile, cairnFile}, nil, nil)
 	if len(got) != 2 {
 		t.Fatalf("a run loading cairn reported %+v unfilled, want both files' steps", got)
 	}
@@ -680,7 +693,41 @@ func TestAFileWithNoMarkersLeavesNothingUnfilled(t *testing.T) {
 	files := []resolve.File{rendered(t, set,
 		"app/controllers/plain_controller.rb", "rails", "class PlainController\nend\n")}
 
-	if got := Unfilled("PR-014", files, nil); len(got) != 0 {
+	if got := Unfilled("PR-014", files, nil, nil); len(got) != 0 {
 		t.Errorf("a file planting no markers reported %+v unfilled", got)
+	}
+}
+
+// A run variable reaches a template with no kwarg binding it, which is the
+// whole point: the value is a fact about the project, and asking the model for
+// it is asking for something it cannot know (prov-2026-6fc3d13d).
+func TestARunVariableReachesTheTemplate(t *testing.T) {
+	set := loadSet(t, generators())
+	files := created(t, set, map[string]string{"app/controllers/users_controller.rb": "rails"})
+
+	inv := recording.Invocation{
+		Action: "wireOwnPackages",
+		Kwargs: map[string]any{"controller": "users"},
+	}
+	got, err := Expand("PR-014", files, []recording.Invocation{inv}, map[string]string{"module": "acme/todo"})
+	if err != nil {
+		t.Fatalf("Expand: %v", err)
+	}
+	if got[0].Content != "require \"acme/todo/support\"\n" {
+		t.Errorf("content = %q, want the run's variable substituted", got[0].Content)
+	}
+
+	// The invocation is the model's answer and must not have acquired the
+	// variable. A recording that carried run state as though the model bound it
+	// would make the two indistinguishable later.
+	if _, bound := inv.Kwargs["module"]; bound {
+		t.Error("expansion wrote a run variable into the invocation it was given")
+	}
+
+	// And with nothing supplied the template fails loudly rather than rendering
+	// a gap. Binding the value is the run's job, and a run that did not do it
+	// is refused at load - this is the backstop for a caller that skipped that.
+	if _, err := Expand("PR-014", files, []recording.Invocation{inv}, nil); err == nil {
+		t.Error("an unbound variable rendered without complaint")
 	}
 }

@@ -15,38 +15,26 @@ actions:
   # imports rather than replacing one region, and re-running with the same path
   # rewrites in place. Repetition comes from invocations, the same way fields
   # and queries do.
-  addMainImport:
-    kwargs:
-      path: { type: string, required: true }
+  # The service's own packages, wired by the run rather than by the model.
+  #
+  # These used to be addMainImport and addHandlerImport, taking the path as a
+  # kwarg. That asked the model for the module name, which is in go.mod - a file
+  # no record authorizes and no file list carries - so it was answering from
+  # nothing. Measured: it bound chi, sqlx, net/http, net/http/httptest and
+  # testify across the five import actions, four of them unused and one already
+  # in the template, and the service did not compile (prov-2026-6fc3d13d).
+  #
+  # No kwargs at all now. Which packages a service has is the standard's
+  # business and is written into the template; which module they live under is
+  # the run's and arrives as {{module}}. The model selects and binds nothing.
+  wireMainPackages:
     injects_into: "main.go"
     anchor: imports
 
-  addHandlerImport:
+  wireHandlerPackages:
     kwargs:
       resource: { type: string, required: true }
-      path: { type: string, required: true }
     injects_into: "handlers/{{resource|table}}.go"
-    anchor: imports
-
-  addDBImport:
-    kwargs:
-      resource: { type: string, required: true }
-      path: { type: string, required: true }
-    injects_into: "db/{{resource|table}}.go"
-    anchor: imports
-
-  addHandlerTestImport:
-    kwargs:
-      resource: { type: string, required: true }
-      path: { type: string, required: true }
-    injects_into: "handlers/{{resource|table}}_test.go"
-    anchor: imports
-
-  addDBTestImport:
-    kwargs:
-      resource: { type: string, required: true }
-      path: { type: string, required: true }
-    injects_into: "db/{{resource|table}}_test.go"
     anchor: imports
 
   # One endpoint is a handler plus its route registration, in two files that

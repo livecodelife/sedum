@@ -1,0 +1,2 @@
+	"{{module}}/db"
+	"{{module}}/handlers"

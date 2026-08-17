@@ -4,7 +4,6 @@ import (
 	"context"
 	"database/sql"
 	"time"
-	// sedum:anchor:imports
 )
 
 // conn is the pool this package queries through. main wires it at startup.

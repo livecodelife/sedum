@@ -69,6 +69,7 @@ func TestGrowFlagSurface(t *testing.T) {
 		{"output", "", "string", "."},
 		{"lang", "", "stringSlice", "[]"},
 		{"only", "", "stringSlice", "[]"},
+		{"var", "", "stringArray", "[]"},
 		{"record", "", "string", ""},
 		{"execute", "", "string", ""},
 		{"dry-run", "", "bool", "false"},
@@ -94,6 +95,7 @@ func TestResolveFlagSurface(t *testing.T) {
 		{"records", "", "string", ""},
 		{"lang", "", "stringSlice", "[]"},
 		{"only", "", "stringSlice", "[]"},
+		{"var", "", "stringArray", "[]"},
 		{"show-template", "", "bool", "false"},
 	})
 }
@@ -310,5 +312,30 @@ func TestRootListsEverySubcommand(t *testing.T) {
 		if !found {
 			t.Errorf("root is missing subcommand %q", name)
 		}
+	}
+}
+
+// --var is name=value, split on the first = only: a Go module path or a .NET
+// namespace is a plausible value and may contain one, while a name may not.
+func TestVarParsing(t *testing.T) {
+	got, err := parseVars([]string{"module=github.com/acme/todo", "registry=ghcr.io"})
+	if err != nil {
+		t.Fatalf("parseVars: %v", err)
+	}
+	if got["module"] != "github.com/acme/todo" || got["registry"] != "ghcr.io" {
+		t.Errorf("parsed %v", got)
+	}
+
+	if _, err := parseVars([]string{"module"}); err == nil {
+		t.Error("a --var with no = was accepted")
+	}
+	if _, err := parseVars([]string{"=todo"}); err == nil {
+		t.Error("a --var with no name was accepted")
+	}
+
+	// Two values for one variable means one of them was meant and nothing says
+	// which, so it is refused rather than resolved by order.
+	if _, err := parseVars([]string{"module=a", "module=b"}); err == nil {
+		t.Error("a repeated --var silently took one of the two values")
 	}
 }

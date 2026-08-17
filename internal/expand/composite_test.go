@@ -102,7 +102,7 @@ func run(t *testing.T, authorized []string, invocations []recording.Invocation) 
 		t.Fatalf("resolve.Create: %v", err)
 	}
 
-	resolved, err := Expand("prov-2026-aaaaaaaa", files, invocations)
+	resolved, err := Expand("prov-2026-aaaaaaaa", files, invocations, nil)
 	if err != nil {
 		return output, err
 	}
@@ -184,7 +184,7 @@ func TestRerunningACompositeIsByteIdentical(t *testing.T) {
 		{Resolution: resolve.Resolution{RecordID: "prov-2026-aaaaaaaa", Path: manifestPath, Package: pkg}},
 		{Resolution: resolve.Resolution{RecordID: "prov-2026-aaaaaaaa", Path: sharedPath, Package: pkg}},
 	}
-	resolved, err := Expand("prov-2026-aaaaaaaa", files, provisionStep())
+	resolved, err := Expand("prov-2026-aaaaaaaa", files, provisionStep(), nil)
 	if err != nil {
 		t.Fatalf("second Expand: %v", err)
 	}

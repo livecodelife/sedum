@@ -41,7 +41,7 @@ import (
 // One invocation may produce more than one resolved injection: a composite
 // produces one per child. They are returned in the order the composite declares
 // them, in the position the invocation held.
-func Expand(recordID string, files []resolve.File, invocations []recording.Invocation) ([]inject.Invocation, error) {
+func Expand(recordID string, files []resolve.File, invocations []recording.Invocation, variables map[string]string) ([]inject.Invocation, error) {
 	packages := Packages(files)
 
 	var (
@@ -49,7 +49,7 @@ func Expand(recordID string, files []resolve.File, invocations []recording.Invoc
 		problems []error
 	)
 	for _, inv := range invocations {
-		resolved, err := expandOne(recordID, packages, files, inv)
+		resolved, err := expandOne(recordID, packages, files, inv, variables)
 		if err != nil {
 			problems = append(problems, err)
 			continue
@@ -63,17 +63,17 @@ func Expand(recordID string, files []resolve.File, invocations []recording.Invoc
 	return out, nil
 }
 
-func expandOne(recordID string, packages []*genpkg.Package, files []resolve.File, inv recording.Invocation) ([]inject.Invocation, error) {
+func expandOne(recordID string, packages []*genpkg.Package, files []resolve.File, inv recording.Invocation, variables map[string]string) ([]inject.Invocation, error) {
 	pkg, action, err := lookupAction(packages, inv.Action)
 	if err != nil {
 		return nil, err
 	}
 
 	if action.Kind() == genpkg.Composite {
-		return expandComposite(recordID, pkg, files, action, inv.Kwargs)
+		return expandComposite(recordID, pkg, files, action, inv.Kwargs, variables)
 	}
 
-	resolved, err := resolveOne(recordID, pkg, files, action, inv.Kwargs)
+	resolved, err := resolveOne(recordID, pkg, files, action, inv.Kwargs, variables)
 	if err != nil {
 		return nil, err
 	}
@@ -95,7 +95,7 @@ func expandOne(recordID string, packages []*genpkg.Package, files []resolve.File
 // Every child is attempted rather than stopping at the first that fails, for the
 // same reason the invocation list is: a composite with two mistakes in it should
 // report two.
-func expandComposite(recordID string, pkg *genpkg.Package, files []resolve.File, composite *genpkg.Action, kwargs map[string]any) ([]inject.Invocation, error) {
+func expandComposite(recordID string, pkg *genpkg.Package, files []resolve.File, composite *genpkg.Action, kwargs map[string]any, variables map[string]string) ([]inject.Invocation, error) {
 	var (
 		out      []inject.Invocation
 		problems []error
@@ -117,7 +117,7 @@ func expandComposite(recordID string, pkg *genpkg.Package, files []resolve.File,
 		// child: the child is where the defect is, and the composite is
 		// the invocation the author has to fix - a child may not even be
 		// exposed (prov-2026-a0e37dae).
-		resolved, err := resolveOne(recordID, pkg, files, child, project(child, kwargs))
+		resolved, err := resolveOne(recordID, pkg, files, child, project(child, kwargs), variables)
 		if err != nil {
 			problems = append(problems, fmt.Errorf("composite %s: %w", composite.Name, err))
 			continue
@@ -156,7 +156,7 @@ func project(child *genpkg.Action, kwargs map[string]any) map[string]any {
 // resolveOne resolves one simple or discriminated action to the point where
 // only writing is left. A composite never reaches it; by the time anything here
 // runs, expansion has already happened.
-func resolveOne(recordID string, pkg *genpkg.Package, files []resolve.File, action *genpkg.Action, kwargs map[string]any) (inject.Invocation, error) {
+func resolveOne(recordID string, pkg *genpkg.Package, files []resolve.File, action *genpkg.Action, kwargs map[string]any, variables map[string]string) (inject.Invocation, error) {
 	// Declared defaults are applied here and nowhere earlier. Phase 5 has
 	// already recorded what the model returned, so the recording keeps saying
 	// that and the rendered file gets that plus the package's defaults. Filling
@@ -168,6 +168,7 @@ func resolveOne(recordID string, pkg *genpkg.Package, files []resolve.File, acti
 	// see the same bindings. A default visible to one and not another would be
 	// a difference nothing declared.
 	kwargs = withDefaults(action, kwargs)
+	kwargs = withVariables(variables, kwargs)
 
 	path, err := renderPath(pkg, action, kwargs)
 	if err != nil {
@@ -226,6 +227,29 @@ func withDefaults(action *genpkg.Action, kwargs map[string]any) map[string]any {
 	}
 	if out == nil {
 		return kwargs
+	}
+	return out
+}
+
+// withVariables lays the run's variables under the bound kwargs.
+//
+// Under rather than over, though nothing turns on it: a package declaring a
+// variable named like one of its own kwargs is a load error, so the two sets
+// are disjoint by the time anything renders. The order says which is more
+// specific rather than settling a contest (prov-2026-6fc3d13d).
+//
+// The input map is not mutated. It is the invocation the caller recorded, and
+// it has to keep reading as what the model returned.
+func withVariables(variables map[string]string, kwargs map[string]any) map[string]any {
+	if len(variables) == 0 {
+		return kwargs
+	}
+	out := make(map[string]any, len(kwargs)+len(variables))
+	for name, value := range variables {
+		out[name] = value
+	}
+	for name, value := range kwargs {
+		out[name] = value
 	}
 	return out
 }

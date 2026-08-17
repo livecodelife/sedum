@@ -5,6 +5,17 @@ name: chi
 extensions: [".go"]
 comment_prefix: "//"
 
+# The one project fact this standard's templates cannot know. It is declared
+# here because every Go service needs it and named nowhere else because whose
+# module it is belongs to the run, not to the standard (prov-2026-6fc3d13d).
+variables:
+  module:
+    description: >-
+      The module path from go.mod, which this service's own packages are
+      imported under - github.com/acme/todo, or todo for a module with no
+      remote. The handler and main files import "<module>/db" and
+      "<module>/handlers" from it.
+
 transforms:
   # A file template captures a plural path segment (handlers/todos.go), while a
   # type name is singular and a slice of them is plural. Both directions are

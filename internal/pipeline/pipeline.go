@@ -54,6 +54,12 @@ type Config struct {
 	Lang       []string
 	Only       []string
 
+	// Variables are the run's values for the project facts packages declare,
+	// as supplied on the command line. They are resolved against the loaded
+	// packages' declarations before any phase writes anything
+	// (prov-2026-6fc3d13d).
+	Variables map[string]string
+
 	// DryRun runs every phase and writes nothing.
 	DryRun bool
 
@@ -90,6 +96,11 @@ type Result struct {
 	// Injections is what Phase 7 wrote, or would have written under a dry
 	// run. Nil when the run stopped before Phase 7.
 	Injections []inject.Result
+
+	// Variables are what the run's values resolved to, defaults filled in. They
+	// are carried so that a recording can hold them: a recording that rendered
+	// different text depending on invisible run state would not be one.
+	Variables map[string]string
 
 	// Unmanaged are the authorized paths a generator package declared Sedum
 	// does not write. They are the run's handoff: authorized work that
@@ -164,6 +175,19 @@ func Run(ctx context.Context, cfg Config) (*Result, error) {
 	result.Packages = packages
 	log.Info("loaded generator packages", "count", len(packages.Packages), "extensions", packages.Extensions())
 
+	// Variables are bound before Phase 1, so a run missing one is refused while
+	// nothing has been written and the diagnostic can name the package and the
+	// author's description. Left to render, the same mistake surfaces in Phase 6
+	// as a complaint about a template, after files are on disk.
+	variables, err := packages.ResolveVariables(cfg.Variables)
+	if err != nil {
+		return nil, err
+	}
+	result.Variables = variables
+	if len(variables) > 0 {
+		log.Info("bound run variables", "variables", variables)
+	}
+
 	// Phase 1 - ingest provenance records.
 	records, warnings, err := record.Load(cfg.Records, record.Options{Only: cfg.Only})
 	result.Warnings = append(result.Warnings, warnings...)
@@ -201,9 +225,10 @@ func Run(ctx context.Context, cfg Config) (*Result, error) {
 
 	// Phase 3 - create files from templates.
 	files, err := resolve.Create(resolutions, resolve.Options{
-		Output: cfg.Output,
-		DryRun: cfg.DryRun,
-		Log:    log,
+		Output:    cfg.Output,
+		DryRun:    cfg.DryRun,
+		Variables: variables,
+		Log:       log,
 	})
 	if err != nil {
 		return nil, err
@@ -221,7 +246,7 @@ func Run(ctx context.Context, cfg Config) (*Result, error) {
 	// Per record rather than per run, because a record is the unit of intent:
 	// its constraints govern its own paths, and one call deciding two records'
 	// files would make each record's constraints apply to the other's.
-	selections, err := selectAll(ctx, cfg, records, files, log)
+	selections, err := selectAll(ctx, cfg, records, files, variables, log)
 	if err != nil {
 		return nil, err
 	}
@@ -237,7 +262,7 @@ func Run(ctx context.Context, cfg Config) (*Result, error) {
 	// from it: every value comes from the validated kwargs.
 	var resolved []inject.Invocation
 	for _, s := range selections {
-		expanded, err := expand.Expand(s.RecordID, s.Files, s.Invocations)
+		expanded, err := expand.Expand(s.RecordID, s.Files, s.Invocations, variables)
 		if err != nil {
 			return nil, fmt.Errorf("record %s: %w", s.RecordID, err)
 		}
@@ -271,7 +296,7 @@ func Run(ctx context.Context, cfg Config) (*Result, error) {
 // a model call. Its catalog would be empty, so the only valid answer is an
 // empty list, and paying for a call to be told so would be a cost the run can
 // see is pointless before it is incurred.
-func selectAll(ctx context.Context, cfg Config, records *record.Set, files []resolve.File, log *runlog.Log) ([]Selection, error) {
+func selectAll(ctx context.Context, cfg Config, records *record.Set, files []resolve.File, variables map[string]string, log *runlog.Log) ([]Selection, error) {
 	var out []Selection
 
 	for _, rec := range records.Records {
@@ -295,7 +320,7 @@ func selectAll(ctx context.Context, cfg Config, records *record.Set, files []res
 			Intent:      rec.Intent,
 			Constraints: rec.Constraints,
 			Files:       mine,
-		}, selection.Options{Retries: cfg.Retries, Log: log})
+		}, selection.Options{Retries: cfg.Retries, Variables: variables, Log: log})
 		if err != nil {
 			return nil, err
 		}

@@ -53,8 +53,8 @@ func Planted(files []resolve.File) []Anchor {
 // runs after validation has passed, so a failure here is a defect in a later
 // phase and belongs to that phase's diagnostic - reporting it as a completeness
 // problem would name the wrong thing.
-func Filled(recordID string, files []resolve.File, invocations []recording.Invocation) []Anchor {
-	expanded, err := Expand(recordID, files, invocations)
+func Filled(recordID string, files []resolve.File, invocations []recording.Invocation, variables map[string]string) []Anchor {
+	expanded, err := Expand(recordID, files, invocations, variables)
 	if err != nil {
 		return nil
 	}
@@ -110,9 +110,9 @@ func Fillable(files []resolve.File) map[string]bool {
 // (prov-2026-206fa618). The subtraction is silent. Phase 0 already names every
 // such marker at load, by name and with the reason, and repeating it here would
 // charge an authoring warning by the run.
-func Unfilled(recordID string, files []resolve.File, invocations []recording.Invocation) []Anchor {
+func Unfilled(recordID string, files []resolve.File, invocations []recording.Invocation, variables map[string]string) []Anchor {
 	filled := map[Anchor]bool{}
-	for _, a := range Filled(recordID, files, invocations) {
+	for _, a := range Filled(recordID, files, invocations, variables) {
 		filled[a] = true
 	}
 	fillable := Fillable(files)

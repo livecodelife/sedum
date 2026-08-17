@@ -3,7 +3,6 @@ package db
 import (
 	"context"
 	"testing"
-	// sedum:anchor:imports
 )
 
 // requireConn skips rather than fails when no database is configured, so the

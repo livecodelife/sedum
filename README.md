@@ -88,6 +88,17 @@ Validate a single package, and treat warnings as failures:
 ./sedum validate --generators ./testdata/generators --package rails --strict
 ```
 
+**Bind a project fact a package cannot know** — a generator package may declare
+`variables:` for things like a Go module path or a .NET root namespace. The
+package declares the name; the run supplies the value, and Sedum never learns
+what it means. A declared variable with no value and no default stops the run
+before anything is written.
+
+```sh
+./sedum grow --generators ./generators --records ./provenance \
+             --var module=github.com/acme/todo
+```
+
 **See what each authorized path resolves to** — the generator package that
 claims it, the file template that matched, and the captures that template bound.
 Writes nothing.

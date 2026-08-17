@@ -31,6 +31,13 @@ type Recording struct {
 	SedumVersion string             `json:"sedum_version"`
 	Packages     map[string]Package `json:"packages"`
 	Records      []Record           `json:"records"`
+
+	// Variables are the run's values for the project facts its packages
+	// declare. A recording carries them because replay renders the same
+	// invocations against the same packages, and a recording that rendered
+	// different text depending on invisible run state would not be a recording
+	// (prov-2026-6fc3d13d).
+	Variables map[string]string `json:"variables,omitempty"`
 }
 
 // Package is a generator package as the run resolved it. Replay verifies that

@@ -5,7 +5,6 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
-	// sedum:anchor:imports
 )
 
 // request builds a JSON request. Injected tests call it so that this file uses

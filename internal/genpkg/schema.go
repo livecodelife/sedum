@@ -1,7 +1,11 @@
 package genpkg
 
 import (
+	"fmt"
 	"slices"
+	"sort"
+	"strconv"
+	"strings"
 
 	"github.com/calebcowen/sedum/internal/transform"
 )
@@ -22,6 +26,46 @@ type manifest struct {
 	Transforms    map[string][]string          `yaml:"transforms"`
 	OpExceptions  map[string]map[string]string `yaml:"op_exceptions"`
 	Unmanaged     []string                     `yaml:"unmanaged"`
+	Variables     map[string]Variable          `yaml:"variables"`
+}
+
+// Variable is a project fact this package's templates reference and cannot
+// know: a Go module path, a Java group id, a .NET root namespace.
+//
+// The package declares the name because which facts a standard needs is the
+// standard's business. The run supplies the value because whose project it is
+// is the run's. That split is what keeps a package reusable across every repo
+// that follows its conventions (prov-2026-6fc3d13d).
+//
+// Sedum never interprets one. It substitutes text under a name and does not
+// read the name, parse the value, or attach a meaning to either - which is what
+// keeps a module path from becoming something the core knows about Go.
+type Variable struct {
+	// Description is what a correct value looks like, addressed to the person
+	// running the command. That is the opposite of a kwarg description, which
+	// is addressed to the model (prov-2026-c5697387): a variable never reaches
+	// the catalog, so nothing but a human ever reads this.
+	Description string `yaml:"description"`
+
+	// Default is the value used when the run supplies none. Absent means the
+	// run must supply one, and a run that does not is halted before Phase 3.
+	//
+	// A pointer because a variable's value is a string, so an absent default and
+	// a declared empty one are the same string and only the pointer tells them
+	// apart. Kwarg.Default gets this for free by being `any`.
+	Default *string `yaml:"default"`
+}
+
+// HasDefault reports whether this variable declares a value to fall back to.
+func (v Variable) HasDefault() bool { return v.Default != nil }
+
+// Value is the default this variable declares, or the empty string when it
+// declares none. Callers check HasDefault first.
+func (v Variable) Value() string {
+	if v.Default == nil {
+		return ""
+	}
+	return *v.Default
 }
 
 // actionsFile is actions/actions.yaml.
@@ -251,6 +295,10 @@ type Package struct {
 	// this says only that Sedum is not what touches it. The usual reason is
 	// a file a person or another tool owns - a Gemfile, a lockfile, a key.
 	Unmanaged []string
+
+	// Variables are the project facts this package's templates reference and
+	// cannot know. The run supplies their values (prov-2026-6fc3d13d).
+	Variables map[string]Variable
 	// Engine applies this package's transforms. It is built from the two
 	// fields above at load, so that a pipeline which cannot be built rejects
 	// the package instead of failing mid-render (prov-2026-4675cebe). It is
@@ -303,4 +351,84 @@ func (p *Package) Exposed() []*Action {
 		}
 	}
 	return out
+}
+
+// ResolveVariables binds every variable the packages declare, from the values a
+// run supplied and the defaults they declare.
+//
+// Two failures, both before Phase 3 touches disk. A value for a variable no
+// package declares is an error rather than an ignored key: a run cannot invent a
+// variable, so a name nothing declares is a typo, and a typo silently ignored
+// renders the template with nothing bound. A declared variable with neither a
+// value nor a default is an error naming the package and printing the author's
+// description, which is what the description is for (prov-2026-6fc3d13d).
+func (s *Set) ResolveVariables(supplied map[string]string) (map[string]string, error) {
+	declared := map[string]Variable{}
+	owner := map[string]string{}
+	for _, pkg := range s.Packages {
+		for name, v := range pkg.Variables {
+			declared[name] = v
+			owner[name] = pkg.Name
+		}
+	}
+
+	var unknown []string
+	for name := range supplied {
+		if _, ok := declared[name]; !ok {
+			unknown = append(unknown, name)
+		}
+	}
+	if len(unknown) > 0 {
+		sort.Strings(unknown)
+		known := sortedKeys(declared)
+		if len(known) == 0 {
+			return nil, fmt.Errorf("no loaded package declares any variable, so there is nothing for %s to bind",
+				quoteAll(unknown))
+		}
+		return nil, fmt.Errorf("no loaded package declares %s; the declared variables are %s",
+			quoteAll(unknown), quoteAll(known))
+	}
+
+	out := make(map[string]string, len(declared))
+	var missing []string
+	for _, name := range sortedKeys(declared) {
+		if value, ok := supplied[name]; ok {
+			out[name] = value
+			continue
+		}
+		if declared[name].HasDefault() {
+			out[name] = declared[name].Value()
+			continue
+		}
+		missing = append(missing, fmt.Sprintf("  %s (%s): %s", name, owner[name], described(declared[name])))
+	}
+	if len(missing) > 0 {
+		return nil, fmt.Errorf("%s not set and %s no default:\n%s",
+			plural(len(missing), "variable is", "variables are"),
+			plural(len(missing), "declares", "declare"),
+			strings.Join(missing, "\n"))
+	}
+	return out, nil
+}
+
+func described(v Variable) string {
+	if strings.TrimSpace(v.Description) == "" {
+		return "the package describes it no further"
+	}
+	return strings.TrimSpace(v.Description)
+}
+
+func quoteAll(names []string) string {
+	out := make([]string, len(names))
+	for i, n := range names {
+		out[i] = strconv.Quote(n)
+	}
+	return strings.Join(out, ", ")
+}
+
+func plural(n int, one, many string) string {
+	if n == 1 {
+		return one
+	}
+	return many
 }

@@ -134,7 +134,18 @@ affected_scope:
   - internal/resolve/create.go
   - internal/resolve/resolve_test.go
   - internal/expand/expand.go
+  # Phase 5's completeness check expands to learn which anchors a selection
+  # fills, so it renders injects_into and needs the same values Phase 6 does.
+  # Without them an action whose path references a variable reports its anchor
+  # unfilled and earns a completeness re-prompt nothing could satisfy.
+  - internal/expand/anchors.go
+  - internal/selection/selection.go
+  - internal/selection/selection_test.go
   - internal/expand/expand_test.go
+  - internal/expand/composite_test.go
+  - internal/expand/anchors_test.go
+  - internal/catalog/catalog.go
+  - internal/catalog/catalog_test.go
   - internal/pipeline/pipeline.go
   - internal/pipeline/pipeline_test.go
   - internal/recording/recording.go
@@ -145,13 +156,16 @@ affected_scope:
   - internal/cli/resolve_test.go
   - internal/cli/actions.go
   - README.md
+  - PRD.md
   - evals/testdata/todo-api/generators/defined/chi/sedum.yaml
   - evals/testdata/todo-api/generators/defined/chi/actions/actions.yaml
   - evals/testdata/todo-api/generators/defined/chi/actions/**
+  - evals/testdata/todo-api/generators/defined/chi/files/**
   - evals/behavior/targets/todo-chi/target.sh
   - evals/behavior/targets/todo-chi/answer.json
   - evals/behavior/behave.sh
   - evals/behavior/README.md
+  - evals/behavior/.gitignore
 forbidden_scope: []
 type: blueprint
 implements: prov-2026-d554bfc3

@@ -34,6 +34,7 @@ specificity.`,
 	f := cmd.Flags()
 	f.StringVar(&cfg.Generators, "generators", "", "Generators directory. Required.")
 	f.StringVar(&cfg.Records, "records", "", "Provenance records directory. Required.")
+	f.StringArrayVar(&cfg.Vars, "var", nil, "Bind a variable a generator package declares, as name=value. Repeatable.")
 	f.StringSliceVar(&cfg.Lang, "lang", nil, "Prefer the named package where an extension is contested. Repeatable.")
 	f.StringSliceVar(&cfg.Only, "only", nil, "Resolve only the named provenance record. Repeatable.")
 	f.BoolVar(&cfg.ShowTemplate, "show-template", false, "Include rendered template output for each path.")
@@ -50,12 +51,18 @@ specificity.`,
 // depend on where it was run from (prov-2026-43808a47). Rendering for
 // --show-template is Phase 3's, but it is the half that touches nothing.
 func runResolve(ctx context.Context, out, errOut io.Writer, cfg ResolveConfig) error {
+	variables, err := parseVars(cfg.Vars)
+	if err != nil {
+		return err
+	}
+
 	result, err := pipeline.Run(ctx, pipeline.Config{
 		Generators:     cfg.Generators,
 		Records:        cfg.Records,
 		Lang:           cfg.Lang,
 		Only:           cfg.Only,
 		StopAfterPhase: pipeline.PhaseResolve,
+		Variables:      variables,
 		Log:            runlog.Discard(),
 	})
 	if err != nil {
@@ -65,7 +72,7 @@ func runResolve(ctx context.Context, out, errOut io.Writer, cfg ResolveConfig) e
 	rendered := map[string]string{}
 	if cfg.ShowTemplate {
 		for _, r := range result.Resolutions {
-			text, err := resolve.Render(r)
+			text, err := resolve.Render(r, result.Variables)
 			if err != nil {
 				return err
 			}

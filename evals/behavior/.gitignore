@@ -1,4 +1,7 @@
 # What a hand-run leaves behind: a results file, the phase logs, and the sources
 # the run generated. Useful while looking at a failure and not worth committing -
 # a measurement's runs write to a temporary directory instead and delete it.
-results/
+#
+# Dot-prefixed so the Go toolchain skips it too: it holds generated .go files,
+# and a directory named results/ inside the module breaks `go build ./...`.
+.results/

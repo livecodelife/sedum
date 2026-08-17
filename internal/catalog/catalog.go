@@ -251,11 +251,23 @@ func requirements(pkg *genpkg.Package, action *genpkg.Action) ([]string, map[str
 	unconditional := map[string]bool{}
 	byVariant := map[string]map[string]bool{}
 
+	// A value the run supplies is not something an invocation has to bind, so
+	// it is not a derived requirement. Without this the check that exists to
+	// stop Phase 6 halting on an unbound value rejects every selection of an
+	// action whose template references a variable - which is every action the
+	// feature exists for (prov-2026-6fc3d13d).
+	isVariable := func(name string) bool {
+		_, ok := pkg.Variables[name]
+		return ok
+	}
+
 	collect := func(a *genpkg.Action) {
 		for variant, values := range a.TemplateRefs {
 			if variant == genpkg.SoleTemplate {
 				for _, v := range values {
-					unconditional[v] = true
+					if !isVariable(v) {
+						unconditional[v] = true
+					}
 				}
 				continue
 			}
@@ -263,7 +275,9 @@ func requirements(pkg *genpkg.Package, action *genpkg.Action) ([]string, map[str
 				byVariant[variant] = map[string]bool{}
 			}
 			for _, v := range values {
-				byVariant[variant][v] = true
+				if !isVariable(v) {
+					byVariant[variant][v] = true
+				}
 			}
 		}
 	}

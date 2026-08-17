@@ -3,6 +3,7 @@ package cli
 import (
 	"errors"
 	"fmt"
+	"strings"
 )
 
 // The config types below are the whole contract between flag parsing and the
@@ -18,6 +19,7 @@ type GrowConfig struct {
 	Lang       []string
 	Only       []string
 	RecordTo   string
+	Vars       []string
 	Execute    string
 	DryRun     bool
 	StopAfter  string
@@ -98,6 +100,7 @@ type ResolveConfig struct {
 	Records      string
 	Lang         []string
 	Only         []string
+	Vars         []string
 	ShowTemplate bool
 }
 
@@ -114,4 +117,32 @@ type ActionsConfig struct {
 // that did nothing.
 func notImplemented(command, milestone, summary string) error {
 	return fmt.Errorf("%s is not implemented yet (%s: %s)", command, milestone, summary)
+}
+
+// parseVars turns repeated --var name=value flags into bindings.
+//
+// Split on the first = only, because a value may contain one and a name may
+// not: a Go module path or a .NET namespace is a plausible value, and nothing
+// about a variable's name is Sedum's to interpret beyond where it ends.
+//
+// A repeated name is an error rather than last-one-wins. Two values for one
+// variable on a single command line means the author meant one of them, and
+// there is no way to tell which.
+func parseVars(vars []string) (map[string]string, error) {
+	if len(vars) == 0 {
+		return nil, nil
+	}
+	out := make(map[string]string, len(vars))
+	for _, v := range vars {
+		name, value, ok := strings.Cut(v, "=")
+		if !ok || name == "" {
+			return nil, fmt.Errorf("--var %q is not name=value", v)
+		}
+		if existing, dup := out[name]; dup {
+			return nil, fmt.Errorf("--var %s given twice, as %q and %q; one of them was meant and nothing says which",
+				name, existing, value)
+		}
+		out[name] = value
+	}
+	return out, nil
 }

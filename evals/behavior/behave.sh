@@ -60,7 +60,11 @@ TARGET_DIR="$HARNESS_DIR/targets/$TARGET"
 
 # ---------------------------------------------------------------- bookkeeping
 
-RESULTS_DIR="${RESULTS_DIR:-$HARNESS_DIR/results}"
+# Dot-prefixed, because the Go toolchain ignores directories beginning with a
+# dot or an underscore and this one holds generated .go sources. Named results/
+# it was inside the module, so `go build ./...` tried to compile a half-built
+# chi service and failed on imports the harness had deliberately not resolved.
+RESULTS_DIR="${RESULTS_DIR:-$HARNESS_DIR/.results}"
 mkdir -p "$RESULTS_DIR"
 # The pid is in the run id because samples run concurrently, and two starting
 # in the same second would otherwise write one results file between them.
@@ -187,6 +191,7 @@ run_sedum() {
       --records "$SEDUM_REPO/$RECORDS" \
       --output "$APP" \
       --model "$model_arg" \
+      ${SEDUM_VARS:-} \
       --retries "${RETRIES:-2}" \
       --record "$LOGS/recording.json" \
       --log "$LOGS/sedum.log"

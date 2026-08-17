@@ -38,6 +38,7 @@ const (
 	RuleKwargTypeUnknown       = "kwarg_type_unknown"
 	RuleKwargDefaultOnRequired = "kwarg_default_on_required"
 	RuleKwargDefaultType       = "kwarg_default_type"
+	RuleVariableCollides       = "variable_collides"
 	RuleActionIncomplete       = "action_incomplete"
 	RuleDiscriminatorUnknown   = "discriminator_unknown_kwarg"
 	RuleAnchorInvalid          = "anchor_invalid"

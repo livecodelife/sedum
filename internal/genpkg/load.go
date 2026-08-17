@@ -153,6 +153,7 @@ func loadPackage(dir, dirName string) (*Package, Findings, error) {
 		Transforms:    man.Transforms,
 		OpExceptions:  man.OpExceptions,
 		Unmanaged:     man.Unmanaged,
+		Variables:     man.Variables,
 		Actions:       map[string]*Action{},
 	}
 
@@ -202,6 +203,7 @@ func loadPackage(dir, dirName string) (*Package, Findings, error) {
 	// Actions are built before their templates are resolved, because the
 	// declared shape is what says where to look.
 	validateActions(pkg, decls, r)
+	checkVariables(pkg, r)
 
 	actionTemplates, err := resolveActionTemplates(dir, pkg, r)
 	if err != nil {

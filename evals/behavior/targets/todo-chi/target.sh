@@ -18,6 +18,10 @@ GENERATED_PATHS=(
 )
 
 MODULE="${MODULE:-todo}"
+# The module path is a project fact the standard cannot know, so the run supplies
+# it rather than the model guessing it (prov-2026-6fc3d13d). This is the same
+# value `go mod init` was given, which is the point: one fact, named once.
+SEDUM_VARS="--var module=$MODULE"
 PGURL="${PGURL:-postgres://$(whoami)@localhost:5432}"
 DBNAME="sedum_behave_chi_$$"
 
