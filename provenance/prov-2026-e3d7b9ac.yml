@@ -1,6 +1,6 @@
 id: prov-2026-e3d7b9ac
 title: 'A kwarg may be declared literal: a string the template emits as source'
-status: open
+status: implemented
 created_at: "2026-08-17"
 author: calebcowen@gmail.com
 intent: |
@@ -107,7 +107,7 @@ implements: prov-2026-d554bfc3
 supersedes: ""
 superseded_by: ""
 related: []
-sealed_at_sha: ""
+sealed_at_sha: 62d37068fe36fe25ea7cdb4f8a2debe53745bc30
 associated_specs:
   - path: internal/selection/selection_test.go
     run_command: go test ./$(dirname {{path}})
