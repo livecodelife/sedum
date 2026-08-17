@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"sort"
 	"strings"
 	"time"
 
@@ -90,7 +91,7 @@ type harnessResult struct {
 // The invocations are the sample's own, never a canned list. A checked-in
 // answer would measure what the generator package can render and report it as a
 // property of the model, which is the one thing this must not do.
-func RunBehavior(ctx context.Context, target string, invocations []recording.Invocation) BehaviorRun {
+func RunBehavior(ctx context.Context, target string, invocations []recording.Invocation, variables map[string]string) BehaviorRun {
 	started := time.Now()
 
 	if len(invocations) == 0 {
@@ -117,6 +118,13 @@ func RunBehavior(ctx context.Context, target string, invocations []recording.Inv
 
 	cmd := exec.CommandContext(ctx, "bash", harnessScript, target, "--answer", answer)
 	cmd.Env = append(os.Environ(), "RESULTS_DIR="+results)
+	// The case's variables reach the target as environment, so the scaffold and
+	// the generation read one value rather than two that agree by convention:
+	// go mod init and --var are the same module name or the service does not
+	// compile (prov-2026-1c33a50b).
+	for _, name := range sortedNames(variables) {
+		cmd.Env = append(cmd.Env, "SEDUM_VAR_"+strings.ToUpper(name)+"="+variables[name])
+	}
 	out, runErr := cmd.CombinedOutput()
 
 	// The exit status is not the measurement. behave.sh exits zero on a run
@@ -313,4 +321,15 @@ func (m Measurement) Behavior() (BehaviorTally, bool) {
 		}
 	}
 	return t, any
+}
+
+// sortedNames orders variable names so a run's environment is the same every
+// time, which is what keeps two runs of one case comparable.
+func sortedNames(variables map[string]string) []string {
+	out := make([]string, 0, len(variables))
+	for name := range variables {
+		out = append(out, name)
+	}
+	sort.Strings(out)
+	return out
 }

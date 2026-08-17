@@ -305,6 +305,7 @@ func sample(ctx context.Context, c Case, model string, opts Options) Sample {
 		DryRun:     true,
 		Client:     client,
 		Retries:    retries,
+		Variables:  c.Variables,
 	})
 	if err != nil {
 		// An answer Phase 5 refused and a server that was not there are
@@ -363,7 +364,7 @@ func sample(ctx context.Context, c Case, model string, opts Options) Sample {
 	// selection sample is seconds, and a timing table that hid that would be
 	// describing a run nobody made.
 	if opts.Behavior && c.Expect.Behavior != nil && len(s.Invocations) > 0 {
-		run := RunBehavior(ctx, c.Expect.Behavior.Target, s.Invocations)
+		run := RunBehavior(ctx, c.Expect.Behavior.Target, s.Invocations, c.Variables)
 		s.Behavior = &run
 	}
 	s.Elapsed = time.Since(started)

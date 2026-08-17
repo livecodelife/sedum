@@ -168,7 +168,7 @@ func TestTheAnswerCarriesTheSamplesOwnBindings(t *testing.T) {
 // Nothing to apply is not a measurement. A caller is expected not to ask, and
 // asking gets an error rather than a zero-check pass.
 func TestAnEmptySelectionIsNotMeasured(t *testing.T) {
-	got := RunBehavior(t.Context(), "todo-rails", nil)
+	got := RunBehavior(t.Context(), "todo-rails", nil, nil)
 	if got.Err == nil {
 		t.Error("applying no invocations reported a result")
 	}

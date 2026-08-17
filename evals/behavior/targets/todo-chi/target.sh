@@ -17,7 +17,11 @@ GENERATED_PATHS=(
   handlers/todos_test.go
 )
 
-MODULE="${MODULE:-todo}"
+# The case is the single source. RunBehavior exports the case's variables as
+# SEDUM_VAR_<NAME>, and both go mod init and --var read this one value, so the
+# scaffold and the generation cannot disagree about the module's name
+# (prov-2026-1c33a50b).
+MODULE="${SEDUM_VAR_MODULE:-${MODULE:-todo}}"
 # The module path is a project fact the standard cannot know, so the run supplies
 # it rather than the model guessing it (prov-2026-6fc3d13d). This is the same
 # value `go mod init` was given, which is the point: one fact, named once.

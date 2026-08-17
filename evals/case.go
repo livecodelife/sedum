@@ -36,7 +36,17 @@ type Case struct {
 	// across both would be saying something about Ruby rather than about
 	// either.
 	Framework string `yaml:"framework"`
-	Language  string `yaml:"language"`
+
+	// Variables are the run values this case's generator packages declare and
+	// cannot know - a Go module path, a root namespace (prov-2026-6fc3d13d).
+	//
+	// On the case rather than on the runner, because a variable's value is a
+	// property of the project being generated and for the eval the project is
+	// the case. A flag would make it a property of the invocation, so two runs
+	// of one case could differ in a way no stored entry records - and the entry
+	// is what makes a measurement re-runnable (prov-2026-1c33a50b).
+	Variables map[string]string `yaml:"variables,omitempty"`
+	Language  string            `yaml:"language"`
 
 	// Tightness is how much the generator package constrains the model:
 	// "defined" for a package whose actions and variants cover the intended

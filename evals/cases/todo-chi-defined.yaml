@@ -22,6 +22,13 @@ tightness: defined
 arm: sedum
 
 records: todo-api/records
+
+# The Go standard declares a module variable: the import prefix its own packages
+# live under, which is in go.mod and therefore in nothing the model can see. The
+# case supplies it so the value is a property of the project being generated
+# rather than of whoever typed the command (prov-2026-6fc3d13d).
+variables:
+  module: todo
 generators: todo-api/generators/defined
 
 models:
