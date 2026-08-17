@@ -1,6 +1,6 @@
 id: prov-2026-f03916ba
 title: An optional kwarg may declare the value it takes when nothing binds it
-status: open
+status: implemented
 created_at: "2026-08-17"
 author: calebcowen@gmail.com
 intent: |
@@ -121,7 +121,7 @@ supersedes: ""
 superseded_by: ""
 related:
   - prov-2026-e3d7b9ac
-sealed_at_sha: ""
+sealed_at_sha: 812c9ba7931aa05f5486de8140ee18357511db45
 associated_specs:
   - path: internal/genpkg/genpkg_test.go
     run_command: go test ./$(dirname {{path}})
