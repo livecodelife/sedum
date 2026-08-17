@@ -1,6 +1,6 @@
 id: prov-2026-c009d1ba
 title: The Go standard's source fragments are declared literal
-status: open
+status: implemented
 created_at: "2026-08-17"
 author: calebcowen@gmail.com
 intent: |
@@ -76,7 +76,7 @@ superseded_by: ""
 related:
   - prov-2026-e3d7b9ac
   - prov-2026-32b0f3e9
-sealed_at_sha: ""
+sealed_at_sha: 56f6ae620cf048c1ec177e2f104a2d9e18dbf7f4
 associated_specs:
   - path: evals/run_test.go
     run_command: go test ./$(dirname {{path}})
