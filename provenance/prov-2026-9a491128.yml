@@ -1,6 +1,6 @@
 id: prov-2026-9a491128
 title: A required kwarg bound to an empty string is not bound
-status: open
+status: implemented
 created_at: "2026-08-17"
 author: calebcowen@gmail.com
 intent: |
@@ -124,7 +124,7 @@ related:
   - prov-2026-2256e6fa
   - prov-2026-72775ae5
   - prov-2026-c5697387
-sealed_at_sha: ""
+sealed_at_sha: 3fcbf97b228b5e010df08a81ff2e6118016d0908
 associated_specs:
   - path: internal/selection/selection_test.go
     run_command: go test -count=1 ./$(dirname {{path}})
