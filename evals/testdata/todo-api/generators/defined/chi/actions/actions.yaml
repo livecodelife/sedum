@@ -69,7 +69,7 @@ actions:
     kwargs:
       resource: { type: string, required: true }
       name: { type: string, required: true }
-      go_type: { type: string, required: true }
+      go_type: { type: literal, required: true }
     injects_into: "db/{{resource|table}}.go"
     anchor: fields
 
@@ -81,12 +81,12 @@ actions:
       # the service's business, so they arrive as bound arguments. Optional
       # because a delete needs none of them - one kwarg schema covers every
       # variant, so per-variant requirements cannot be declared here.
-      columns: { type: string, required: false }
-      placeholders: { type: string, required: false }
-      insert_values: { type: string, required: false }
-      set_clause: { type: string, required: false }
-      update_values: { type: string, required: false }
-      scan_targets: { type: string, required: false }
+      columns: { type: literal, required: false }
+      placeholders: { type: literal, required: false }
+      insert_values: { type: literal, required: false }
+      set_clause: { type: literal, required: false }
+      update_values: { type: literal, required: false }
+      scan_targets: { type: literal, required: false }
     discriminator: operation
     variants: [insert, selectAll, selectByID, update, delete]
     injects_into: "db/{{resource|table}}.go"
