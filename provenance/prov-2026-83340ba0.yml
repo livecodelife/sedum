@@ -1,6 +1,6 @@
 id: prov-2026-83340ba0
 title: The eval can measure whether a selection produces a working application
-status: open
+status: implemented
 created_at: "2026-08-17"
 author: calebcowen@gmail.com
 intent: |
@@ -151,7 +151,7 @@ superseded_by: ""
 related:
   - prov-2026-f03916ba
   - prov-2026-e3d7b9ac
-sealed_at_sha: ""
+sealed_at_sha: 2e4379eaf7c720ef2df0128831e1b007abe18043
 associated_specs:
   - path: evals/behavior_test.go
     run_command: go test ./$(dirname {{path}})
