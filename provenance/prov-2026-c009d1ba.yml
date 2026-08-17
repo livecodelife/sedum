@@ -1,0 +1,87 @@
+id: prov-2026-c009d1ba
+title: The Go standard's source fragments are declared literal
+status: draft
+created_at: "2026-08-17"
+author: calebcowen@gmail.com
+intent: |
+  The eight kwargs in the Go package set whose values are source rather than
+  prose change from `type: string` to `type: literal`. Nothing else moves: same
+  names, same required flags, same templates.
+
+  ## The measurement this comes from
+
+  A coarse run of todo-chi-defined, five samples, three valid. Selection was
+  exact on every action - including the two wire actions the module-name work
+  introduced, 3/3 - and every valid sample failed to compile. One cause, in all
+  three:
+
+    s2  insert.insert_values='$1, $2'   insert.placeholders='$1, $2'
+    s3  insert.insert_values='$1, $2'   selectByID.placeholders='$1'
+    s4  insert.insert_values='$1, $2'   selectByID.placeholders='$1'
+
+  `insert_values` is a Go expression list and should read `in.Title,
+  in.Completed`. The model bound SQL placeholders into it every time. Both
+  kwargs sit in one schema, both are declared `string`, and nothing in the
+  catalog says one is Go and the other is SQL - so the model filled two
+  adjacent slots with the same kind of thing, which is a reasonable reading of
+  what it was shown.
+
+  ## Why literal is the change
+
+  This is the failure prov-2026-e3d7b9ac added the type for, in its second
+  package. `string` is true of these values and tells the model the wrong
+  thing: a kwarg holding prose and one holding code are bound differently, and
+  declaring both `string` leaves the difference unsayable.
+
+  It does not say *which* language, and must not - that would put a per-language
+  table in the core. What it says is "this is code, emitted verbatim", which is
+  the fact the model is currently missing.
+
+  ## What is not claimed
+
+  That this fixes Chi. The Rails arm's equivalent change needed the prompt
+  sentence beside it (prov-2026-32b0f3e9) before the malformed shape stopped,
+  and even then that arm sits at 2/5 for a different reason. The claim here is
+  narrower: the declaration stops being a lie, and the run after it is the
+  measurement.
+
+  The baseline it will be read against is 0/3 working, three of three broken at
+  build. There is no risk of a worse number, which is part of why this is worth
+  doing before anything subtler.
+constraints:
+  - >-
+    Only the declared type changes. Names, required flags, templates and the
+    actions' shapes are untouched, so a run before and after differs in what the
+    catalog says and in nothing else.
+  - >-
+    Every kwarg whose value is emitted into a file as source is declared
+    literal, across both packages that have one. Converting some and not others
+    would leave the same confusion between the ones that moved and the ones that
+    did not.
+  - >-
+    No description is added. The question under test is whether the type carries
+    it, and the Rails arm has already shown a description works - what is
+    unknown is whether the type plus the prompt is enough on its own.
+affected_scope:
+  - evals/testdata/todo-api/generators/defined/chi/actions/actions.yaml
+  - evals/testdata/todo-api/generators/defined/postgres/actions/actions.yaml
+  - evals/results/**
+forbidden_scope:
+  - internal/**
+  - cmd/**
+type: blueprint
+implements: prov-2026-d554bfc3
+supersedes: ""
+superseded_by: ""
+related:
+  - prov-2026-e3d7b9ac
+  - prov-2026-32b0f3e9
+sealed_at_sha: ""
+associated_specs:
+  - path: evals/run_test.go
+    run_command: go test ./$(dirname {{path}})
+associated_traces: []
+monitors: []
+tags:
+  - sedum
+  - evals
