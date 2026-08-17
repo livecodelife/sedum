@@ -1,6 +1,6 @@
 id: prov-2026-e3d7b9ac
 title: 'A kwarg may be declared literal: a string the template emits as source'
-status: draft
+status: open
 created_at: "2026-08-17"
 author: calebcowen@gmail.com
 intent: |
