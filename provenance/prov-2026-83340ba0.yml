@@ -1,0 +1,163 @@
+id: prov-2026-83340ba0
+title: The eval can measure whether a selection produces a working application
+status: draft
+created_at: "2026-08-17"
+author: calebcowen@gmail.com
+intent: |
+  A case may declare a behaviour target. When a run asks for it, every valid
+  sample's own invocations are applied to a freshly scaffolded application,
+  which is then built, booted and asserted against over HTTP. The report gains a
+  behaviour table beside the selection and binding ones.
+
+  Off by default. A behaviour sample costs a scaffold, a dependency install, a
+  database and a boot, which is a different order of cost from a model call.
+
+  ## What it is for
+
+  Every number the harness produces today is about the *answer*: which actions
+  were selected, what their arguments were bound to. None of them is about the
+  *application*. A case can score a perfect six-of-six on selection and produce
+  a service that does not boot, and has: the todo-chi package renders a service
+  that violates three of its own record's constraints - no validation, no
+  partial update, no 400 on an empty body - and no count or binding expectation
+  can see it, because the model selected exactly the right actions and bound
+  them exactly right. The gap is not in the answer. It is in what the package
+  can express.
+
+  That is the class of finding this exists for, and it is invisible from
+  selection alone by construction.
+
+  ## Why a sample's own invocations, and not a canned answer
+
+  The harness can replay any invocation list, and the obvious cheap design is to
+  check one known-good list per case and call it a property of the package. That
+  measures the package and calls it a measurement of the model.
+
+  Each sample is applied on its own instead. A behaviour rate then answers "how
+  often does what this model actually chose produce a working service", which is
+  the question the eval is for, and it composes with the numbers already there:
+  a sample can select completely, bind correctly, and still fail behaviour, and
+  those are three different findings about the same draw.
+
+  ## Why it replaces the reserved linespec shape
+
+  Expectations.Behavior already reserved `specs` and `pass_rate`, naming a
+  linespec suite as the contract. What landed does not use one, and the field
+  changes to say so: `target` names a directory under evals/behavior/targets
+  holding the scaffold, build, boot and assertion steps for one stack.
+
+  The reservation was not wrong, it was early. A linespec suite needs the
+  application running before it can assert anything, and standing one up is the
+  larger half of the work - so the harness had to exist first whatever asserts
+  against it. `target` is the seam a linespec assertion phase would be added
+  behind later, and swapping the assertions is a change inside a target rather
+  than a change to the case schema.
+
+  ## Why it is shell, and why it lives here
+
+  A target is a shell file declaring six functions. It is shell because every
+  step is a command a person would run - `rails new`, `bundle install`,
+  `bin/rails db:migrate`, `curl` - and expressing those in Go would buy nothing
+  and cost a layer.
+
+  It lives under evals/ because evals is not part of Sedum: nothing under
+  internal/ or cmd/ imports it and the binary does not contain it
+  (prov-2026-c0f55691). TOOL_BOUNDARIES.md §2 is the thing to be careful with -
+  it argues a harness must not ship inside Sedum, because a tool that both
+  generates and grades takes the weaker of the two guarantees as its own. That
+  argument is about the binary. Nothing here changes it: Sedum still does not
+  run or grade what it generates, and the direction of control is unchanged -
+  the harness calls Sedum and Sedum has no idea it exists.
+
+  ## The stub model, and what it is standing in for
+
+  Applying a recorded selection means running `sedum grow` without asking a
+  model. `grow --execute` is designed for exactly that and is not built (M7), so
+  the harness serves the sample's invocations from a local OpenAI-compatible
+  endpoint that returns them as a completion.
+
+  It is a stand-in and is written down as one. When --execute lands this should
+  be deleted rather than kept as an alternative: two ways to replay a selection
+  is one more than the property being measured can survive.
+
+  ## What the harness had already found before landing
+
+  Recorded because it is the argument for the whole thing, and because two of
+  them are about the harness's own blind spots:
+
+  - The todo-chi package cannot satisfy three constraints of the record it is
+    scored against. No selection can fix it.
+  - A migration declaring `default: ""` on a column the record says carries no
+    default passed twenty-one HTTP assertions, because no HTTP call can observe
+    a column default on a NOT NULL column the caller always supplies. The
+    schema assertion that now catches it was written after being wrong.
+  - The Rails controller template calls skip_before_action unconditionally, so
+    `rails new --api` produces a service that raises at class definition.
+constraints:
+  - >-
+    Behaviour is off unless the run asks for it. A run that does not is
+    byte-for-byte the run it was before this existed, and pays nothing.
+  - >-
+    A case declares a target rather than a suite of assertions. What a target
+    asserts is the target's business, so adding a stack is a new directory and
+    never a change to the case schema, the runner or the report.
+  - >-
+    Each valid sample is measured on its own invocations. A canned list would
+    measure the generator package and report it as a property of the model.
+  - >-
+    A sample that never produced a valid selection is not measured and is not
+    counted as a behaviour failure. It is the same rule that keeps a rejected
+    answer out of the selection denominator - there is nothing to apply.
+  - >-
+    Behaviour is reported as its own table, never folded into selection. Two
+    measurements sharing a rate is the conflation prov-2026-2b121b62 already
+    had to correct once.
+  - >-
+    A behaviour run leaves nothing behind: the project, its database and its
+    processes are removed whether it passed, failed, or died partway.
+  - >-
+    The harness reports a phase failure and a failed assertion as different
+    outcomes. A run that never booted and a service that booted and answered
+    wrongly are different findings, and a single pass rate would merge them.
+affected_scope:
+  - evals/behavior/behave.sh
+  - evals/behavior/stub_model.py
+  - evals/behavior/README.md
+  - evals/behavior/targets/todo-rails/target.sh
+  - evals/behavior/targets/todo-rails/answer.json
+  - evals/behavior/targets/todo-chi/target.sh
+  - evals/behavior/targets/todo-chi/answer.json
+  - evals/behavior.go
+  - evals/behavior_test.go
+  - evals/case.go
+  - evals/run.go
+  - evals/report.go
+  - evals/results.go
+  - evals/cmd/eval/main.go
+  - evals/harness_eval_test.go
+  - evals/README.md
+  - evals/cases/todo-rails-defined.yaml
+  - evals/cases/todo-rails-described.yaml
+  - evals/cases/todo-chi-defined.yaml
+forbidden_scope:
+  - internal/**
+  - cmd/**
+type: blueprint
+implements: prov-2026-d554bfc3
+supersedes: ""
+superseded_by: ""
+related:
+  - prov-2026-f03916ba
+  - prov-2026-e3d7b9ac
+sealed_at_sha: ""
+associated_specs:
+  - path: evals/behavior_test.go
+    run_command: go test ./$(dirname {{path}})
+  - path: evals/behavior/README.md
+    run_command: test -f {{path}}
+associated_traces: []
+monitors: []
+tags:
+  - sedum
+  - evals
+  - behavior
