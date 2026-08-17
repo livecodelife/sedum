@@ -1,6 +1,6 @@
 id: prov-2026-32b0f3e9
 title: The prompt says what a literal value is not, because the model guessed wrong
-status: draft
+status: open
 created_at: "2026-08-17"
 author: calebcowen@gmail.com
 intent: |
