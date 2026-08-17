@@ -80,10 +80,31 @@ func buildAction(name string, decl *actionDecl, pkg *Package, r *reporter) *Acti
 	}
 
 	for _, kw := range sortedKeys(a.Kwargs) {
-		if !validKwargType(a.Kwargs[kw].Type) {
+		k := a.Kwargs[kw]
+		if !validKwargType(k.Type) {
 			r.errorf(actionsRel, RuleKwargTypeUnknown,
 				"action %s: kwarg %s declares type %q; the closed set is %s",
-				name, kw, a.Kwargs[kw].Type, strings.Join(KwargTypes, "|"))
+				name, kw, k.Type, strings.Join(KwargTypes, "|"))
+			// The default's type is checked against this one, so a type that
+			// is not in the set has nothing to check the default against.
+			continue
+		}
+		if !k.HasDefault() {
+			continue
+		}
+		// Required and default are exclusive rather than ordered. Required
+		// means Phase 5 refuses an answer that omits the kwarg, so the default
+		// could never be reached - and an author who wrote both meant one of
+		// them, with no way to tell which (prov-2026-f03916ba).
+		if k.Required {
+			r.errorf(actionsRel, RuleKwargDefaultOnRequired,
+				"action %s: kwarg %s is required and also declares a default; a required kwarg is never unbound, so its default could never be used",
+				name, kw)
+		}
+		if got, ok := defaultTypeOf(k.Default); !ok || !TypeSatisfiedBy(k.Type, got) {
+			r.errorf(actionsRel, RuleKwargDefaultType,
+				"action %s: kwarg %s is declared %s but its default is %s; a package whose default disagrees with its own type would fail at render in somebody else's run",
+				name, kw, k.Type, describeDefault(k.Default))
 		}
 	}
 
@@ -588,4 +609,37 @@ func checkUnmanaged(pkg *Package, r *reporter) {
 				name, target, entry)
 		}
 	}
+}
+
+// defaultTypeOf names the kwarg type a decoded YAML value carries.
+//
+// YAML's scalars decode to Go's own types rather than JSON's single number
+// type, so an integer arrives as an int and there is no integral-float case to
+// screen for the way Phase 5 has to.
+func defaultTypeOf(value any) (string, bool) {
+	switch value.(type) {
+	case string:
+		return "string", true
+	case bool:
+		return "bool", true
+	case int, int64, uint64:
+		return "int", true
+	case []any:
+		return "list", true
+	default:
+		return "", false
+	}
+}
+
+// describeDefault names what a declared default actually was, so the diagnostic
+// tells the author what they wrote rather than only that it was wrong.
+func describeDefault(value any) string {
+	got, ok := defaultTypeOf(value)
+	if !ok {
+		return fmt.Sprintf("%v, which is not a value any kwarg type can carry", value)
+	}
+	if s, isString := value.(string); isString {
+		return fmt.Sprintf("the string %q", s)
+	}
+	return fmt.Sprintf("the %s %v", got, value)
 }

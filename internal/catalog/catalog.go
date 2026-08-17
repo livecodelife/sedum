@@ -41,6 +41,18 @@ type Kwarg struct {
 	// a sentence can, and getting it wrong is not a failure any Phase 5 check
 	// can catch, because the wrong value is a valid string (prov-2026-c5697387).
 	Description string `json:"description,omitempty"`
+
+	// Default is what this kwarg resolves to when the model binds nothing.
+	//
+	// Carried to the model rather than kept internal, because omitting a kwarg
+	// is only a choice if the consequence of omitting it is visible. A model
+	// that could not see this would be guessing at whether silence is safe -
+	// and an absent kwarg in a recording is only interpretable against the
+	// declaration that says what absence resolved to (prov-2026-f03916ba).
+	//
+	// Absent from the catalog when the kwarg declares none, which is the
+	// ordinary case.
+	Default any `json:"default,omitempty"`
 }
 
 // Action is one entry as the model receives it.
@@ -178,7 +190,10 @@ func entry(pkg *genpkg.Package, action *genpkg.Action, opts Options) Action {
 	if len(action.Kwargs) > 0 {
 		out.Kwargs = make(map[string]Kwarg, len(action.Kwargs))
 		for name, k := range action.Kwargs {
-			out.Kwargs[name] = Kwarg{Type: k.Type, Required: k.Required, Description: k.Description}
+			out.Kwargs[name] = Kwarg{
+				Type: k.Type, Required: k.Required, Description: k.Description,
+				Default: k.Default,
+			}
 		}
 	}
 

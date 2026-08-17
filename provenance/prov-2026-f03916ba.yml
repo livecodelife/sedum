@@ -94,6 +94,7 @@ affected_scope:
   - internal/genpkg/schema.go
   - internal/genpkg/load.go
   - internal/genpkg/validate.go
+  - internal/genpkg/diag.go
   - internal/catalog/catalog.go
   - internal/expand/expand.go
   - internal/selection/validate.go

@@ -69,6 +69,17 @@ transforms:
     injects_into: "app/models/{{name|snake}}.rb"
     anchor: class_body
 
+  # An optional kwarg the template always renders, carrying a default. Without
+  # the default this is exactly the shape checkDerived exists to reject, so the
+  # two together are what says the default is what makes the omission safe
+  # (prov-2026-f03916ba).
+  declareDefaulted:
+    kwargs:
+      name: { type: string, required: true }
+      value: { type: literal, required: false, default: "nil" }
+    injects_into: "app/models/{{name|snake}}.rb"
+    anchor: class_body
+
   # A required list kwarg the template does not render, which is what every
   # list kwarg in every real package looks like. It exists so that "an empty
   # array is a legitimate value" is a case with a test rather than an argument.
@@ -105,6 +116,7 @@ transforms:
 		"rails/actions/addCallback/after.rb":               "after_action :x\n",
 		"rails/actions/createModelClass.rb":                "# {{name}}\n",
 		"rails/actions/declareDefault.rb":                  "# default {{value}}\n",
+		"rails/actions/declareDefaulted.rb":                "# defaulted {{value}}\n",
 		"rails/actions/tagResource.rb":                     "# tagged\n",
 		"rails/actions/hiddenHelper.rb":                    "# helper\n",
 
@@ -483,6 +495,53 @@ func TestLiteralReachesTheModelAsLiteral(t *testing.T) {
 	}
 	if !strings.Contains(prompt, "literal") {
 		t.Errorf("the prompt never says literal, so the model cannot act on the type:\n%s", prompt)
+	}
+}
+
+// An optional kwarg the template renders is normally rejected when unbound, so
+// that Phase 6 never halts on something the retry loop could have fixed. A
+// declared default is what makes the same shape safe, and Phase 5 has to know
+// that or the default is unreachable through the only path to it
+// (prov-2026-f03916ba).
+func TestADefaultMakesAnOmissionLegal(t *testing.T) {
+	req := modelRequest(t)
+
+	// The same omission, without a default: still rejected.
+	wantViolation(t, req,
+		`{"invocations":[{"action":"declareDefault","kwargs":{"name":"user"}}]}`,
+		"missing_kwarg", "value")
+
+	got, _, err := selectWith(t, req, 0,
+		`{"invocations":[{"action":"declareDefaulted","kwargs":{"name":"user"}}]}`)
+	if err != nil {
+		t.Fatalf("omitting a kwarg that declares a default should be accepted: %v", err)
+	}
+
+	// And the recording still says the model bound nothing. The default is
+	// applied at resolution, so an answer that omitted the kwarg reads as
+	// having omitted it however the file eventually renders.
+	if _, bound := got[0].Kwargs["value"]; bound {
+		t.Errorf("validation wrote the default into the recorded answer: %#v", got[0].Kwargs)
+	}
+}
+
+// The model is told what omission resolves to. A default it cannot see makes
+// silence a gamble rather than a choice.
+func TestTheDefaultReachesTheModel(t *testing.T) {
+	req := modelRequest(t)
+
+	_, client, err := selectWith(t, req, 0,
+		`{"invocations":[{"action":"declareDefaulted","kwargs":{"name":"user"}}]}`)
+	if err != nil {
+		t.Fatalf("selection failed: %v", err)
+	}
+
+	var prompt string
+	for _, m := range client.seen[0] {
+		prompt += m.Content
+	}
+	if !strings.Contains(prompt, `"default"`) {
+		t.Errorf("the catalog never carries the declared default:\n%s", prompt)
 	}
 }
 

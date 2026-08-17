@@ -296,9 +296,18 @@ func checkDerived(entry catalog.Action, inv recording.Invocation, index int) *Vi
 			continue
 		}
 		seen[name] = true
-		if _, bound := inv.Kwargs[name]; !bound {
-			missing = append(missing, name)
+		if _, bound := inv.Kwargs[name]; bound {
+			continue
 		}
+		// A kwarg carrying a default is the case this check exists to prevent,
+		// made safe: the template will reference it and resolution will have
+		// bound it by the time it renders. Rejecting it here would make the
+		// model's omission an error and the default unreachable through the
+		// only path that leads to it (prov-2026-f03916ba).
+		if entry.Kwargs[name].Default != nil {
+			continue
+		}
+		missing = append(missing, name)
 	}
 	if len(missing) == 0 {
 		return nil
@@ -407,22 +416,12 @@ func checkTargets(packages []*genpkg.Package, files []resolve.File, inv recordin
 // satisfies reports whether a value's wire type is acceptable for a declared
 // kwarg type.
 //
-// Every declared type but one is its own wire type. A literal is source code
-// the template emits verbatim, and JSON has no way to carry code, so it arrives
-// as a string - which makes this the one place the two vocabularies differ.
-// Comparing them directly, as this did before literal existed, would reject
-// every correctly bound literal.
-//
-// Nothing here inspects the value. A literal is not parsed, quoted, or checked
-// against a language, because Sedum does not know which language it is in - the
-// only thing Phase 5 can say about one is that it is not empty, which the
-// empty_kwarg rule already says about every string.
-func satisfies(declared, got string) bool {
-	if declared == "literal" {
-		return got == "string"
-	}
-	return declared == got
-}
+// The rule itself lives in genpkg, beside the type set it is about, because
+// load asks the same question of a YAML value that this asks of a JSON one
+// (prov-2026-f03916ba). Nothing here inspects the value: a literal is not
+// parsed, quoted, or checked against a language, because Sedum does not know
+// which language it is in.
+func satisfies(declared, got string) bool { return genpkg.TypeSatisfiedBy(declared, got) }
 
 func typeOf(value any) (string, bool) {
 	switch v := value.(type) {

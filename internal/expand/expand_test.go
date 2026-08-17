@@ -44,7 +44,18 @@ transforms:
       controller: { type: string, required: true }
     injects_into: "app/controllers/{{controller|snake}}_helper.rb"
     anchor: class_body
+
+  # An optional kwarg carrying a default the template always renders. It is the
+  # shape a package author reaches for when the correct value is a property of
+  # the standard rather than of the change (prov-2026-f03916ba).
+  declareDefault:
+    kwargs:
+      controller: { type: string, required: true }
+      value: { type: literal, required: false, default: "nil" }
+    injects_into: "app/controllers/{{controller|snake}}_controller.rb"
+    anchor: class_body
 `,
+		"rails/actions/declareDefault.rb": "DEFAULT = {{value}}\n",
 		"rails/actions/createControllerMethod/index.rb": "def index\n" +
 			"  {{collection|instantize}} = {{collection|constantize}}.all\n" +
 			"  render json: {{collection|instantize}}\n" +
@@ -171,6 +182,45 @@ func TestExpandsSimpleInvocation(t *testing.T) {
 	want := "def index\n  @users = User.all\n  render json: @users\nend\n"
 	if inv.Content != want {
 		t.Errorf("rendered content:\n%s\nwant:\n%s", inv.Content, want)
+	}
+}
+
+// A declared default fills a kwarg nothing bound, and a bound value wins over
+// one. Both halves matter: the first is the feature, and the second is what
+// keeps a default from being a correction to an answer that was given
+// (prov-2026-f03916ba).
+func TestDeclaredDefaultFillsAnUnboundKwarg(t *testing.T) {
+	set := loadSet(t, generators())
+	files := created(t, set, map[string]string{"app/controllers/users_controller.rb": "rails"})
+
+	unbound := recording.Invocation{
+		Action: "declareDefault",
+		Kwargs: map[string]any{"controller": "users"},
+	}
+	got, err := Expand("PR-014", files, []recording.Invocation{unbound})
+	if err != nil {
+		t.Fatalf("an unbound kwarg with a declared default should render: %v", err)
+	}
+	if got[0].Content != "DEFAULT = nil\n" {
+		t.Errorf("content = %q, want the declared default rendered", got[0].Content)
+	}
+
+	// The recording is the model's answer and must not have acquired a value
+	// the model never returned. This is the whole reason defaults are applied
+	// here rather than at validation.
+	if _, bound := unbound.Kwargs["value"]; bound {
+		t.Error("resolution wrote the default back into the invocation it was given")
+	}
+
+	got, err = Expand("PR-014", files, []recording.Invocation{{
+		Action: "declareDefault",
+		Kwargs: map[string]any{"controller": "users", "value": "false"},
+	}})
+	if err != nil {
+		t.Fatalf("Expand: %v", err)
+	}
+	if got[0].Content != "DEFAULT = false\n" {
+		t.Errorf("content = %q, want the bound value to win over the default", got[0].Content)
 	}
 }
 

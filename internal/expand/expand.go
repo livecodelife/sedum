@@ -157,6 +157,18 @@ func project(child *genpkg.Action, kwargs map[string]any) map[string]any {
 // only writing is left. A composite never reaches it; by the time anything here
 // runs, expansion has already happened.
 func resolveOne(recordID string, pkg *genpkg.Package, files []resolve.File, action *genpkg.Action, kwargs map[string]any) (inject.Invocation, error) {
+	// Declared defaults are applied here and nowhere earlier. Phase 5 has
+	// already recorded what the model returned, so the recording keeps saying
+	// that and the rendered file gets that plus the package's defaults. Filling
+	// them in before the recording would make "the model chose this value" and
+	// "the model never mentioned this kwarg" the same row, which is a
+	// distinction the eval scores (prov-2026-f03916ba).
+	//
+	// Applied once, at the top, so the path, the variant and the template all
+	// see the same bindings. A default visible to one and not another would be
+	// a difference nothing declared.
+	kwargs = withDefaults(action, kwargs)
+
 	path, err := renderPath(pkg, action, kwargs)
 	if err != nil {
 		return inject.Invocation{}, err
@@ -186,6 +198,36 @@ func resolveOne(recordID string, pkg *genpkg.Package, files []resolve.File, acti
 		RecordID: recordID,
 		Content:  content,
 	}, nil
+}
+
+// withDefaults returns the bindings with any declared default filled in for a
+// kwarg nothing bound.
+//
+// A bound value always wins, including one that is empty or zero: a default is
+// what happens in the absence of an answer, never a correction to one that was
+// given. The input map is not mutated, because it is the invocation the caller
+// recorded and it must keep reading as what the model returned.
+func withDefaults(action *genpkg.Action, kwargs map[string]any) map[string]any {
+	var out map[string]any
+	for name, k := range action.Kwargs {
+		if !k.HasDefault() {
+			continue
+		}
+		if _, bound := kwargs[name]; bound {
+			continue
+		}
+		if out == nil {
+			out = make(map[string]any, len(kwargs)+1)
+			for n, v := range kwargs {
+				out[n] = v
+			}
+		}
+		out[name] = k.Default
+	}
+	if out == nil {
+		return kwargs
+	}
+	return out
 }
 
 // lookupAction finds an action by name across the packages the record's paths

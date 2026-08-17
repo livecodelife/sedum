@@ -289,6 +289,29 @@ func TestErrorRules(t *testing.T) {
 			rule:     RuleKwargTypeUnknown,
 			mentions: []string{"addBeforeFilter", "controller", "float"},
 		},
+		// A required kwarg is never unbound, so its default could never be
+		// reached. The author meant one of the two and there is no way to tell
+		// which, which is why this is an error and not a precedence rule
+		// (prov-2026-f03916ba).
+		{
+			name: "a default on a required kwarg",
+			files: mutated(map[string]*string{"rails/actions/actions.yaml": text(
+				"actions:\n  addBeforeFilter:\n    kwargs:\n      controller: { type: string, required: true, default: \"users\" }\n" +
+					"    injects_into: \"app/controllers/{{controller}}.rb\"\n    anchor: class_body\n")}),
+			rule:     RuleKwargDefaultOnRequired,
+			mentions: []string{"addBeforeFilter", "controller"},
+		},
+		// Caught at load, so the author finds it rather than a render failure
+		// in somebody else's run.
+		{
+			name: "a default disagreeing with its own declared type",
+			files: mutated(map[string]*string{"rails/actions/actions.yaml": text(
+				"actions:\n  addBeforeFilter:\n    kwargs:\n      controller: { type: string, required: true }\n" +
+					"      limit: { type: int, required: false, default: \"three\" }\n" +
+					"    injects_into: \"app/controllers/{{controller}}.rb\"\n    anchor: class_body\n")}),
+			rule:     RuleKwargDefaultType,
+			mentions: []string{"addBeforeFilter", "limit", "int"},
+		},
 		{
 			name:     "declared shape absent from disk",
 			files:    mutated(map[string]*string{"rails/actions/addBeforeFilter.rb": nil}),

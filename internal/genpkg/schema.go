@@ -67,7 +67,33 @@ type Kwarg struct {
 	// a rule the model can read and Phase 5 cannot enforce is worse than no
 	// rule at all (prov-2026-c5697387).
 	Description string `yaml:"description"`
+
+	// Default is the value this kwarg takes when nothing binds it.
+	//
+	// It exists for arguments whose correct answer is a property of the package
+	// rather than of the change: a Rails column that carries no default is
+	// written `default: nil`, which is how Rails spells absence and not a
+	// decision about any particular column. Requiring the model to write it
+	// requires the model to know Ruby, which it measurably does not
+	// (prov-2026-f03916ba).
+	//
+	// Only meaningful on a kwarg that is not required - a required kwarg's
+	// default could never be reached, so declaring both is a load error rather
+	// than a precedence rule.
+	//
+	// nil means no default was declared. An empty default is still a value -
+	// `default: ""` decodes to an interface holding the empty string, which is
+	// not nil - so the two are distinguishable without a second field.
+	Default any `yaml:"default"`
 }
+
+// HasDefault reports whether this kwarg declares a value to use when nothing
+// binds it.
+//
+// A YAML `default: null` reads as no default, which is the right reading: there
+// is no null kwarg type, so a null default could never satisfy the type check
+// it would have to pass.
+func (k Kwarg) HasDefault() bool { return k.Default != nil }
 
 // KwargTypes is the closed set an action's kwarg may declare. It is
 // deliberately small: sufficient for argument binding and nothing more.
@@ -86,6 +112,24 @@ type Kwarg struct {
 var KwargTypes = []string{"string", "int", "bool", "list", "literal"}
 
 func validKwargType(t string) bool { return slices.Contains(KwargTypes, t) }
+
+// TypeSatisfiedBy reports whether a value whose concrete type is got may bind a
+// kwarg declared as declared.
+//
+// Every declared type but one is its own carried type. A literal is source code
+// and neither JSON nor YAML can carry code, so it arrives as a string - which
+// makes this the one place a declared type and a carried type differ.
+//
+// Defined here, beside the type set, rather than at either of the two places
+// that ask. Phase 5 asks about a JSON value from the model and load asks about
+// a YAML value from a package author; if each spelled the rule itself, a third
+// type with the same property would be added to one and not the other.
+func TypeSatisfiedBy(declared, got string) bool {
+	if declared == "literal" {
+		return got == "string"
+	}
+	return declared == got
+}
 
 // ActionKind is how an action is realized. It is read from the schema and never
 // inferred from the filesystem.
