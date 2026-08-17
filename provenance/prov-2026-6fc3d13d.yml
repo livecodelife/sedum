@@ -1,6 +1,6 @@
 id: prov-2026-6fc3d13d
 title: A run supplies the project facts a package cannot know
-status: draft
+status: open
 created_at: "2026-08-17"
 author: calebcowen@gmail.com
 intent: |
