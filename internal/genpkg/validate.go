@@ -387,7 +387,12 @@ func deriveRequirements(pkg *Package, actionTemplates map[string]string, r *repo
 				// discriminated one shares a schema across variants, so
 				// optional is the only thing it can say about a value one
 				// variant needs and another forbids.
-				if a.Kind() == Simple && !declared.Required {
+				// A declared default is a third source of a value, and it is
+				// the thing this check protects against the absence of. A kwarg
+				// carrying one is not understating its schema: the catalog
+				// shows the model something true - this may be omitted, and
+				// here is what omitting it means (prov-2026-aef29ff9).
+				if a.Kind() == Simple && !declared.Required && !declared.HasDefault() {
 					r.warnf(actionsRel, RuleKwargRequirementUnderstated,
 						"action %s declares kwarg %s optional, but its only template renders it unconditionally; Sedum requires it either way, and declaring it required is what the catalog shows the model",
 						name, value)
