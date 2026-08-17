@@ -1,0 +1,135 @@
+id: prov-2026-40bdd9ac
+title: Both eval records ask for basic CRUD and nothing else
+status: draft
+created_at: "2026-08-17"
+author: calebcowen@gmail.com
+intent: |
+  The Rails and Chi records are cut to five endpoints, two columns, a 404 for a
+  missing row, and a test per endpoint. Three constraints leave both: a required
+  title, PUT applying only the attributes present in the body, and a 400 for a
+  body carrying none. Whatever those constraints orphaned is deleted.
+
+  ## Why both and not just Chi
+
+  Behaviour measurement showed the Chi package cannot satisfy those three. It has
+  thirteen actions and none of them adds a validation, expresses a partial
+  update, or emits a 400 - so the model selected every action at exactly the
+  right count and the service still failed three assertions. No selection can
+  fix that; the package cannot express it.
+
+  Cutting only Chi would have fixed the number and broken the axis. Both case
+  files say the two records "ask for the same functionality, constraint for
+  constraint, so the stack is what differs between them", and that sentence is
+  the whole justification for reading a Rails result against a Chi one. Records
+  that asked for different things would make the language comparison a
+  comparison of records, with the stack as a confound - which is worse than the
+  failing assertions, because a failing assertion is visible and a confounded
+  axis is not.
+
+  So the ask moves to what both packages can express, and it moves in both arms
+  at once.
+
+  ## What that costs, stated rather than buried
+
+  The Rails arm loses assertions it was passing. Partial update is the property
+  its record called out as "the one an otherwise reasonable implementation gets
+  wrong by omission", and behaviour measurement had just confirmed Rails gets it
+  right and Chi does not. That finding is real and is now unmeasured.
+
+  It is a deliberate trade: a narrow ask both stacks can answer is worth more
+  right now than a wide one only half of them can, because the wide one produces
+  a number nobody can act on. The finding is recorded here so that restoring the
+  constraints is a decision someone makes rather than something nobody
+  remembers.
+
+  The way back is to give the Chi package the actions it lacks - a validation, a
+  request shape that distinguishes an absent field from a zero one - and then
+  restore the constraints in both records together.
+
+  ## What is deleted, and what is not
+
+  Deleted, because nothing asks for them any more: the Rails package's
+  addValidation and addModelTest actions with their templates, the model test
+  file template, and the validations anchor the model file template planted for
+  addValidation to fill. An anchor no action targets is a region generated
+  unusable, which load already warns about.
+
+  Also deleted: the line in the Rails update template that returns 400 for an
+  empty attribute list. It existed for one of the dropped constraints and for
+  nothing else.
+
+  **definePermittedParams stays.** It looks like a candidate and is not: the
+  create and update templates both call the method it defines, so removing it
+  leaves a controller that raises on every write. "Only title and completed are
+  read from a request body" also stays, in both records - Rails satisfies it
+  with strong parameters and Chi satisfies it by decoding into a struct, so it
+  is a constraint both stacks meet and neither needs a new action for.
+
+  The partial-update *mechanism* in the Rails update template stays too. It is
+  how Rails writes an update against permitted parameters, not machinery added
+  for the dropped constraint, and removing it would make the arm worse to no
+  end. It is simply no longer asserted.
+constraints:
+  - >-
+    Both records ask for the same functionality, constraint for constraint. That
+    is what the language axis compares against, and a change to one arm's ask is
+    a change to both.
+  - >-
+    Neither record asks for anything its generator package has no action for. A
+    constraint no selection can satisfy measures the package and reports it as a
+    property of the model.
+  - >-
+    Every action, template file, file template and anchor left with nothing
+    asking for it is deleted. A package carrying an action no record reaches is
+    a catalog entry the model can be distracted by, and an anchor no action
+    targets is a region generated unusable.
+  - >-
+    An action a template calls is not orphaned by a dropped constraint.
+    definePermittedParams is named by the create and update templates, so it
+    survives the constraint that motivated it.
+  - >-
+    The defined and described package sets stay identical but for descriptions.
+    A deletion in one is a deletion in both, which the arms-controlled test
+    already enforces.
+  - >-
+    What the cut costs is written down. Partial update was measured working in
+    one arm and broken in the other, and that finding is now unmeasured rather
+    than resolved.
+affected_scope:
+  - evals/testdata/todo-rails/records/todo-crud.yml
+  - evals/testdata/todo-api/records/todo-crud.yml
+  - evals/testdata/todo-rails/generators/defined/rails/actions/**
+  - evals/testdata/todo-rails/generators/defined/rails/files/**
+  - evals/testdata/todo-rails/generators/described/rails/actions/**
+  - evals/testdata/todo-rails/generators/described/rails/files/**
+  - evals/cases/todo-rails-defined.yaml
+  - evals/cases/todo-rails-described.yaml
+  - evals/cases/todo-chi-defined.yaml
+  - evals/behavior/targets/todo-rails/target.sh
+  - evals/behavior/targets/todo-rails/answer.json
+  - evals/behavior/targets/todo-chi/target.sh
+  - evals/behavior/targets/todo-chi/answer.json
+  - evals/behavior/README.md
+forbidden_scope:
+  - internal/**
+  - cmd/**
+type: blueprint
+implements: prov-2026-d554bfc3
+supersedes: ""
+superseded_by: ""
+related:
+  - prov-2026-83340ba0
+  - prov-2026-6fc3d13d
+sealed_at_sha: ""
+associated_specs:
+  - path: evals/run_test.go
+    run_command: go test ./$(dirname {{path}})
+  - path: evals/behavior/targets/todo-rails/target.sh
+    run_command: bash -n {{path}}
+  - path: evals/behavior/targets/todo-chi/target.sh
+    run_command: bash -n {{path}}
+associated_traces: []
+monitors: []
+tags:
+  - sedum
+  - evals
