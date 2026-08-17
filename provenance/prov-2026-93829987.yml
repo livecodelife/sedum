@@ -1,0 +1,90 @@
+id: prov-2026-93829987
+title: A behaviour run that dies keeps the reason
+status: draft
+created_at: "2026-08-17"
+author: calebcowen@gmail.com
+intent: |
+  A behaviour run that fails a phase carries the tail of that phase's log back
+  with it, and the report prints it. Today it carries the phase's name and
+  nothing else.
+
+  ## What it costs to not have
+
+  `broke: 2 sample(s) never reached the assertions (build x2)` says a build
+  failed. It does not say a module was undefined, or that SQL placeholders
+  landed in a Go argument list, or that a package would not resolve - and the
+  logs that did say so were deleted with the temporary project the moment the
+  run ended.
+
+  Three times in one session the answer to "why" was reached by re-running the
+  harness by hand against a reconstructed selection: once for the import paths,
+  once for the createQuery bindings, once to tell a copied string from an
+  understood rule. Each cost minutes and one of them cost a wrong diagnosis
+  first, because the reconstruction was not the sample that failed.
+
+  A behaviour sample is the most expensive thing the harness draws. Throwing
+  away the one artifact that explains its failure is the worst trade in the
+  measurement.
+
+  ## Why a tail rather than the whole log
+
+  The same argument Sample.Detail settles for a rejection: enough to act on, in
+  the entry, without the entry becoming a log store. A build failure names its
+  cause in its last lines; a run needing more than that has `--keep`, which
+  leaves the whole project behind on purpose.
+
+  ## Why it is counted rather than listed
+
+  Identical failures across samples are one finding, not several. The report
+  already counts failed assertions that way, and a build error repeated in three
+  samples reads as one problem repeated - which is the thing worth knowing about
+  it. Distinct failures print separately, because they are distinct.
+
+  ## Where it stops
+
+  Only a phase failure carries a detail. A run whose assertions disagreed
+  already names which ones, and appending a log tail to that would be answering
+  a question nobody asked.
+constraints:
+  - >-
+    A phase that fails records the tail of its own log, and the harness's result
+    file carries it. What the shell already prints to the terminal and what a
+    caller can read afterwards stop being different things.
+  - >-
+    The detail reaches the stored entry, so a failure is explicable from
+    results/ alone months later - which is the whole reason invocations are
+    stored beside counts.
+  - >-
+    The report groups identical details and counts them, the way it already
+    counts failed assertions. Three samples failing one way is one finding.
+  - >-
+    Only a phase failure carries one. A checks_failed run names its assertions
+    and gains nothing from a log.
+  - >-
+    A run that passes is unchanged, in the result file and in the report.
+affected_scope:
+  - evals/behavior/behave.sh
+  - evals/behavior/README.md
+  - evals/behavior.go
+  - evals/behavior_test.go
+  - evals/report.go
+  - evals/results/**
+forbidden_scope:
+  - internal/**
+  - cmd/**
+type: blueprint
+implements: prov-2026-d554bfc3
+supersedes: ""
+superseded_by: ""
+related:
+  - prov-2026-83340ba0
+sealed_at_sha: ""
+associated_specs:
+  - path: evals/behavior_test.go
+    run_command: go test ./$(dirname {{path}})
+associated_traces: []
+monitors: []
+tags:
+  - sedum
+  - evals
+  - behavior
