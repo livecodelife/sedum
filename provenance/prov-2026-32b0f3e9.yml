@@ -1,0 +1,91 @@
+id: prov-2026-32b0f3e9
+title: The prompt says what a literal value is not, because the model guessed wrong
+status: draft
+created_at: "2026-08-17"
+author: calebcowen@gmail.com
+intent: |
+  The system prompt's paragraph on the literal type gains one sentence: bind the
+  string and nothing around it - not an object naming the type, and not a
+  sentence describing the value.
+
+  ## The observation
+
+  A behaviour run bound this, for a column default declared `type: literal`:
+
+    "default": "{\"literal\": \"false\"}"
+
+  The model took the type's *name* and made an envelope out of it, then put the
+  value inside. That renders the whole object into the migration verbatim,
+  because a literal is emitted exactly as written - so the file did not parse,
+  the migration did not run, and eleven assertions downstream of it failed on a
+  service that was otherwise correctly generated.
+
+  The prompt already said a literal "is written as a JSON string". That was true
+  and was not enough: it described the right shape without ruling out the wrong
+  one, and the wrong one is reachable precisely because the type has a name the
+  model can see.
+
+  ## Why the prompt and not a kwarg description
+
+  A description would have worked. It is also the wrong place, twice over.
+
+  The model did not misunderstand what `default` means - it misunderstood what
+  `literal` means, and `literal` is Sedum's vocabulary rather than any package's.
+  A fix in one package's description leaves every other package that adopts the
+  type to rediscover the same failure and write the same sentence.
+
+  And the arm this failed in is the todo-rails *defined* package set, which
+  carries zero descriptions on purpose: it is the control arm of the description
+  A/B (prov-2026-ac15ed2b), and the described set is that same package with
+  descriptions added. A description there would have left the pair differing by
+  "every description except one", which is a hole in the axis rather than a
+  measurement of it.
+
+  So the sentence goes where the type is defined, and every package gets it.
+
+  ## What this does not fix
+
+  The same run showed the model omitting `default` on the completed column,
+  where the package's own default then supplies nil and the column loses the
+  `false` it needs. That is a consequence of making the kwarg optional
+  (prov-2026-f03916ba) and has nothing to do with how a literal is spelled. It
+  is a separate finding and is not addressed here.
+
+  Nor is this verified. A prompt sentence is a hypothesis about a model until a
+  run says otherwise, and the run that produced the failure was two samples at
+  smoke resolution - which is plumbing, not a measurement. What is claimed is
+  that the prompt no longer leaves the shape ambiguous.
+constraints:
+  - >-
+    The prompt rules out the wrong shape rather than only describing the right
+    one. A type with a name the model can see is a name the model can build an
+    envelope out of.
+  - >-
+    It names no language, no framework and no file type, which is true of every
+    other line in that prompt and is what keeps the core free of target
+    knowledge.
+  - >-
+    It is one sentence in the existing paragraph rather than a new rule. The
+    catalog, the envelope and the type set are unchanged, so a package that
+    loads today loads after this and a recording drawn before it still replays.
+affected_scope:
+  - internal/selection/prompt.go
+  - internal/selection/selection_test.go
+forbidden_scope:
+  - evals/testdata/**
+type: blueprint
+implements: prov-2026-d554bfc3
+supersedes: ""
+superseded_by: ""
+related:
+  - prov-2026-e3d7b9ac
+  - prov-2026-83340ba0
+sealed_at_sha: ""
+associated_specs:
+  - path: internal/selection/selection_test.go
+    run_command: go test ./$(dirname {{path}})
+associated_traces: []
+monitors: []
+tags:
+  - sedum
+  - selection
