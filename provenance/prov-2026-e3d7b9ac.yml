@@ -1,0 +1,116 @@
+id: prov-2026-e3d7b9ac
+title: 'A kwarg may be declared literal: a string the template emits as source'
+status: draft
+created_at: "2026-08-17"
+author: calebcowen@gmail.com
+intent: |
+  A kwarg may declare `type: literal`. It is carried on the wire as a JSON
+  string and rendered exactly like one. Nothing in Sedum parses it, quotes it,
+  or knows what language it is written in.
+
+  ## What it is for
+
+  The type set is deliberately tiny - string, int, bool, list - and every one of
+  them describes a *value*. But a large share of the kwargs real packages
+  declare are not values at all; they are fragments of source in the target
+  language, bound by the model and emitted verbatim:
+
+    rule          "presence: true"                       Ruby
+    default       "nil"                                  Ruby
+    set_clause    "title = $2, completed = $3"           SQL
+    scan_targets  "&todo.ID, &todo.Title, &todo.Completed"  Go
+    go_type       "string"                               Go
+
+  Ten such kwargs across the two eval packages, every one declared `string`.
+  That is a true statement that tells the model the wrong thing: a kwarg whose
+  value is prose and one whose value is code are bound differently, and
+  declaring both `string` left the difference sayable only in a description.
+
+  ## The evidence
+
+  A behaviour run against the todo-rails record made this measurable. The model
+  bound `default: ""` for a column the record says carries no default, five
+  times out of five under a retry budget of four, byte-identical each time. The
+  rejection it received - "kwarg is bound to nothing" - was accurate and
+  useless: from the model's position it *had* bound a value, and the only other
+  door the diagnostic offered was dropping the invocation, which would have lost
+  the column. It had no third move, so it repeated.
+
+  Declaring the kwarg literal changed the failure from unrecoverable to
+  recoverable. The model bound JSON `null`, was told "declared literal but was
+  bound to null", and moved on the next call. That is the whole claim being made
+  here, and it is deliberately narrow.
+
+  ## What this does not fix
+
+  It moved, but it moved to `""` - a Ruby empty string, which parses and is
+  wrong. The type says "this is source code"; it does not say how the target
+  language spells absence, and it must not, because a type that did would put a
+  per-language rendering table in the core the PRD keeps language-free.
+
+  So literal is not sufficient on its own, and is not claimed to be. Making the
+  absence case correct by construction is [[prov-2026-f03916ba]]'s job; this
+  record only stops the type annotation from being a lie.
+
+  ## Why not a union type, or a nil type
+
+  The alternative considered was widening the wire vocabulary - letting a kwarg
+  accept JSON `null`, or declare a union. It was rejected because it inverts the
+  boundary rather than serving it. If a kwarg can be JSON `null`, Sedum must
+  decide what `null` renders as: `nil` for Ruby, `NULL` for SQL, `None` for
+  Python, `null` for TypeScript. That is language-specific knowledge in the
+  core, which TOOL_BOUNDARIES.md names the PRD's load-bearing principle. The
+  same problem one step on: a string default of `draft` renders `draft` or
+  `"draft"` depending on the target, so a typed union owns quoting rules too.
+
+  A literal owns none of that. The string is the source text, and Sedum
+  substitutes it.
+constraints:
+  - >-
+    literal joins the closed set of kwarg types. The set stays closed: a package
+    declaring any other type is still a load error, and the error still names
+    the whole set.
+  - >-
+    A literal is carried on the wire as a JSON string. This is the one place a
+    declared type and a wire type differ, so the comparison is made through a
+    named predicate rather than by equality, and the difference is stated where
+    it lives rather than inferred at the comparison site.
+  - >-
+    Nothing inspects a literal's contents. It is not parsed, quoted, escaped,
+    checked against a language, or normalised. The only thing Phase 5 can say
+    about one is that it is not empty, which the existing empty_kwarg rule
+    already says about every string - so no new rule is added.
+  - >-
+    The system prompt says what a literal is, because a type name the model
+    cannot interpret is worth nothing. It says the contents are source emitted
+    verbatim and that there is always something correct to write; it does not
+    name a language, and it must not, for the same reason the core does not.
+  - >-
+    A kwarg's declared type reaches the model through the catalog unchanged.
+    literal is not rewritten to string on the way out, which would return the
+    model to the position this record exists to move it out of.
+affected_scope:
+  - internal/genpkg/schema.go
+  - internal/selection/validate.go
+  - internal/selection/prompt.go
+  - internal/selection/selection_test.go
+  - testdata/generators/rails/actions/actions.yaml
+  - evals/testdata/todo-rails/generators/defined/rails/actions/actions.yaml
+forbidden_scope: []
+type: blueprint
+implements: prov-2026-d554bfc3
+supersedes: ""
+superseded_by: ""
+related: []
+sealed_at_sha: ""
+associated_specs:
+  - path: internal/selection/selection_test.go
+    run_command: go test $(dirname {{path}})
+  - path: internal/genpkg/genpkg_test.go
+    run_command: go test $(dirname {{path}})
+associated_traces: []
+monitors: []
+tags:
+  - sedum
+  - genpkg
+  - selection
