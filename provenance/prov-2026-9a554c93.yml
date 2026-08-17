@@ -118,6 +118,10 @@ affected_scope:
   - internal/selection/validate.go
   - internal/selection/selection.go
   - internal/selection/selection_test.go
+  # Its own file, so the deprecation transition can be committed. complete
+  # exempts the record it seals from the scope check and deprecate does not,
+  # which is a tooling inconsistency rather than a decision.
+  - provenance/prov-2026-9a554c93.yml
 forbidden_scope: []
 type: blueprint
 implements: prov-2026-d554bfc3
