@@ -22,6 +22,58 @@ func addColumnBinding() ActionBinding {
 	}
 }
 
+// A nil expectation says the kwarg must not be bound at all.
+//
+// It is the shape a package's own default creates: once addColumn's default
+// carries nil for anything unbound (prov-2026-f03916ba), the correct answer for
+// a column with no default is silence, and the expectation has to be able to
+// say so. It costs no code - equalBinding falls through to want == got with
+// both sides nil - which is exactly why it needs a test: a behaviour that works
+// by falling through is one an unrelated edit can remove without noticing.
+//
+// The alternative considered was dropping the expectation. That scores nothing,
+// so a model binding "" or "false" to a column that must carry no default would
+// have gone unmeasured - which is the failure this expectation exists for.
+func TestAnAbsentBindingIsExpectedWithNil(t *testing.T) {
+	expectation := ActionBinding{
+		Because: "the record says title carries no default, and the package supplies nil for a default nobody binds",
+		Key:     []string{"name"},
+		Invocations: []map[string]any{
+			{"name": "title", "type": "string", "nullable": false, "default": nil},
+		},
+	}
+
+	score := func(kwargs map[string]any) KwargResult {
+		m := Measurement{Model: Model{ID: "test-model", Engine: "mlx"}, Samples: []Sample{bound(kwargs)}, Concurrency: 1}
+		m.Case.ID = "fixture"
+		m.Case.Arm = "sedum"
+		m.Case.Expect.Actions = map[string]int{"addColumn": 1}
+		m.Case.Expect.Bindings = map[string]ActionBinding{"addColumn": expectation}
+		for _, k := range m.ScoredBindings()[0].Kwargs {
+			if k.Kwarg == "default" {
+				return k
+			}
+		}
+		t.Fatal("default was not scored at all; a nil expectation must still be an observation")
+		return KwargResult{}
+	}
+
+	omitted := score(map[string]any{"name": "title", "type": "string", "nullable": false})
+	if omitted.Scored != 1 || omitted.Correct != 1 {
+		t.Errorf("omitting the kwarg scored %d/%d, want 1/1", omitted.Correct, omitted.Scored)
+	}
+
+	// The two ways a model has actually got this wrong, both of which produce a
+	// migration that parses and is not what the record asked for.
+	for _, wrong := range []any{"", `""`, "nil", "false"} {
+		got := score(map[string]any{"name": "title", "type": "string", "nullable": false, "default": wrong})
+		if got.Correct != 0 {
+			t.Errorf("binding %#v to a kwarg expected absent scored %d/%d, want 0 correct",
+				wrong, got.Correct, got.Scored)
+		}
+	}
+}
+
 func bound(kwargs ...map[string]any) Sample {
 	s := Sample{Counts: map[string]int{"addColumn": len(kwargs)}}
 	for _, k := range kwargs {

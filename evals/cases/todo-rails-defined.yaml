@@ -66,23 +66,36 @@ expect:
   # record and settled by Rails, so setting it from a run would be asking the
   # thing under test to grade itself (prov-2026-2b121b62).
   #
-  # No sample has yet bound `default` correctly on either column, so there was
-  # never an observation to establish these from - and that is the finding, not
-  # a reason to wait.
+  # For a long time no sample bound `default` correctly on either column, and
+  # that was the finding rather than a reason to wait. It has since been
+  # answered by changing the package instead of the model: `default` is now an
+  # optional literal carrying nil (prov-2026-f03916ba), so the correct way to
+  # say "this column has no default" is to not bind it at all.
+  #
+  # A `~` expectation is what scores that. It means the kwarg must be absent,
+  # and it works because equalBinding falls through to `want == got` with both
+  # sides nil - so it needs no support beyond being written down here. It is a
+  # sharper question than the literal it replaces: a model that binds "" or
+  # "false" to the title column still writes a wrong migration, and dropping
+  # the expectation rather than inverting it would have made exactly that case
+  # unmeasurable.
   bindings:
     addColumn:
       because: >-
         The record: "The todos table carries exactly two columns of its own:
         title, a string that is not null and carries no default, and completed,
         a boolean that is not null and defaults to false." default is rendered
-        into the migration verbatim, so the correct values are the Ruby
-        literals nil and false - as text, because the kwarg's type is string.
-        The primary key and the timestamps are the framework's, so a third
-        column would be a duplicate.
+        into the migration verbatim. completed's is the unquoted Ruby literal
+        false, bound as text. title carries no default, and the package now
+        supplies nil for a default nobody binds - so the correct answer for
+        title is to leave the kwarg alone, and binding anything at all is
+        wrong. The primary key and the timestamps are the framework's, so a
+        third column would be a duplicate.
       key: [name]
       invocations:
-        # A string column with no default. nil is what "carries no default"
-        # renders as; an empty string renders "default: " and does not parse.
+        # A string column with no default, which is now said by saying nothing:
+        # the package binds nil for an unbound default, so the model's correct
+        # move is to omit the kwarg and `~` is what scores that omission.
         #
         # resource accepts either form. This package's transforms are
         # [plural, snake] and [singular, snake], so todo and todos render
@@ -98,7 +111,9 @@ expect:
           name: title
           type: string
           nullable: false
-          default: "nil"
+          # Not a missing expectation: `~` is the expectation, and it is that
+          # nothing is bound here.
+          default: ~
         # An unquoted false. The string "false" renders default: "false", which
         # is a string default on a boolean column.
         - resource: [todo, todos]

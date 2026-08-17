@@ -108,6 +108,12 @@ affected_scope:
   # tightness A/B asserts exactly that, so a shape changed in one arm and not
   # the other turns the comparison into a comparison of two things.
   - evals/testdata/todo-rails/generators/described/rails/actions/actions.yaml
+  # The cases too. An expectation of the literal "nil" scored a correct answer
+  # as wrong the moment omitting the kwarg became the correct answer, so the
+  # feature is not landed until what measures it agrees with it.
+  - evals/cases/todo-rails-defined.yaml
+  - evals/cases/todo-rails-described.yaml
+  - evals/binding_test.go
 forbidden_scope: []
 type: blueprint
 implements: prov-2026-d554bfc3
@@ -122,6 +128,8 @@ associated_specs:
   - path: internal/expand/expand_test.go
     run_command: go test ./$(dirname {{path}})
   - path: internal/catalog/catalog_test.go
+    run_command: go test ./$(dirname {{path}})
+  - path: evals/binding_test.go
     run_command: go test ./$(dirname {{path}})
 associated_traces: []
 monitors: []
