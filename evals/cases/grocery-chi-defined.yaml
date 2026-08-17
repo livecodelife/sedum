@@ -1,0 +1,105 @@
+# The generality check for the Go standard.
+#
+# Same generator package set as todo-chi-defined, a different record. It exists
+# because the run that validated that package's fragment descriptions cannot be
+# read as evidence that they generalize: the descriptions give their examples in
+# terms of todos, the record generated todos, and "the model read the rule" and
+# "the model copied the example" produce identical output under those conditions
+# (prov-2026-b585fbbc).
+#
+# groceries shares no field name and no type with todos, so the two hypotheses
+# come apart: a copy binds in.Title against a struct that has no Title, which
+# does not compile, and the bindings below score it directly.
+id: grocery-chi-defined
+
+application:
+  name: grocery
+  # Tier 1, same as both todo arms. Five endpoints, two fields, no auth and no
+  # relations - the application is the same shape, which is what makes the
+  # resource the only thing that varies.
+  complexity: 1
+
+language: go
+framework: chi
+tightness: defined
+arm: sedum
+
+# The one line that matters: the same package set todo-chi-defined runs. A copy
+# of it would answer a different question, since what is under test is whether
+# that package generalizes past the resource its descriptions were written from.
+generators: todo-api/generators/defined
+records: grocery-api/records
+
+# The Go standard declares a module variable, supplied by the run rather than
+# bound by the model (prov-2026-6fc3d13d).
+variables:
+  module: grocery
+
+models:
+  - id: qwen2.5-coder-14b-instruct
+    engine: llama.cpp
+    quant: q4_k_m
+
+expect:
+  # Authored from the package, not established from a run - no run has produced
+  # a complete answer to this record yet. Identical to todo-chi-defined's
+  # counts, because the record asks for the same shape.
+  actions:
+    wireMainPackages: 1
+    wireHandlerPackages: 1
+    createEndpoint: 5
+    createQuery: 5
+    addHandlerTest: 5
+    addQueryTest: 5
+    addModelField: 2
+    createTable: 1
+
+  # These are the point of the case.
+  #
+  # Every value below is derivable from this record and the package's templates
+  # and from nothing else - which is the discipline a binding expectation is
+  # under (prov-2026-2b121b62), and here it is also the experiment. A model
+  # applying the descriptions' rules binds these. A model reusing the strings
+  # the descriptions use as examples binds the todo forms, scores zero on these
+  # kwargs, and still selects every action perfectly.
+  bindings:
+    createQuery:
+      because: >-
+        The templates fix these. insert renders `INSERT INTO groceries
+        ({{columns}}) VALUES ({{placeholders}})` and passes {{insert_values}} as
+        the query arguments, so columns and placeholders are SQL and
+        insert_values is Go, read off the `in` parameter in the same order.
+        selectByID renders `SELECT id, {{columns}}, created_at, updated_at` and
+        scans into {{scan_targets}}, so the targets are pointers on a variable
+        named for the resource - grocery, singular and lowercase - one per
+        column the SELECT lists, in that order. The record says the resource's
+        own columns are name and quantity, and the template supplies id,
+        created_at and updated_at itself.
+      key: [operation]
+      invocations:
+        - operation: insert
+          columns: "name, quantity"
+          placeholders: "$1, $2"
+          insert_values: "in.Name, in.Quantity"
+        - operation: selectByID
+          columns: "name, quantity"
+          scan_targets: "&grocery.ID, &grocery.Name, &grocery.Quantity, &grocery.CreatedAt, &grocery.UpdatedAt"
+
+    addModelField:
+      because: >-
+        The record: "name, text that is not null and carries no default, and
+        quantity, an integer that is not null and defaults to zero." go_type is
+        the Go type of the struct field, so text is a string and an integer
+        column read through lib/pq is an int64.
+      key: [name]
+      invocations:
+        - resource: [grocery, groceries]
+          name: name
+          go_type: string
+        - resource: [grocery, groceries]
+          name: quantity
+          go_type: int64
+
+  behavior:
+    target: grocery-chi
+    pass_rate: 1.0

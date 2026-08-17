@@ -1,0 +1,60 @@
+# A second resource over the Go standard todo-api/generators/defined declares.
+#
+# Deliberately shares nothing with the todo record: groceries rather than todos,
+# name and quantity rather than title and completed, a text column and an
+# integer rather than a text column and a boolean. That is the whole point of it
+# (prov-2026-b585fbbc) - the fragment descriptions in that package give their
+# examples in terms of todos, so a model copying them produces Go that does not
+# compile here rather than Go that happens to work.
+#
+# Functionally identical to the todo record otherwise, constraint for
+# constraint, because what varies has to be the resource and nothing else.
+id: eval-grocery-chi
+title: Grocery resource with full CRUD over /groceries
+status: open
+created_at: "2026-08-17"
+author: calebcowen@gmail.com
+intent: |
+  Add the grocery resource: a JSON API over /groceries with full CRUD - list,
+  get by id, create, update by id, delete by id - with groceries addressed by
+  integer primary key.
+
+  A grocery has a name and a quantity, and nothing else of its own.
+constraints:
+  - >-
+    Five endpoints on /groceries and /groceries/{id}, addressed by integer id
+    per REST convention: list, get, create, update, delete.
+  - >-
+    The groceries table carries exactly two columns of its own: name, text that
+    is not null and carries no default, and quantity, an integer that is not
+    null and defaults to zero. The primary key and the created_at and updated_at
+    timestamps are supplied by the schema, so declaring any of those three again
+    is a duplicate column.
+  - >-
+    JSON responses carry id, name, quantity, created_at and updated_at.
+  - >-
+    Only name and quantity are read from a request body. Anything else is
+    ignored rather than assigned.
+  - >-
+    A missing record is a 404, decided the same way in every handler that
+    resolves one.
+  - >-
+    Each endpoint carries a handler test asserting the status it returns, and
+    each query carries a test of its own.
+affected_scope:
+  - db/groceries.go
+  - db/groceries_test.go
+  - handlers/groceries.go
+  - handlers/groceries_test.go
+  - init.sql
+  - main.go
+forbidden_scope: []
+type: blueprint
+supersedes: ""
+superseded_by: ""
+related: []
+sealed_at_sha: ""
+associated_specs: []
+associated_traces: []
+monitors: []
+tags: []

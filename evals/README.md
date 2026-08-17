@@ -20,6 +20,7 @@ no idea it exists, and the binary is unchanged.
 ```
 go run ./evals/cmd/eval                                    # every case, coarse
 go run ./evals/cmd/eval todo-rails-described               # one case
+go run ./evals/cmd/eval -behavior grocery-chi-defined      # the Go generality check
 go run ./evals/cmd/eval -res fine -model llama.cpp \
   todo-rails-defined todo-rails-described                  # the description A/B
 go run ./evals/cmd/eval -dry -res fine todo-rails-defined  # print the plan, run nothing

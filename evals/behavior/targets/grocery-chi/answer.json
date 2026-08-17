@@ -1,0 +1,186 @@
+{
+  "invocations": [
+    {
+      "action": "createTable",
+      "kwargs": {
+        "resource": "groceries",
+        "columns": "name       TEXT NOT NULL,\n    quantity   INTEGER NOT NULL DEFAULT 0"
+      }
+    },
+    {
+      "action": "addModelField",
+      "kwargs": {
+        "resource": "groceries",
+        "name": "name",
+        "go_type": "string"
+      }
+    },
+    {
+      "action": "addModelField",
+      "kwargs": {
+        "resource": "groceries",
+        "name": "quantity",
+        "go_type": "int64"
+      }
+    },
+    {
+      "action": "createQuery",
+      "kwargs": {
+        "resource": "groceries",
+        "operation": "insert",
+        "columns": "name, quantity",
+        "placeholders": "$1, $2",
+        "insert_values": "in.Name, in.Quantity"
+      }
+    },
+    {
+      "action": "createQuery",
+      "kwargs": {
+        "resource": "groceries",
+        "operation": "selectAll",
+        "columns": "name, quantity",
+        "scan_targets": "&grocery.ID, &grocery.Name, &grocery.Quantity, &grocery.CreatedAt, &grocery.UpdatedAt"
+      }
+    },
+    {
+      "action": "createQuery",
+      "kwargs": {
+        "resource": "groceries",
+        "operation": "selectByID",
+        "columns": "name, quantity",
+        "scan_targets": "&grocery.ID, &grocery.Name, &grocery.Quantity, &grocery.CreatedAt, &grocery.UpdatedAt"
+      }
+    },
+    {
+      "action": "createQuery",
+      "kwargs": {
+        "resource": "groceries",
+        "operation": "update",
+        "set_clause": "name = $2, quantity = $3",
+        "update_values": "id, in.Name, in.Quantity"
+      }
+    },
+    {
+      "action": "createQuery",
+      "kwargs": {
+        "resource": "groceries",
+        "operation": "delete"
+      }
+    },
+    {
+      "action": "createEndpoint",
+      "kwargs": {
+        "resource": "groceries",
+        "verb": "list"
+      }
+    },
+    {
+      "action": "createEndpoint",
+      "kwargs": {
+        "resource": "groceries",
+        "verb": "get"
+      }
+    },
+    {
+      "action": "createEndpoint",
+      "kwargs": {
+        "resource": "groceries",
+        "verb": "create"
+      }
+    },
+    {
+      "action": "createEndpoint",
+      "kwargs": {
+        "resource": "groceries",
+        "verb": "update"
+      }
+    },
+    {
+      "action": "createEndpoint",
+      "kwargs": {
+        "resource": "groceries",
+        "verb": "delete"
+      }
+    },
+    {
+      "action": "addHandlerTest",
+      "kwargs": {
+        "resource": "groceries",
+        "verb": "list"
+      }
+    },
+    {
+      "action": "addHandlerTest",
+      "kwargs": {
+        "resource": "groceries",
+        "verb": "get"
+      }
+    },
+    {
+      "action": "addHandlerTest",
+      "kwargs": {
+        "resource": "groceries",
+        "verb": "create"
+      }
+    },
+    {
+      "action": "addHandlerTest",
+      "kwargs": {
+        "resource": "groceries",
+        "verb": "update"
+      }
+    },
+    {
+      "action": "addHandlerTest",
+      "kwargs": {
+        "resource": "groceries",
+        "verb": "delete"
+      }
+    },
+    {
+      "action": "addQueryTest",
+      "kwargs": {
+        "resource": "groceries",
+        "operation": "insert"
+      }
+    },
+    {
+      "action": "addQueryTest",
+      "kwargs": {
+        "resource": "groceries",
+        "operation": "selectAll"
+      }
+    },
+    {
+      "action": "addQueryTest",
+      "kwargs": {
+        "resource": "groceries",
+        "operation": "selectByID"
+      }
+    },
+    {
+      "action": "addQueryTest",
+      "kwargs": {
+        "resource": "groceries",
+        "operation": "update"
+      }
+    },
+    {
+      "action": "addQueryTest",
+      "kwargs": {
+        "resource": "groceries",
+        "operation": "delete"
+      }
+    },
+    {
+      "action": "wireMainPackages",
+      "kwargs": {}
+    },
+    {
+      "action": "wireHandlerPackages",
+      "kwargs": {
+        "resource": "groceries"
+      }
+    }
+  ]
+}
