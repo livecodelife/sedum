@@ -1,6 +1,6 @@
 id: prov-2026-40bdd9ac
 title: Both eval records ask for basic CRUD and nothing else
-status: draft
+status: open
 created_at: "2026-08-17"
 author: calebcowen@gmail.com
 intent: |
