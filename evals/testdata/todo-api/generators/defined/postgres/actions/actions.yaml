@@ -4,6 +4,14 @@ actions:
       resource: { type: string, required: true }
       # Column definitions are SQL data, not logic. Every table in this
       # standard carries id, created_at, and updated_at; these are the rest.
-      columns: { type: literal, required: true }
+      columns:
+        type: literal
+        required: true
+        description: >-
+          SQL. The resource's own column definitions, comma separated, name and
+          type and constraints - "title TEXT NOT NULL, completed BOOLEAN NOT
+          NULL DEFAULT FALSE". The template writes id, created_at and updated_at
+          around this, so declaring any of those three is a duplicate column,
+          and it supplies the trailing comma itself.
     injects_into: "init.sql"
     anchor: tables

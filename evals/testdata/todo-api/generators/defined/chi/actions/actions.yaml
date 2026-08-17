@@ -69,7 +69,13 @@ actions:
     kwargs:
       resource: { type: string, required: true }
       name: { type: string, required: true }
-      go_type: { type: literal, required: true }
+      go_type:
+        type: literal
+        required: true
+        description: >-
+          Go. The type of the struct field, written as Go spells it - string,
+          bool, int64, time.Time. It is placed straight after the field name, so
+          it carries no name and no tag.
     injects_into: "db/{{resource|table}}.go"
     anchor: fields
 
@@ -81,12 +87,58 @@ actions:
       # the service's business, so they arrive as bound arguments. Optional
       # because a delete needs none of them - one kwarg schema covers every
       # variant, so per-variant requirements cannot be declared here.
-      columns: { type: literal, required: false }
-      placeholders: { type: literal, required: false }
-      insert_values: { type: literal, required: false }
-      set_clause: { type: literal, required: false }
-      update_values: { type: literal, required: false }
-      scan_targets: { type: literal, required: false }
+      # Six fragments across five variants, and three of them are Go while
+      # three are SQL. Declaring them literal says they are code; it cannot say
+      # which language, and that is the distinction the model was getting wrong
+      # - it put SQL placeholders into the Go argument lists in every sample
+      # (prov-2026-bd2a6c3f). Only a sentence can say it.
+      columns:
+        type: literal
+        required: false
+        description: >-
+          SQL. The resource's own column names, comma separated - "title,
+          completed". Names only, no types and no table prefix. The select
+          templates already write id, created_at and updated_at around this, so
+          naming any of those three duplicates a column, and "*" is wrong for
+          the same reason.
+      placeholders:
+        type: literal
+        required: false
+        description: >-
+          SQL. One positional placeholder per name in columns, in the same order
+          and unquoted - "$1, $2". These go inside the INSERT's VALUES list.
+      insert_values:
+        type: literal
+        required: false
+        description: >-
+          Go, not SQL. The arguments passed to the query, reading the fields off
+          the function's `in` parameter in the same order as columns -
+          "in.Title, in.Completed". Never placeholders: those are the previous
+          kwarg, and putting them here writes $1 into Go source.
+      set_clause:
+        type: literal
+        required: false
+        description: >-
+          SQL. The assignments in an UPDATE, comma separated - "title = $2,
+          completed = $3". Numbered from $2 rather than $1, because the template
+          puts the row's id at $1 in the WHERE clause. updated_at is written by
+          the template and does not belong here.
+      update_values:
+        type: literal
+        required: false
+        description: >-
+          Go, not SQL. The arguments passed to the query, in the order the
+          placeholders number them - the id first, then the fields off `in`:
+          "id, in.Title, in.Completed".
+      scan_targets:
+        type: literal
+        required: false
+        description: >-
+          Go, not SQL. Pointers to the fields Scan writes into, on a variable
+          named for the resource singular and lowercase - "&todo.ID, &todo.Title,
+          &todo.Completed, &todo.CreatedAt, &todo.UpdatedAt". One per column the
+          SELECT lists, in that order, which is id, then the columns kwarg, then
+          created_at and updated_at. Column names are not scan targets.
     discriminator: operation
     variants: [insert, selectAll, selectByID, update, delete]
     injects_into: "db/{{resource|table}}.go"
