@@ -85,20 +85,20 @@ expect:
           columns: "name, quantity"
           scan_targets: "&grocery.ID, &grocery.Name, &grocery.Quantity, &grocery.CreatedAt, &grocery.UpdatedAt"
 
-    addModelField:
-      because: >-
-        The record: "name, text that is not null and carries no default, and
-        quantity, an integer that is not null and defaults to zero." go_type is
-        the Go type of the struct field, so text is a string and an integer
-        column read through lib/pq is an int64.
-      key: [name]
-      invocations:
-        - resource: [grocery, groceries]
-          name: name
-          go_type: string
-        - resource: [grocery, groceries]
-          name: quantity
-          go_type: int64
+    # addModelField carries no binding expectation, and the reason is the same
+    # one that made `resource` a list in the Rails case (prov-2026-66b0116d).
+    #
+    # Its template writes {{name|exported}} for the field and {{name|snake}} for
+    # the json tag, so `name` and `Name` render identically - Name and "name" in
+    # both cases. Neither spelling is more correct, and pairing looks a key value
+    # up rather than comparing it, so a key kwarg cannot be a list. An
+    # expectation naming either form scores the author's preference and reports a
+    # correct answer as unpaired, which the first run of this case did: ten
+    # expected invocations unanswered beside ten answered that nobody expected.
+    #
+    # go_type is the value worth scoring here and it is not left unmeasured: a
+    # wrong one does not compile, and the behaviour target caught exactly that
+    # when a sample bound "\"string\"" with the quotes included.
 
   behavior:
     target: grocery-chi
