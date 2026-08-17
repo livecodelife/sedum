@@ -73,7 +73,7 @@ related:
 sealed_at_sha: ""
 associated_specs:
   - path: internal/genpkg/genpkg_test.go
-    run_command: go test $(dirname {{path}})
+    run_command: go test ./$(dirname {{path}})
 associated_traces: []
 monitors: []
 tags:
