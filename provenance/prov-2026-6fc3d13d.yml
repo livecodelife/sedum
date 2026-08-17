@@ -1,0 +1,176 @@
+id: prov-2026-6fc3d13d
+title: A run supplies the project facts a package cannot know
+status: draft
+created_at: "2026-08-17"
+author: calebcowen@gmail.com
+intent: |
+  A generator package may declare `variables:` - named project facts its
+  templates reference. A run supplies their values with `--var name=value`.
+  Sedum substitutes them and never learns what any of them means.
+
+  ## The failure this comes from
+
+  The Go standard's import actions exist to wire a service's own packages
+  together, and its own actions.yaml says why they have to be invocations:
+
+    the service's own packages, whose paths start with **a module name no
+    template can know**
+
+  A behaviour run made the consequence measurable. The model selected all eleven
+  actions at exactly the right counts - a perfect selection row - and bound the
+  five import paths to `github.com/go-chi/chi/v5`, `github.com/jmoiron/sqlx`,
+  `net/http`, `net/http/httptest` and `github.com/stretchr/testify/assert`. Four
+  are unused and one is already in the template, so main.go redeclared chi and
+  left db and handlers undefined. The service did not compile.
+
+  That is not carelessness. The module name is in go.mod, which no record
+  authorizes and no file list carries; it is absent from the record, the catalog
+  and the prompt. The model was asked to bind a value derivable from nothing it
+  was shown, so it answered the only question it was in a position to answer -
+  "name a plausible library" - and answered it reasonably.
+
+  ## Why not the places it could have gone
+
+  **Not the generator package.** A package is a team's conventions and is meant
+  to be reused across every project that follows them. A module path is one
+  project's fact, and a package carrying it would be a package for one repo.
+
+  **Not the record.** A record states intent and constraints. A build coordinate
+  is neither, and putting it there makes every record that touches Go carry a
+  line about go.mod.
+
+  **Not the eval case.** That fixes the measurement and nothing else, which is
+  the wrong direction: the eval exists to find problems in the real path, not to
+  route around them.
+
+  **Not the model, in any form.** This is the important one. Telling the model
+  the module name - through the record, the case or the catalog - would replace
+  a blind guess with an informed one, and it would still be threading a build
+  coordinate through five separate kwargs correctly on every sample. The fix is
+  that the question stops reaching the model at all.
+
+  ## Why key-value rather than one --project
+
+  A single project slot presumes exactly one project-scoped fact. Rails needs
+  none. Chi needs a module path. A Java standard needs a group and an artifact;
+  a .NET one needs a root namespace that is not the repository name. With one
+  slot, packages pack several values into it and parse them back out - which
+  does not keep Sedum agnostic, it moves the semantics into somebody's string
+  splitting and makes it fragile as well as invisible.
+
+  With named variables Sedum stores a string under a name and substitutes it. It
+  never learns that `module` is a Go import prefix, and nothing in the core can
+  come to depend on that, because there is nowhere for it to be written down.
+
+  ## Why the package declares them and the run values them
+
+  Declaring the *name* is a convention and belongs to the package. Supplying the
+  *value* is a project fact and belongs to the run. That split is what keeps
+  variables from becoming an unbounded namespace anyone can scribble into: a run
+  cannot invent a variable the package does not declare, so what varies per
+  project stays a package decision.
+
+  It also buys the failure mode worth having. A declared variable with no value
+  and no default halts the run before Phase 3, naming the package and printing
+  the author's description. Without the declaration the same mistake is a render
+  error in Phase 6, phrased in terms of a template, after files are on disk -
+  the shape prov-2026-369544c1 exists to prevent.
+
+  A description here is addressed to the person running the command, not to the
+  model, which is the opposite of a kwarg description (prov-2026-c5697387).
+
+  ## Invisible to the catalog, on purpose
+
+  Variables are not in the prompt, not bindable, and not something Phase 5 can
+  reject. Anything the catalog carries is something the model might bind, and
+  the whole point is to take this out of the model's job. A package adopting
+  variables does so by removing kwargs, not by adding them.
+
+  ## Collisions
+
+  A variable sharing a name with a kwarg an action declares, or with a capture a
+  file template's path pattern binds, is a load error. The template grammar has
+  one namespace and no field access - `{{module}}` is the only spelling there
+  is - so a collision would silently resolve to one of them, and which one would
+  be an ordering rule nobody declared.
+
+  ## Recordings
+
+  A recording carries the variables the run was given. A recording that rendered
+  different text depending on invisible run state would undercut what a
+  recording is for, and replay is still unbuilt (M7), so the shape is settled
+  now rather than after there is something to migrate.
+constraints:
+  - >-
+    A package declares the variables its templates reference. A run may not
+    supply one the package did not declare, and doing so is an error naming the
+    variable rather than a value silently ignored.
+  - >-
+    A declared variable may carry a default. A variable with neither a value nor
+    a default halts the run before Phase 3, naming the package, the variable and
+    the author's description.
+  - >-
+    Sedum never interprets a variable. It is substituted as text, and nothing in
+    the core reads its name, parses its value, or attaches a meaning to either.
+  - >-
+    Variables reach every place a template renders - file templates, action
+    templates, and injects_into patterns - so a value behaves the same wherever
+    an author writes it.
+  - >-
+    A variable name that collides with a kwarg an action declares, or with a
+    capture a file template binds, is a load error. One namespace with no
+    precedence rule is what makes every reference unambiguous.
+  - >-
+    Variables are absent from the catalog. The model cannot bind one, cannot see
+    one, and cannot be rejected for one.
+  - >-
+    A recording carries the variables its run was given.
+affected_scope:
+  - internal/genpkg/schema.go
+  - internal/genpkg/load.go
+  - internal/genpkg/validate.go
+  - internal/genpkg/diag.go
+  - internal/genpkg/genpkg_test.go
+  - internal/resolve/create.go
+  - internal/resolve/resolve_test.go
+  - internal/expand/expand.go
+  - internal/expand/expand_test.go
+  - internal/pipeline/pipeline.go
+  - internal/pipeline/pipeline_test.go
+  - internal/recording/recording.go
+  - internal/cli/grow.go
+  - internal/cli/config.go
+  - internal/cli/resolve.go
+  - internal/cli/flags_test.go
+  - internal/cli/resolve_test.go
+  - internal/cli/actions.go
+  - README.md
+  - evals/testdata/todo-api/generators/defined/chi/sedum.yaml
+  - evals/testdata/todo-api/generators/defined/chi/actions/actions.yaml
+  - evals/testdata/todo-api/generators/defined/chi/actions/**
+  - evals/behavior/targets/todo-chi/target.sh
+  - evals/behavior/targets/todo-chi/answer.json
+  - evals/behavior/behave.sh
+  - evals/behavior/README.md
+forbidden_scope: []
+type: blueprint
+implements: prov-2026-d554bfc3
+supersedes: ""
+superseded_by: ""
+related:
+  - prov-2026-83340ba0
+  - prov-2026-f03916ba
+sealed_at_sha: ""
+associated_specs:
+  - path: internal/genpkg/genpkg_test.go
+    run_command: go test ./$(dirname {{path}})
+  - path: internal/expand/expand_test.go
+    run_command: go test ./$(dirname {{path}})
+  - path: internal/cli/flags_test.go
+    run_command: go test ./$(dirname {{path}})
+associated_traces: []
+monitors: []
+tags:
+  - sedum
+  - genpkg
+  - cli
