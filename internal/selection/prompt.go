@@ -41,6 +41,9 @@ Rules:
   A literal is written as a JSON string, but its contents are source code that
   is emitted into the file exactly as you write it - so bind the code itself,
   spelled the way the target language spells it, and never a description of it.
+  Bind that string and nothing around it: not an object naming the type, and
+  not a sentence about the value. Whatever you write appears in the file
+  unchanged, punctuation and all.
   There is always something correct to write; a literal is never left empty.
 - Where an action lists variants, prefer one of them when the change maps
   cleanly onto it. A value outside the list is allowed only when the action

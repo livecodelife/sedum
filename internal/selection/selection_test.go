@@ -496,6 +496,14 @@ func TestLiteralReachesTheModelAsLiteral(t *testing.T) {
 	if !strings.Contains(prompt, "literal") {
 		t.Errorf("the prompt never says literal, so the model cannot act on the type:\n%s", prompt)
 	}
+
+	// And it rules the wrong shape out rather than only describing the right
+	// one. A model bound {"literal": "false"} to a literal kwarg once - it made
+	// an envelope out of the type's own name, and the whole object rendered
+	// into the file (prov-2026-32b0f3e9).
+	if !strings.Contains(prompt, "not an object naming the type") {
+		t.Errorf("the prompt does not rule out wrapping a literal in the type's name:\n%s", prompt)
+	}
 }
 
 // An optional kwarg the template renders is normally rejected when unbound, so
