@@ -1,6 +1,6 @@
 id: prov-2026-1c33a50b
 title: The eval supplies variables too, and the case is where they live
-status: open
+status: implemented
 created_at: "2026-08-17"
 author: calebcowen@gmail.com
 implements: prov-2026-6fc3d13d
@@ -74,7 +74,7 @@ supersedes: ""
 superseded_by: ""
 related:
   - prov-2026-83340ba0
-sealed_at_sha: ""
+sealed_at_sha: 065b0912b0e87eb8b42d43d2ca07cadb74453f86
 associated_specs:
   - path: evals/behavior_test.go
     run_command: go test ./$(dirname {{path}})
