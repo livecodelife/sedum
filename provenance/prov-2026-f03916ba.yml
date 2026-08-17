@@ -1,0 +1,126 @@
+id: prov-2026-f03916ba
+title: An optional kwarg may declare the value it takes when nothing binds it
+status: draft
+created_at: "2026-08-17"
+author: calebcowen@gmail.com
+intent: |
+  An optional kwarg may declare `default:`. When the model binds no value, the
+  declared one is used, and the invocation renders as though it had been bound.
+
+  ## What needs it
+
+  Some arguments have a correct answer that is a property of the package rather
+  than of the change. A Rails migration column that carries no default is
+  written `default: nil`; that is not a decision about *this* column, it is how
+  Rails spells absence. Today the only way to get `nil` into the template is for
+  the model to write the three characters, which means the model has to know
+  Ruby - and measurably does not.
+
+  Across three behaviour runs of the same record the model reached for absence
+  three different ways and never once reached the right one unaided: `""`, then
+  JSON `null` once the kwarg was declared literal ([[prov-2026-e3d7b9ac]]), then
+  `""` again. It has the concept and no spelling. A declared default is the
+  package author supplying the spelling once, in the place that knows it.
+
+  ## Where the default is applied, and why it matters more than it looks
+
+  **At resolution, not at validation.** The default is filled in on the way to
+  the template, after Phase 5 has recorded what the model actually returned.
+
+  The tempting alternative - fill it in as soon as validation passes, so
+  everything downstream sees a complete binding set - would quietly destroy a
+  measurement. The recording is what the eval scores bindings from, and it must
+  keep saying what the model bound. If an unbound kwarg becomes a value before
+  it is recorded, then "the model chose nil" and "the model never considered
+  defaults" become the same row, and a model that thought about the problem
+  scores identically to one that did not. That distinction is currently a live
+  finding in the todo-rails case, not a hypothetical.
+
+  So: the recording holds the model's answer, and the rendered file holds the
+  model's answer plus the package's defaults. Those are different artifacts
+  answering different questions, and this is the seam where they part.
+
+  ## Why required and default are exclusive
+
+  A required kwarg with a default is a contradiction: required means Phase 5
+  rejects an answer that omits it, so the default could never be reached. It is
+  a load error rather than a silent precedence rule, because an author who wrote
+  both meant one of them and there is no way to tell which.
+
+  ## What Phase 5 has to stop doing
+
+  checkDerived rejects an unbound kwarg the selected template will reference,
+  precisely so that Phase 6 never halts on something the retry loop could have
+  fixed (prov-2026-369544c1). A defaulted kwarg is exactly that case made safe:
+  the template will reference it and something *will* be bound by the time it
+  renders. So a kwarg with a default must satisfy that check while unbound, or
+  the model omitting it is rejected and the default is never reached - the
+  feature would be unreachable through the only path that leads to it.
+
+  ## Why the model is told
+
+  The catalog carries the default. A model that cannot see what omission means
+  cannot choose omission deliberately, and would be guessing at whether silence
+  is safe. Telling it is also what makes the omission legible in a recording
+  later: an absent kwarg is only interpretable against a declaration that says
+  what absence resolves to.
+constraints:
+  - >-
+    A default may be declared only on a kwarg that is not required. Declaring
+    both is a load error naming the kwarg and the action, not a precedence rule.
+  - >-
+    A declared default's type must match the kwarg's declared type, checked at
+    load. A package whose default disagrees with its own type does not load, so
+    the disagreement is found by the author rather than by a render failure in
+    somebody else's run.
+  - >-
+    Defaults are applied during resolution, after Phase 5. The recording holds
+    exactly what the model returned, and a kwarg the model did not bind is
+    absent from it whether or not a default exists.
+  - >-
+    A kwarg carrying a default satisfies Phase 5's derived-requirement check
+    while unbound. Without this the model omitting it is rejected and the
+    default is unreachable.
+  - >-
+    An explicitly bound value always wins. A default is what happens when
+    nothing was bound, never a value that overrides or normalises one that was.
+  - >-
+    The catalog carries the default to the model, so that omitting a kwarg is a
+    choice it can make knowingly rather than a gamble.
+  - >-
+    A default does not make a kwarg reachable that the template never
+    references, and does not change which template a discriminator selects.
+affected_scope:
+  - internal/genpkg/schema.go
+  - internal/genpkg/load.go
+  - internal/genpkg/validate.go
+  - internal/catalog/catalog.go
+  - internal/expand/expand.go
+  - internal/selection/validate.go
+  - internal/genpkg/genpkg_test.go
+  - internal/catalog/catalog_test.go
+  - internal/expand/expand_test.go
+  - internal/selection/selection_test.go
+  - testdata/generators/rails/actions/actions.yaml
+  - evals/testdata/todo-rails/generators/defined/rails/actions/actions.yaml
+forbidden_scope: []
+type: blueprint
+implements: prov-2026-d554bfc3
+supersedes: ""
+superseded_by: ""
+related:
+  - prov-2026-e3d7b9ac
+sealed_at_sha: ""
+associated_specs:
+  - path: internal/genpkg/genpkg_test.go
+    run_command: go test $(dirname {{path}})
+  - path: internal/expand/expand_test.go
+    run_command: go test $(dirname {{path}})
+  - path: internal/catalog/catalog_test.go
+    run_command: go test $(dirname {{path}})
+associated_traces: []
+monitors: []
+tags:
+  - sedum
+  - genpkg
+  - expand
