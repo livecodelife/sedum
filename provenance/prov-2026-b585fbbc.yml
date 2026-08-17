@@ -1,6 +1,6 @@
 id: prov-2026-b585fbbc
 title: A second resource over the same Go package, to tell a rule from a copied string
-status: open
+status: implemented
 created_at: "2026-08-17"
 author: calebcowen@gmail.com
 intent: |
@@ -106,7 +106,7 @@ superseded_by: ""
 related:
   - prov-2026-bd2a6c3f
   - prov-2026-93829987
-sealed_at_sha: ""
+sealed_at_sha: 4d407f79c820fd09fb68a8479976491e71fc5dbb
 associated_specs:
   - path: evals/run_test.go
     run_command: go test ./$(dirname {{path}})
