@@ -66,19 +66,26 @@ models:
 # have. The per-sample rows (prov-2026-eb283c56) are what made it possible to
 # tell a stable count from an average of unstable ones.
 #
-# The three the model is inconsistent about, and worth watching:
+# The three the model was inconsistent about at that commit:
 #   addHandlerTestImport  [0 1 1 1 0]
 #   addQueryTest          [5 5 5 5 0]
 #   createTable           [0 1 1 1 1]
 # The other eight were identical across all five.
+#
+# Those counts are history now: addHandlerTestImport no longer exists, and the
+# five import actions it belonged to were replaced by the two wire actions below
+# (prov-2026-6fc3d13d). The counts left are unchanged from that run; the two new
+# ones are authored from the package, since no run has established them and the
+# first that tried selected them in one sample of two.
 expect:
   actions:
-    # One import per file that needs one.
-    addDBImport: 1
-    addDBTestImport: 1
-    addHandlerImport: 1
-    addHandlerTestImport: 1
-    addMainImport: 1
+    # The service's own packages, wired once in main and once in the handler
+    # file. These replaced five import actions that took the path as a kwarg:
+    # the module name is in go.mod, which no record authorizes and no file list
+    # carries, so the model was answering from nothing and bound plausible
+    # libraries instead. The run supplies it now (prov-2026-6fc3d13d).
+    wireMainPackages: 1
+    wireHandlerPackages: 1
     # Five endpoints, and a query, a handler test and a query test for each.
     createEndpoint: 5
     createQuery: 5
