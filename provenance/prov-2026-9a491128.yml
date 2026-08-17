@@ -1,6 +1,6 @@
 id: prov-2026-9a491128
 title: A required kwarg bound to an empty string is not bound
-status: draft
+status: open
 created_at: "2026-08-17"
 author: calebcowen@gmail.com
 intent: |
