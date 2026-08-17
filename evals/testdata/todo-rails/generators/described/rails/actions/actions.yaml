@@ -183,12 +183,13 @@ actions:
       # something correct to bind.
       default:
         type: literal
-        required: true
+        required: false
+        default: "nil"
         description: >-
           The column's default, written as the Ruby literal it becomes -
-          "nil", "false", "0", or a quoted string including its quotes. There
-          is always a correct value: nil means the column carries no default,
-          which is what Rails would do anyway.
+          "false", "0", or a quoted string including its quotes. Omit it
+          entirely for a column that carries no default, which is what Rails
+          would do anyway.
     injects_into: "db/migrate/{{stamp}}_create_{{resource|table}}.rb"
     anchor: columns
 

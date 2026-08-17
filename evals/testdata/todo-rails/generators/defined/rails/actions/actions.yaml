@@ -70,12 +70,17 @@ actions:
       # whose name is a literal in the format the caller answers in is a name
       # worth not having.
       nullable: { type: bool, required: true }
-      # The Ruby literal this column defaults to, emitted verbatim. Declared
-      # literal rather than string and left without a description, to test
-      # whether the type alone carries what the sentence carried: nil is how a
-      # column with no default is written, and it is what the string type could
-      # never say.
-      default: { type: literal, required: true }
+      # The Ruby literal this column defaults to, emitted verbatim.
+      #
+      # Optional, carrying the literal a column with no default takes. That is
+      # the common case and the one the model could never spell: it reached for
+      # "", then JSON null, then "" again across three runs, and never for nil.
+      # Omitting the kwarg is now the correct way to say "no default", which is
+      # a thing the model can do without knowing any Ruby.
+      #
+      # No description, deliberately. The claim under test is that the
+      # declaration alone carries what a sentence was carrying.
+      default: { type: literal, required: false, default: "nil" }
     injects_into: "db/migrate/{{stamp}}_create_{{resource|table}}.rb"
     anchor: columns
 

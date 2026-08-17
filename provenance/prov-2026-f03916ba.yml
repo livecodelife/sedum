@@ -104,6 +104,10 @@ affected_scope:
   - internal/selection/selection_test.go
   - testdata/generators/rails/actions/actions.yaml
   - evals/testdata/todo-rails/generators/defined/rails/actions/actions.yaml
+  # The described arm mirrors the declaration, differing only in the prose - the
+  # tightness A/B asserts exactly that, so a shape changed in one arm and not
+  # the other turns the comparison into a comparison of two things.
+  - evals/testdata/todo-rails/generators/described/rails/actions/actions.yaml
 forbidden_scope: []
 type: blueprint
 implements: prov-2026-d554bfc3
