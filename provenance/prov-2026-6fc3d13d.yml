@@ -164,6 +164,19 @@ affected_scope:
   - evals/behavior/targets/todo-chi/target.sh
   - evals/behavior/targets/todo-chi/answer.json
   - evals/behavior/behave.sh
+  # The eval builds a pipeline.Config directly rather than through a command
+  # line, so it is a third caller that has to supply the values - and the one
+  # the chi case actually runs through (prov-2026-1c33a50b).
+  - evals/case.go
+  - evals/run.go
+  - evals/behavior.go
+  - evals/behavior_test.go
+  - evals/cases/todo-chi-defined.yaml
+  - evals/README.md
+  # An eval run appends its entry here, including a run that found the
+  # case broken - the file is append-only observations, and a run that
+  # could not measure is one of them (prov-2026-eb283c56).
+  - evals/results/**
   - evals/behavior/README.md
   - evals/behavior/.gitignore
 forbidden_scope: []
