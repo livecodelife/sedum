@@ -58,6 +58,16 @@ transforms:
     injects_into: "app/models/{{name|snake}}.rb"
     anchor: class_body
 
+  # A required list kwarg the template does not render, which is what every
+  # list kwarg in every real package looks like. It exists so that "an empty
+  # array is a legitimate value" is a case with a test rather than an argument.
+  tagResource:
+    kwargs:
+      controller: { type: string, required: true }
+      tags: { type: list, required: true }
+    injects_into: "app/controllers/{{controller|snake}}_controller.rb"
+    anchor: class_body
+
   # No _default template, so a value outside the variant list is a hard error
   # rather than a stub. It is the case has_default exists to distinguish.
   addCallback:
@@ -83,6 +93,7 @@ transforms:
 		"rails/actions/addCallback/before.rb":              "before_action :x\n",
 		"rails/actions/addCallback/after.rb":               "after_action :x\n",
 		"rails/actions/createModelClass.rb":                "# {{name}}\n",
+		"rails/actions/tagResource.rb":                     "# tagged\n",
 		"rails/actions/hiddenHelper.rb":                    "# helper\n",
 
 		// A second package whose one exposed action is a composite spanning
@@ -331,6 +342,36 @@ func TestMissingRequiredKwargIsRejected(t *testing.T) {
 	wantViolation(t, railsRequest(t),
 		`{"invocations":[{"action":"createControllerMethod","kwargs":{"controller":"users"}}]}`,
 		"missing_kwarg", `"name"`)
+}
+
+// A required kwarg the model mentioned and left empty is not bound. It passed
+// every check before this: it is a string, so the type is right, and it is
+// present, so nothing called it missing - and the rails standard's addColumn
+// rendered "t.string :title, null: false, default:", which is Ruby that does
+// not parse (prov-2026-9a491128).
+func TestARequiredKwargBoundToNothingIsRejected(t *testing.T) {
+	req := railsRequest(t)
+
+	wantViolation(t, req,
+		`{"invocations":[{"action":"createControllerMethod","kwargs":{"controller":"users","name":""}}]}`,
+		RuleEmptyKwarg, `"name"`)
+
+	// Whitespace is a value nobody chose that renders as one.
+	wantViolation(t, req,
+		`{"invocations":[{"action":"createControllerMethod","kwargs":{"controller":"users","name":"   "}}]}`,
+		RuleEmptyKwarg, `"name"`)
+
+	// Distinct from missing_kwarg, because a kwarg nobody wrote and one
+	// deliberately emptied are different mistakes - and a shared slug would
+	// make them one row in every count drawn from a results file.
+	_, _, err := selectWith(t, req, 0,
+		`{"invocations":[{"action":"createControllerMethod","kwargs":{"controller":"users","name":""}}]}`)
+	if err == nil {
+		t.Fatal("an empty required kwarg was accepted")
+	}
+	if strings.Contains(err.Error(), RuleMissingKwarg) {
+		t.Errorf("an empty kwarg was reported as missing:\n%s", err)
+	}
 }
 
 // Rule three: no kwarg the action does not declare. The diagnostic lists what
@@ -937,4 +978,95 @@ func TestCompletenessAndValidationDrawFromSeparateBudgets(t *testing.T) {
 	if len(client.seen) != 3 {
 		t.Errorf("the model was called %d time(s), want 3", len(client.seen))
 	}
+}
+
+// Strings only. The string case is grounded in what rendering does to it - an
+// empty one renders to nothing where a token is required - and nothing else
+// carries that property, so nothing else is read (prov-2026-9a491128).
+func TestOnlyAnEmptyStringCountsAsEmpty(t *testing.T) {
+	for _, tc := range []struct {
+		name  string
+		value any
+		empty bool
+	}{
+		{"the empty string", "", true},
+		{"whitespace", "  \t ", true},
+		{"a value", "nil", false},
+		// An empty list is NOT empty for this purpose. A list has no usable
+		// rendering either way - ["title","completed"] emits "[title completed]"
+		// and [] emits "[]", both unusable as source - so emptiness is not what
+		// would make a rendered list wrong, and an action for which an empty
+		// array is a meaningful value must not be refused for it.
+		{"an empty list", []any{}, false},
+		{"a list with a member", []any{"title"}, false},
+		// Zero and false are values an author may legitimately want.
+		{"zero", float64(0), false},
+		{"false", false, false},
+	} {
+		if got := isEmpty(tc.value); got != tc.empty {
+			t.Errorf("%s: isEmpty(%#v) = %v, want %v", tc.name, tc.value, got, tc.empty)
+		}
+	}
+}
+
+// A kwarg nothing needs is untouched. Absence is what optional means, and an
+// author who made one optional has already said the template can do without it.
+func TestAnEmptyKwargNothingNeedsIsNotRejected(t *testing.T) {
+	// The show variant renders nothing, so collection is neither schema- nor
+	// derived-required here, and its emptiness is the only thing under test.
+	got, _, err := selectWith(t, railsRequest(t), 0,
+		`{"invocations":[{"action":"createControllerMethod","kwargs":{"controller":"users","name":"show","collection":""}}]}`)
+	if err != nil {
+		t.Fatalf("an empty optional kwarg was rejected: %v", err)
+	}
+	if len(got) != 1 {
+		t.Fatalf("got %d invocations, want 1", len(got))
+	}
+}
+
+// A kwarg the schema calls optional and the selected template renders is not
+// optional, and that holds for what it contains as well as for whether it is
+// there. Checking only the schema flag missed exactly the shape this matters
+// most for: a discriminated action whose variants need different arguments has
+// to declare every one of them optional (prov-2026-9a491128).
+func TestAnEmptyDerivedRequiredKwargIsRejected(t *testing.T) {
+	// collection is required:false, and the index template renders
+	// {{collection|instantize}} - so index needs it and show does not.
+	wantViolation(t, railsRequest(t),
+		`{"invocations":[{"action":"createControllerMethod","kwargs":{"controller":"users","name":"index","collection":""}}]}`,
+		RuleEmptyKwarg, `"collection"`)
+
+	// Absence stays checkDerived's to report. One mistake, one violation.
+	_, _, err := selectWith(t, railsRequest(t), 0,
+		`{"invocations":[{"action":"createControllerMethod","kwargs":{"controller":"users","name":"index"}}]}`)
+	if err == nil {
+		t.Fatal("an absent derived-required kwarg was accepted")
+	}
+	if !strings.Contains(err.Error(), RuleMissingDerivedKwarg) {
+		t.Errorf("absence is not reported as a derived requirement:\n%s", err)
+	}
+	if strings.Contains(err.Error(), RuleEmptyKwarg) {
+		t.Errorf("an absent kwarg was also reported as empty:\n%s", err)
+	}
+}
+
+// The case an empty-list clause would have broken: an action for which an empty
+// array is a meaningful value. A list has no usable rendering either way, so
+// emptiness is not what would make one wrong, and refusing it would have been a
+// rule with no failure behind it (prov-2026-9a491128).
+func TestARequiredListBoundToAnEmptyArrayIsAccepted(t *testing.T) {
+	got, _, err := selectWith(t, railsRequest(t), 0,
+		`{"invocations":[{"action":"tagResource","kwargs":{"controller":"users","tags":[]}}]}`)
+	if err != nil {
+		t.Fatalf("an empty array was refused for a required list kwarg: %v", err)
+	}
+	if len(got) != 1 {
+		t.Fatalf("got %d invocations, want 1", len(got))
+	}
+
+	// And the string rule still bites on the same invocation, so this is a
+	// narrowing rather than a hole.
+	wantViolation(t, railsRequest(t),
+		`{"invocations":[{"action":"tagResource","kwargs":{"controller":"","tags":[]}}]}`,
+		RuleEmptyKwarg, `"controller"`)
 }

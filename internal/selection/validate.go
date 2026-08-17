@@ -21,6 +21,44 @@ import (
 // the model is told exactly what was wrong, and a generic rejection would spend
 // a call teaching it nothing.
 
+// The rules Phase 5 can report.
+//
+// Named constants rather than literals at the point of use, because these
+// outlived being an implementation detail: the eval harness stores them in an
+// append-only results file (prov-2026-2256e6fa), so a slug written today is
+// read by something a year from now with only the file to resolve it against.
+// That makes the set a format, in the same sense the ownership marker is one
+// (prov-2026-72775ae5), and a format defined by ten scattered literals drifts
+// the first time one is reworded.
+//
+// Declared together so the vocabulary can be read in one place, and so a
+// caller can test for a rule without matching on prose (prov-2026-9a491128).
+const (
+	// RuleUnknownAction names an invocation of an action no package exposes.
+	RuleUnknownAction = "unknown_action"
+	// RuleAmbiguousAction names an action more than one package claims.
+	RuleAmbiguousAction = "ambiguous_action"
+	// RuleMissingKwarg names a required kwarg the model did not mention.
+	RuleMissingKwarg = "missing_kwarg"
+	// RuleEmptyKwarg names a required kwarg the model mentioned and left
+	// empty. Distinct from RuleMissingKwarg on purpose: a kwarg nobody wrote
+	// and one deliberately emptied are different mistakes, and a shared slug
+	// would make them one row in every count drawn from a results file.
+	RuleEmptyKwarg = "empty_kwarg"
+	// RuleUnknownKwarg names a kwarg the action does not declare.
+	RuleUnknownKwarg = "unknown_kwarg"
+	// RuleKwargType names a kwarg bound to a value of the wrong type.
+	RuleKwargType = "kwarg_type"
+	// RuleMissingDerivedKwarg names a kwarg the selected template renders but
+	// the invocation did not bind, whatever the schema calls optional.
+	RuleMissingDerivedKwarg = "missing_derived_kwarg"
+	// RuleVariant names a discriminator bound to a value with no template.
+	RuleVariant = "variant"
+	// RuleUnauthorizedPath names an invocation whose rendered target is not a
+	// path the record authorizes.
+	RuleUnauthorizedPath = "unauthorized_path"
+)
+
 // Violation is one Phase 5 failure.
 //
 // Rule is a short stable name for the run log, so that a run's failures can be
@@ -93,7 +131,7 @@ func resolveEntry(cat catalog.Catalog, inv recording.Invocation, index int) (cat
 		return catalog.Action{}, &Violation{
 			Index:  index,
 			Action: inv.Action,
-			Rule:   "unknown_action",
+			Rule:   RuleUnknownAction,
 			Detail: fmt.Sprintf(
 				"no action named %q is available for this change; the catalog offers %s",
 				inv.Action, quoteList(cat.Names())),
@@ -110,7 +148,7 @@ func resolveEntry(cat catalog.Catalog, inv recording.Invocation, index int) (cat
 		return catalog.Action{}, &Violation{
 			Index:  index,
 			Action: inv.Action,
-			Rule:   "ambiguous_action",
+			Rule:   RuleAmbiguousAction,
 			Detail: fmt.Sprintf(
 				"more than one package this change spans declares %q (%s), so nothing says which is meant",
 				inv.Action, strings.Join(owners, ", ")),
@@ -124,13 +162,41 @@ func resolveEntry(cat catalog.Catalog, inv recording.Invocation, index int) (cat
 func checkKwargs(entry catalog.Action, inv recording.Invocation, index int) []Violation {
 	var out []Violation
 
-	var missing []string
+	var missing, empty []string
+	emptied := map[string]bool{}
 	for name, k := range entry.Kwargs {
 		if !k.Required {
 			continue
 		}
-		if _, bound := inv.Kwargs[name]; !bound {
+		v, bound := inv.Kwargs[name]
+		switch {
+		case !bound:
 			missing = append(missing, name)
+		case isEmpty(v):
+			empty = append(empty, name)
+			emptied[name] = true
+		}
+	}
+
+	// A kwarg the schema calls optional and the selected template renders is
+	// not optional (prov-2026-369544c1), and that has to hold for what it
+	// contains as well as for whether it is there. Checking only the schema
+	// flag would let an empty value through on exactly the shape this most
+	// matters for: a discriminated action whose variants need different
+	// arguments declares every one of them optional, because optional is the
+	// only thing a shared schema can say about a value one variant needs and
+	// another forbids.
+	//
+	// Absence is left to checkDerived. Reporting it here as well would make one
+	// mistake read as two.
+	derived, _ := derivedRequirements(entry, inv)
+	for _, name := range derived {
+		if emptied[name] {
+			continue
+		}
+		if v, bound := inv.Kwargs[name]; bound && isEmpty(v) {
+			empty = append(empty, name)
+			emptied[name] = true
 		}
 	}
 	if len(missing) > 0 {
@@ -138,9 +204,24 @@ func checkKwargs(entry catalog.Action, inv recording.Invocation, index int) []Vi
 		out = append(out, Violation{
 			Index:  index,
 			Action: inv.Action,
-			Rule:   "missing_kwarg",
+			Rule:   RuleMissingKwarg,
 			Detail: fmt.Sprintf("required %s not bound: %s",
 				plural(len(missing), "kwarg is", "kwargs are"), quoteList(missing)),
+		})
+	}
+	if len(empty) > 0 {
+		sort.Strings(empty)
+		out = append(out, Violation{
+			Index:  index,
+			Action: inv.Action,
+			Rule:   RuleEmptyKwarg,
+			// Not worded as "required", because half of what this catches is
+			// declared optional and made necessary by the template that
+			// renders it. "Needed here" is true of both.
+			Detail: fmt.Sprintf("%s bound to nothing: %s; %s needed here, so give %s a value or leave the invocation out",
+				plural(len(empty), "kwarg is", "kwargs are"), quoteList(empty),
+				plural(len(empty), "it is", "they are"),
+				plural(len(empty), "it", "them")),
 		})
 	}
 
@@ -159,7 +240,7 @@ func checkKwargs(entry catalog.Action, inv recording.Invocation, index int) []Vi
 		out = append(out, Violation{
 			Index:  index,
 			Action: inv.Action,
-			Rule:   "unknown_kwarg",
+			Rule:   RuleUnknownKwarg,
 			Detail: fmt.Sprintf("%s not declared by this action: %s; it declares %s",
 				plural(len(unknown), "kwarg is", "kwargs are"), quoteList(unknown), quoteList(declaredNames(entry))),
 		})
@@ -177,7 +258,7 @@ func checkKwargs(entry catalog.Action, inv recording.Invocation, index int) []Vi
 			out = append(out, Violation{
 				Index:  index,
 				Action: inv.Action,
-				Rule:   "kwarg_type",
+				Rule:   RuleKwargType,
 				Detail: fmt.Sprintf("kwarg %q is declared %s but was bound to %s",
 					name, k.Type, describe(inv.Kwargs[name])),
 			})
@@ -206,25 +287,7 @@ func checkKwargs(entry catalog.Action, inv recording.Invocation, index int) []Vi
 // absent is a binding mistake; a derived one is usually the author's schema
 // understating what a variant needs.
 func checkDerived(entry catalog.Action, inv recording.Invocation, index int) *Violation {
-	required := append([]string{}, entry.Requires...)
-
-	variant := ""
-	if entry.Discriminator != "" && len(entry.VariantRequires) > 0 {
-		// Selection falls back exactly as template selection does, so a value
-		// with no dedicated template inherits the fallback's requirements
-		// rather than none. A discriminator that is absent or not a string is
-		// already reported by checkVariant; adding a second violation for one
-		// mistake would make the diagnostic harder to act on.
-		if raw, bound := inv.Kwargs[entry.Discriminator]; bound {
-			if value, ok := raw.(string); ok {
-				variant = value
-				if _, covered := entry.VariantRequires[value]; !covered {
-					variant = genpkg.DefaultVariant
-				}
-				required = append(required, entry.VariantRequires[variant]...)
-			}
-		}
-	}
+	required, variant := derivedRequirements(entry, inv)
 
 	var missing []string
 	seen := map[string]bool{}
@@ -249,7 +312,7 @@ func checkDerived(entry catalog.Action, inv recording.Invocation, index int) *Vi
 	return &Violation{
 		Index:  index,
 		Action: inv.Action,
-		Rule:   "missing_derived_kwarg",
+		Rule:   RuleMissingDerivedKwarg,
 		Detail: fmt.Sprintf("%s %s, so %s must be bound even where the schema declares %s optional",
 			where, quoteList(missing),
 			plural(len(missing), "it", "they"),
@@ -280,7 +343,7 @@ func checkVariant(entry catalog.Action, inv recording.Invocation, index int) []V
 		return []Violation{{
 			Index:  index,
 			Action: inv.Action,
-			Rule:   "variant",
+			Rule:   RuleVariant,
 			Detail: fmt.Sprintf(
 				"kwarg %q selects this action's template but nothing bound it; bind it to one of %s",
 				entry.Discriminator, quoteList(entry.Variants)),
@@ -306,7 +369,7 @@ func checkVariant(entry catalog.Action, inv recording.Invocation, index int) []V
 	return []Violation{{
 		Index:  index,
 		Action: inv.Action,
-		Rule:   "variant",
+		Rule:   RuleVariant,
 		Detail: fmt.Sprintf(
 			"%s %q has no template and this action has no fallback; it covers %s",
 			entry.Discriminator, value, quoteList(entry.Variants)),
@@ -328,7 +391,7 @@ func checkTargets(packages []*genpkg.Package, files []resolve.File, inv recordin
 		return []Violation{{
 			Index:  index,
 			Action: inv.Action,
-			Rule:   "unauthorized_path",
+			Rule:   RuleUnauthorizedPath,
 			Detail: err.Error(),
 		}}
 	}
@@ -441,4 +504,69 @@ func plural(n int, one, many string) string {
 		return one
 	}
 	return many
+}
+
+// isEmpty reports whether a bound value carries nothing.
+//
+// A required kwarg the model mentioned and left empty is not bound. It renders:
+// the rails standard's addColumn writes "default: {{default}}" verbatim, and an
+// empty default produced "t.string :title, null: false, default:" - Ruby that
+// does not parse, from an answer every other Phase 5 check passed
+// (prov-2026-9a491128).
+//
+// Strings only, and that is a deliberate narrowing rather than an omission. The
+// string case is grounded in what rendering does to it: an empty one renders to
+// nothing where a token is required. A list is not, because a list has no
+// usable rendering either way - a template given ["title","completed"] emits
+// "[title completed]" and given [] emits "[]", both equally unusable as source.
+// So emptiness is not what would make a rendered list wrong, and an action for
+// which an empty array is a meaningful value must not be refused for it.
+//
+// Zero is a number and false is a boolean, and both are values an author may
+// legitimately want. Whitespace counts as empty, because a value nobody chose
+// that renders as spaces is the same fault wearing a different coat.
+//
+// It is a proxy for "renders to nothing where a token is required", which would
+// mean rendering through transforms inside a validation phase. The cost is a
+// false positive on a kwarg where blank is meaningful, accepted as the smaller
+// error: a blank segment can be written into a template, and a migration that
+// does not parse cannot be recovered.
+func isEmpty(v any) bool {
+	value, ok := v.(string)
+	return ok && strings.TrimSpace(value) == ""
+}
+
+// derivedRequirements is every value the template this invocation selects will
+// render, with the variant it was chosen for.
+//
+// A template rendering a value is what makes that value required, whatever the
+// schema calls it (prov-2026-369544c1). Two checks read this: absence is
+// checkDerived's, and emptiness is checkKwargs' - a kwarg the schema calls
+// optional and the selected template renders is not optional, and that has to
+// hold for what it contains as well as for whether it is there
+// (prov-2026-9a491128).
+func derivedRequirements(entry catalog.Action, inv recording.Invocation) (names []string, variant string) {
+	names = append(names, entry.Requires...)
+
+	if entry.Discriminator == "" || len(entry.VariantRequires) == 0 {
+		return names, ""
+	}
+	// Selection falls back exactly as template selection does, so a value with
+	// no dedicated template inherits the fallback's requirements rather than
+	// none. A discriminator that is absent or not a string is already reported
+	// by checkVariant; adding a second violation for one mistake would make the
+	// diagnostic harder to act on.
+	raw, bound := inv.Kwargs[entry.Discriminator]
+	if !bound {
+		return names, ""
+	}
+	value, ok := raw.(string)
+	if !ok {
+		return names, ""
+	}
+	variant = value
+	if _, covered := entry.VariantRequires[value]; !covered {
+		variant = genpkg.DefaultVariant
+	}
+	return append(names, entry.VariantRequires[variant]...), variant
 }
