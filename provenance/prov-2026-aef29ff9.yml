@@ -1,6 +1,6 @@
 id: prov-2026-aef29ff9
 title: The understated-requirement warning is the load-time twin of checkDerived
-status: draft
+status: open
 created_at: "2026-08-17"
 author: calebcowen@gmail.com
 implements: prov-2026-f03916ba
