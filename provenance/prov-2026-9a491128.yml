@@ -1,0 +1,136 @@
+id: prov-2026-9a491128
+title: A required kwarg bound to an empty string is not bound
+status: draft
+created_at: "2026-08-17"
+author: calebcowen@gmail.com
+intent: |
+  Phase 5 checks that a required kwarg is present and never that it holds
+  anything, so `default: ""` satisfies `required: true`. It is a string, so the
+  type check passes. It is present, so nothing calls it missing. It renders:
+
+      t.string :title, null: false, default:
+
+  Ruby that does not parse, from an answer every other check accepted. Found by
+  measurement rather than argued for: the harness began storing bound arguments
+  ([[prov-2026-2256e6fa]]) and the first coarse run of the rails fixture
+  produced it twice in nine samples.
+
+  ## This is the second attempt, and the narrower one
+
+  [[prov-2026-9a554c93]] made this change and was withdrawn. Its history is
+  worth keeping rather than rewriting, which is why this record stands beside it
+  instead of superseding it.
+
+  It was withdrawn on the reading that it worked around a real gap - a package
+  cannot declare which of an action's kwargs a given variant requires - and that
+  the gap should be closed instead. That gap is real and still open. It is also
+  a different axis: a kwarg declared required for the variant that needs it is
+  still satisfied by an empty string, so closing it would leave this case
+  exactly where it is. The two do not substitute for each other, and this is the
+  half that is cheap and unconditional.
+
+  ## Strings only, and the list clause was the mistake
+
+  The withdrawn record treated an empty list as empty too, on the grounds that
+  "a string and a list are the two types with a shape that carries nothing".
+  That is a claim about Go types rather than about what breaks, made from one
+  concrete string case and no list cases at all.
+
+  The renderer settles it. A list value has no usable rendering:
+
+      ["title","completed"]  ->  permit [title completed]
+      []                     ->  permit []
+
+  Both are equally unusable in Ruby, so emptiness is not what makes a rendered
+  list wrong - a list kwarg is non-rendered data in every package that exists,
+  and the fixture that declares one has no template touching it. An action for
+  which an empty array is a meaningful value would have been refused for no
+  reason anyone could point at.
+
+  A string is different because it is grounded in what rendering does to it: an
+  empty one renders to nothing where a token is required. So only strings are
+  read, whitespace included, since a value nobody chose that renders as spaces
+  is the same fault wearing a different coat.
+
+  ## Read over the derived requirements as well
+
+  A template rendering a value is what makes that value required, whatever the
+  schema says ([[prov-2026-369544c1]]), and that has to hold for what the value
+  contains as well as for whether it is there.
+
+  This is not hypothetical and does not depend on the variant redesign that
+  motivated it the first time. The test fixture declares `collection` optional
+  and its index template renders `{{collection|instantize}}`, so `collection:
+  ""` is a rendered-to-nothing value that the schema flag alone would let
+  through today.
+
+  Absence stays checkDerived's to report. One mistake produces one violation.
+
+  ## What this is honestly not
+
+  It is a proxy. The rule that would be exactly right is "renders to nothing
+  where a token is required", and that would mean rendering the value through
+  its transforms inside a validation phase - a cost and a phase confusion out of
+  proportion to the case. An empty string is the shape that fault takes every
+  time it has been seen.
+
+  So it carries a false positive: a required kwarg where empty is genuinely
+  meaningful - a namespace that may be blank, rendered as
+  `{{namespace}}Controller` - is refused, and the author cannot express
+  "optional but always rendered" because the grammar has no conditionals. That
+  is the same gap [[prov-2026-9a554c93]] was withdrawn over, arriving from a
+  third direction. It is accepted here as the smaller error: an author who wants
+  a blank segment can say so in a template, and nobody can recover a migration
+  that does not parse.
+
+  ## The rules become a vocabulary
+
+  The nine rule slugs are string literals scattered through validate.go, and
+  this adds a tenth. [[prov-2026-2256e6fa]] stores them in an append-only
+  results file, which makes them a format outliving the code that emits them, in
+  the same way the ownership marker is one ([[prov-2026-72775ae5]]). A format
+  defined by ten separate literals drifts the first time one is reworded, and
+  the entry written last year keeps a spelling with nothing to resolve it
+  against.
+
+  They become named constants, declared together, so a reader of an old entry
+  can find out what a slug meant and a caller can test for one without matching
+  prose. It rode along with the withdrawn record because that record was already
+  in this file; it is not a workaround for anything and returns on its own
+  merits.
+constraints:
+  - A required kwarg bound to an empty string, whitespace included, is a violation naming the kwarg, so the retry loop can tell the model what to put there.
+  - Only strings are read. A list is not, because a list has no usable rendering at all - empty or not - so emptiness is not what would make one wrong, and an action for which an empty array is meaningful must not be refused.
+  - Emptiness is read over the schema-required kwargs and the derived-required ones together, because a template rendering a value is what makes it required whatever the schema says.
+  - Absence stays checkDerived's to report and emptiness this check's. One mistake produces one violation.
+  - The violation is distinct from missing_kwarg. A kwarg nobody wrote and one deliberately emptied are different mistakes, and a shared slug would make them one row in every count drawn from a results file.
+  - Every rule slug is a named constant declared in one place, because storing them in an append-only file made them a format rather than an implementation detail.
+  - This does not close the per-variant requiredness gap and does not claim to. A kwarg required for the variant that needs it is still satisfied by an empty string, so the two are different axes.
+affected_scope:
+  - internal/selection/validate.go
+  - internal/selection/selection_test.go
+  # Its own file, so a later transition can be committed: deprecate runs the
+  # scope check against its auto-commit where complete exempts the record it
+  # seals, which cost prov-2026-9a554c93 an extra commit to withdraw.
+  - provenance/prov-2026-9a491128.yml
+forbidden_scope: []
+type: blueprint
+implements: prov-2026-d554bfc3
+supersedes: ""
+superseded_by: ""
+related:
+  - prov-2026-9a554c93
+  - prov-2026-369544c1
+  - prov-2026-2256e6fa
+  - prov-2026-72775ae5
+  - prov-2026-c5697387
+sealed_at_sha: ""
+associated_specs:
+  - path: internal/selection/selection_test.go
+    run_command: go test -count=1 ./$(dirname {{path}})
+associated_traces: []
+monitors: []
+tags:
+  - sedum
+  - selection
+  - validation
