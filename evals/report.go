@@ -170,6 +170,15 @@ func behavior(out io.Writer, m Measurement) {
 	}
 	if t.Broke > 0 {
 		fmt.Fprintf(out, "    broke: %d sample(s) never reached the assertions%s\n", t.Broke, byPhase(t.Phases))
+		// Why, not just where. A phase name says a build failed; this says what
+		// the compiler said, which is the difference between a finding and a
+		// reason to re-run the harness by hand (prov-2026-93829987).
+		for _, d := range byCount(t.Details) {
+			fmt.Fprintf(out, "      %d of %d:\n", d.n, t.Broke)
+			for _, line := range strings.Split(d.name, "\n") {
+				fmt.Fprintf(out, "        %s\n", line)
+			}
+		}
 	}
 	if t.Errored > 0 {
 		fmt.Fprintf(out, "    excluded: %d sample(s) the harness could not run at all\n", t.Errored)

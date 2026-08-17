@@ -49,6 +49,19 @@ type BehaviorRun struct {
 	// FailedPhase names the step that died, for a `failed` outcome.
 	FailedPhase string `json:"failed_phase,omitempty"`
 
+	// Detail is the tail of that phase's log.
+	//
+	// Without it a failure says "build" and stops, and the log that said why
+	// went with the temporary project. Three times in one session the answer
+	// was reached by re-running the harness by hand against a reconstructed
+	// selection - and a reconstruction is not the sample that failed
+	// (prov-2026-93829987).
+	//
+	// A tail rather than the whole log, on the rule Sample.Detail already
+	// follows: enough to act on, without the entry becoming a log store. A
+	// failure that needs more has --keep, which leaves the project behind.
+	Detail string `json:"detail,omitempty"`
+
 	// Checks and Passed are the assertion counts. Both are zero for a run that
 	// never reached the verify phase, which is why Outcome is what a reader
 	// should branch on rather than the ratio.
@@ -77,6 +90,7 @@ func (b BehaviorRun) Working() bool { return b.Err == nil && b.Outcome == "ok" }
 type harnessResult struct {
 	Outcome      string `json:"outcome"`
 	FailedPhase  string `json:"failed_phase"`
+	Detail       string `json:"detail"`
 	ChecksPassed int    `json:"checks_passed"`
 	ChecksTotal  int    `json:"checks_total"`
 	Checks       []struct {
@@ -149,6 +163,7 @@ func RunBehavior(ctx context.Context, target string, invocations []recording.Inv
 	run := BehaviorRun{
 		Outcome:     parsed.Outcome,
 		FailedPhase: parsed.FailedPhase,
+		Detail:      parsed.Detail,
 		Checks:      parsed.ChecksTotal,
 		Passed:      parsed.ChecksPassed,
 		Elapsed:     time.Since(started),
@@ -264,6 +279,10 @@ type BehaviorTally struct {
 
 	// Phases counts what broke, by phase name.
 	Phases map[string]int
+	// Details counts each distinct failure reason. Identical failures across
+	// samples are one finding repeated, which is the thing worth knowing about
+	// them - the same reason failed assertions are counted rather than listed.
+	Details map[string]int
 	// Failures counts each failed assertion across samples. One assertion
 	// failing in every sample and twenty failing in one are different problems,
 	// and only a per-assertion count tells them apart.
@@ -285,7 +304,7 @@ func (b BehaviorTally) Rate() float64 {
 // second return is false when behaviour was not measured at all, which a report
 // has to tell from "measured and nothing worked".
 func (m Measurement) Behavior() (BehaviorTally, bool) {
-	t := BehaviorTally{Phases: map[string]int{}, Failures: map[string]int{}}
+	t := BehaviorTally{Phases: map[string]int{}, Failures: map[string]int{}, Details: map[string]int{}}
 
 	var any bool
 	for _, s := range m.Samples {
@@ -317,6 +336,9 @@ func (m Measurement) Behavior() (BehaviorTally, bool) {
 			t.Broke++
 			if b.FailedPhase != "" {
 				t.Phases[b.FailedPhase]++
+			}
+			if d := strings.TrimSpace(b.Detail); d != "" {
+				t.Details[d]++
 			}
 		}
 	}

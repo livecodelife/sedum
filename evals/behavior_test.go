@@ -39,7 +39,8 @@ func TestBehaviorKeepsBrokenApartFromWrong(t *testing.T) {
 		behaviorSample(&BehaviorRun{Outcome: "ok", Checks: 20, Passed: 20}),
 		behaviorSample(&BehaviorRun{Outcome: "checks_failed", Checks: 20, Passed: 17,
 			Failed: []string{"partial update keeps the title it never sent", "an empty update is a 400"}}),
-		behaviorSample(&BehaviorRun{Outcome: "failed", FailedPhase: "build"}),
+		behaviorSample(&BehaviorRun{Outcome: "failed", FailedPhase: "build",
+			Detail: "db/todos.go:61:24: undefined: models"}),
 	}}
 	caseWithTarget(&m, "todo-rails")
 
@@ -59,6 +60,12 @@ func TestBehaviorKeepsBrokenApartFromWrong(t *testing.T) {
 	}
 	if got.Failures["an empty update is a 400"] != 1 {
 		t.Errorf("failed assertions were not counted per assertion: %v", got.Failures)
+	}
+	// The reason a phase died survives the project being deleted. Without it a
+	// failure says "build" and the log that said why is gone
+	// (prov-2026-93829987).
+	if got.Details["db/todos.go:61:24: undefined: models"] != 1 {
+		t.Errorf("the failing phase's reason was not carried: %v", got.Details)
 	}
 	if got.Rate() != 1.0/3.0 {
 		t.Errorf("rate = %v, want one in three", got.Rate())
@@ -189,5 +196,31 @@ func invocationsFixture() []recording.Invocation {
 			"resource": "todos", "stamp": "20260814000000",
 			"name": "completed", "type": "boolean", "nullable": false, "default": "false",
 		}},
+	}
+}
+
+// A phase failure prints why, not only where, and identical reasons across
+// samples collapse to one finding with a count - the same rule the failed
+// assertions follow (prov-2026-93829987).
+func TestTheReportSaysWhyAPhaseDied(t *testing.T) {
+	broke := func() Sample {
+		return behaviorSample(&BehaviorRun{Outcome: "failed", FailedPhase: "build",
+			Detail: "# todo/db\ndb/todos.go:85:3: invalid character U+0024 '$'"})
+	}
+	m := Measurement{Samples: []Sample{broke(), broke()}}
+	caseWithTarget(&m, "todo-chi")
+
+	var out strings.Builder
+	behavior(&out, m)
+	got := out.String()
+
+	for _, want := range []string{"broke: 2", "build x2", "2 of 2:", "invalid character U+0024"} {
+		if !strings.Contains(got, want) {
+			t.Errorf("the behaviour table does not mention %q:\n%s", want, got)
+		}
+	}
+	// One reason repeated is one finding, so it is printed once.
+	if strings.Count(got, "invalid character U+0024") != 1 {
+		t.Errorf("an identical reason was printed per sample rather than counted:\n%s", got)
 	}
 }

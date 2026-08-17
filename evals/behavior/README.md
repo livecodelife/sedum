@@ -71,6 +71,12 @@ A service that never booted and one that booted and answered wrongly are
 different findings with different fixes. A single pass rate would report a
 broken generator package and a wrong one as the same number.
 
+A `failed` run carries the tail of the dead phase's log, in the result file and
+in the eval's report. Without it a failure said "build" and the log that said
+why went with the temporary project, which cost three hand reconstructions in
+one session — and a reconstruction is not the sample that failed. Use `--keep`
+when the tail is not enough.
+
 ## The stub model
 
 `stub_model.py` is an OpenAI-compatible endpoint that always returns the same

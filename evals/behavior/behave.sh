@@ -80,6 +80,9 @@ PHASES_JSON="[]"
 CHECKS_JSON="[]"
 OUTCOME="ok"
 FAILED_PHASE=""
+# The tail of the log of whichever phase died, kept so the reason survives the
+# project being deleted (prov-2026-93829987).
+FAILED_DETAIL=""
 STUB_PID=""
 APP_PID=""
 
@@ -110,8 +113,12 @@ phase() {
   if [ $status -ne 0 ]; then
     OUTCOME="failed"
     FAILED_PHASE="$name"
+    # The same lines the terminal gets. What a person watching sees and what a
+    # caller can read afterwards were different things until now, and the
+    # difference cost three hand reconstructions in one session.
+    FAILED_DETAIL=$(tail -25 "$LOGS/$name.log")
     echo "    ✗ $name failed (exit $status)" >&3
-    tail -25 "$LOGS/$name.log" | sed 's/^/      /' >&3
+    sed 's/^/      /' <<<"$FAILED_DETAIL" >&3
   fi
   return 0
 }
@@ -215,11 +222,13 @@ cleanup() {
 
   jq -n --arg run "$RUN_ID" --arg target "$TARGET" \
         --arg model "${MODEL:-canned}" --arg outcome "$OUTCOME" \
-        --arg failed "$FAILED_PHASE" --arg at "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+        --arg failed "$FAILED_PHASE" --arg detail "$FAILED_DETAIL" \
+        --arg at "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
         --argjson phases "$PHASES_JSON" --argjson checks "$CHECKS_JSON" \
         --argjson passed "$passed" --argjson total "$total" \
     '{run:$run, target:$target, selection:$model, at:$at, outcome:$outcome,
       failed_phase:(if $failed=="" then null else $failed end),
+      detail:(if $detail=="" then null else $detail end),
       checks_passed:$passed, checks_total:$total,
       phases:$phases, checks:$checks}' > "$RESULTS"
 
