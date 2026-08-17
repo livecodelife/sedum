@@ -1,6 +1,6 @@
 id: prov-2026-1c33a50b
 title: The eval supplies variables too, and the case is where they live
-status: draft
+status: open
 created_at: "2026-08-17"
 author: calebcowen@gmail.com
 implements: prov-2026-6fc3d13d
