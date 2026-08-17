@@ -1,0 +1,97 @@
+id: prov-2026-bd2a6c3f
+title: The Go standard's fragments say which language they are written in
+status: draft
+created_at: "2026-08-17"
+author: calebcowen@gmail.com
+intent: |
+  The eight source-fragment kwargs in the Go package set gain descriptions
+  naming the language each is written in and the shape it takes.
+
+  ## What this follows
+
+  [[prov-2026-c009d1ba]] declared those kwargs `literal` and predicted the type
+  would carry what a sentence carries. It did not. The coarse run after it left
+  one valid sample of five, and that sample bound:
+
+    insert_values  '$1, $2'
+    scan_targets   'id, title, completed, created_at, updated_at'
+    columns        '*'
+    placeholders   '"$1", "$2"'
+
+  `insert_values` is the argument list to QueryRowContext and wants Go
+  expressions - `in.Title, in.Completed`. `scan_targets` is the argument list to
+  Scan and wants pointers - `&todo.ID, &todo.Title`. Both got SQL. The
+  quotes on `placeholders` are new since the type changed and are probably the
+  prompt's "punctuation and all" being taken literally.
+
+  ## Why the type could not have fixed it
+
+  This is the correction worth writing down. `literal` distinguishes **code from
+  prose**, which was exactly the Rails `default` problem: one value, one
+  language, and the type said "write the code, not a description of it".
+
+  The Go standard's problem is **Go versus SQL**. `insert_values` and
+  `placeholders` sit adjacent in one schema and were both `string`; declaring
+  both `literal` made them look more alike, not less. The type is orthogonal to
+  the confusion.
+
+  And no type can fix it. A type that named a language would be the
+  per-language table in the core that prov-2026-e3d7b9ac refused, and refusing
+  it is still right. The information has to travel as prose, which is what
+  prov-2026-c5697387 built descriptions for.
+
+  ## Why this package may take descriptions freely
+
+  The description A/B is a Rails construct: todo-rails-defined and
+  todo-rails-described are one record over two package sets, and the first
+  carries no descriptions on purpose. todo-api has one package set and one case.
+  There is no control arm here to spend, and the constraint that ruled
+  descriptions out for the Rails arm was carried across to this one by mistake.
+
+  ## How the descriptions are written
+
+  From the templates, not from memory. Each says which language the value is,
+  what shape it takes, and where its ordering comes from - `set_clause` numbers
+  from $2 because the template puts the id at $1, and `scan_targets` covers
+  every column the SELECT lists including the three the template supplies.
+
+  A description is prose the model reads and no check enforces
+  (prov-2026-c5697387), so being exact about the shape is the whole of the work.
+constraints:
+  - >-
+    Each description names the language its value is written in. That is the
+    distinction the type cannot make and the one the model is measurably
+    getting wrong.
+  - >-
+    Each description gives the shape by example, and states any ordering the
+    template imposes rather than leaving it to be inferred from the SQL.
+  - >-
+    Descriptions are prose the model reads. Nothing parses one, derives a
+    constraint from one, or checks a bound value against one.
+  - >-
+    Only descriptions are added. Types, names, required flags and templates are
+    unchanged, so the run after this differs from the one before it in the
+    catalog's prose and nothing else.
+affected_scope:
+  - evals/testdata/todo-api/generators/defined/chi/actions/actions.yaml
+  - evals/testdata/todo-api/generators/defined/postgres/actions/actions.yaml
+  - evals/results/**
+forbidden_scope:
+  - internal/**
+  - cmd/**
+type: blueprint
+implements: prov-2026-d554bfc3
+supersedes: ""
+superseded_by: ""
+related:
+  - prov-2026-c009d1ba
+  - prov-2026-c5697387
+sealed_at_sha: ""
+associated_specs:
+  - path: evals/run_test.go
+    run_command: go test ./$(dirname {{path}})
+associated_traces: []
+monitors: []
+tags:
+  - sedum
+  - evals
