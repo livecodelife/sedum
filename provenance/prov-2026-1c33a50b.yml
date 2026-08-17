@@ -1,0 +1,81 @@
+id: prov-2026-1c33a50b
+title: The eval supplies variables too, and the case is where they live
+status: draft
+created_at: "2026-08-17"
+author: calebcowen@gmail.com
+implements: prov-2026-6fc3d13d
+intent: |
+  A case declares `variables:`, and the eval passes them wherever it runs the
+  pipeline - both for the selection call and for the behaviour run.
+
+  ## What went wrong
+
+  The blueprint wired `--var` into the two commands and into the behaviour
+  harness's target script. It did not wire it into the eval runner, which builds
+  a pipeline.Config directly and never went through a command line.
+
+  The chi case stopped running entirely. Every sample failed in seven
+  milliseconds with "variable is not set and declares no default", before a model
+  was called - so the case that motivated the whole feature became the one case
+  the harness could no longer measure.
+
+  It was invisible because the behaviour harness *does* supply the value, from
+  the target script, and that is the path I re-ran. Two callers, one exercised.
+
+  ## Why the case rather than a flag on the runner
+
+  A variable's value is a property of the project being generated, and for the
+  eval the project is the case. Putting it on the runner would make it a
+  property of the invocation, so two runs of the same case could differ in a way
+  no stored entry records - and the entry is the thing that is supposed to make
+  a measurement re-runnable.
+
+  ## One value, not two
+
+  The behaviour target already knew a module name: `go mod init` needs one, and
+  target.sh had it hardcoded. That was fine while the model was guessing the
+  same string by luck, and became a real hazard the moment the value started
+  mattering - two places holding one fact, agreeing by convention.
+
+  The case is now the single source. RunBehavior passes the case's variables to
+  behave.sh as environment, and the target uses that for both `go mod init` and
+  `--var`. The scaffold and the generation cannot disagree about what the module
+  is called, because there is only one place it is written down.
+constraints:
+  - >-
+    A case declares the variables its packages need. The eval passes them to
+    every pipeline it runs, so a case that names them measures the same thing
+    whichever phase is running.
+  - >-
+    The behaviour target takes the module name from the case rather than
+    hardcoding one. The scaffold and the generation read one value, so they
+    cannot drift into disagreeing.
+  - >-
+    A case declaring no variables is unaffected, and the Rails arm declares
+    none.
+affected_scope:
+  - evals/case.go
+  - evals/run.go
+  - evals/behavior.go
+  - evals/behavior_test.go
+  - evals/cases/todo-chi-defined.yaml
+  - evals/behavior/targets/todo-chi/target.sh
+  - evals/behavior/behave.sh
+  - evals/README.md
+forbidden_scope:
+  - internal/**
+  - cmd/**
+type: imprint
+supersedes: ""
+superseded_by: ""
+related:
+  - prov-2026-83340ba0
+sealed_at_sha: ""
+associated_specs:
+  - path: evals/behavior_test.go
+    run_command: go test ./$(dirname {{path}})
+associated_traces: []
+monitors: []
+tags:
+  - sedum
+  - evals
