@@ -123,6 +123,7 @@ affected_scope:
   - evals/behavior/behave.sh
   - evals/behavior/stub_model.py
   - evals/behavior/README.md
+  - evals/behavior/.gitignore
   - evals/behavior/targets/todo-rails/target.sh
   - evals/behavior/targets/todo-rails/answer.json
   - evals/behavior/targets/todo-chi/target.sh
@@ -134,6 +135,7 @@ affected_scope:
   - evals/report.go
   - evals/results.go
   - evals/cmd/eval/main.go
+  - evals/cmd/eval/main_test.go
   - evals/harness_eval_test.go
   - evals/README.md
   - evals/cases/todo-rails-defined.yaml

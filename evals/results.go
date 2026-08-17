@@ -107,6 +107,18 @@ type SampleRun struct {
 	Rejected     int `json:"rejected,omitempty"`
 	Completeness int `json:"completeness,omitempty"`
 
+	// Behavior is what applying this sample's selection produced, or nil when
+	// behaviour was not measured. Added rather than replacing anything, on the
+	// same rule as the counts above: a reader ignores what it does not
+	// recognise, and every entry written before this one simply reports no
+	// behaviour rather than reporting that nothing worked.
+	//
+	// Stored per sample rather than only as a rate, because the interesting
+	// question later is which contract broke on which draw - and a rate cannot
+	// be re-scored against a question sharpened after the run
+	// (prov-2026-83340ba0).
+	Behavior *BehaviorRun `json:"behavior,omitempty"`
+
 	// PromptTokens and CompletionTokens are the server's accounting of what
 	// those calls cost. Omitted when the endpoint reported none, so an entry
 	// says "not measured" rather than "cost nothing".
@@ -177,6 +189,7 @@ func NewEntry(m Measurement, endpoint string) Entry {
 			CompletionTokens: s.CompletionTokens,
 			Rules:            s.Rules,
 			Invocations:      s.Invocations,
+			Behavior:         s.Behavior,
 		}
 		switch {
 		case s.Err != nil:

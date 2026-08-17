@@ -1,0 +1,36 @@
+{
+  "invocations": [
+    {"action": "createTable", "kwargs": {"resource": "todos", "columns": "title      TEXT NOT NULL,\n    completed  BOOLEAN NOT NULL DEFAULT FALSE"}},
+
+    {"action": "addModelField", "kwargs": {"resource": "todos", "name": "title", "go_type": "string"}},
+    {"action": "addModelField", "kwargs": {"resource": "todos", "name": "completed", "go_type": "bool"}},
+
+    {"action": "createQuery", "kwargs": {"resource": "todos", "operation": "insert", "columns": "title, completed", "placeholders": "$1, $2", "insert_values": "in.Title, in.Completed"}},
+    {"action": "createQuery", "kwargs": {"resource": "todos", "operation": "selectAll", "columns": "title, completed", "scan_targets": "&todo.ID, &todo.Title, &todo.Completed, &todo.CreatedAt, &todo.UpdatedAt"}},
+    {"action": "createQuery", "kwargs": {"resource": "todos", "operation": "selectByID", "columns": "title, completed", "scan_targets": "&todo.ID, &todo.Title, &todo.Completed, &todo.CreatedAt, &todo.UpdatedAt"}},
+    {"action": "createQuery", "kwargs": {"resource": "todos", "operation": "update", "set_clause": "title = $2, completed = $3", "update_values": "id, in.Title, in.Completed"}},
+    {"action": "createQuery", "kwargs": {"resource": "todos", "operation": "delete"}},
+
+    {"action": "createEndpoint", "kwargs": {"resource": "todos", "verb": "list"}},
+    {"action": "createEndpoint", "kwargs": {"resource": "todos", "verb": "get"}},
+    {"action": "createEndpoint", "kwargs": {"resource": "todos", "verb": "create"}},
+    {"action": "createEndpoint", "kwargs": {"resource": "todos", "verb": "update"}},
+    {"action": "createEndpoint", "kwargs": {"resource": "todos", "verb": "delete"}},
+
+    {"action": "addMainImport", "kwargs": {"path": "todo/db"}},
+    {"action": "addMainImport", "kwargs": {"path": "todo/handlers"}},
+    {"action": "addHandlerImport", "kwargs": {"resource": "todos", "path": "todo/db"}},
+
+    {"action": "addHandlerTest", "kwargs": {"resource": "todos", "verb": "list"}},
+    {"action": "addHandlerTest", "kwargs": {"resource": "todos", "verb": "get"}},
+    {"action": "addHandlerTest", "kwargs": {"resource": "todos", "verb": "create"}},
+    {"action": "addHandlerTest", "kwargs": {"resource": "todos", "verb": "update"}},
+    {"action": "addHandlerTest", "kwargs": {"resource": "todos", "verb": "delete"}},
+
+    {"action": "addQueryTest", "kwargs": {"resource": "todos", "operation": "insert"}},
+    {"action": "addQueryTest", "kwargs": {"resource": "todos", "operation": "selectAll"}},
+    {"action": "addQueryTest", "kwargs": {"resource": "todos", "operation": "selectByID"}},
+    {"action": "addQueryTest", "kwargs": {"resource": "todos", "operation": "update"}},
+    {"action": "addQueryTest", "kwargs": {"resource": "todos", "operation": "delete"}}
+  ]
+}

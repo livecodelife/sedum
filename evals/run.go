@@ -99,6 +99,16 @@ type Sample struct {
 	// unreachable server is not a model that chose badly.
 	Err error
 
+	// Behavior is what applying this sample's selection produced, or nil when
+	// behaviour was not measured - because the run did not ask, because the
+	// case declares no target, or because this sample never produced a
+	// selection to apply.
+	//
+	// A pointer rather than a zero value, so that "not measured" and "measured
+	// and failed" are different states. Folding them together would report a
+	// run that skipped behaviour as one where nothing worked.
+	Behavior *BehaviorRun
+
 	// Elapsed is how long this sample took end to end.
 	//
 	// Recorded because the harness could not previously answer "why is this
@@ -171,6 +181,19 @@ type Options struct {
 	// comparable with timing at another. The budget is recorded in the entry so
 	// that stays checkable rather than remembered.
 	Retries int
+
+	// Behavior applies every valid sample's selection to a scaffolded
+	// application and asserts against it.
+	//
+	// Off by default, and a run that leaves it off is the run it was before
+	// this existed. It costs a scaffold, a dependency install, a database and a
+	// boot per sample - a different order of cost from a model call - and it
+	// answers the one question none of the other numbers can: whether what the
+	// model chose produces something that works (prov-2026-83340ba0).
+	//
+	// Ignored by a case that declares no behaviour target, which is not an
+	// error: the flag says "measure it where it can be measured".
+	Behavior bool
 }
 
 // Run measures one case against one model, as many times as its resolution
@@ -242,7 +265,7 @@ func Run(ctx context.Context, c Case, model Model, opts Options) (Measurement, e
 			defer wg.Done()
 			slots <- struct{}{}
 			defer func() { <-slots }()
-			m.Samples[i] = sample(ctx, c, model.ID, opts.Retries)
+			m.Samples[i] = sample(ctx, c, model.ID, opts)
 		}(i)
 	}
 	wg.Wait()
@@ -251,7 +274,8 @@ func Run(ctx context.Context, c Case, model Model, opts Options) (Measurement, e
 	return m, nil
 }
 
-func sample(ctx context.Context, c Case, model string, retries int) Sample {
+func sample(ctx context.Context, c Case, model string, opts Options) Sample {
+	retries := opts.Retries
 	started := time.Now()
 	client, err := selection.NewOpenAI(model)
 	if err != nil {
@@ -305,7 +329,9 @@ func sample(ctx context.Context, c Case, model string, retries int) Sample {
 		return Sample{Err: err, Detail: firstLine(err.Error()), Elapsed: time.Since(started)}
 	}
 
-	s := Sample{Counts: map[string]int{}, Elapsed: time.Since(started)}
+	// Elapsed is set at the end rather than here, because behaviour runs after
+	// this and a sample's cost has to include it.
+	s := Sample{Counts: map[string]int{}}
 	for _, sel := range result.Selections {
 		s.Calls += sel.Calls
 		s.Rejected += sel.Rejected
@@ -325,6 +351,22 @@ func sample(ctx context.Context, c Case, model string, retries int) Sample {
 		// from (prov-2026-2256e6fa).
 		s.Invocations = append(s.Invocations, sel.Invocations...)
 	}
+
+	// Behaviour last, and only for a sample that produced something to apply.
+	//
+	// A sample with no selection is unmeasured rather than failed - the same
+	// rule that keeps a rejected answer out of the selection denominator. There
+	// is nothing to apply, so there is nothing to say about it.
+	//
+	// The elapsed time is taken after this, so a behaviour run's cost is inside
+	// the sample's rather than beside it. A behaviour sample is minutes where a
+	// selection sample is seconds, and a timing table that hid that would be
+	// describing a run nobody made.
+	if opts.Behavior && c.Expect.Behavior != nil && len(s.Invocations) > 0 {
+		run := RunBehavior(ctx, c.Expect.Behavior.Target, s.Invocations)
+		s.Behavior = &run
+	}
+	s.Elapsed = time.Since(started)
 	return s
 }
 

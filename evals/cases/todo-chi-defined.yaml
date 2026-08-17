@@ -80,3 +80,11 @@ expect:
     # Two fields on the model, one table in the schema.
     addModelField: 2
     createTable: 1
+
+  # Applying the selection and asserting against the running application.
+  # Measured only when a run asks for it with -behavior, because a behaviour
+  # sample costs a scaffold, a dependency install, a database and a boot
+  # (prov-2026-83340ba0).
+  behavior:
+    target: todo-chi
+    pass_rate: 1.0

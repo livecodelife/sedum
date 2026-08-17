@@ -123,10 +123,10 @@ expect:
           nullable: false
           default: "false"
 
-# Reserved. Measuring this means applying the selection, starting the target and
-# running its contracts - a container and a database per sample rather than one
-# model call. Declared so the schema does not change once it is implemented.
-#
-# behavior:
-#   specs: todo-rails/linespec
-#   pass_rate: 1.0
+  # Applying the selection and asserting against the running application.
+  # Measured only when a run asks for it with -behavior, because a behaviour
+  # sample costs a scaffold, a dependency install, a database and a boot
+  # (prov-2026-83340ba0).
+  behavior:
+    target: todo-rails
+    pass_rate: 1.0

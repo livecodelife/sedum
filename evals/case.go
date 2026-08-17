@@ -177,11 +177,24 @@ type ActionBinding struct {
 	Invocations []map[string]any `yaml:"invocations"`
 }
 
-// BehaviorExpectation reserves the shape of the expensive half.
+// BehaviorExpectation names the harness that says whether a selection produces
+// a working application, and what fraction of samples should.
+//
+// It reserved `specs`, naming a linespec suite, before there was anything to
+// point one at. What landed instead is a target: a directory under
+// evals/behavior/targets holding the scaffold, build, boot and assertion steps
+// for one stack. The reservation was early rather than wrong - a suite needs
+// the application running before it can assert anything, and standing one up
+// was the larger half. A linespec assertion phase would go behind `target`
+// rather than beside it (prov-2026-83340ba0).
 type BehaviorExpectation struct {
-	// Specs is the directory holding the application's linespec contracts.
-	Specs string `yaml:"specs"`
-	// PassRate is the fraction expected to pass, between 0 and 1.
+	// Target is a directory name under evals/behavior/targets, not a path. What
+	// it asserts is its own business, which is what keeps adding a stack from
+	// being a change to this schema.
+	Target string `yaml:"target"`
+
+	// PassRate is the fraction of measured samples expected to produce a
+	// working application, between 0 and 1.
 	PassRate float64 `yaml:"pass_rate"`
 }
 
@@ -216,9 +229,9 @@ func Load(dir, root string) ([]Case, error) {
 
 		c.Generators = resolve(root, c.Generators)
 		c.Records = resolve(root, c.Records)
-		if c.Expect.Behavior != nil {
-			c.Expect.Behavior.Specs = resolve(root, c.Expect.Behavior.Specs)
-		}
+		// Behavior.Target is deliberately not resolved. It is a name the
+		// harness looks up under its own targets directory, and turning it into
+		// a path here would put the harness's layout in the case schema.
 
 		if err := c.validate(e.Name()); err != nil {
 			return nil, err

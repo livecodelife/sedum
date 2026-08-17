@@ -1,13 +1,19 @@
 # Evals
 
-Measures how well a model selects actions, and — eventually — how well what it
-selected works.
+Measures how well a model selects actions, and — when asked — whether what it
+selected produces an application that works.
 
 **This is not part of Sedum.** Nothing under `internal/` or `cmd/` imports it, it
 is not compiled into the binary, and its runner is behind a build tag so
 `go test ./...` never reaches it. That separation is deliberate: Sedum does not
 run or grade the code it generates, and a harness that did both would make that
 non-goal untrue by adjacency if it shipped as part of the tool.
+
+That separation is what makes `behavior/` possible rather than what it
+contradicts. Something has to boot the generated service and assert against it,
+and the whole argument in TOOL_BOUNDARIES.md §2–3 is that the something must sit
+*above* Sedum rather than inside it. It does: the harness calls Sedum, Sedum has
+no idea it exists, and the binary is unchanged.
 
 ## Running it
 
@@ -28,6 +34,7 @@ go run ./evals/cmd/eval -dry -res fine todo-rails-defined  # print the plan, run
 | `-retries <n>` | Re-prompts a rejected answer may spend. Default 0. See below before raising it. |
 | `-timeout <d>` | What one case is allowed to take. Default: derived from the samples about to be drawn. |
 | `-dirty` | Run against a dirty tree anyway; the entry records as not re-runnable. |
+| `-behavior` | Apply every valid selection to a scaffolded application and assert against it. Off by default — minutes per sample. See [behavior/](behavior/README.md). |
 | `-dry` | Print the plan and the invocation, run nothing. |
 
 It prints what the run will cost before spending it, and the exact `go test`
@@ -85,6 +92,7 @@ OPENAI_BASE_URL=http://127.0.0.1:1234/v1 OPENAI_API_KEY=local \
 | `-eval.resolution <r>` | The question being asked: `smoke`, `coarse` or `fine`. Default `coarse`. |
 | `-eval.samples <n>` | Runs per model. Default: whatever the resolution calls for. |
 | `-eval.model <substr>` | Run only models whose label contains this. |
+| `-eval.behavior` | Apply every valid selection and assert against the running application. Off by default. |
 | `-eval.root <dir>` | Where the vendored fixtures live. Default `testdata`. |
 | `-eval.retries <n>` | Re-prompts a rejected answer may spend. Default 0. |
 | `-eval.concurrency <n>` | Samples in flight at once. Default 1. |
@@ -569,18 +577,19 @@ they differ in practice.
 language and two frameworks; a result holding across both says something about
 Ruby rather than about either.
 
-Two of these are declared and not yet runnable, and both matter more than the
-ones that are:
+One of these is declared and not yet runnable, and it matters more than the ones
+that are:
 
 **`arm: baseline`** asks the same model for the same application with no
 generator package and no action vocabulary. Without that column, a good number
 here is unfalsifiable — there is nothing it is good *compared to*.
 
-**`expect.behavior`** is the fraction of the application's linespec contracts that
-pass once the selection is applied and the target actually runs. Selection
-completeness is a proxy; this is the thing it is a proxy *for*. It costs a
-container and a database per sample rather than one model call, which is why it
-is reserved rather than built.
+**`expect.behavior`** was the other, and it is now built. It names a target
+under [`behavior/`](behavior/README.md), and `-behavior` applies each valid
+sample's own selection to a freshly scaffolded application, boots it and asserts
+against it. Selection completeness is a proxy; this is the thing it is a proxy
+*for*. It is off by default because it costs a scaffold, a dependency install, a
+database and a boot per sample rather than one model call.
 
 ### The description comparison
 
@@ -661,14 +670,14 @@ descriptions. And selection is not binding — every wrong binding that motivate
 and would have scored a perfect count in this table. This is evidence for
 `prov-2026-6d87dc11`'s claim that enriching the catalog does not fix
 under-selection. It is not a verdict on the feature descriptions were added
-for, which needs the rendered output checked and is deferred with
-`expect.behavior`.
+for, which needs the rendered output checked — run the pair with `-behavior`
+for that.
 
 **It measures selection, not binding.** Every wrong binding that motivated
 descriptions produced a correctly *selected* action with a bad *argument*, and
 would have scored a perfect catalog count. Whether descriptions help the model
-bind needs the rendered output checked, which is deferred with `expect.behavior`.
-A moved rate here is not validation of that feature.
+bind needs the rendered output checked, which is what `-behavior` does. A moved
+rate here is not validation of that feature.
 
 The two sets are held to differing only by descriptions mechanically:
 `TestTheDescribedSetDiffersOnlyByDescriptions` loads both and compares them field

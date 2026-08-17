@@ -61,6 +61,13 @@ const (
 	// (prov-2026-6e3c846c).
 	perSample = 90 * time.Second
 
+	// perBehaviorSample is what applying one selection adds: a scaffold, a
+	// dependency install, a database, a boot and the assertions. Measured at
+	// roughly twenty seconds warm on the Rails target, budgeted at three times
+	// that because a cold dependency install is the common first run and is
+	// minutes rather than seconds.
+	perBehaviorSample = 60 * time.Second
+
 	// headroom is what separates the expected duration from the timeout. A
 	// budget with none fires on a run that is merely slow, and the cost of
 	// being generous is a timeout that never fires while the cost of being
@@ -83,17 +90,18 @@ func main() {
 		root        = flag.String("root", "evals/testdata", "directory the vendored fixtures live under")
 		timeout     = flag.Duration("timeout", 0, "what one case is allowed to take; zero derives it from the samples about to be drawn")
 		allowDirty  = flag.Bool("dirty", false, "run against a dirty tree; the entry records as not re-runnable")
+		behavior    = flag.Bool("behavior", false, "apply each valid selection to a scaffolded application and assert against it; minutes per sample, off by default")
 		dry         = flag.Bool("dry", false, "print the invocation and the plan, run nothing")
 	)
 	flag.Parse()
 
-	if err := run(*res, *model, *samples, *concurrency, *retries, *caseDir, *root, *timeout, *allowDirty, *dry, flag.Args()); err != nil {
+	if err := run(*res, *model, *samples, *concurrency, *retries, *caseDir, *root, *timeout, *allowDirty, *behavior, *dry, flag.Args()); err != nil {
 		fmt.Fprintf(os.Stderr, "eval: %v\n", err)
 		os.Exit(1)
 	}
 }
 
-func run(res, model string, samples, concurrency, retries int, caseDir, root string, timeout time.Duration, allowDirty, dry bool, want []string) error {
+func run(res, model string, samples, concurrency, retries int, caseDir, root string, timeout time.Duration, allowDirty, behavior, dry bool, want []string) error {
 	// Parsed first, so a misspelled resolution costs a second rather than the
 	// minutes it takes to find out after a case has run - the same reason the
 	// runner parses it before loading anything.
@@ -113,7 +121,7 @@ func run(res, model string, samples, concurrency, retries int, caseDir, root str
 
 	plans := make([]plan, 0, len(selected))
 	for _, c := range selected {
-		plans = append(plans, planFor(c, model, resolution, samples, timeout))
+		plans = append(plans, planFor(c, model, resolution, samples, timeout, behavior))
 	}
 	for _, p := range plans {
 		if p.Models == 0 {
@@ -130,7 +138,7 @@ func run(res, model string, samples, concurrency, retries int, caseDir, root str
 	resultsDir := filepath.Join(filepath.Dir(caseDir), "results")
 
 	for i, p := range plans {
-		args := testArgs(p.Case, model, resolution, samples, concurrency, retries, root, p.Timeout)
+		args := testArgs(p.Case, model, resolution, samples, concurrency, retries, root, p.Timeout, behavior)
 		fmt.Printf("\n$ %s\n\n", strings.Join(append(envPrefix(), append([]string{"go"}, args...)...), " "))
 		if dry {
 			continue
@@ -177,7 +185,7 @@ type plan struct {
 // A non-zero override replaces the computation entirely, in either direction. A
 // deliberately short budget is a legitimate way to find out whether an endpoint
 // is answering at all.
-func planFor(c evals.Case, model string, res evals.Resolution, samples int, override time.Duration) plan {
+func planFor(c evals.Case, model string, res evals.Resolution, samples int, override time.Duration, behavior bool) plan {
 	n := samples
 	if n < res.Samples() {
 		n = res.Samples()
@@ -190,7 +198,16 @@ func planFor(c evals.Case, model string, res evals.Resolution, samples int, over
 		}
 	}
 
-	expect := time.Duration(models*n) * perSample
+	perOne := perSample
+	// A behaviour sample scaffolds an application, installs its dependencies,
+	// creates a database and boots a server before it asserts anything. Budgeting
+	// it at the cost of a model call is how a run gets killed partway with no
+	// entry written, which is the failure the derived timeout exists to prevent.
+	if behavior && c.Expect.Behavior != nil {
+		perOne += perBehaviorSample
+	}
+
+	expect := time.Duration(models*n) * perOne
 	timeout := expect * headroom
 	if timeout < minTimeout {
 		timeout = minTimeout
@@ -289,7 +306,7 @@ func dur(d time.Duration) string {
 
 // testArgs is the go test invocation for one case. Every flag here is one the
 // tagged runner already declares.
-func testArgs(caseID, model string, res evals.Resolution, samples, concurrency, retries int, root string, timeout time.Duration) []string {
+func testArgs(caseID, model string, res evals.Resolution, samples, concurrency, retries int, root string, timeout time.Duration, behavior bool) []string {
 	args := []string{
 		"test", "-tags", "eval", "./evals", "-v", "-count=1",
 		"-timeout", timeout.String(),
@@ -307,6 +324,11 @@ func testArgs(caseID, model string, res evals.Resolution, samples, concurrency, 
 	}
 	if samples > 0 {
 		args = append(args, "-eval.samples", fmt.Sprint(samples))
+	}
+	// Passed only when asked for, so the invocation this command prints is the
+	// one it was before behaviour existed on every run that does not want it.
+	if behavior {
+		args = append(args, "-eval.behavior")
 	}
 	return args
 }

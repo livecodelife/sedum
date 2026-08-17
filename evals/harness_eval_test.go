@@ -16,6 +16,8 @@
 //	  -eval.retries   re-prompts a rejected answer may spend, default 0
 //	  -eval.root      where the vendored fixtures live, default testdata
 //	  -eval.results   where results are appended, default results ("" disables)
+//	  -eval.behavior  apply each valid selection and assert against the running
+//	                  application; off by default, and minutes per sample
 package evals
 
 import (
@@ -37,6 +39,7 @@ var (
 	concurrency = flag.Int("eval.concurrency", 1, "samples in flight at once; raise it against a server with continuous batching")
 	root        = flag.String("eval.root", "testdata", "directory the vendored fixtures live under")
 	results     = flag.String("eval.results", "results", "directory results are appended to; empty disables recording")
+	behaviorOn  = flag.Bool("eval.behavior", false, "apply every valid selection to a scaffolded application and assert against it; off by default because a behaviour sample costs a scaffold, an install, a database and a boot")
 	retries     = flag.Int("eval.retries", 0, "re-prompts a rejected answer may spend; zero measures what one call produces, and raising it buys valid samples at the cost of comparable timing")
 )
 
@@ -75,6 +78,7 @@ func TestEval(t *testing.T) {
 					Samples:     *samples,
 					Concurrency: *concurrency,
 					Retries:     *retries,
+					Behavior:    *behaviorOn,
 				})
 				if err != nil {
 					t.Fatalf("running case: %v", err)

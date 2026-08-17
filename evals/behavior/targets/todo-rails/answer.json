@@ -1,0 +1,19 @@
+{
+  "invocations": [
+    {"action": "addColumn", "kwargs": {"resource": "todos", "stamp": "20260814000000", "name": "title", "type": "string", "nullable": false}},
+    {"action": "addColumn", "kwargs": {"resource": "todos", "stamp": "20260814000000", "name": "completed", "type": "boolean", "nullable": false, "default": "false"}},
+    {"action": "createEndpoint", "kwargs": {"resource": "todos", "verb": "index"}},
+    {"action": "createEndpoint", "kwargs": {"resource": "todos", "verb": "show"}},
+    {"action": "createEndpoint", "kwargs": {"resource": "todos", "verb": "create"}},
+    {"action": "createEndpoint", "kwargs": {"resource": "todos", "verb": "update"}},
+    {"action": "createEndpoint", "kwargs": {"resource": "todos", "verb": "destroy"}},
+    {"action": "definePermittedParams", "kwargs": {"resource": "todos", "attributes": "title completed"}},
+    {"action": "addValidation", "kwargs": {"resource": "todos", "attribute": "title", "rule": "presence: true"}},
+    {"action": "addControllerTest", "kwargs": {"resource": "todos", "verb": "index"}},
+    {"action": "addControllerTest", "kwargs": {"resource": "todos", "verb": "show"}},
+    {"action": "addControllerTest", "kwargs": {"resource": "todos", "verb": "create"}},
+    {"action": "addControllerTest", "kwargs": {"resource": "todos", "verb": "update"}},
+    {"action": "addControllerTest", "kwargs": {"resource": "todos", "verb": "destroy"}},
+    {"action": "addModelTest", "kwargs": {"resource": "todos", "attribute": "title"}}
+  ]
+}

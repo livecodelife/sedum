@@ -121,10 +121,105 @@ func Report(out io.Writer, m Measurement) {
 	}
 
 	bindings(out, m, scored)
+	behavior(out, m)
+}
 
-	if m.Case.Expect.Behavior != nil {
-		fmt.Fprintln(out, "  behavior: declared but not measured; applying and running the target is not implemented")
+// behavior renders what applying the selections produced, as its own table.
+//
+// Never folded into selection. The case this exists for is a sample that
+// selects perfectly and produces a service that violates its own record, and a
+// combined rate would be the arithmetic that hides it - the same conflation
+// bindings had to be split out of (prov-2026-2b121b62, prov-2026-83340ba0).
+func behavior(out io.Writer, m Measurement) {
+	if m.Case.Expect.Behavior == nil {
+		return
 	}
+
+	t, measured := m.Behavior()
+	if !measured {
+		// Declared and not asked for. Said plainly, because a reader who cannot
+		// tell "not measured" from "measured and nothing worked" will read the
+		// absence of a number as the absence of a problem.
+		fmt.Fprintf(out, "\n  behavior: target %q declared, not measured (run with -behavior)\n",
+			m.Case.Expect.Behavior.Target)
+		return
+	}
+
+	fmt.Fprintf(out, "\n  behavior  target=%s  %s\n",
+		m.Case.Expect.Behavior.Target, round(t.Elapsed))
+
+	if t.Measured == 0 {
+		fmt.Fprintf(out, "    no sample produced a selection to apply")
+		if t.Errored > 0 {
+			fmt.Fprintf(out, "; %d harness error(s)", t.Errored)
+		}
+		fmt.Fprintln(out)
+		return
+	}
+
+	fmt.Fprintf(out, "    working: %s of applied samples", wilson(t.Working, t.Measured))
+	if want := m.Case.Expect.Behavior.PassRate; want > 0 {
+		fmt.Fprintf(out, "   (expected %.0f%%)", want*100)
+	}
+	fmt.Fprintln(out)
+
+	// The two ways of not working, kept apart. A service that never booted and
+	// one that booted and answered wrongly are different findings.
+	if t.Disagreed > 0 {
+		fmt.Fprintf(out, "    disagreed: %d sample(s) built and booted and failed an assertion\n", t.Disagreed)
+	}
+	if t.Broke > 0 {
+		fmt.Fprintf(out, "    broke: %d sample(s) never reached the assertions%s\n", t.Broke, byPhase(t.Phases))
+	}
+	if t.Errored > 0 {
+		fmt.Fprintf(out, "    excluded: %d sample(s) the harness could not run at all\n", t.Errored)
+	}
+	if t.Checks > 0 {
+		fmt.Fprintf(out, "    assertions: %d of %d held across %d applied sample(s)\n",
+			t.Passed, t.Checks, t.Measured)
+	}
+
+	// Which contracts broke, most often first. A rate without this says
+	// something is wrong and not what, which is the shape of finding this
+	// harness was built to produce.
+	if len(t.Failures) > 0 {
+		fmt.Fprintln(out, "    failed:")
+		for _, f := range byCount(t.Failures) {
+			fmt.Fprintf(out, "      %3d/%-3d %s\n", f.n, t.Measured, f.name)
+		}
+	}
+}
+
+type counted struct {
+	name string
+	n    int
+}
+
+// byCount orders by frequency and then by name, so two runs of the same
+// measurement print the same list.
+func byCount(counts map[string]int) []counted {
+	out := make([]counted, 0, len(counts))
+	for name, n := range counts {
+		out = append(out, counted{name: name, n: n})
+	}
+	sort.Slice(out, func(i, j int) bool {
+		if out[i].n != out[j].n {
+			return out[i].n > out[j].n
+		}
+		return out[i].name < out[j].name
+	})
+	return out
+}
+
+func byPhase(phases map[string]int) string {
+	if len(phases) == 0 {
+		return ""
+	}
+	parts := make([]string, 0, len(phases))
+	for _, p := range byCount(phases) {
+		parts = append(parts, fmt.Sprintf("%s x%d", p.name, p.n))
+	}
+	return " (" + strings.Join(parts, ", ") + ")"
 }
 
 // bindings renders what the model bound, beside the selection table and never
