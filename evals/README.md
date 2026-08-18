@@ -688,7 +688,8 @@ that are:
 
 **`arm: baseline`** asks the same model for the same application with no
 generator package and no action vocabulary. Without that column, a good number
-here is unfalsifiable — there is nothing it is good *compared to*.
+here is unfalsifiable — there is nothing it is good *compared to*. It runs:
+`todo-rails-baseline`.
 
 **`expect.behavior`** was the other, and it is now built. It names a target
 under [`behavior/`](behavior/README.md), and `-behavior` applies each valid
@@ -789,6 +790,58 @@ The two sets are held to differing only by descriptions mechanically:
 `TestTheDescribedSetDiffersOnlyByDescriptions` loads both and compares them field
 by field with descriptions excluded, so a renamed kwarg, a flipped `required`, a
 new variant, or an edited template fails the default suite.
+
+## The baseline arm
+
+The column every other number here is read against. Same model, same record,
+same application — no generator package, no action vocabulary, no catalog.
+
+```
+go run ./evals/cmd/eval -behavior -res coarse todo-rails-baseline
+```
+
+`-behavior` is not optional for this arm and a run without it is refused before
+the first call. There are no actions to count, no kwargs to check, no anchors to
+fill and no invocations to apply twice, so **booting it is the only way to score
+it**. Syntactic validity survives, because a file is a file whoever wrote it.
+
+**The model is given the record and nothing else** — its intent, its
+constraints, and the paths its `affected_scope` names. Not the framework, not
+the version, not the scaffold's layout. That is exactly what Phase 4 is driven
+by, and a generator package is precisely what is being withheld; handing the
+baseline the conventions would answer "does a catalog beat a good prompt"
+rather than "does Sedum beat not using Sedum". A test fails if a stack name
+reaches either turn of the prompt.
+
+This is the least generous reading and the risk is real: a baseline that is too
+thin measures the prompt instead of the mechanism. What protects it is that the
+record is an artifact a team already has, and the sedum arm is given no more.
+
+**It returns one code fence per file**, the info string being the path. JSON
+was the obvious shape and is the wrong one — it would ask the model to escape
+whole source files into string literals, and a baseline failing on an unescaped
+heredoc would be measuring escaping.
+
+**One call per sample.** Sedum's retry budget re-prompts an answer Phase 5
+rejected; a baseline has no Phase 5, and the only check it could fail is the
+build. Re-prompting with a compiler error is a repair loop, which
+TOOL_BOUNDARIES assigns to a different tool. So a baseline is comparable to a
+sedum entry **at `-retries 0`**, and the report says so on its own line rather
+than leaving a reader to notice.
+
+**It reuses the behaviour harness.** Of the six phases, only `generate`
+differs — it copies the model's files in rather than running `sedum grow`.
+`scaffold`, `prepare`, `build`, `boot` and `verify` are the sedum arm's, which
+is what makes the two comparable rather than two separate measurements.
+
+```
+  arm=baseline: no package, no vocabulary. Selection, binding, anchor fill
+    and idempotency are undefined here and are not reported.
+    one call per sample; comparable to a sedum entry at retries 0.
+    authorized paths written: 2/3 [0.21,0.94]
+    never written:
+        1  db/migrate/1_create_todos.rb
+```
 
 ## Fixtures
 
@@ -903,5 +956,6 @@ only in `prov-2026-2b121b62`.
 
 ## Known rough edges
 
-- **Only the `sedum` arm runs.** `baseline` is declared and rejected at run time.
-- **Behavior is not measured.** The schema reserves it; nothing implements it.
+- **The baseline arm is one stack deep.** `todo-rails-baseline` runs; the Go
+  side has no baseline case yet, so a result here is about Rails rather than
+  about the mechanism.

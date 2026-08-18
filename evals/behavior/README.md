@@ -24,9 +24,14 @@ Or directly, from `evals/`:
 ```
 bash behavior/behave.sh todo-rails                       # the target's own answer.json
 bash behavior/behave.sh todo-rails --answer /tmp/s.json  # a specific selection
+bash behavior/behave.sh todo-rails --files /tmp/src      # the baseline arm
 bash behavior/behave.sh todo-rails --model qwen2.5-coder-14b-instruct
 bash behavior/behave.sh todo-rails --keep                # leave the project behind
 ```
+
+`--files` is the baseline arm: the sources are already written and `generate`
+copies them in rather than running Sedum. It is exclusive with `--answer`,
+because a run either used Sedum or is the measurement of not having used it.
 
 A measurement drives the `--answer` form, one call per valid sample, with each
 sample's own invocations. That is what makes a behaviour rate a statement about
@@ -42,7 +47,7 @@ Six phases, run in order, stopping at the first that fails:
 |---|---|
 | `scaffold` | `rails new` / `go mod init` — the framework's own generator |
 | `prepare` | Delete the paths the record authorizes, so Sedum's file templates own them |
-| `generate` | `sedum grow`, built from the tree under test |
+| `generate` | `sedum grow`, built from the tree under test — or, under `--files`, a copy of sources Sedum did not write |
 | `build` | `bundle install` / `go build` — the dependency handoff a person does |
 | `boot` | Create a database, migrate or load the schema, start the server, wait for it |
 | `verify` | One assertion per constraint in the record, then the generated test suite |
@@ -51,6 +56,11 @@ Six phases, run in order, stopping at the first that fails:
 stack-specific is `targets/<name>/target.sh`, defining those six functions plus
 `target_teardown`. **Adding a stack is a new directory** — not a change to the
 runner, the case schema, or the report.
+
+The baseline arm changes no target for the same reason. Five of the six phases
+work on a directory of source and have no opinion about how it got there —
+`verify` in particular is HTTP assertions against a running service, which is
+the same question whoever wrote the code.
 
 `prepare` matters more than it looks. A scaffold's `config/routes.rb` carries no
 Sedum anchor, and Phase 3 is create-if-absent, so a run against an untouched

@@ -52,5 +52,8 @@
 //
 // The baseline arm is the one worth explaining. A rate is only meaningful next
 // to what the same model produces without Sedum on the same application, and
-// without that column a good number is unfalsifiable.
+// without that column a good number is unfalsifiable. It is given the record
+// and nothing else - no package, no vocabulary, not even the framework's name -
+// and because there is no catalog to score it against, booting what it wrote is
+// the only way to find out whether it works.
 package evals
