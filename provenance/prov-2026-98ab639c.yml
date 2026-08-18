@@ -110,7 +110,7 @@ affected_scope:
   - evals/**
 forbidden_scope: []
 type: blueprint
-implements: prov-2026-d554bfc3
+implements: prov-2026-b6059aa7
 supersedes: ""
 superseded_by: ""
 related:
