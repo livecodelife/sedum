@@ -1,0 +1,149 @@
+id: prov-2026-a4dbe65c
+title: 'The baseline arm: what the same model and the same record produce without Sedum'
+status: draft
+created_at: "2026-08-18"
+author: calebcowen@gmail.com
+intent: |
+  A case with arm: baseline runs. The same model is handed the same provenance
+  record and asked to write the files itself - no generator package, no action
+  vocabulary, no catalog - and what it writes is scored by booting it.
+
+  This is the fifth and last rung of [[prov-2026-b6059aa7]]. It has been
+  declared and refused at run time since [[prov-2026-e6969eb3]], which stated
+  the reason it has to exist: "Without that column a good number here is
+  unfalsifiable, because there is nothing it is good compared to."
+
+  ## What the model is given, and why it is so little
+
+  The record's intent, its constraints, and the literal paths its affected_scope
+  names. Nothing else. Not the framework, not the version, not the scaffold's
+  layout, not the contents of the files it is replacing.
+
+  That is exactly what Sedum's Phase 4 is driven by. A generator package adds
+  the vocabulary and the conventions, and the vocabulary is the variable under
+  test - so the baseline gets the record and nothing that stands in for a
+  package. Handing it the framework and version would be measuring a different
+  thing, and would make the arm answer "does a catalog beat a good prompt"
+  rather than "does Sedum beat not using Sedum".
+
+  The risk is understood and stated rather than hidden: this is the least
+  generous reading, and a baseline that is too thin measures the prompt instead
+  of the mechanism. What protects it is that the record is a real artifact a
+  team already has, and the sedum arm is given no more.
+
+  ## One call, and a build failure is the result
+
+  No retry. Sedum's budget re-prompts an answer Phase 5 rejected, and a baseline
+  has no Phase 5 to reject anything - the only check it could fail is the build,
+  and re-prompting with a compiler error is a repair loop.
+
+  TOOL_BOUNDARIES puts the repair loop in a third tool, and
+  [[prov-2026-d554bfc3]] draws the line at "bounded selection over a closed
+  declared vocabulary versus open synthesis validated by execution". Building
+  one inside the harness to make the baseline look better would be building the
+  thing this repository says it does not build.
+
+  So a baseline sample is one call, and it is comparable to the sedum arm at
+  -retries 0, which is the default and what almost every stored entry was drawn
+  at. This is a real asymmetry and it is recorded here rather than left for a
+  reader to find: Sedum's arm may correct itself once, the baseline may not.
+
+  ## Fenced blocks keyed by path, not JSON
+
+  The model returns one code fence per file whose info string is the path.
+
+  JSON was the obvious shape, matching the invocation envelope, and it is the
+  wrong one here. It would ask a model to escape five Ruby files into string
+  literals, and a baseline that failed because a model cannot JSON-escape a
+  heredoc would be measuring escaping rather than whether it can write Rails.
+  A fence is what a model already reaches for unprompted, and
+  [[prov-2026-4bcabb2f]] found the decoder's tolerance for one worth having for
+  the same reason.
+
+  No response_format is sent, for the reason that record gives: constraining the
+  envelope made the model stop answering.
+
+  ## Behaviour is the only rung that can score it
+
+  There are no actions to count, no kwargs to check against expectations, no
+  anchors to fill and no invocations to apply twice. Selection, binding, fill
+  and idempotency are all undefined for an arm with no package, and the report
+  prints none of them rather than printing zeroes.
+
+  Syntactic validity is the one signal that survives, because a file is a file.
+  It is collected where the case declares a check command.
+
+  So a baseline run is behaviour or it is nothing, and asking for one without
+  -behavior is refused before the first call rather than producing a
+  measurement of nothing.
+
+  ## It reuses the behaviour harness rather than growing a second one
+
+  Of behave.sh's six phases, five are untouched: scaffold, prepare, build, boot
+  and verify all work on a directory of source and know nothing about how it got
+  there. verify in particular is HTTP assertions against a running service,
+  which is the same question whoever wrote the code.
+
+  Only generate differs, and it becomes a copy rather than a sedum grow. That is
+  a new flag on the runner and no change to any target, which is the property
+  behave.sh was built for: "Adding a stack is a new directory - not a change to
+  the runner."
+
+  ## todo-rails first
+
+  The most exercised target and the arm with the most stored sedum-arm entries
+  to be read against. One case, one stack; a second stack is worth adding once
+  there is a number worth confirming, and is not part of this.
+constraints:
+  - >-
+    The baseline prompt carries the record's intent, its constraints and the
+    paths its affected_scope names, and nothing else. No framework, no version,
+    no scaffold contents. A baseline handed conventions is measuring a prompt
+    against a package rather than the vocabulary against its absence.
+  - >-
+    One model call per sample. A build failure is the sample's outcome, not a
+    reason to re-prompt, because re-prompting with a compiler error is the
+    repair loop TOOL_BOUNDARIES assigns to another tool.
+  - >-
+    The asymmetry with the sedum arm's retry budget is stated wherever the two
+    are compared. A baseline is comparable to the sedum arm at retries zero and
+    is never printed beside a raised-budget entry without saying so.
+  - >-
+    A baseline run without behaviour is refused before the first call. Selection,
+    binding, anchor fill and idempotency are undefined without a package, and a
+    run that printed zeroes for them would be reporting a measurement it did not
+    make.
+  - >-
+    The behaviour harness is reused rather than duplicated. Only the generate
+    phase differs; scaffold, prepare, build, boot, verify and teardown are
+    untouched, and no target changes.
+  - >-
+    A baseline entry is stored in the same schema as every other, carrying its
+    arm, so the two arms are read from one file and neither is a special case
+    the reader has to know about.
+affected_scope:
+  - evals/**
+forbidden_scope:
+  - internal/**
+  - cmd/**
+type: blueprint
+implements: prov-2026-b6059aa7
+supersedes: ""
+superseded_by: ""
+related:
+  - prov-2026-e6969eb3
+  - prov-2026-83340ba0
+  - prov-2026-4bcabb2f
+  - prov-2026-d554bfc3
+sealed_at_sha: ""
+associated_specs:
+  - path: evals/baseline_test.go
+    run_command: go test -count=1 ./$(dirname {{path}})
+  - path: evals/run_test.go
+    run_command: go test -count=1 ./$(dirname {{path}})
+associated_traces: []
+monitors: []
+tags:
+  - sedum
+  - evals
+  - measurement
