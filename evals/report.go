@@ -540,6 +540,7 @@ func signals(out io.Writer, m Measurement) {
 		label string
 		lines []string
 	}{
+		{"anchors left unfilled", t.Fill.Missed},
 		{"malformed", t.Malformed},
 		{"changed on reapply", t.Unstable},
 		{"second application failed", t.Errs},

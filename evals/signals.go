@@ -36,6 +36,15 @@ type AnchorFill struct {
 	Planted int `json:"planted"`
 	// Filled is the subset a selection accounted for.
 	Filled int `json:"filled"`
+	// Missed names the anchors a selection left unfilled, as "path @marker",
+	// in the order expand.Unfilled reports them.
+	//
+	// The count alone says a selection fell short and not where, which is the
+	// difference between a number to re-run the harness by hand from and a
+	// finding. The other two signals already name what failed - the file a
+	// check rejected, the file a rerun changed - and a stored count that has
+	// to be replayed to be read defeats the point of storing it per sample.
+	Missed []string `json:"missed,omitempty"`
 }
 
 // Rate is the fraction of fillable planted anchors a selection accounted for,
@@ -55,6 +64,7 @@ func (a AnchorFill) Rate() (float64, bool) {
 func (a *AnchorFill) Add(b AnchorFill) {
 	a.Planted += b.Planted
 	a.Filled += b.Filled
+	a.Missed = append(a.Missed, b.Missed...)
 }
 
 // anchorFill counts one record's fillable planted anchors and how many its
@@ -80,7 +90,11 @@ func anchorFill(recordID string, files []resolvepkg.File, invocations []recordin
 			fill.Planted++
 		}
 	}
-	fill.Filled = fill.Planted - len(expand.Unfilled(recordID, files, invocations, variables))
+	unfilled := expand.Unfilled(recordID, files, invocations, variables)
+	fill.Filled = fill.Planted - len(unfilled)
+	for _, a := range unfilled {
+		fill.Missed = append(fill.Missed, a.Path+" @"+a.Marker)
+	}
 	return fill
 }
 

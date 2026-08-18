@@ -321,6 +321,17 @@ It is not a correctness number either: an anchor filled by the *wrong* action
 counts as filled here and is caught by the `exact` column instead. Neither
 subsumes the other.
 
+The anchors a selection left unfilled are named beneath the rate, and stored
+per sample:
+
+```
+    anchors left unfilled:
+        1  db/todos_test.go @tests
+```
+
+A count says a selection fell short and not where, which is the difference
+between a finding and a reason to re-run the harness by hand.
+
 **`parses` is syntactic validity and nothing more.** It runs the target's own
 parser over what Phase 7 wrote — the command comes from the case:
 

@@ -73,6 +73,11 @@ func TestAnchorFillIsDerivedFromWhatTheTemplatesPlanted(t *testing.T) {
 	if one.Planted != 2 || one.Filled != 1 {
 		t.Fatalf("one anchored action filled %d of %d, want 1 of 2", one.Filled, one.Planted)
 	}
+	// The count says a selection fell short; this says where. Without it the
+	// stored number has to be replayed to be read at all.
+	if len(one.Missed) != 1 || one.Missed[0] != "app/controllers/todos_controller.rb @private" {
+		t.Errorf("missed = %v, want the unfilled anchor named", one.Missed)
+	}
 	if rate, _ := one.Rate(); rate != 0.5 {
 		t.Errorf("rate = %v, want 0.5", rate)
 	}
@@ -333,7 +338,7 @@ func TestTheSignalsAreReportedWithTheirOwnDenominators(t *testing.T) {
 			signalSample(AnchorFill{Planted: 4, Filled: 3},
 				SyntaxCheck{Checked: 3, Parsed: 3},
 				Idempotency{Files: 3, Stable: 3}),
-			signalSample(AnchorFill{Planted: 4, Filled: 2},
+			signalSample(AnchorFill{Planted: 4, Filled: 2, Missed: []string{"db/todos_test.go @tests", "main.go @imports"}},
 				SyntaxCheck{Checked: 3, Parsed: 2, Failures: []string{"app/models/todo.rb: syntax error"}},
 				Idempotency{Files: 3, Stable: 3}),
 		},
@@ -349,6 +354,8 @@ func TestTheSignalsAreReportedWithTheirOwnDenominators(t *testing.T) {
 		"parses: 5/6",
 		"idempotent: 6/6",
 		"app/models/todo.rb: syntax error",
+		"anchors left unfilled",
+		"db/todos_test.go @tests",
 	} {
 		if !strings.Contains(got, want) {
 			t.Errorf("the report does not contain %q:\n%s", want, got)
@@ -403,7 +410,7 @@ func TestAnEntryCarriesEachSamplesSignals(t *testing.T) {
 		Case:  Case{ID: "todo-rails-defined"},
 		Model: Model{ID: "qwen", Engine: "mlx", Quant: "4bit"},
 		Samples: []Sample{
-			signalSample(AnchorFill{Planted: 4, Filled: 3},
+			signalSample(AnchorFill{Planted: 4, Filled: 3, Missed: []string{"db/todos_test.go @tests"}},
 				SyntaxCheck{Checked: 3, Parsed: 2, Failures: []string{"app/models/todo.rb: syntax error"}},
 				Idempotency{Files: 3, Stable: 2, Differing: []string{"config/routes.rb"}}),
 			{Invalid: true, Detail: "rejected"},
@@ -418,6 +425,9 @@ func TestAnEntryCarriesEachSamplesSignals(t *testing.T) {
 	got := e.Runs[0]
 	if got.Fill == nil || got.Fill.Filled != 3 || got.Fill.Planted != 4 {
 		t.Errorf("fill = %+v, want 3 of 4", got.Fill)
+	}
+	if got.Fill == nil || len(got.Fill.Missed) != 1 || got.Fill.Missed[0] != "db/todos_test.go @tests" {
+		t.Errorf("fill.Missed = %+v, want the unfilled anchor named", got.Fill)
 	}
 	if got.Syntax == nil || got.Syntax.Parsed != 2 || len(got.Syntax.Failures) != 1 {
 		t.Errorf("syntax = %+v, want 2 parsed and the failing file named", got.Syntax)
@@ -444,6 +454,9 @@ func TestAnEntryCarriesEachSamplesSignals(t *testing.T) {
 	}
 	if back.Runs[0].Fill == nil || back.Runs[0].Fill.Filled != 3 {
 		t.Errorf("the fill did not survive the round trip: %s", encoded)
+	}
+	if back.Runs[0].Fill == nil || len(back.Runs[0].Fill.Missed) != 1 {
+		t.Errorf("the missed anchor did not survive the round trip: %s", encoded)
 	}
 	if back.Runs[1].Fill != nil {
 		t.Error("an invalid sample gained a fill on the way back")
