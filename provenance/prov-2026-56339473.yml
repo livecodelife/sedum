@@ -1,0 +1,89 @@
+id: prov-2026-56339473
+title: A description's examples are not wrapped in quotation marks
+status: draft
+created_at: "2026-08-17"
+author: calebcowen@gmail.com
+intent: |
+  The described package's `addColumn.default` description stops wrapping its
+  examples in quotation marks, and stops telling the reader that a default may
+  be "a quoted string including its quotes".
+
+  ## The observation
+
+  The description A/B, drawn coarse with behaviour on both arms back to back:
+
+    defined    (no descriptions)  1/4 working, 38 of 80 assertions, 0 quoted
+    described                     4/5 working, 99 of 100 assertions, 2 quoted
+
+  Descriptions are worth roughly four times the working rate, and they are also
+  where the quoting comes from. Two of five described samples bound `"false"`
+  with the quotation marks included, and one of them is that arm's only
+  behaviour failure - a quoted literal on a boolean column, caught by the schema
+  assertion and by nothing else.
+
+  The undescribed arm quoted nothing, in this run or in any of the five entries
+  before it. Same model, same record, same prompt: the description is the only
+  thing that differs, and the description says
+
+    "false", "0", or a quoted string including its quotes
+
+  which both shows its examples inside quotation marks and tells the reader that
+  quotation marks belong in the value.
+
+  ## What replaces it
+
+  The examples lose their wrapping, and the one case where quotation marks are
+  genuinely part of the literal is stated as the exception it is rather than as
+  a property of defaults generally. A Ruby string default really does carry its
+  own quotes; a boolean one really does not, and the old sentence made those
+  sound like the same thing.
+
+  ## Why only this kwarg
+
+  Every description in this package wraps its examples the same way, and only
+  this one has ever produced a quoted binding. That is informative rather than
+  lucky: the others hold multi-token values full of punctuation that could not
+  be mistaken for a quoted string, while this one holds a bare word.
+
+  Changing one is also what makes the re-run a measurement. Changing all of them
+  would move the number and leave nothing to attribute it to - which is the
+  mistake prov-2026-c009d1ba and prov-2026-bd2a6c3f were only able to tell apart
+  because they went one at a time.
+constraints:
+  - >-
+    Only the described arm's addColumn.default description changes. The defined
+    arm carries no description and must keep carrying none, or the A/B stops
+    being one.
+  - >-
+    Only this kwarg's description changes, so the re-run attributes its
+    difference to one edit.
+  - >-
+    Nothing but prose changes. The type, the required flag, the declared default
+    and every template are untouched.
+  - >-
+    The sentence still says that a string default carries quotation marks,
+    because in Ruby it does. What it stops doing is implying that every default
+    does.
+affected_scope:
+  - evals/testdata/todo-rails/generators/described/rails/actions/actions.yaml
+  - evals/results/**
+forbidden_scope:
+  - internal/**
+  - cmd/**
+  - evals/testdata/todo-rails/generators/defined/**
+type: blueprint
+implements: prov-2026-d554bfc3
+supersedes: ""
+superseded_by: ""
+related:
+  - prov-2026-c5697387
+  - prov-2026-b585fbbc
+sealed_at_sha: ""
+associated_specs:
+  - path: evals/run_test.go
+    run_command: go test ./$(dirname {{path}})
+associated_traces: []
+monitors: []
+tags:
+  - sedum
+  - evals
