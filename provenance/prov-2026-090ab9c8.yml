@@ -1,6 +1,6 @@
 id: prov-2026-090ab9c8
 title: A baseline entry stored the rate without the source that produced it
-status: draft
+status: open
 created_at: "2026-08-18"
 author: calebcowen@gmail.com
 intent: |
