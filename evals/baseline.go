@@ -6,6 +6,7 @@ import (
 	"path"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/calebcowen/sedum/internal/record"
 	"github.com/calebcowen/sedum/internal/selection"
@@ -159,4 +160,88 @@ func baselineAnswer(ctx context.Context, client selection.Client, rec *record.Re
 	}
 	files, unexpected, err := parseFencedFiles(answer.Content, rec.Paths)
 	return files, answer, unexpected, err
+}
+
+// baselineSample draws one baseline sample: one call for the files, then the
+// behaviour harness over what it wrote.
+//
+// The outcome vocabulary is the sedum arm's, and it has to be, or the two
+// cannot be read side by side. An answer that carried no authorized file is
+// invalid - the model answered and what it said was unusable, which is what
+// invalid means on the other arm too - and an endpoint that was not there is
+// failed, outside every denominator.
+func baselineSample(ctx context.Context, c Case, model string, opts Options) Sample {
+	started := time.Now()
+
+	client, err := selection.NewOpenAI(model)
+	if err != nil {
+		return Sample{Err: err, Elapsed: time.Since(started)}
+	}
+
+	rec, err := baselineRecord(c)
+	if err != nil {
+		return Sample{Err: err, Detail: firstLine(err.Error()), Elapsed: time.Since(started)}
+	}
+
+	files, answer, unexpected, err := baselineAnswer(ctx, client, rec)
+	s := Sample{
+		Counts:           map[string]int{},
+		Calls:            1,
+		PromptTokens:     answer.PromptTokens,
+		CompletionTokens: answer.CompletionTokens,
+	}
+	if err != nil {
+		// An unusable answer and an unreachable server are told apart the same
+		// way the sedum arm tells them apart: one is a measurement and the
+		// other is not (prov-2026-e6969eb3).
+		if answer.Content == "" {
+			s.Err = err
+			s.Detail = firstLine(err.Error())
+			s.Elapsed = time.Since(started)
+			return s
+		}
+		s.Invalid = true
+		s.Rejected = 1
+		s.Detail = firstLine(err.Error())
+		s.Elapsed = time.Since(started)
+		return s
+	}
+
+	// Written rather than counted. There is no catalog, so what a baseline
+	// produced is a set of paths, and Total carries how many of the authorized
+	// ones it wrote so the report has a denominator that is not a selection.
+	for p := range files {
+		s.Counts[p]++
+	}
+	s.Total = len(files)
+	s.Wrote = sortedNames(files)
+	s.Missing = missing(files, rec.Paths)
+	s.Unexpected = unexpected
+
+	// The one derived signal a baseline can carry: a file is a file, whoever
+	// wrote it. Fill and idempotency need anchors and invocations, and a
+	// baseline has neither.
+	s.Syntax = syntaxOfContents(ctx, c.Check, files)
+
+	run := RunBehaviorFiles(ctx, c.Expect.Behavior.Target, files, c.Variables)
+	s.Behavior = &run
+	s.Elapsed = time.Since(started)
+	return s
+}
+
+// baselineRecord loads the single record a baseline case is measured on.
+//
+// One record, because the prompt is the record: two would mean two calls and a
+// sample whose files came from separate answers, which is not what the sedum
+// arm does either - it makes one call per record and this arm has no way to
+// keep the halves apart.
+func baselineRecord(c Case) (*record.Record, error) {
+	set, _, err := record.Load(c.Records, record.Options{Only: c.Only})
+	if err != nil {
+		return nil, err
+	}
+	if len(set.Records) != 1 {
+		return nil, fmt.Errorf("case %s resolves to %d records; a baseline case names exactly one, because the prompt is the record", c.ID, len(set.Records))
+	}
+	return set.Records[0], nil
 }

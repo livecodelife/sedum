@@ -200,6 +200,41 @@ func syntaxOf(ctx context.Context, check Check, output string, result *pipeline.
 	return out
 }
 
+// syntaxOfContents runs the case's check commands over contents held in memory
+// rather than over a run's output tree.
+//
+// The baseline arm has no pipeline result to read paths from - it has an answer
+// - so the files are written to a scratch directory and checked there. The
+// verdict is the same command's exit status either way, which is what keeps the
+// number comparable across the two arms (prov-2026-a4dbe65c).
+func syntaxOfContents(ctx context.Context, check Check, files map[string]string) SyntaxCheck {
+	var out SyntaxCheck
+	if len(check) == 0 || len(files) == 0 {
+		return out
+	}
+
+	dir, err := os.MkdirTemp("", "sedum-syntax-")
+	if err != nil {
+		return out
+	}
+	defer os.RemoveAll(dir)
+
+	result := &pipeline.Result{}
+	for _, rel := range sortedNames(files) {
+		full := filepath.Join(dir, filepath.FromSlash(rel))
+		if err := os.MkdirAll(filepath.Dir(full), 0o755); err != nil {
+			return out
+		}
+		if err := os.WriteFile(full, []byte(files[rel]), 0o644); err != nil {
+			return out
+		}
+		result.Files = append(result.Files, resolvepkg.File{
+			Resolution: resolvepkg.Resolution{Path: rel},
+		})
+	}
+	return syntaxOf(ctx, check, dir, result)
+}
+
 // writtenPaths is every path this run created or injected into, deduplicated
 // and in a stable order.
 //

@@ -1,0 +1,60 @@
+# The column every other number in this directory is read against.
+#
+# The same model, the same record, the same application - and no generator
+# package, no action vocabulary, no catalog. Without it a selection rate is
+# unfalsifiable, because there is nothing it is good compared to
+# (prov-2026-e6969eb3, prov-2026-a4dbe65c).
+id: todo-rails-baseline
+
+application:
+  name: todo
+  complexity: 1
+
+language: ruby
+framework: rails
+arm: baseline
+
+# No generators line, and its absence is the arm rather than an omission. The
+# record is the whole of what the model is given: its intent, its constraints
+# and the paths it authorizes.
+#
+# The same record the sedum arm is measured on, so the two differ in the
+# vocabulary and in nothing else.
+records: todo-rails/records
+
+# tightness is a property of a generator package and this arm has none, so it
+# is deliberately unset rather than filled with a value that would read as a
+# package nobody wrote.
+tightness: ""
+
+# One row to start. The 14B is what the stored sedum-arm entries were drawn on,
+# and a baseline against a different model would not be a comparison.
+models:
+  - id: qwen2.5-coder-14b-instruct
+    engine: llama.cpp
+    quant: q4_k_m
+
+# A baseline sample is one model call and then a scaffold, a bundle install, a
+# database and a boot - the same tail the sedum arm pays under -behavior. The
+# rails behaviour samples run about 20s warm on top of the call.
+per_sample: 3m
+
+# The same parser over what the model wrote. It is the one derived signal a
+# baseline can carry: fill rate needs anchors and idempotency needs invocations,
+# and this arm has neither.
+check:
+  ".rb": ["ruby", "-c"]
+
+expect:
+  # No actions and no bindings. There is no catalog to select from, so there is
+  # nothing an expectation could name - and a case with none reports what it
+  # observed, which here is which authorized paths the model wrote.
+  actions: {}
+
+  behavior:
+    target: todo-rails
+    # No declared pass rate. The sedum arm has one because a package and a
+    # record together should produce a working service; this arm exists to find
+    # out what happens without them, and declaring the answer first would be
+    # writing down the finding before drawing it.
+    pass_rate: 0

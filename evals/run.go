@@ -118,6 +118,19 @@ type Sample struct {
 	// the zero value when the case declares no check command.
 	Syntax SyntaxCheck
 
+	// Wrote, Missing and Unexpected are the baseline arm's account of what the
+	// model produced against what the record authorized, and are empty on the
+	// sedum arm - where Phase 3 creates the authorized paths and the question
+	// does not arise.
+	//
+	// A baseline has no catalog, so "did it answer completely" is a question
+	// about paths rather than about actions. Missing is what it left out and
+	// Unexpected is what it wrote that nothing authorized; the first will fail
+	// the build and the second was never written to disk.
+	Wrote      []string
+	Missing    []string
+	Unexpected []string
+
 	// Idempotent is what applying this sample's selection a second time did to
 	// the bytes the first application wrote.
 	Idempotent Idempotency
@@ -237,8 +250,22 @@ type Options struct {
 // same way whatever order they finish in. A measurement that reordered between
 // runs would make two of them harder to compare for no reason.
 func Run(ctx context.Context, c Case, model Model, opts Options) (Measurement, error) {
-	if c.Arm != "sedum" {
-		return Measurement{}, fmt.Errorf("case %s has arm %q; only the sedum arm can be run today", c.ID, c.Arm)
+	// The baseline arm has no package, so selection, binding, anchor fill and
+	// idempotency are all undefined for it and behaviour is the only rung that
+	// can score it. A run that could not collect the one number it exists to
+	// produce is refused before the first call rather than after paying for
+	// every sample (prov-2026-a4dbe65c).
+	if c.Arm == "baseline" {
+		if !opts.Behavior {
+			return Measurement{}, fmt.Errorf(
+				"case %s has arm baseline, which only behaviour can score: run with -behavior or the samples measure nothing", c.ID)
+		}
+		if c.Expect.Behavior == nil {
+			return Measurement{}, fmt.Errorf(
+				"case %s has arm baseline and declares no behaviour target; there is nothing to boot what it writes", c.ID)
+		}
+	} else if c.Arm != "sedum" {
+		return Measurement{}, fmt.Errorf("case %s has arm %q, want \"sedum\" or \"baseline\"", c.ID, c.Arm)
 	}
 	if opts.Concurrency < 1 {
 		opts.Concurrency = 1
@@ -278,6 +305,10 @@ func Run(ctx context.Context, c Case, model Model, opts Options) (Measurement, e
 			defer wg.Done()
 			slots <- struct{}{}
 			defer func() { <-slots }()
+			if c.Arm == "baseline" {
+				m.Samples[i] = baselineSample(ctx, c, model.ID, opts)
+				return
+			}
 			m.Samples[i] = sample(ctx, c, model.ID, opts)
 		}(i)
 	}

@@ -40,10 +40,12 @@ shift
 MODEL=""          # empty means a replayed selection rather than a live model
 KEEP=0
 ANSWER=""
+FILES=""          # a directory of already-written sources: the baseline arm
 while [ $# -gt 0 ]; do
   case "$1" in
     --model)  MODEL="$2";  shift 2 ;;
     --answer) ANSWER="$2"; shift 2 ;;
+    --files)  FILES="$2";  shift 2 ;;
     --keep)   KEEP=1; shift ;;
     *) echo "unknown flag: $1" >&2; exit 2 ;;
   esac
@@ -52,11 +54,19 @@ done
 TARGET_DIR="$HARNESS_DIR/targets/$TARGET"
 [ -d "$TARGET_DIR" ] || { echo "no such target: $TARGET" >&2; exit 2; }
 
-# The target's own answer.json is the fallback, not the norm. It is a
-# hand-authored assertion about what a correct selection looks like, useful for
-# exercising the harness itself; a measurement supplies the sample's own.
-[ -n "$ANSWER" ] || ANSWER="$TARGET_DIR/answer.json"
-[ -f "$ANSWER" ] || { echo "no such answer file: $ANSWER" >&2; exit 2; }
+# --files is the baseline arm: the sources are already written and the generate
+# phase copies them in rather than running Sedum. The two are exclusive, because
+# a run either used Sedum or is the measurement of not having used it.
+if [ -n "$FILES" ]; then
+  [ -d "$FILES" ] || { echo "no such files directory: $FILES" >&2; exit 2; }
+  [ -z "$ANSWER" ] || { echo "--files and --answer are exclusive: one run cannot be both arms" >&2; exit 2; }
+else
+  # The target's own answer.json is the fallback, not the norm. It is a
+  # hand-authored assertion about what a correct selection looks like, useful for
+  # exercising the harness itself; a measurement supplies the sample's own.
+  [ -n "$ANSWER" ] || ANSWER="$TARGET_DIR/answer.json"
+  [ -f "$ANSWER" ] || { echo "no such answer file: $ANSWER" >&2; exit 2; }
+fi
 
 # ---------------------------------------------------------------- bookkeeping
 
@@ -168,6 +178,39 @@ status() {
 
 body() { jq -r "$1" < "$WORK/last-body.json" 2>/dev/null || echo "<unparseable>"; }
 
+# --------------------------------------------------------------- generation
+
+# The one phase the two arms do not share.
+#
+# Everything around it is untouched: scaffold, prepare, build, boot and verify
+# work on a directory of source and know nothing about how it got there, and
+# verify in particular is HTTP assertions against a running service - the same
+# question whoever wrote the code (prov-2026-a4dbe65c).
+run_generate() {
+  if [ -n "$FILES" ]; then
+    copy_baseline_files
+  else
+    run_sedum
+  fi
+}
+
+# The baseline arm's generate: the model already wrote these, so they are copied
+# over the prepared scaffold exactly as they are.
+#
+# No Sedum binary is built and none is run, which is the point of the arm. A
+# path the record authorized and the model did not write is simply absent, and
+# the build phase is what has an opinion about that.
+copy_baseline_files() {
+  local rel dest
+  while IFS= read -r rel; do
+    rel="${rel#./}"
+    dest="$APP/$rel"
+    mkdir -p "$(dirname "$dest")" || return 1
+    cp "$FILES/$rel" "$dest" || return 1
+    echo "  wrote $rel"
+  done < <( cd "$FILES" && find . -type f -print )
+}
+
 # --------------------------------------------------------------- sedum itself
 
 run_sedum() {
@@ -261,7 +304,11 @@ source "$TARGET_DIR/target.sh"
 
 echo "behaviour run $RUN_ID"
 echo "  project:   $APP"
-echo "  selection: ${MODEL:-canned}"
+if [ -n "$FILES" ]; then
+  echo "  arm:       baseline (sources supplied, Sedum not run)"
+else
+  echo "  selection: ${MODEL:-canned}"
+fi
 
 phase scaffold target_scaffold
 
@@ -271,7 +318,7 @@ phase scaffold target_scaffold
 # is - so without this the run either fails its marker check or injects into
 # nothing.
 phase prepare  target_prepare
-phase generate run_sedum
+phase generate run_generate
 phase build    target_build
 phase boot     target_boot
 phase verify   target_verify

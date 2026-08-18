@@ -126,6 +126,20 @@ func run(res, model string, samples, concurrency, retries int, caseDir, root str
 		return err
 	}
 
+	// Refused here rather than inside the runner, so a baseline run that could
+	// not produce its one number costs a second instead of a build and a model
+	// call. Behaviour is the only rung that can score an arm with no package
+	// (prov-2026-a4dbe65c).
+	if !behavior {
+		for _, c := range selected {
+			if c.Arm == "baseline" {
+				return fmt.Errorf(
+					"case %s has arm baseline, which only behaviour can score: add -behavior, and expect a scaffold, an install, a database and a boot per sample",
+					c.ID)
+			}
+		}
+	}
+
 	plans := make([]plan, 0, len(selected))
 	for _, c := range selected {
 		plans = append(plans, planFor(c, model, resolution, samples, retries, timeout, behavior))
@@ -210,7 +224,11 @@ func planFor(c evals.Case, model string, res evals.Resolution, samples, retries 
 	// it at the cost of a model call is how a run gets killed partway with no
 	// entry written, which is the failure the derived timeout exists to prevent.
 	var applying time.Duration
-	if behavior && c.Expect.Behavior != nil {
+	if (behavior || c.Arm == "baseline") && c.Expect.Behavior != nil {
+		// A baseline sample always applies. Behaviour is the only rung that can
+		// score an arm with no package, so it is not a flag for that arm and a
+		// plan that priced it as one would understate every baseline run
+		// (prov-2026-a4dbe65c).
 		applying = perBehaviorSample
 	}
 

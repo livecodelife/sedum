@@ -93,6 +93,17 @@ func Report(out io.Writer, m Measurement) {
 		return
 	}
 
+	// The baseline arm has no catalog, so "what was selected" is not a question
+	// about it. What it produced is a set of paths against the ones the record
+	// authorized, which is the completeness question that survives without a
+	// vocabulary (prov-2026-a4dbe65c).
+	if m.Case.Arm == "baseline" {
+		baseline(out, m)
+		signals(out, m)
+		behavior(out, m)
+		return
+	}
+
 	// A case with no expectations is a new fixture, not a broken one. Report
 	// what was selected so the counts can be set from an answer that was
 	// actually complete, rather than written by reading the package and then
@@ -499,14 +510,22 @@ func signals(out io.Writer, m Measurement) {
 
 	fmt.Fprintf(out, "\n  signals  %d sample(s) applied\n", t.Applied)
 
+	// Anchor fill and idempotency need a package and an invocation list. The
+	// baseline arm has neither, and "nothing fillable was planted" would read
+	// as a finding about the answer rather than as the absence of a catalog -
+	// so the two rungs are skipped rather than reported empty
+	// (prov-2026-a4dbe65c). Syntactic validity survives, because a file is a
+	// file whoever wrote it.
+	packaged := m.Case.Arm != "baseline"
+
 	// Derived from the package and the record rather than from an expectation,
 	// which is what it is here to add. An anchor filled by the wrong action
 	// counts as filled, so this is a completeness number and not a correctness
 	// one.
-	if _, ok := t.Fill.Rate(); ok {
+	if _, ok := t.Fill.Rate(); ok && packaged {
 		fmt.Fprintf(out, "    anchors filled: %s of fillable planted\n",
 			wilson(t.Fill.Filled, t.Fill.Planted))
-	} else {
+	} else if packaged {
 		fmt.Fprintln(out, "    anchors filled: nothing fillable was planted")
 	}
 
@@ -529,7 +548,7 @@ func signals(out io.Writer, m Measurement) {
 		fmt.Fprintln(out, "    parses: no written file matched a check command")
 	}
 
-	if _, ok := t.Idempotent.Rate(); ok {
+	if _, ok := t.Idempotent.Rate(); ok && packaged {
 		fmt.Fprintf(out, "    idempotent: %s of file(s) unchanged by a second application\n",
 			wilson(t.Idempotent.Stable, t.Idempotent.Files))
 	}
@@ -540,7 +559,7 @@ func signals(out io.Writer, m Measurement) {
 		label string
 		lines []string
 	}{
-		{"anchors left unfilled", t.Fill.Missed},
+		{"anchors left unfilled", fillMissed(packaged, t)},
 		{"malformed", t.Malformed},
 		{"changed on reapply", t.Unstable},
 		{"second application failed", t.Errs},
@@ -557,4 +576,66 @@ func signals(out io.Writer, m Measurement) {
 			fmt.Fprintf(out, "      %3d  %s\n", d.n, d.name)
 		}
 	}
+}
+
+// baseline renders what an arm with no package produced: which of the paths the
+// record authorized the model wrote.
+//
+// No selection table, no bindings, no anchor fill and no idempotency. All four
+// need a catalog or an invocation list, and printing zeroes for them would
+// report a measurement that was not made (prov-2026-a4dbe65c).
+func baseline(out io.Writer, m Measurement) {
+	fmt.Fprintf(out, "  arm=baseline: no package, no vocabulary. Selection, binding, anchor fill\n")
+	fmt.Fprintf(out, "    and idempotency are undefined here and are not reported.\n")
+
+	// The comparison this arm exists for is only honest against a sedum entry
+	// drawn the same way, and the retry budget is the axis they can differ on:
+	// a baseline gets one call by construction, because re-prompting a build
+	// error is a repair loop this repository does not build.
+	fmt.Fprintf(out, "    one call per sample; comparable to a sedum entry at retries 0.\n")
+
+	var wrote, want int
+	missingBy := map[string]int{}
+	unexpectedBy := map[string]int{}
+	for _, s := range m.Samples {
+		if s.Err != nil || s.Invalid {
+			continue
+		}
+		wrote += len(s.Wrote)
+		want += len(s.Wrote) + len(s.Missing)
+		for _, p := range s.Missing {
+			missingBy[p]++
+		}
+		for _, p := range s.Unexpected {
+			unexpectedBy[p]++
+		}
+	}
+	if want == 0 {
+		return
+	}
+
+	fmt.Fprintf(out, "    authorized paths written: %s\n", wilson(wrote, want))
+	if len(missingBy) > 0 {
+		fmt.Fprintln(out, "    never written:")
+		for _, d := range byCount(missingBy) {
+			fmt.Fprintf(out, "      %3d  %s\n", d.n, d.name)
+		}
+	}
+	// A path nothing authorized was not written to disk, and saying so matters:
+	// code at the wrong path is a different finding from no code at all.
+	if len(unexpectedBy) > 0 {
+		fmt.Fprintln(out, "    written to a path nothing authorized (discarded):")
+		for _, d := range byCount(unexpectedBy) {
+			fmt.Fprintf(out, "      %3d  %s\n", d.n, d.name)
+		}
+	}
+}
+
+// fillMissed is the unfilled anchors, or nothing at all for an arm that has no
+// anchors to leave unfilled.
+func fillMissed(packaged bool, t SignalTally) []string {
+	if !packaged {
+		return nil
+	}
+	return t.Fill.Missed
 }

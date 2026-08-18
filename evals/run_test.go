@@ -537,19 +537,49 @@ func TestAnEntryCarriesWhatEachSampleCost(t *testing.T) {
 	}
 }
 
-// A baseline arm has no generator package and no action vocabulary, so it is
-// declared in the matrix and refused at run time rather than silently skipped.
-func TestTheBaselineArmIsRefusedRatherThanSkipped(t *testing.T) {
+// A baseline arm has no package, so selection, binding, anchor fill and
+// idempotency are all undefined for it and behaviour is the only rung that can
+// score one. A run that cannot collect the single number the arm exists to
+// produce is refused before the first call rather than after paying for every
+// sample (prov-2026-a4dbe65c).
+func TestABaselineRunWithoutBehaviourIsRefused(t *testing.T) {
 	c := Case{ID: "fixture", Arm: "baseline"}
 	// A resolution is stated so the refusal that is asserted is the arm's, not
 	// the one an unstated sample size would have produced first.
 	_, err := Run(context.Background(), c, Model{ID: "none", Engine: "test"},
 		Options{Resolution: Smoke, Samples: 1, Concurrency: 1})
 	if err == nil {
-		t.Fatal("the baseline arm ran; it is not implemented and must say so")
+		t.Fatal("a baseline run with no behaviour produced a measurement of nothing")
 	}
-	if !strings.Contains(err.Error(), "arm") {
-		t.Errorf("the refusal is %q, which does not name the arm", err)
+	if !strings.Contains(err.Error(), "behaviour") {
+		t.Errorf("the refusal is %q, which does not say what is missing", err)
+	}
+
+	// Asked for and with nowhere to boot it is the same refusal from the other
+	// side: there is no target to apply what the model wrote.
+	_, err = Run(context.Background(), c, Model{ID: "none", Engine: "test"},
+		Options{Resolution: Smoke, Samples: 1, Concurrency: 1, Behavior: true})
+	if err == nil {
+		t.Fatal("a baseline case with no behaviour target ran")
+	}
+	if !strings.Contains(err.Error(), "target") {
+		t.Errorf("the refusal is %q, which does not name the missing target", err)
+	}
+}
+
+// An arm nobody declared is a typo, and it names both real values rather than
+// leaving the reader to find them.
+func TestAnUnknownArmIsNamedWithTheRealOnes(t *testing.T) {
+	c := Case{ID: "fixture", Arm: "sedumm"}
+	_, err := Run(context.Background(), c, Model{ID: "none", Engine: "test"},
+		Options{Resolution: Smoke, Samples: 1, Concurrency: 1})
+	if err == nil {
+		t.Fatal("a misspelled arm ran")
+	}
+	for _, want := range []string{"sedumm", "sedum", "baseline"} {
+		if !strings.Contains(err.Error(), want) {
+			t.Errorf("the refusal %q does not name %q", err, want)
+		}
 	}
 }
 
@@ -569,7 +599,17 @@ func TestVendoredCasesLoad(t *testing.T) {
 	seen := map[string]bool{}
 	for _, c := range cases {
 		seen[c.Language] = true
-		for _, dir := range []string{c.Generators, c.Records} {
+		// Every case names a records directory, because the record is what is
+		// being generated from either way. Only the sedum arm names a
+		// generators one: a baseline has no package, and that absence is the
+		// arm rather than an omission (prov-2026-a4dbe65c).
+		dirs := []string{c.Records}
+		if c.Arm == "sedum" {
+			dirs = append(dirs, c.Generators)
+		} else if c.Generators != "" {
+			t.Errorf("case %s has arm %q and names a generators directory; the arm is the absence of one", c.ID, c.Arm)
+		}
+		for _, dir := range dirs {
 			if _, err := os.Stat(dir); err != nil {
 				t.Errorf("case %s points at a directory that is not there: %v", c.ID, err)
 			}

@@ -326,9 +326,20 @@ func (c Case) validate(file string) error {
 			}
 		}
 	case "baseline":
-		// A baseline arm has no generator package by construction. It is
-		// declared here so the matrix can hold it; running one is not
-		// implemented.
+		// A baseline arm has no generator package by construction - that
+		// absence is the arm - so the directory checks above do not apply. What
+		// it does need is somewhere to boot what the model writes, because
+		// behaviour is the only rung that can score it (prov-2026-a4dbe65c).
+		if c.Expect.Behavior == nil {
+			return fmt.Errorf("%s: case %s has arm baseline and declares no expect.behavior target; only behaviour can score a baseline",
+				file, c.ID)
+		}
+		if c.Records == "" {
+			return fmt.Errorf("%s: case %s has arm baseline and names no records; the record is the prompt", file, c.ID)
+		}
+		if _, err := os.Stat(c.Records); err != nil {
+			return fmt.Errorf("%s: case %s points at a records directory that is not there: %s", file, c.ID, c.Records)
+		}
 	default:
 		return fmt.Errorf("%s: case %s has arm %q, want \"sedum\" or \"baseline\"", file, c.ID, c.Arm)
 	}

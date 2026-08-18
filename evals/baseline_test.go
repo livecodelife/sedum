@@ -130,3 +130,67 @@ func TestALanguageTaggedFenceIsNotAPath(t *testing.T) {
 		t.Errorf("unexpected = %v, want the tag reported so the shape is visible", unexpected)
 	}
 }
+
+// A baseline report prints no number the arm cannot have. Selection, binding,
+// anchor fill and idempotency all need a catalog or an invocation list, and
+// zeroes for them would report a measurement nobody made.
+func TestABaselineReportPrintsNothingItCannotHave(t *testing.T) {
+	m := Measurement{
+		Case: Case{ID: "todo-rails-baseline", Arm: "baseline",
+			Expect: Expectations{Behavior: &BehaviorExpectation{Target: "todo-rails"}}},
+		Model: Model{ID: "qwen", Engine: "llama.cpp", Quant: "q4_k_m"},
+		Samples: []Sample{
+			{
+				Counts: map[string]int{"app/models/todo.rb": 1}, Total: 1, Calls: 1,
+				Wrote:   []string{"app/models/todo.rb", "config/routes.rb"},
+				Missing: []string{"db/migrate/1_create_todos.rb"},
+				Behavior: &BehaviorRun{Outcome: "broke", FailedPhase: "build",
+					Detail: "undefined method"},
+			},
+		},
+	}
+
+	var out strings.Builder
+	Report(&out, m)
+	got := out.String()
+
+	for _, want := range []string{
+		"arm=baseline",
+		"undefined here and are not reported",
+		"comparable to a sedum entry at retries 0",
+		"authorized paths written: 2/3",
+		"db/migrate/1_create_todos.rb",
+	} {
+		if !strings.Contains(got, want) {
+			t.Errorf("the report does not contain %q:\n%s", want, got)
+		}
+	}
+	// The selection table's own headers. Their presence would mean an arm with
+	// no catalog was scored against one.
+	for _, leak := range []string{"selected", "exact", "anchors filled", "idempotent"} {
+		if strings.Contains(got, leak) {
+			t.Errorf("the baseline report prints %q, which needs a package:\n%s", leak, got)
+		}
+	}
+}
+
+// The two arms are stored in one schema and told apart by the field that says
+// which is which, so neither is a special case a reader has to know about.
+func TestABaselineEntryCarriesItsArm(t *testing.T) {
+	m := Measurement{
+		Case:  Case{ID: "todo-rails-baseline", Arm: "baseline", Language: "ruby", Framework: "rails"},
+		Model: Model{ID: "qwen", Engine: "llama.cpp", Quant: "q4_k_m"},
+		Samples: []Sample{{
+			Counts: map[string]int{"app/models/todo.rb": 1}, Total: 1, Calls: 1,
+			Behavior: &BehaviorRun{Outcome: "working", Checks: 20, Passed: 20},
+		}},
+	}
+
+	e := NewEntry(m, "http://localhost:1234/v1")
+	if e.Arm != "baseline" {
+		t.Errorf("entry arm is %q, want baseline", e.Arm)
+	}
+	if len(e.Runs) != 1 || e.Runs[0].Behavior == nil || e.Runs[0].Behavior.Outcome != "working" {
+		t.Errorf("the behaviour outcome did not reach the entry: %+v", e.Runs)
+	}
+}

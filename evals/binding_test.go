@@ -296,7 +296,14 @@ func TestABindingExpectationStatesWhereItCameFrom(t *testing.T) {
 	base := func() Case {
 		return Case{
 			ID: "x", Arm: "baseline", Models: []Model{{ID: "m", Engine: "test"}},
-			Expect: Expectations{Bindings: map[string]ActionBinding{"addColumn": addColumnBinding()}},
+			// A valid baseline case names the record it is prompted from and a
+			// target to boot what the model writes; neither is what this test
+			// is about, and both are what make the case loadable at all.
+			Records: "testdata/todo-rails/records",
+			Expect: Expectations{
+				Bindings: map[string]ActionBinding{"addColumn": addColumnBinding()},
+				Behavior: &BehaviorExpectation{Target: "todo-rails"},
+			},
 		}
 	}
 
@@ -470,7 +477,11 @@ func TestAKeyKwargMayNotExpectSeveralValues(t *testing.T) {
 	b.Invocations[0]["name"] = []any{"title", "titles"}
 	c := Case{
 		ID: "x", Arm: "baseline", Models: []Model{{ID: "m", Engine: "test"}},
-		Expect: Expectations{Bindings: map[string]ActionBinding{"addColumn": b}},
+		Records: "testdata/todo-rails/records",
+		Expect: Expectations{
+			Bindings: map[string]ActionBinding{"addColumn": b},
+			Behavior: &BehaviorExpectation{Target: "todo-rails"},
+		},
 	}
 
 	err := c.validate("x.yaml")

@@ -123,14 +123,54 @@ func RunBehavior(ctx context.Context, target string, invocations []recording.Inv
 
 	// A results directory per run, removed with it. The harness keeps its own
 	// results for a person running it by hand; a measurement drawing thirty
-	// samples wants none of that accumulating.
+	// samples wants none of that accumulating - which runHarness owns for both
+	// arms.
+	return runHarness(ctx, target, []string{"--answer", answer}, variables, started)
+}
+
+// RunBehaviorFiles is the baseline arm's half: sources the model already wrote,
+// copied over the prepared scaffold instead of generated into it.
+//
+// Every phase but generate is the one the sedum arm runs. That is not thrift -
+// it is what makes the two comparable, because a behaviour rate that came from
+// two different harnesses would be two measurements rather than a comparison
+// (prov-2026-a4dbe65c).
+func RunBehaviorFiles(ctx context.Context, target string, files map[string]string, variables map[string]string) BehaviorRun {
+	started := time.Now()
+
+	if len(files) == 0 {
+		return BehaviorRun{Err: fmt.Errorf("no files to apply"), Elapsed: time.Since(started)}
+	}
+
+	dir, err := os.MkdirTemp("", "sedum-baseline-")
+	if err != nil {
+		return BehaviorRun{Err: err, Elapsed: time.Since(started)}
+	}
+	defer os.RemoveAll(dir)
+
+	for _, rel := range sortedNames(files) {
+		full := filepath.Join(dir, filepath.FromSlash(rel))
+		if err := os.MkdirAll(filepath.Dir(full), 0o755); err != nil {
+			return BehaviorRun{Err: err, Elapsed: time.Since(started)}
+		}
+		if err := os.WriteFile(full, []byte(files[rel]), 0o644); err != nil {
+			return BehaviorRun{Err: err, Elapsed: time.Since(started)}
+		}
+	}
+
+	return runHarness(ctx, target, []string{"--files", dir}, variables, started)
+}
+
+// runHarness is everything the two arms share: the results directory, the
+// variables, and the rule that the exit status is not the measurement.
+func runHarness(ctx context.Context, target string, arm []string, variables map[string]string, started time.Time) BehaviorRun {
 	results, err := os.MkdirTemp("", "sedum-behave-results-")
 	if err != nil {
 		return BehaviorRun{Err: err, Elapsed: time.Since(started)}
 	}
 	defer os.RemoveAll(results)
 
-	cmd := exec.CommandContext(ctx, "bash", harnessScript, target, "--answer", answer)
+	cmd := exec.CommandContext(ctx, "bash", append([]string{harnessScript, target}, arm...)...)
 	cmd.Env = append(os.Environ(), "RESULTS_DIR="+results)
 	// The case's variables reach the target as environment, so the scaffold and
 	// the generation read one value rather than two that agree by convention:
