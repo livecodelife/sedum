@@ -1,0 +1,116 @@
+id: prov-2026-b43799a0
+title: addColumn.default stays optional; the residual is not a design defect
+status: draft
+created_at: "2026-08-17"
+author: calebcowen@gmail.com
+intent: |
+  `addColumn.default` keeps the shape prov-2026-f03916ba gave it - an optional
+  literal declaring nil - and nothing changes. This record closes the question
+  by saying what was measured and why the answer is to leave it alone.
+
+  ## The claim this corrects
+
+  After the first coarse run of the defined arm I said that making the kwarg
+  optional "split one decision into two and the model gets the second wrong 40%
+  of the time", and the kwarg was frozen on that basis.
+
+  The figure was computed on the *undescribed* arm - the control half of the
+  description A/B, which exists to be worse and carries no description on any
+  kwarg by design. Attributing its failure rate to the kwarg's declaration was
+  wrong.
+
+  ## What thirteen valid samples per arm actually show
+
+    arm                      completed wrong   title wrong   both right
+    defined (no description)      7/13             2/13          4/13
+    described                     2/13             2/13         10/13
+
+  Two failure modes, and they behave completely differently.
+
+  **Under-binding** - omitting completed's `false`, so the package's declared
+  nil lands on a boolean column and the migration cascades into fourteen failed
+  assertions - is a description problem. Seven of thirteen without one, two of
+  thirteen with. Both of those two were the quoted-example artifact
+  prov-2026-56339473 removed; the two draws since have bound it correctly in
+  eight of eight.
+
+  **Over-binding** - `false` on the title column, a boolean default on a string
+  - is not. Two of thirteen in *both* arms. Descriptions make no difference to
+  it whatever.
+
+  So the declaration is not what fails. The arm carrying descriptions runs at
+  five of five working and a hundred assertions of a hundred under exactly this
+  design.
+
+  Derivable from the append-only entries, which is why they are the proof: read
+  todo-rails-defined.jsonl and todo-rails-described.jsonl, take every run whose
+  outcome is valid, and compare each addColumn invocation's `default` against
+  absent-or-nil for title and the literal false for completed.
+
+  ## The residual, stated precisely
+
+  About one sample in six binds `false` to title's default, in both arms. It is
+  the same value the model correctly bound to completed in the same answer, so
+  it reads as carry-over between two invocations of one action rather than a
+  misreading of either.
+
+  Three things bound what can be done about it.
+
+  Phase 5 cannot catch it. A literal is never inspected - that boundary is
+  prov-2026-e3d7b9ac's, and inspecting one would mean the core knowing that
+  `false` is wrong for a Ruby string column, which is the per-language knowledge
+  the PRD keeps out.
+
+  The retry loop cannot catch it either, and that is worth recording for the
+  retry axis: a wrong-but-valid literal passes validation, so re-prompting never
+  sees it. Retries recover rejections, not bad arguments.
+
+  The behaviour harness does catch it, through the schema assertion and through
+  nothing else - every HTTP check passes, because a wrong default on a NOT NULL
+  column the caller always supplies is invisible over the wire. That is the
+  third defect that assertion has caught which the API contract could not.
+
+  ## Why no change
+
+  Every fix available inside the package is already there. The description says
+  "Omit the kwarg entirely for a column that carries no default" and the record
+  says title carries none; the information is present and occasionally ignored.
+  Making the kwarg required again would reintroduce the problem prov-2026-f03916ba
+  was written for - the model could not spell nil - and trade a defect that costs
+  one assertion for one that cost every sample.
+
+  What would reopen it: the same rate on a different model row, which would say
+  it is not a 14B artifact, or a larger sample showing it is worse than one in
+  six.
+constraints:
+  - >-
+    The declaration is unchanged. optional, literal, declaring nil, in both
+    package sets.
+  - >-
+    A rate measured on the undescribed arm is not a property of a declaration.
+    The control arm carries no descriptions by design, so its failures are
+    evidence about descriptions before they are evidence about anything else.
+  - >-
+    The residual is recorded with what can and cannot see it: not Phase 5, not
+    the retry loop, only the behaviour target's schema assertion.
+affected_scope: []
+forbidden_scope: []
+type: blueprint
+implements: prov-2026-d554bfc3
+supersedes: ""
+superseded_by: ""
+related:
+  - prov-2026-f03916ba
+  - prov-2026-56339473
+  - prov-2026-e3d7b9ac
+sealed_at_sha: ""
+associated_specs:
+  - path: evals/results/todo-rails-defined.jsonl
+    run_command: test -f {{path}}
+  - path: evals/results/todo-rails-described.jsonl
+    run_command: test -f {{path}}
+associated_traces: []
+monitors: []
+tags:
+  - sedum
+  - evals
