@@ -160,8 +160,10 @@ actions:
         required: false
         default: "nil"
         description: >-
-          The column's default, written as the Ruby literal it becomes -
-          "false", "0", or a quoted string including its quotes. Omit it
+          The column's default, written as the Ruby literal it becomes - false
+          for a boolean, 0 for an integer, and nothing else around it. Only a
+          string default carries quotation marks, because that is how Ruby
+          writes a string; a boolean or a number carries none. Omit the kwarg
           entirely for a column that carries no default, which is what Rails
           would do anyway.
     injects_into: "db/migrate/{{stamp}}_create_{{resource|table}}.rb"
