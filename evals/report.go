@@ -108,6 +108,13 @@ func Report(out io.Writer, m Measurement) {
 		for _, name := range names {
 			fmt.Fprintf(out, "    %-24s mean %.2f\n", name, observed[name])
 		}
+		// The derived rungs do not depend on an expectation, which is exactly
+		// why they belong here: a fixture with no counts written yet still
+		// reports what its own templates asked for and what its output parsed
+		// as. Behaviour is on the same footing - it is scored against a
+		// declared target rather than against the action counts.
+		signals(out, m)
+		behavior(out, m)
 		return
 	}
 
@@ -121,6 +128,7 @@ func Report(out io.Writer, m Measurement) {
 	}
 
 	bindings(out, m, scored)
+	signals(out, m)
 	behavior(out, m)
 }
 
@@ -474,4 +482,78 @@ func label(m Measurement) string {
 		parts = append(parts, m.Case.Arm)
 	}
 	return strings.Join(parts, "/")
+}
+
+// signals prints the three derived rungs between "the right actions were
+// selected" and "the application works".
+//
+// Each carries its own denominator, because the three count different things:
+// anchors, files, and files again. A single combined number would be the
+// arithmetic that hides which rung moved, which is the conflation the whole
+// ladder exists to prevent (prov-2026-d61010a4).
+func signals(out io.Writer, m Measurement) {
+	t := m.Signals()
+	if t.Applied == 0 {
+		return
+	}
+
+	fmt.Fprintf(out, "\n  signals  %d sample(s) applied\n", t.Applied)
+
+	// Derived from the package and the record rather than from an expectation,
+	// which is what it is here to add. An anchor filled by the wrong action
+	// counts as filled, so this is a completeness number and not a correctness
+	// one.
+	if _, ok := t.Fill.Rate(); ok {
+		fmt.Fprintf(out, "    anchors filled: %s of fillable planted\n",
+			wilson(t.Fill.Filled, t.Fill.Planted))
+	} else {
+		fmt.Fprintln(out, "    anchors filled: nothing fillable was planted")
+	}
+
+	// Syntactic validity, named as such on the line itself. Output that parses
+	// and misbehaves passes this, and a reader who takes it for correctness has
+	// been given the wrong rung (prov-2026-c5697387).
+	switch _, ok := t.Syntax.Rate(); {
+	case ok:
+		fmt.Fprintf(out, "    parses: %s of file(s) checked (syntax only, not correctness)\n",
+			wilson(t.Syntax.Parsed, t.Syntax.Checked))
+	case len(t.Unavailable) > 0:
+		// Not a rate of zero. The distinction is the whole reason the field
+		// exists: an uninstalled interpreter would otherwise report as every
+		// file being malformed.
+		fmt.Fprintf(out, "    parses: not checked - %s is not installed here\n",
+			strings.Join(t.Unavailable, ", "))
+	case len(m.Case.Check) == 0:
+		fmt.Fprintln(out, "    parses: the case declares no check command")
+	default:
+		fmt.Fprintln(out, "    parses: no written file matched a check command")
+	}
+
+	if _, ok := t.Idempotent.Rate(); ok {
+		fmt.Fprintf(out, "    idempotent: %s of file(s) unchanged by a second application\n",
+			wilson(t.Idempotent.Stable, t.Idempotent.Files))
+	}
+
+	// The rate says something is wrong; these say what. Both are needed, and
+	// the count beside each name is how often it happened across the samples.
+	for _, group := range []struct {
+		label string
+		lines []string
+	}{
+		{"malformed", t.Malformed},
+		{"changed on reapply", t.Unstable},
+		{"second application failed", t.Errs},
+	} {
+		if len(group.lines) == 0 {
+			continue
+		}
+		fmt.Fprintf(out, "    %s:\n", group.label)
+		counts := map[string]int{}
+		for _, line := range group.lines {
+			counts[line]++
+		}
+		for _, d := range byCount(counts) {
+			fmt.Fprintf(out, "      %3d  %s\n", d.n, d.name)
+		}
+	}
 }

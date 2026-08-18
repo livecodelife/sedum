@@ -312,3 +312,84 @@ func TestAnApplicationThatChangesTheFileIsReported(t *testing.T) {
 		t.Errorf("differing = %v, want the file that changed", got.Differing)
 	}
 }
+
+// signalSample is a sample that reached Phase 7, with the three signals set.
+func signalSample(fill AnchorFill, syn SyntaxCheck, idem Idempotency) Sample {
+	return Sample{
+		Counts: map[string]int{"addControllerAction": 1}, Total: 1,
+		Fill: fill, Syntax: syn, Idempotent: idem,
+	}
+}
+
+// The three rungs count different things - anchors, files, files again - and
+// each carries its own denominator. One combined number would hide which rung
+// moved, which is the conflation the ladder exists to prevent.
+func TestTheSignalsAreReportedWithTheirOwnDenominators(t *testing.T) {
+	m := Measurement{
+		Case:  Case{ID: "todo-rails-defined", Check: Check{".rb": {"ruby", "-c"}}},
+		Model: Model{ID: "qwen", Engine: "mlx", Quant: "4bit"},
+		Samples: []Sample{
+			signalSample(AnchorFill{Planted: 4, Filled: 3},
+				SyntaxCheck{Checked: 3, Parsed: 3},
+				Idempotency{Files: 3, Stable: 3}),
+			signalSample(AnchorFill{Planted: 4, Filled: 2},
+				SyntaxCheck{Checked: 3, Parsed: 2, Failures: []string{"app/models/todo.rb: syntax error"}},
+				Idempotency{Files: 3, Stable: 3}),
+		},
+	}
+
+	var out strings.Builder
+	Report(&out, m)
+	got := out.String()
+
+	for _, want := range []string{
+		"signals  2 sample(s) applied",
+		"anchors filled: 5/8",
+		"parses: 5/6",
+		"idempotent: 6/6",
+		"app/models/todo.rb: syntax error",
+	} {
+		if !strings.Contains(got, want) {
+			t.Errorf("the report does not contain %q:\n%s", want, got)
+		}
+	}
+}
+
+// Syntactic validity is not correctness, and the line that prints it says so.
+// Output that parses and raises at runtime is the failure this signal's own
+// record was written from, and it passes here (prov-2026-c5697387).
+func TestTheSyntaxLineDoesNotClaimCorrectness(t *testing.T) {
+	m := Measurement{
+		Case:    Case{ID: "todo-rails-defined", Check: Check{".rb": {"ruby", "-c"}}},
+		Model:   Model{ID: "qwen", Engine: "mlx", Quant: "4bit"},
+		Samples: []Sample{signalSample(AnchorFill{}, SyntaxCheck{Checked: 2, Parsed: 2}, Idempotency{})},
+	}
+
+	var out strings.Builder
+	Report(&out, m)
+	if !strings.Contains(out.String(), "syntax only, not correctness") {
+		t.Errorf("the syntax line does not say what it is not:\n%s", out.String())
+	}
+}
+
+// An uninstalled interpreter reports as not checked, never as a rate of zero.
+// A zero would be alarming, wrong, and shaped exactly like a real finding.
+func TestAnUninstalledInterpreterIsNotReportedAsAFailingRate(t *testing.T) {
+	m := Measurement{
+		Case:  Case{ID: "todo-rails-defined", Check: Check{".rb": {"ruby", "-c"}}},
+		Model: Model{ID: "qwen", Engine: "mlx", Quant: "4bit"},
+		Samples: []Sample{signalSample(AnchorFill{Planted: 2, Filled: 2},
+			SyntaxCheck{Unavailable: []string{"ruby"}}, Idempotency{Files: 1, Stable: 1})},
+	}
+
+	var out strings.Builder
+	Report(&out, m)
+	got := out.String()
+
+	if !strings.Contains(got, "parses: not checked - ruby is not installed here") {
+		t.Errorf("an absent interpreter is not named as the reason:\n%s", got)
+	}
+	if strings.Contains(got, "parses: 0/") {
+		t.Errorf("an absent interpreter was reported as a zero rate:\n%s", got)
+	}
+}

@@ -306,3 +306,65 @@ func idempotencyOf(output string, result *pipeline.Result) Idempotency {
 	}
 	return out
 }
+
+// SignalTally is the three derived signals summed across a measurement's
+// samples, with the number of samples they were drawn from.
+//
+// Summed in their own units rather than averaged across samples. A sample that
+// planted twelve anchors and one that planted three are not two equal
+// observations of a rate, and a mean of per-sample rates would weight them as
+// though they were.
+type SignalTally struct {
+	Fill       AnchorFill
+	Syntax     SyntaxCheck
+	Idempotent Idempotency
+
+	// Applied is the samples that produced something to measure. A rejected
+	// answer and an unreachable endpoint contribute nothing and are outside
+	// every denominator here, the same rule the selection rates follow.
+	Applied int
+
+	// Unstable is every file any sample's rerun changed, deduplicated.
+	Unstable []string
+	// Malformed is every file any sample's check command rejected.
+	Malformed []string
+	// Unavailable is every check command that could not be run here.
+	Unavailable []string
+	// Errs is one line per sample whose second application could not be made.
+	Errs []string
+}
+
+// Signals sums the three derived signals across the samples that produced one.
+func (m Measurement) Signals() SignalTally {
+	var t SignalTally
+	seenUnavailable := map[string]bool{}
+
+	for _, s := range m.Samples {
+		if s.Err != nil || s.Invalid || s.Total == 0 {
+			continue
+		}
+		t.Applied++
+
+		t.Fill.Add(s.Fill)
+
+		t.Syntax.Checked += s.Syntax.Checked
+		t.Syntax.Parsed += s.Syntax.Parsed
+		t.Malformed = append(t.Malformed, s.Syntax.Failures...)
+		for _, cmd := range s.Syntax.Unavailable {
+			if !seenUnavailable[cmd] {
+				seenUnavailable[cmd] = true
+				t.Unavailable = append(t.Unavailable, cmd)
+			}
+		}
+
+		t.Idempotent.Files += s.Idempotent.Files
+		t.Idempotent.Stable += s.Idempotent.Stable
+		t.Unstable = append(t.Unstable, s.Idempotent.Differing...)
+		if s.Idempotent.Err != nil {
+			t.Errs = append(t.Errs, firstLine(s.Idempotent.Err.Error()))
+		}
+	}
+
+	sort.Strings(t.Unavailable)
+	return t
+}

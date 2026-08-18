@@ -285,7 +285,83 @@ weighing and rejecting it, it was never arriving there.
 | *Why* is this case slow? | the `completion` half of `tokens:` — the prompt is cached |
 | Is the box throttling? | the fastest-to-slowest spread |
 | Did my change do anything? | the `~` marks in `history` |
+| Did the answer cover what the files asked for? | `anchors filled` |
+| Is the output even well-formed? | `parses` |
+| Did a rerun change anything? | `idempotent` |
 | How many samples does my question need? | the resolution table below |
+
+## The signals between selection and behaviour
+
+Selection counts say which actions the model chose. Behaviour says whether the
+service works. Three rungs sit between them, and all three cost milliseconds
+rather than a container:
+
+```
+  signals  20 sample(s) applied
+    anchors filled: 51/68 [0.63,0.83] of fillable planted
+    parses: 60/60 [0.94,1.00] of file(s) checked (syntax only, not correctness)
+    idempotent: 60/60 [0.94,1.00] of file(s) unchanged by a second application
+```
+
+**`anchors filled` is the one number here nobody can fit.** A file template
+plants the markers an action's anchor targets, so a created file states on disk
+what work it expects, and this is the fraction a selection accounted for. It
+comes from the package and the record. The action counts beside it are
+hand-authored and *can* be written by reading the package and then agreed with
+by construction; this cannot be.
+
+Its denominator is the *fillable* planted anchors, not every planted one. A
+package that plants an anchor no action targets — `init.sql` plants
+`extensions` and nothing writes there — has a ceiling below 100% that belongs
+to the package. Counting it would report that ceiling as the model falling
+short of one, which is the attribution error the whole ladder exists to
+prevent.
+
+It is not a correctness number either: an anchor filled by the *wrong* action
+counts as filled here and is caught by the `exact` column instead. Neither
+subsumes the other.
+
+**`parses` is syntactic validity and nothing more.** It runs the target's own
+parser over what Phase 7 wrote — the command comes from the case:
+
+```yaml
+check:
+  ".rb": ["ruby", "-c"]
+```
+
+Keyed by extension because a package writes more than one kind of file, and
+`ruby -c` over a YAML file fails for a reason that has nothing to do with the
+model. The harness matches the suffix and reads the exit status; it has no
+table of languages, and a framework is added by writing a case rather than by
+editing the harness.
+
+It catches malformed output, not wrong output. `params.permit(title, completed)`
+parses as valid Ruby and raises `NameError` the first time it runs — the
+failure this signal's own record was written from passes it. Anything read as a
+claim about behaviour is claiming the rung above.
+
+If the interpreter is not installed, the line says so and reports **no rate**:
+
+```
+    parses: not checked - ruby is not installed here
+```
+
+A zero there would be alarming, wrong, and shaped exactly like a real finding.
+
+**`idempotent` applies the same selection twice and compares bytes.** Only
+Phases 6 and 7 re-run — Phase 4 is a model call, and re-running it would be
+sampling twice rather than applying once twice. Phase 3 is skipped because the
+files are already there, which is the state the property is about: a second
+application landing on a file that already carries the first's regions.
+
+M4 asserts this on hand-built fixtures. This asserts it against real packages
+and model-selected invocations. It is a regression signal and is expected to
+find nothing, which is the point of having it.
+
+**Samples write to disk.** Two of the three need the files to exist, so a
+sample is no longer a dry run: it exercises the write path as well as the
+decision path, into the per-sample temporary directory that is discarded with
+it. Nothing is written anywhere else.
 
 ## What a number here means
 
