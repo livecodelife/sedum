@@ -1,0 +1,101 @@
+id: prov-2026-de71f29b
+title: A smaller model row, because the 14B rejects too rarely to measure recovery
+status: draft
+created_at: "2026-08-17"
+author: calebcowen@gmail.com
+intent: |
+  Both todo-rails cases declare a third model row: qwen/qwen3-4b-2507, MLX at
+  4bit.
+
+  ## Why now
+
+  The retry loop has never been measured. prov-2026-8d4146de left the budget a
+  flag on the grounds that nothing had been observed to recover - and the reason
+  nothing has is that the 14B does not reject often enough to produce anything
+  to recover from.
+
+  Across every coarse draw of todo-rails-defined: nineteen valid, one invalid.
+  A five percent rejection rate means fifteen samples buy an expected 0.75
+  rejections, so two runs at thirty-eight minutes each would produce a recovery
+  rate with a denominator of one. That is not an experiment, it is a number with
+  an error bar wider than the range it lives in.
+
+  A weaker row rejects more often and runs faster per sample, so the same wall
+  clock buys a denominator worth dividing by.
+
+  ## Why this row in particular
+
+  It is already planned matrix work. The draft prov-2026-98ab639c names
+  qwen3-4b among the local rows, beside the 14B under both runtimes and a 0.5b
+  smoke row. Adding it here brings a planned row forward rather than inventing a
+  fixture for one experiment.
+
+  The 0.5b was the alternative and is the wrong tool: that draft calls it "a
+  harness smoke test that will produce nonsense and prove the plumbing in
+  seconds". It would reject constantly and measure the loop's mechanics against
+  a model nobody would run.
+
+  ## What the row is, as the server reports it
+
+  Read from the endpoint rather than assumed: arch qwen3, quantization 4bit,
+  compatibility_type mlx. So the engine is mlx and not llama.cpp, which matters
+  twice - MLX has no continuous batching, so this row cannot be sampled
+  concurrently the way the llama.cpp row can, and `-model llama.cpp` does not
+  select it.
+
+  ## Both arms, not one
+
+  The description A/B holds the two cases to identical model lists, and
+  TestTheDescriptionArmsAreControlled fails if they drift. That is the right
+  constraint: a model row is a column of the matrix, not a property of one arm,
+  and a row present in one arm and absent from the other would make the pair
+  incomparable the moment anyone ran it unfiltered.
+
+  ## What a number from this row will and will not say
+
+  It will say how often re-prompting recovers a rejected answer, and whether a
+  recovered sample produces a working application - the question prov-2026-b43799a0
+  left open.
+
+  It will not say anything about the 14B. A recovery rate is a property of a
+  model and a package together, and the whole reason this row exists is that it
+  behaves differently. Reading it as a claim about the row anyone would ship is
+  the error the Model type carries Engine and Quant to prevent.
+constraints:
+  - >-
+    The row records what the server reports - mlx, 4bit - rather than what the
+    id suggests. A row that misnamed its runtime would make two different things
+    look like one measurement.
+  - >-
+    Both todo-rails cases declare it. The arms are held to identical model lists
+    and a row belongs to the matrix rather than to an arm.
+  - >-
+    Nothing else about either case changes. The record, the packages, the
+    expectations and the behaviour target are untouched, so this adds a row and
+    varies nothing else.
+  - >-
+    A rate measured on this row is never read as a claim about the 14B. It is
+    here because it fails differently, which is the whole point.
+affected_scope:
+  - evals/cases/todo-rails-defined.yaml
+  - evals/cases/todo-rails-described.yaml
+  - evals/results/**
+forbidden_scope:
+  - internal/**
+  - cmd/**
+type: blueprint
+implements: prov-2026-d554bfc3
+supersedes: ""
+superseded_by: ""
+related:
+  - prov-2026-8d4146de
+  - prov-2026-b43799a0
+sealed_at_sha: ""
+associated_specs:
+  - path: evals/run_test.go
+    run_command: go test ./$(dirname {{path}})
+associated_traces: []
+monitors: []
+tags:
+  - sedum
+  - evals
