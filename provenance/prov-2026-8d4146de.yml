@@ -1,6 +1,6 @@
 id: prov-2026-8d4146de
 title: 'The retry budget is a dimension: it bounds the timeout and gates comparison'
-status: open
+status: implemented
 created_at: "2026-08-17"
 author: calebcowen@gmail.com
 intent: |
@@ -92,7 +92,7 @@ related:
   - prov-2026-0811425c
   - prov-2026-0baaa119
   - prov-2026-b43799a0
-sealed_at_sha: ""
+sealed_at_sha: 473af209b836cd740b5eac36b46e59d3471d65bb
 associated_specs:
   - path: evals/cmd/eval/main_test.go
     run_command: go test ./$(dirname {{path}})
