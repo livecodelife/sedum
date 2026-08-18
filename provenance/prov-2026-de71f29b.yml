@@ -61,6 +61,47 @@ intent: |
   model and a package together, and the whole reason this row exists is that it
   behaves differently. Reading it as a claim about the row anyone would ship is
   the error the Model type carries Engine and Quant to prevent.
+  ## What it found
+
+  Twenty samples at each budget, same fixtures, same commit.
+
+    budget            valid first call   valid overall   working    calls
+    0                     15/20              15/20        5/15        24
+    3                     15/20              20/20        6/20        28
+
+  First-call validity is identical, as it has to be - same prompt, same
+  temperature. The budget did exactly what it exists to do: all five rejected
+  samples recovered, every one of them on its second call.
+
+  Every recovered sample produced a broken application. Five recoveries, five
+  identical outcomes - checks_failed at six of twenty assertions, the signature
+  of the migration that loses completed's default. None worked. Samples that
+  validated first call worked six times in fifteen.
+
+    recovered samples working:  0/5
+    first-call-valid working:   6/15
+
+  So the loop converted five rejected samples into five valid-and-broken ones.
+  Validity went from three quarters to all of them; the working count did not
+  move - the difference between five and six is variance across the fifteen
+  samples the two runs share, not a recovery.
+
+  **A raised budget improves the headline number and not the software.** That is
+  the finding, and prov-2026-b43799a0 predicted it from mechanism - retries
+  recover rejections, and rejections are not the failure mode that breaks
+  applications. It now has a denominator.
+
+  One explanation suggests itself and is not established: a rejected answer was
+  rejected because the model got something wrong, re-prompting corrects the one
+  violation Phase 5 named, and whatever else was shaky about that answer
+  survives. On that reading a rejection is a signal about the whole answer
+  rather than about the part that failed validation. Five samples, one arm, one
+  model - worth confirming before anything is built on it.
+
+  The cost is the one unambiguously good half: four extra calls bought five
+  extra valid samples. Retries are cheap. They are just cheap in the wrong
+  currency.
+
 constraints:
   - >-
     The row records what the server reports - mlx, 4bit - rather than what the
@@ -76,6 +117,10 @@ constraints:
   - >-
     A rate measured on this row is never read as a claim about the 14B. It is
     here because it fails differently, which is the whole point.
+  - >-
+    What the paired runs found is recorded here rather than only in results/,
+    because the row was added to answer one question and the answer is the
+    reason to stop asking it.
 affected_scope:
   - evals/cases/todo-rails-defined.yaml
   - evals/cases/todo-rails-described.yaml
