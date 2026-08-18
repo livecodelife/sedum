@@ -118,6 +118,10 @@ type Sample struct {
 	// the zero value when the case declares no check command.
 	Syntax SyntaxCheck
 
+	// Idempotent is what applying this sample's selection a second time did to
+	// the bytes the first application wrote.
+	Idempotent Idempotency
+
 	// Elapsed is how long this sample took end to end.
 	//
 	// Recorded because the harness could not previously answer "why is this
@@ -380,6 +384,11 @@ func sample(ctx context.Context, c Case, model string, opts Options) Sample {
 	// output, not wrong output - the distinction is the constraint, and the
 	// report keeps it (prov-2026-d61010a4).
 	s.Syntax = syntaxOf(ctx, c.Check, output, result)
+
+	// The same invocations applied a second time, against the files the first
+	// application left. A rerun that differs is an injection or marker defect,
+	// asserted here against a real package rather than a fixture.
+	s.Idempotent = idempotencyOf(output, result)
 
 	// Behaviour last, and only for a sample that produced something to apply.
 	//

@@ -1,13 +1,17 @@
 package evals
 
 import (
+	"bytes"
 	"context"
+	"fmt"
+	"os"
 	"os/exec"
 	"path/filepath"
 	"sort"
 	"strings"
 
 	"github.com/calebcowen/sedum/internal/expand"
+	"github.com/calebcowen/sedum/internal/inject"
 	"github.com/calebcowen/sedum/internal/pipeline"
 	"github.com/calebcowen/sedum/internal/recording"
 	resolvepkg "github.com/calebcowen/sedum/internal/resolve"
@@ -209,5 +213,96 @@ func writtenPaths(result *pipeline.Result) []string {
 		out = append(out, p)
 	}
 	sort.Strings(out)
+	return out
+}
+
+// Idempotency is what applying a sample's own selection a second time did to
+// the bytes the first application left.
+//
+// A rerun that differs from its input is an injection or a marker defect: the
+// region's identity did not match, or it matched and was rewritten differently.
+// M4 asserts this property on hand-built fixtures; here it is asserted against
+// real packages and model-selected invocations, which is the combination
+// fixtures cannot cover - every marker a real template plants, filled with
+// arguments nobody chose in advance (prov-2026-d61010a4).
+//
+// It is a regression signal and is expected to find nothing. That is the point
+// of having it rather than an argument against it.
+type Idempotency struct {
+	// Files is the files compared before and after the second application.
+	Files int
+	// Stable is the subset whose bytes were identical.
+	Stable int
+	// Differing names the files a rerun changed, in path order.
+	Differing []string
+	// Err is set when the second application could not be made at all. It is
+	// a finding rather than a harness failure: the same invocations that
+	// applied cleanly once must apply cleanly again.
+	Err error
+}
+
+// Rate is the fraction of files a rerun left alone, and false when nothing was
+// compared.
+func (i Idempotency) Rate() (float64, bool) {
+	if i.Files == 0 {
+		return 0, false
+	}
+	return float64(i.Stable) / float64(i.Files), true
+}
+
+// idempotencyOf applies the run's own invocations a second time and compares
+// the bytes.
+//
+// Only Phases 6 and 7 are re-run. Phase 4 is a model call and re-running it
+// would be sampling twice rather than applying once twice, which is a different
+// question and an expensive way to ask it. Phase 3 is skipped because the files
+// are already there, which is exactly the state the property is about: the
+// second application lands on a file that already carries the first's regions.
+func idempotencyOf(output string, result *pipeline.Result) Idempotency {
+	var out Idempotency
+
+	paths := writtenPaths(result)
+	before := make(map[string][]byte, len(paths))
+	for _, p := range paths {
+		content, err := os.ReadFile(filepath.Join(output, p))
+		if err != nil {
+			// A path the run reported writing and that is not on disk is a
+			// defect worth surfacing rather than a file to skip.
+			out.Err = err
+			return out
+		}
+		before[p] = content
+	}
+	if len(before) == 0 {
+		return out
+	}
+
+	var resolved []inject.Invocation
+	for _, s := range result.Selections {
+		expanded, err := expand.Expand(s.RecordID, s.Files, s.Invocations, result.Variables)
+		if err != nil {
+			out.Err = fmt.Errorf("record %s: %w", s.RecordID, err)
+			return out
+		}
+		resolved = append(resolved, expanded...)
+	}
+	if _, err := inject.Apply(resolved, inject.Options{Output: output}); err != nil {
+		out.Err = err
+		return out
+	}
+
+	for _, p := range paths {
+		after, err := os.ReadFile(filepath.Join(output, p))
+		if err != nil {
+			out.Err = err
+			return out
+		}
+		out.Files++
+		if bytes.Equal(before[p], after) {
+			out.Stable++
+			continue
+		}
+		out.Differing = append(out.Differing, p)
+	}
 	return out
 }

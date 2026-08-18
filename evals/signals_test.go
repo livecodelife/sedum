@@ -9,7 +9,9 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/calebcowen/sedum/internal/expand"
 	"github.com/calebcowen/sedum/internal/genpkg"
+	"github.com/calebcowen/sedum/internal/inject"
 	"github.com/calebcowen/sedum/internal/pipeline"
 	"github.com/calebcowen/sedum/internal/recording"
 	resolvepkg "github.com/calebcowen/sedum/internal/resolve"
@@ -221,5 +223,92 @@ func TestARealParserRejectsMalformedOutput(t *testing.T) {
 	}
 	if len(got.Failures) != 1 || !strings.HasPrefix(got.Failures[0], "handlers/broken.go") {
 		t.Errorf("failures = %v, want the broken file named", got.Failures)
+	}
+}
+
+// applied writes one file's template output to disk and injects into it once,
+// which is the state the idempotency signal asks its question about: a file
+// that already carries a region from an earlier application.
+func applied(t *testing.T, dir string, file resolvepkg.File, invocations []recording.Invocation) *pipeline.Result {
+	t.Helper()
+	full := filepath.Join(dir, file.Path)
+	if err := os.MkdirAll(filepath.Dir(full), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(full, []byte(file.Rendered), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	return &pipeline.Result{
+		Files: []resolvepkg.File{file},
+		Selections: []pipeline.Selection{{
+			RecordID:    file.RecordID,
+			Files:       []resolvepkg.File{file},
+			Invocations: invocations,
+		}},
+	}
+}
+
+// The property M4 asserts on hand-built fixtures, asserted here against a real
+// package and a real action: applying the same invocations to the file they
+// already wrote into changes nothing.
+func TestASecondApplicationLeavesTheBytesAlone(t *testing.T) {
+	set := railsSet(t)
+	dir := t.TempDir()
+	file := planted(t, set, "app/controllers/todos_controller.rb",
+		"class TodosController\n  # sedum:anchor:actions\nend\n")
+	invocations := []recording.Invocation{{
+		Action: "addControllerAction",
+		Kwargs: map[string]any{"resource": "todo", "verb": "index"},
+	}}
+
+	result := applied(t, dir, file, invocations)
+
+	// The first application, which the signal treats as already having
+	// happened - in a sample it is Phase 7.
+	expanded, err := expand.Expand(file.RecordID, result.Files, invocations, nil)
+	if err != nil {
+		t.Fatalf("expanding: %v", err)
+	}
+	if _, err := inject.Apply(expanded, inject.Options{Output: dir}); err != nil {
+		t.Fatalf("first application: %v", err)
+	}
+
+	got := idempotencyOf(dir, result)
+	if got.Err != nil {
+		t.Fatalf("the second application failed: %v", got.Err)
+	}
+	if got.Files != 1 || got.Stable != 1 {
+		t.Fatalf("%d of %d files stable, want 1 of 1; differing: %v", got.Stable, got.Files, got.Differing)
+	}
+	if rate, ok := got.Rate(); !ok || rate != 1 {
+		t.Errorf("rate = %v, %v; want 1, true", rate, ok)
+	}
+}
+
+// A signal that cannot fail is not a signal. This is the shape of the defect it
+// exists to catch: an application that does not converge, so the bytes after
+// differ from the bytes before.
+func TestAnApplicationThatChangesTheFileIsReported(t *testing.T) {
+	set := railsSet(t)
+	dir := t.TempDir()
+	file := planted(t, set, "app/controllers/todos_controller.rb",
+		"class TodosController\n  # sedum:anchor:actions\nend\n")
+
+	// Written but never injected into, so the application the signal makes is
+	// the first one and it necessarily changes the file.
+	result := applied(t, dir, file, []recording.Invocation{{
+		Action: "addControllerAction",
+		Kwargs: map[string]any{"resource": "todo", "verb": "index"},
+	}})
+
+	got := idempotencyOf(dir, result)
+	if got.Err != nil {
+		t.Fatalf("applying: %v", got.Err)
+	}
+	if got.Stable != 0 || got.Files != 1 {
+		t.Fatalf("%d of %d files stable, want 0 of 1", got.Stable, got.Files)
+	}
+	if len(got.Differing) != 1 || got.Differing[0] != "app/controllers/todos_controller.rb" {
+		t.Errorf("differing = %v, want the file that changed", got.Differing)
 	}
 }
