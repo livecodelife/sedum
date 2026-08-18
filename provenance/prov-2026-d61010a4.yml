@@ -135,6 +135,12 @@ associated_specs:
   # check and the fill-rate arithmetic without a model.
   - path: evals/run_test.go
     run_command: go test -count=1 ./$(dirname {{path}})
+  # Where the three signals are actually proved: the fill-rate arithmetic
+  # against a real package, the check command's exit status and its absent
+  # interpreter, and a second application that both holds and is shown able to
+  # fail. run_test.go above is the regression guard; this is the proof.
+  - path: evals/signals_test.go
+    run_command: go test -count=1 ./$(dirname {{path}})
   - path: evals/README.md
     run_command: test -f {{path}}
 associated_traces: []
