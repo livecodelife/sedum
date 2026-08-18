@@ -1,0 +1,93 @@
+id: prov-2026-090ab9c8
+title: A baseline entry stored the rate without the source that produced it
+status: draft
+created_at: "2026-08-18"
+author: calebcowen@gmail.com
+intent: |
+  A baseline sample's files are stored in its entry, contents and all. Anchor
+  fill and idempotency stop being stored for an arm that cannot have them.
+
+  ## Found by the first run
+
+  todo-rails-baseline at coarse, five samples on the 14B: all five valid, all
+  five writing every authorized path, all parsing as Ruby, and none working -
+  identical checks_failed at five of twenty assertions, the same fifteen failing
+  in every sample.
+
+  Asking why produced the defect. The entry carries counts, syntax and
+  behaviour, and nothing that says what the model actually wrote. The samples
+  ran in temporary directories the harness removes, so by the time the number
+  was read the source that produced it was gone. The cause was worked out from a
+  separate hand-run probe on a different model row, and "a different row probably
+  did the same thing" is exactly the inference a stored answer exists to make
+  unnecessary.
+
+  [[prov-2026-2256e6fa]] settled this for the other arm and its reasoning
+  transfers without modification: storing what a sample bound makes an entry
+  re-scorable, "instead of re-drawing two arms at eighty minutes a pair every
+  time a question is sharpened". The sedum arm's answer is the invocation list.
+  The baseline arm's answer is the source, and [[prov-2026-a4dbe65c]] shipped
+  the arm without storing it.
+
+  ## What the missing data cost, concretely
+
+  The fifteen failing assertions all follow from one line. The baseline wrote
+  `params.require(:todo).permit(:title, :completed)` and the harness posts a
+  bare JSON body, so every request carrying one 400s or 422s. Whether all five
+  stored samples did that is not answerable from the entry - only from a probe
+  that was run separately, against mlx rather than llama.cpp.
+
+  That question is worth answering rather than assuming, because it decides
+  whether the run measured the model or measured a convention the record leaves
+  open. It is left open here deliberately: this record makes the next run
+  answerable and does not re-litigate the first.
+
+  ## Fill and idempotency stop being written
+
+  A baseline has no package and no invocation list, so both are undefined for
+  it. [[prov-2026-a4dbe65c]] made the report decline to print them and left
+  NewEntry storing them zero-valued, which is the same mistake one layer down: a
+  reader with the file rather than the report sees planted zero, filled zero and
+  cannot tell that from a run where nothing was planted.
+
+  Syntactic validity stays, because a file is a file whoever wrote it.
+constraints:
+  - >-
+    A baseline sample's entry carries the contents of every file it wrote, not
+    only the paths. An entry that stores a rate without the answer that produced
+    it is single-use, and the run that found this had to be diagnosed from a
+    different sample on a different model row.
+  - >-
+    Anchor fill and idempotency are absent from a baseline entry rather than
+    stored zero-valued. Undefined and measured-as-zero are different, and only
+    the first is true.
+  - >-
+    The sedum arm stores neither the files nor the path accounting. Its answer
+    is the invocation list and the files follow from it and the package, so
+    storing both would be storing one fact twice.
+  - >-
+    The schema stays additive. Every field added here is omitted when empty, so
+    the entries written before them read as not recorded rather than as a sample
+    that wrote nothing.
+affected_scope:
+  - evals/**
+forbidden_scope:
+  - internal/**
+  - cmd/**
+type: bug
+extends: prov-2026-a4dbe65c
+supersedes: ""
+superseded_by: ""
+related:
+  - prov-2026-2256e6fa
+  - prov-2026-eb283c56
+sealed_at_sha: ""
+associated_specs:
+  - path: evals/baseline_test.go
+    run_command: go test -count=1 ./$(dirname {{path}})
+associated_traces: []
+monitors: []
+tags:
+  - sedum
+  - evals
+  - measurement
