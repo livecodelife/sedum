@@ -27,12 +27,24 @@ records: todo-rails/records
 # package nobody wrote.
 tightness: ""
 
-# One row to start. The 14B is what the stored sedum-arm entries were drawn on,
-# and a baseline against a different model would not be a comparison.
+# The same rows todo-rails-defined declares, and for the reason a row is
+# declared on both arms of the description A/B: a model row is a column of the
+# matrix rather than a property of one arm, and a row present in one and absent
+# from the other makes the pair incomparable the moment anyone runs it
+# unfiltered (prov-2026-de71f29b).
+#
+# Cost is not a reason to drop one. A run narrows with -model; a case that
+# declared fewer rows would leave no way to widen it.
 models:
   - id: qwen2.5-coder-14b-instruct
     engine: llama.cpp
     quant: q4_k_m
+  - id: qwen2.5-coder-14b-instruct-mlx
+    engine: mlx
+    quant: 4bit
+  - id: qwen/qwen3-4b-2507
+    engine: mlx
+    quant: 4bit
 
 # A baseline sample is one model call and then a scaffold, a bundle install, a
 # database and a boot - the same tail the sedum arm pays under -behavior. The

@@ -1291,3 +1291,34 @@ func TestTheChiCasesDeclareWhatTheirSamplesCost(t *testing.T) {
 		}
 	}
 }
+
+// The baseline arm is the column todo-rails-defined is read against, so the two
+// declare the same model rows. A row present in one and absent from the other
+// makes the pair incomparable the moment anyone runs it unfiltered, which is
+// the rule the description A/B is already held to (prov-2026-de71f29b).
+func TestTheBaselineAndSedumArmsDeclareTheSameRows(t *testing.T) {
+	cases, err := Load("cases", "testdata")
+	if err != nil {
+		t.Fatalf("loading cases: %v", err)
+	}
+	by := map[string]Case{}
+	for _, c := range cases {
+		by[c.ID] = c
+	}
+
+	sedum, base := by["todo-rails-defined"], by["todo-rails-baseline"]
+	if sedum.ID == "" || base.ID == "" {
+		t.Fatal("both arms of the baseline comparison must exist")
+	}
+	if !reflect.DeepEqual(sedum.Models, base.Models) {
+		t.Errorf("the arms name different models:\n  sedum:    %v\n  baseline: %v", sedum.Models, base.Models)
+	}
+	// One record, because the record is the baseline's whole prompt and the
+	// sedum arm is measured on the same one.
+	if sedum.Records != base.Records {
+		t.Errorf("the arms are measured on different records: %s and %s", sedum.Records, base.Records)
+	}
+	if base.Arm != "baseline" || sedum.Arm != "sedum" {
+		t.Errorf("arms are %q and %q", sedum.Arm, base.Arm)
+	}
+}
