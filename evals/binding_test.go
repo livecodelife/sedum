@@ -481,3 +481,55 @@ func TestAKeyKwargMayNotExpectSeveralValues(t *testing.T) {
 		t.Errorf("the error does not say the fault is in the key: %v", err)
 	}
 }
+
+// Two spellings of one answer. Omitting a kwarg that declares nil as its
+// default and binding that literal produce the same rendered text, so an
+// expectation that admitted only one would report a correct answer as a wrong
+// argument - the one thing a binding expectation must never do
+// (prov-2026-0d30e826).
+//
+// It is the shape prov-2026-66b0116d settled for a resource whose singular and
+// plural render identically, and it is bounded the same way: the list admits
+// the spellings the package makes identical, and nothing else.
+func TestAnExpectationMayAdmitAbsentOrTheDeclaredDefault(t *testing.T) {
+	expectation := ActionBinding{
+		Because: "the package declares nil as this kwarg's default, so omitting it and binding nil render the same text",
+		Key:     []string{"name"},
+		Invocations: []map[string]any{
+			{"name": "title", "type": "string", "default": []any{nil, "nil"}},
+		},
+	}
+
+	score := func(kwargs map[string]any) KwargResult {
+		m := Measurement{Model: Model{ID: "test-model", Engine: "mlx"}, Samples: []Sample{bound(kwargs)}, Concurrency: 1}
+		m.Case.ID = "fixture"
+		m.Case.Arm = "sedum"
+		m.Case.Expect.Actions = map[string]int{"addColumn": 1}
+		m.Case.Expect.Bindings = map[string]ActionBinding{"addColumn": expectation}
+		for _, k := range m.ScoredBindings()[0].Kwargs {
+			if k.Kwarg == "default" {
+				return k
+			}
+		}
+		t.Fatal("default was not scored")
+		return KwargResult{}
+	}
+
+	for _, right := range []map[string]any{
+		{"name": "title", "type": "string"},                   // omitted
+		{"name": "title", "type": "string", "default": "nil"}, // written out
+	} {
+		got := score(right)
+		if got.Correct != 1 {
+			t.Errorf("%v scored %d/%d, want it counted correct", right, got.Correct, got.Scored)
+		}
+	}
+
+	// Still strict on everything the package does not make identical.
+	for _, wrong := range []any{"", `""`, "false", "0"} {
+		got := score(map[string]any{"name": "title", "type": "string", "default": wrong})
+		if got.Correct != 0 {
+			t.Errorf("binding %#v scored %d correct, want 0", wrong, got.Correct)
+		}
+	}
+}

@@ -105,9 +105,16 @@ expect:
           name: title
           type: string
           nullable: false
-          # Not a missing expectation: `~` is the expectation, and it is that
-          # nothing is bound here.
-          default: ~
+          # Two spellings of one answer, the same way resource takes both forms
+          # above. Omitting the kwarg leaves the package's declared default -
+          # the literal nil - and binding that literal writes the same thing, so
+          # the migration reads `default: nil` either way. A sample bound it
+          # explicitly and scored twenty of twenty on behaviour while this
+          # expectation called it wrong (prov-2026-0d30e826).
+          #
+          # Nothing else is admitted: "" does not parse and "false" is a boolean
+          # default on a string column.
+          default: [~, "nil"]
         # An unquoted false. The string "false" renders default: "false", which
         # is a string default on a boolean column.
         - resource: [todo, todos]
