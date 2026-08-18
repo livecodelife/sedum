@@ -1218,3 +1218,36 @@ func TestAnEntryWrittenBeforeTheseFieldsStillDecodes(t *testing.T) {
 		t.Errorf("an older entry lost what it did carry: %v", old.Runs[0].Counts)
 	}
 }
+
+// The shipped cases parse their declared sample cost, and the chi cases carry
+// one because the harness's constant is a rails number they run three times
+// (prov-2026-59ed14d5).
+func TestTheChiCasesDeclareWhatTheirSamplesCost(t *testing.T) {
+	cases, err := Load("cases", "testdata")
+	if err != nil {
+		t.Fatalf("loading cases: %v", err)
+	}
+	by := map[string]Case{}
+	for _, c := range cases {
+		by[c.ID] = c
+	}
+
+	for _, id := range []string{"todo-chi-defined", "grocery-chi-defined"} {
+		c, ok := by[id]
+		if !ok {
+			t.Fatalf("%s did not load", id)
+		}
+		if c.PerSample < 2*time.Minute {
+			t.Errorf("%s declares per_sample %s; the constant it would otherwise get is %s, and its samples run several times that",
+				id, c.PerSample, 90*time.Second)
+		}
+	}
+
+	// The rails cases are what the constant was measured on, so they declare
+	// nothing and the default is the right answer for them.
+	for _, id := range []string{"todo-rails-defined", "todo-rails-described"} {
+		if c := by[id]; c.PerSample != 0 {
+			t.Errorf("%s declares per_sample %s; the harness constant was calibrated on it", id, c.PerSample)
+		}
+	}
+}

@@ -48,10 +48,17 @@ const (
 	// requires.
 	defaultAPIKey = "local"
 
-	// perSample is how long one sample is expected to take. The observed range
-	// on the local 14B row is 66 to 90 seconds, so this is the top of it: the
-	// estimate is what decides whether a run gets started now, and an estimate
-	// that runs short is the one that annoys.
+	// perSample is how long one sample is expected to take when its case does
+	// not say. The observed range on the local 14B row of the rails cases is 66
+	// to 90 seconds, so this is the top of it: the estimate is what decides
+	// whether a run gets started now, and an estimate that runs short is the
+	// one that annoys.
+	//
+	// It is the default rather than the rule. Sample cost is a property of the
+	// case - the chi cases run three times this on the same model row, because
+	// their record drives more files and a larger catalog - so a case that
+	// knows better declares per_sample and this is what the rest get
+	// (prov-2026-59ed14d5).
 	//
 	// It is a constant rather than a rate read back from results/, which holds
 	// the wall clock of every previous run. A plan that changed with the last
@@ -207,17 +214,26 @@ func planFor(c evals.Case, model string, res evals.Resolution, samples, retries 
 		applying = perBehaviorSample
 	}
 
+	// What one sample of this case costs, which the case may know better than
+	// the harness does. Unset is the overwhelming majority and gets the
+	// constant, so a case that says nothing is planned exactly as it was
+	// (prov-2026-59ed14d5).
+	each := perSample
+	if c.PerSample > 0 {
+		each = c.PerSample
+	}
+
 	// Expect stays what the run should take: most samples validate on their
 	// first call, so one call each is the honest estimate however large the
 	// budget is. A plan printing the worst case would overstate every run that
 	// never spends it.
-	expect := time.Duration(models*n) * (perSample + applying)
+	expect := time.Duration(models*n) * (each + applying)
 
 	// The timeout is the other question, and it has to hold the worst case: a
 	// sample may spend every attempt the budget allows. At three retries that is
 	// four calls, and a run doing exactly what it was told would otherwise be
 	// killed for doing it (prov-2026-8d4146de).
-	worst := time.Duration(models*n) * (perSample*time.Duration(retries+1) + applying)
+	worst := time.Duration(models*n) * (each*time.Duration(retries+1) + applying)
 	timeout := worst * headroom
 	if timeout < minTimeout {
 		timeout = minTimeout

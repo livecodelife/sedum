@@ -309,3 +309,56 @@ func TestDurationsReadAsAPlanRatherThanAStopwatch(t *testing.T) {
 		}
 	}
 }
+
+// The constant is a rails number and was being spent on every case. On the same
+// 14B row the chi cases run roughly three times it, because their record drives
+// more files and a larger catalog - so a coarse chi run planned at ~8m walled at
+// twenty-five minutes and had to be given -timeout by hand, which is the bug
+// (prov-2026-59ed14d5).
+func TestACaseSizesItsOwnSamples(t *testing.T) {
+	slow := fixture("chi", "llama.cpp")
+	slow.PerSample = 5 * time.Minute
+
+	p := planFor(slow, "", evals.Coarse, 0, 0, 0, false)
+	if want := 5 * 5 * time.Minute; p.Expect != want {
+		t.Errorf("expected duration is %s, want %s - the case's own number was not used", p.Expect, want)
+	}
+	if want := p.Expect * headroom; p.Timeout != want {
+		t.Errorf("timeout is %s, want %s", p.Timeout, want)
+	}
+	// The number that matters: the run that found this walled at 24m50s and was
+	// killed by a derived ceiling of fifteen minutes.
+	if p.Timeout <= 25*time.Minute {
+		t.Errorf("timeout of %s would still kill the run that found this", p.Timeout)
+	}
+}
+
+// A case that declares nothing is planned exactly as it was before the field
+// existed. The change is invisible to every case that does not use it.
+func TestACaseThatDeclaresNothingIsPlannedOnTheConstant(t *testing.T) {
+	plain := fixture("rails", "llama.cpp", "mlx")
+	if plain.PerSample != 0 {
+		t.Fatal("the fixture declares a per-sample cost; this test needs one that does not")
+	}
+
+	p := planFor(plain, "", evals.Coarse, 0, 0, 0, false)
+	if want := time.Duration(2*5) * perSample; p.Expect != want {
+		t.Errorf("expected duration is %s, want %s - an undeclared case stopped using the constant", p.Expect, want)
+	}
+}
+
+// Both halves read it and neither becomes the other: the estimate stays one
+// call per sample however large the budget, and the ceiling holds every attempt
+// the budget allows (prov-2026-8d4146de).
+func TestADeclaredCostFeedsBothHalvesOfThePlan(t *testing.T) {
+	slow := fixture("chi", "llama.cpp")
+	slow.PerSample = 5 * time.Minute
+
+	p := planFor(slow, "", evals.Coarse, 0, 3, 0, false)
+	if want := 5 * 5 * time.Minute; p.Expect != want {
+		t.Errorf("a raised budget moved the estimate to %s, want %s", p.Expect, want)
+	}
+	if want := 5 * 4 * 5 * time.Minute * headroom; p.Timeout != want {
+		t.Errorf("timeout is %s, want %s - the ceiling does not hold four calls a sample", p.Timeout, want)
+	}
+}

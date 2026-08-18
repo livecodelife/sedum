@@ -45,6 +45,17 @@ models:
 # merely unformatted file from being reported as malformed, which it is not.
 #
 # It says the output is well-formed Go and nothing more (prov-2026-d61010a4).
+# What one sample of this case costs. The rails constant the harness defaults
+# to is 90s, and this case runs roughly three times that on the same 14B row:
+# its record drives more files and a larger catalog, so a sample is a longer
+# prompt and a longer answer. Observed valid samples across the clean coarse
+# entries in results/: 217-301s, median 244s.
+#
+# A typical sample rather than the slowest. Headroom doubles it for the
+# timeout, and an estimate that overstates is one nobody starts a run from
+# (prov-2026-59ed14d5).
+per_sample: 5m
+
 check:
   ".go": ["gofmt", "-e", "-l"]
 

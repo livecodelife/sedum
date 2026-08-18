@@ -52,16 +52,34 @@ fine resolution, 2 case(s):
 **`~45m` is what the run takes; `1h30m` is when it should be considered hung.**
 Two numbers because they answer different questions, and the total is of the
 expectations — a total of the ceilings said three hours for a pair that costs
-ninety minutes. The estimate is 90 seconds a sample, the top of the 66–90s
-observed on the local 14B row, and the ceiling is twice it. `-timeout` replaces
-the ceiling in either direction and the plan then says `given`, so a number
-nobody derived is never printed as though it had been.
+ninety minutes. The estimate is 90 seconds a sample by default — the top of the
+66–90s observed on the local 14B row of the *rails* cases — and the ceiling is
+twice it. `-timeout` replaces the ceiling in either direction and the plan then
+says `given`, so a number nobody derived is never printed as though it had been.
 
-The estimate is a constant rather than a rate read back from `results/`,
-which does hold the wall clock of every previous run. A plan that changed with
-the last run could not be reproduced from the invocation that printed it, and a
-new case has no history to read — so the constant has to exist anyway, and a
-second path used only sometimes is a second thing to be wrong.
+**A case whose samples cost something else says so**, because sample cost is a
+property of the case and not of the model row:
+
+```yaml
+per_sample: 5m
+```
+
+On the same 14B row, rails samples run 64–136s and chi samples run 154–494s —
+the chi record drives more files and a larger catalog, so a sample is a longer
+prompt and a longer answer. Before the field existed, a coarse chi run planned
+at `~8m (timeout 15m)` and walled at twenty-five minutes; it had to be given
+`-timeout` by hand, and needing that is the bug. A case that declares nothing
+is planned on the constant exactly as before.
+
+Declare a *typical* sample rather than the slowest. Headroom doubles it for the
+ceiling, and an estimate that overstates is one nobody starts a run from.
+
+The estimate is a constant or a declaration rather than a rate read back from
+`results/`, which does hold the wall clock of every previous run. A plan that
+changed with the last run could not be reproduced from the invocation that
+printed it, and a new case has no history to read — so the constant has to
+exist anyway, and a second path used only sometimes is a second thing to be
+wrong.
 
 Three things it does that the raw invocation does not:
 

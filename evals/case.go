@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"gopkg.in/yaml.v3"
 )
@@ -91,6 +92,21 @@ type Case struct {
 	// be edited to add a framework - which is the cost the matrix exists to
 	// avoid (prov-2026-d61010a4).
 	Check Check `yaml:"check,omitempty"`
+
+	// PerSample is how long one of this case's samples takes, and it sizes both
+	// halves of the plan. Optional: a case that declares none is planned with
+	// the harness's own constant, exactly as it was before this field existed.
+	//
+	// It is a property of the case rather than of the model row. The chi record
+	// drives more files and a larger catalog than the rails one, so a sample is
+	// a longer prompt and a longer answer: on the same 14B row, rails samples
+	// run 64-136s and chi samples run 154-494s. A single constant spends one
+	// case's number on another (prov-2026-59ed14d5).
+	//
+	// Declare a typical sample rather than the slowest one. Headroom makes the
+	// ceiling safe, and an estimate that overstates is one nobody starts a run
+	// from.
+	PerSample time.Duration `yaml:"per_sample,omitempty"`
 
 	Expect Expectations `yaml:"expect"`
 }
