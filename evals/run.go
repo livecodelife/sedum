@@ -109,6 +109,11 @@ type Sample struct {
 	// run that skipped behaviour as one where nothing worked.
 	Behavior *BehaviorRun
 
+	// Fill is how much of the work this sample's own files declared it
+	// accounted for. Zero-valued for a sample that never reached Phase 3, and
+	// its Rate reports absent rather than zero when nothing was planted.
+	Fill AnchorFill
+
 	// Elapsed is how long this sample took end to end.
 	//
 	// Recorded because the harness could not previously answer "why is this
@@ -360,6 +365,12 @@ func sample(ctx context.Context, c Case, model string, opts Options) Sample {
 		// from (prov-2026-2256e6fa).
 		s.Invocations = append(s.Invocations, sel.Invocations...)
 	}
+
+	// Derived from the package and the record rather than from an expectation,
+	// which is what lets it say something the action counts structurally
+	// cannot: whether a selection accounted for the work its own created files
+	// declared (prov-2026-d61010a4).
+	s.Fill = fillOf(result)
 
 	// Behaviour last, and only for a sample that produced something to apply.
 	//
