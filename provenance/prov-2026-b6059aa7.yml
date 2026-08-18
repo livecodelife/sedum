@@ -1,0 +1,180 @@
+id: prov-2026-b6059aa7
+title: 'Measurement: attributing a generated application''s failure to the layer that caused it'
+status: draft
+created_at: "2026-08-18"
+author: calebcowen@gmail.com
+intent: |
+  The harness under evals/ measures whether Sedum's central bet works, and when it
+  does not, which layer is responsible. This brief is the parent of the harness's
+  own construction - its signal ladder, its matrix, and its results format.
+
+  It is a sibling of [[prov-2026-d554bfc3]] rather than a child. That brief says
+  Sedum owns "this brief, M0 through M7, and nothing more", and lists behavioral
+  verification of generated code among its non-goals. evals/README.md opens by
+  saying the harness is not part of Sedum. Both are right, and yet fourteen
+  records whose affected_scope never touches internal/ or cmd/ were written under
+  that brief anyway. This corrects that, and the correction is the reason the
+  boundary below is a constraint rather than a note.
+
+  ## The question this exists to answer
+
+  Three records found the same thing from three directions.
+
+  [[prov-2026-83340ba0]]: the todo-chi package scores a perfect six of six on
+  selection and renders a service that violates three of its own record's
+  constraints - no validation, no partial update, no 400 on an empty body. "The
+  gap is not in the answer. It is in what the package can express."
+
+  [[prov-2026-de71f29b]]: a retry budget of three took validity from fifteen of
+  twenty to twenty of twenty and left the working count where it was. "A raised
+  budget improves the headline number and not the software."
+
+  [[prov-2026-c5697387]], read through [[prov-2026-d61010a4]]: t.string
+  :title:string, null: false is a perfect catalog count and broken Ruby.
+
+  In each the harness reported green at one rung while the application was wrong,
+  and in each the diagnosis was made by hand. That is the gap. It is not that the
+  harness measures too little - it is that when its ends disagree, nothing
+  mechanically says which layer owns the disagreement.
+
+  So: **when a generated application is wrong, this harness says which of four
+  things is responsible - the model's selection, the model's binding, the
+  package's expressiveness, or Sedum's rendering.**
+
+  That is not a better dashboard. The four answers imply opposite investments. A
+  ceiling in package expressiveness is work on action vocabulary and composites; a
+  ceiling in selection is work on catalog quality and the prompt. Today nothing
+  distinguishes them, so that choice is made on argument.
+
+  ## The rungs, and why there are five
+
+  Each rung sits further down the pipeline than the last, and the value is in
+  where two of them disagree rather than in any one number.
+
+  1. **Selection** - which actions were chosen. Built ([[prov-2026-e6969eb3]]).
+  2. **Binding** - what their arguments were bound to. Built
+     ([[prov-2026-2b121b62]], [[prov-2026-7cb96bf0]]).
+  3. **Completeness and form** - anchor fill rate, syntactic validity of rendered
+     output, idempotency. Specified in [[prov-2026-d61010a4]], unbuilt. This is
+     the rung that makes attribution mechanical: fill rate is derived from the
+     package and the record rather than declared, so a package with unfillable
+     anchors has a ceiling that is a property of the package and not of the
+     answer. It is the first instrument that separates "the model missed it" from
+     "the package could not say it".
+  4. **Behaviour** - does the application build, boot and answer. Built
+     ([[prov-2026-83340ba0]]).
+  5. **Baseline** - the same model and the same application with no generator
+     package and no action vocabulary. Declared and rejected at run time since
+     the harness was written.
+
+  Rung 5 is last and is not optional. [[prov-2026-e6969eb3]] stated the reason
+  when it reserved the column: "Without that column a good number here is
+  unfalsifiable, because there is nothing it is good compared to." A brief whose
+  stated purpose is attribution, that cannot compare against not using Sedum at
+  all, has a hole exactly where its strongest claim would go.
+
+  Its cost is understood and accepted. There is no package, no vocabulary and no
+  selection to count, so the only rung that can score a baseline sample is
+  behaviour - a container and a database per sample to produce one number.
+  Everything else here is cheaper and lands first.
+
+  ## The matrix
+
+  [[prov-2026-e6969eb3]] declared six axes and populated most with one value.
+  [[prov-2026-98ab639c]] widens three of them. Breadth follows the ladder rather
+  than preceding it, because a signal added after the matrix is broad means
+  re-running every cell to collect it, and every cell is a model call.
+
+  ## What this brief does not own
+
+  **Sedum itself.** A finding here that implicates the core becomes a blueprint
+  under [[prov-2026-d554bfc3]], which is what [[prov-2026-b43799a0]],
+  [[prov-2026-0d30e826]] and [[prov-2026-c5697387]] already are. The harness is a
+  discovery instrument for that brief and does not act on what it discovers.
+
+  **Verdicts.** Nothing here gates a build or a merge. That is a consequence of
+  measuring a sampled distribution and is stated as a constraint below.
+
+  **The convergence loop's measurement.** TOOL_BOUNDARIES puts the two-beat
+  lifecycle, the repair modes and the escalation ladder in a third tool. Whatever
+  that tool needs to measure is its own, and a rung here that started serving it
+  would be measuring something this repository does not build.
+
+  ## Done
+
+  This brief is complete when a sample whose application failed can be attributed
+  to a layer without hand-inspection, and when a rate from this harness can be
+  read against a baseline drawn the same way.
+constraints:
+  - >-
+    Rates, not verdicts. Nothing here fails a build, a merge or a run on a
+    selection, binding or behaviour rate. What is measured is a sampled
+    distribution and an assertion over one is a flaky test wearing a suit. The
+    runner fails on exactly one condition - a case that produced nothing to
+    measure - because that is a broken harness rather than a poor model.
+  - >-
+    A rate that does not carry its sample size, its model and the commit it was
+    drawn on is not evidence and is not printed as though it were.
+  - >-
+    A rate is a property of a model and a package together, never of either
+    alone. A number from one row is never read as a claim about another row.
+  - >-
+    Two entries that differ on a dimension are printed and not compared. Retry
+    budget, resolution, tree cleanliness and sample size already work this way,
+    and every dimension added later joins them.
+  - >-
+    Derived signals are preferred to declared ones wherever both are available.
+    A hand-authored expectation can be fitted to the answer it scores; anchor
+    fill rate comes from the package and the record and cannot be. Both are kept
+    where both exist, because neither subsumes the other.
+  - >-
+    No target knowledge in the harness. A syntax check, a boot command or an
+    assertion is case configuration that the harness passes through and does not
+    interpret. A harness that must be edited to add a framework defeats the
+    matrix it exists to fill.
+  - >-
+    Sedum does not import the harness and is not aware of it. The boundary is
+    the build tag and the import direction, not the directory. Living in this
+    repository is a convenience for keeping fixtures current.
+  - >-
+    A fixture serves the measurement rather than the project it came from. Where
+    the two pull apart the measurement wins and the deviation is recorded on the
+    fixture.
+  - >-
+    Results are append-only observations pinned to a commit. An entry that
+    cannot be re-run says so, and nothing is rewritten to agree with a later
+    finding.
+  - >-
+    What a run will cost is stated before it is spent, and the estimate and the
+    ceiling are two numbers because they answer different questions.
+  - >-
+    Signals land before the matrix widens. A signal added once the matrix is
+    broad means re-running every cell to collect it.
+  - >-
+    The baseline arm is the last rung and is scored by behaviour alone, because
+    it has no selection to count. It is not a reason to defer the rungs below
+    it.
+  - >-
+    A finding that implicates Sedum's core leaves this brief and becomes a
+    blueprint under prov-2026-d554bfc3. This brief measures; it does not change
+    what it measures.
+affected_scope: []
+forbidden_scope: []
+type: brief
+supersedes: ""
+superseded_by: ""
+related:
+  - prov-2026-d554bfc3
+  - prov-2026-e6969eb3
+  - prov-2026-d61010a4
+  - prov-2026-98ab639c
+  - prov-2026-83340ba0
+  - prov-2026-de71f29b
+sealed_at_sha: ""
+associated_specs: []
+associated_traces: []
+monitors: []
+tags:
+    - sedum
+    - evals
+    - measurement
