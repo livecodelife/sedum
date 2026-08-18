@@ -284,13 +284,21 @@ func sample(ctx context.Context, c Case, model string, opts Options) Sample {
 
 	// A fresh output directory per sample, rather than the working directory.
 	//
-	// Nothing is written under a dry run, but Phase 3 still stats each
-	// authorized path to decide whether it already exists - and a path it finds
-	// is marked as existing and has its markers verified, which can halt the
-	// run. Against the working directory that behavior depends on where the
-	// harness happened to be invoked from, which is a silent confound of
-	// exactly the kind these measurements keep getting bitten by. An empty
-	// directory makes every sample see the same world.
+	// Phase 3 stats each authorized path to decide whether it already exists -
+	// and a path it finds is marked as existing and has its markers verified,
+	// which can halt the run. Against the working directory that behavior
+	// depends on where the harness happened to be invoked from, which is a
+	// silent confound of exactly the kind these measurements keep getting
+	// bitten by. An empty directory makes every sample see the same world.
+	//
+	// The sample writes into it rather than running dry, because two of the
+	// three signals need the files to exist (prov-2026-d61010a4). A dry run
+	// reports what Phase 7 would have done, and inject.Result carries a path,
+	// an action and a variant and no content, so nothing downstream can parse
+	// what was never written. A sample now exercises the write path as well as
+	// the decision path, which is closer to what a real run does rather than
+	// further from it. Nothing is written outside this directory and it does
+	// not survive the sample.
 	output, err := os.MkdirTemp("", "sedum-eval-")
 	if err != nil {
 		return Sample{Err: err, Elapsed: time.Since(started)}
@@ -302,7 +310,7 @@ func sample(ctx context.Context, c Case, model string, opts Options) Sample {
 		Records:    c.Records,
 		Output:     output,
 		Only:       c.Only,
-		DryRun:     true,
+		DryRun:     false,
 		Client:     client,
 		Retries:    retries,
 		Variables:  c.Variables,
