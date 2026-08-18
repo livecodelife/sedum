@@ -1,6 +1,6 @@
 id: prov-2026-0d30e826
 title: An absent default and an explicit nil are the same answer
-status: draft
+status: open
 created_at: "2026-08-17"
 author: calebcowen@gmail.com
 intent: |
