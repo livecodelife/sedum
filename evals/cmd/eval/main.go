@@ -121,7 +121,7 @@ func run(res, model string, samples, concurrency, retries int, caseDir, root str
 
 	plans := make([]plan, 0, len(selected))
 	for _, c := range selected {
-		plans = append(plans, planFor(c, model, resolution, samples, timeout, behavior))
+		plans = append(plans, planFor(c, model, resolution, samples, retries, timeout, behavior))
 	}
 	for _, p := range plans {
 		if p.Models == 0 {
@@ -185,7 +185,7 @@ type plan struct {
 // A non-zero override replaces the computation entirely, in either direction. A
 // deliberately short budget is a legitimate way to find out whether an endpoint
 // is answering at all.
-func planFor(c evals.Case, model string, res evals.Resolution, samples int, override time.Duration, behavior bool) plan {
+func planFor(c evals.Case, model string, res evals.Resolution, samples, retries int, override time.Duration, behavior bool) plan {
 	n := samples
 	if n < res.Samples() {
 		n = res.Samples()
@@ -198,17 +198,27 @@ func planFor(c evals.Case, model string, res evals.Resolution, samples int, over
 		}
 	}
 
-	perOne := perSample
 	// A behaviour sample scaffolds an application, installs its dependencies,
 	// creates a database and boots a server before it asserts anything. Budgeting
 	// it at the cost of a model call is how a run gets killed partway with no
 	// entry written, which is the failure the derived timeout exists to prevent.
+	var applying time.Duration
 	if behavior && c.Expect.Behavior != nil {
-		perOne += perBehaviorSample
+		applying = perBehaviorSample
 	}
 
-	expect := time.Duration(models*n) * perOne
-	timeout := expect * headroom
+	// Expect stays what the run should take: most samples validate on their
+	// first call, so one call each is the honest estimate however large the
+	// budget is. A plan printing the worst case would overstate every run that
+	// never spends it.
+	expect := time.Duration(models*n) * (perSample + applying)
+
+	// The timeout is the other question, and it has to hold the worst case: a
+	// sample may spend every attempt the budget allows. At three retries that is
+	// four calls, and a run doing exactly what it was told would otherwise be
+	// killed for doing it (prov-2026-8d4146de).
+	worst := time.Duration(models*n) * (perSample*time.Duration(retries+1) + applying)
+	timeout := worst * headroom
 	if timeout < minTimeout {
 		timeout = minTimeout
 	}

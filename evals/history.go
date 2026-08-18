@@ -35,6 +35,7 @@ func History(out io.Writer, caseID string, entries []Entry) {
 	var absent bool
 	var smoked bool
 	var unlabelled bool
+	var budgeted bool
 
 	// The interval the next row is compared against is the last one that could
 	// be compared at all. A smoke entry is not a measurement, so marking a real
@@ -45,7 +46,13 @@ func History(out io.Writer, caseID string, entries []Entry) {
 	// A dirty or unlabelled entry is left out for the same reason and skipped
 	// the same way, so a run still compares against the last real measurement
 	// rather than against nothing (prov-2026-c5ad54ff).
-	var last *Interval
+	var (
+		last *Interval
+		// The budget the last compared entry was drawn at. Validity at zero is
+		// what one call produces; at a raised budget it is a weaker claim about
+		// more calls, so the two are not one series (prov-2026-8d4146de).
+		lastRetries int
+	)
 
 	for _, e := range entries {
 		valid := wilson(e.Valid, e.Valid+e.Invalid)
@@ -85,6 +92,16 @@ func History(out io.Writer, caseID string, entries []Entry) {
 		case !Resolution(e.Resolution).Cites():
 			row = "s"
 			smoked = true
+		case last != nil && e.Retries != lastRetries:
+			// Drawn under a different budget, so it answers a different
+			// question than the entry above it. Printed and not compared - and
+			// it becomes the baseline, so the next entry at this budget is read
+			// against something drawn the same way.
+			row = "r"
+			budgeted = true
+			carried := valid
+			last = &carried
+			lastRetries = e.Retries
 		default:
 			if last != nil && valid.Overlaps(*last) {
 				row = "~"
@@ -92,6 +109,7 @@ func History(out io.Writer, caseID string, entries []Entry) {
 			}
 			carried := valid
 			last = &carried
+			lastRetries = e.Retries
 		}
 
 		fmt.Fprintf(out, "%s %-10s %-9s %-8s %2d %2d %2d  %-18s %-18s %-6s %-11s %-8s %s\n",
@@ -114,6 +132,9 @@ func History(out io.Writer, caseID string, entries []Entry) {
 	}
 	if smoked {
 		fmt.Fprintln(out, "  s smoke: plumbing only at that sample size, not a measurement and not compared")
+	}
+	if budgeted {
+		fmt.Fprintln(out, "  r drawn at a different retry budget: validity at one budget is not validity at another, and these are not compared")
 	}
 	if overlapped {
 		fmt.Fprintln(out, "  ~ interval overlaps the previous comparable entry: these runs do not distinguish each other")

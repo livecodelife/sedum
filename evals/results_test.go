@@ -240,3 +240,52 @@ func splitLines(s string) []string {
 	}
 	return out
 }
+
+// Validity at one retry budget is not validity at another - at zero it is what
+// one call produces, and at a raised budget a weaker claim about more calls
+// (prov-2026-0811425c). history prints such an entry and does not compare it,
+// the same treatment a dirty tree or a smoke sample size gets
+// (prov-2026-8d4146de).
+func TestHistoryDoesNotCompareAcrossRetryBudgets(t *testing.T) {
+	entry := func(valid, invalid, retries int) Entry {
+		e := Entry{Schema: EntrySchema, Clean: true, Resolution: string(Coarse), At: time.Now().UTC(),
+			Samples: valid + invalid, Valid: valid, Invalid: invalid, Retries: retries, WallMS: 1000}
+		for i := 0; i < valid; i++ {
+			e.Runs = append(e.Runs, SampleRun{Outcome: "valid", Calls: 1})
+		}
+		for i := 0; i < invalid; i++ {
+			e.Runs = append(e.Runs, SampleRun{Outcome: "invalid", Calls: 1, Rejected: 1})
+		}
+		return e
+	}
+
+	// Two entries whose intervals overlap. At one budget that earns the ~ mark;
+	// across budgets the comparison should not be drawn at all.
+	var across strings.Builder
+	History(&across, "fixture", []Entry{entry(5, 0, 0), entry(4, 1, 3)})
+	got := across.String()
+	if !strings.Contains(got, "r ") {
+		t.Errorf("an entry at a different budget was not marked:\n%s", got)
+	}
+	if strings.Contains(got, "~") {
+		t.Errorf("entries at different budgets were compared:\n%s", got)
+	}
+	if !strings.Contains(got, "retry budget") {
+		t.Errorf("the legend does not explain the mark:\n%s", got)
+	}
+
+	// And it becomes the baseline, so a third entry at the same budget is read
+	// against something drawn the same way rather than against nothing.
+	var settled strings.Builder
+	History(&settled, "fixture", []Entry{entry(5, 0, 0), entry(4, 1, 3), entry(4, 1, 3)})
+	if !strings.Contains(settled.String(), "~") {
+		t.Errorf("two entries at one budget were not compared to each other:\n%s", settled.String())
+	}
+
+	// One budget throughout is the ordinary case and is unaffected.
+	var same strings.Builder
+	History(&same, "fixture", []Entry{entry(5, 0, 0), entry(4, 1, 0)})
+	if strings.Contains(same.String(), "retry budget") {
+		t.Errorf("a run at one budget was marked:\n%s", same.String())
+	}
+}
