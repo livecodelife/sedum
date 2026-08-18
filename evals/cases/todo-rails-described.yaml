@@ -48,6 +48,16 @@ models:
   - id: qwen2.5-coder-14b-instruct-mlx
     engine: mlx
     quant: 4bit
+  # A smaller row, brought forward from the model axis prov-2026-98ab639c
+  # planned. It exists because the 14B rejects about five percent of the time,
+  # which is too rarely to measure what the retry loop recovers - a weaker row
+  # rejects often enough to have a denominator (prov-2026-de71f29b).
+  #
+  # mlx and 4bit as the server reports them, not as the id suggests: no
+  # continuous batching, so this row is sampled one at a time.
+  - id: qwen/qwen3-4b-2507
+    engine: mlx
+    quant: 4bit
 
 # Identical to the defined arm's, and not independently derived. An expectation
 # is a property of the record - what a complete answer to it contains - and both
