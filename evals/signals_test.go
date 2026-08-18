@@ -2,6 +2,7 @@ package evals
 
 import (
 	"context"
+	"encoding/json"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -274,8 +275,8 @@ func TestASecondApplicationLeavesTheBytesAlone(t *testing.T) {
 	}
 
 	got := idempotencyOf(dir, result)
-	if got.Err != nil {
-		t.Fatalf("the second application failed: %v", got.Err)
+	if got.Err != "" {
+		t.Fatalf("the second application failed: %s", got.Err)
 	}
 	if got.Files != 1 || got.Stable != 1 {
 		t.Fatalf("%d of %d files stable, want 1 of 1; differing: %v", got.Stable, got.Files, got.Differing)
@@ -302,8 +303,8 @@ func TestAnApplicationThatChangesTheFileIsReported(t *testing.T) {
 	}})
 
 	got := idempotencyOf(dir, result)
-	if got.Err != nil {
-		t.Fatalf("applying: %v", got.Err)
+	if got.Err != "" {
+		t.Fatalf("applying: %s", got.Err)
 	}
 	if got.Stable != 0 || got.Files != 1 {
 		t.Fatalf("%d of %d files stable, want 0 of 1", got.Stable, got.Files)
@@ -391,5 +392,75 @@ func TestAnUninstalledInterpreterIsNotReportedAsAFailingRate(t *testing.T) {
 	}
 	if strings.Contains(got, "parses: 0/") {
 		t.Errorf("an absent interpreter was reported as a zero rate:\n%s", got)
+	}
+}
+
+// A signal that lived only in a terminal is the failure the results file exists
+// to prevent. Stored per sample, so a question sharpened after the run can be
+// asked of the draws that produced the number.
+func TestAnEntryCarriesEachSamplesSignals(t *testing.T) {
+	m := Measurement{
+		Case:  Case{ID: "todo-rails-defined"},
+		Model: Model{ID: "qwen", Engine: "mlx", Quant: "4bit"},
+		Samples: []Sample{
+			signalSample(AnchorFill{Planted: 4, Filled: 3},
+				SyntaxCheck{Checked: 3, Parsed: 2, Failures: []string{"app/models/todo.rb: syntax error"}},
+				Idempotency{Files: 3, Stable: 2, Differing: []string{"config/routes.rb"}}),
+			{Invalid: true, Detail: "rejected"},
+		},
+	}
+
+	e := NewEntry(m, "http://localhost:1234/v1")
+	if len(e.Runs) != 2 {
+		t.Fatalf("runs = %d, want 2", len(e.Runs))
+	}
+
+	got := e.Runs[0]
+	if got.Fill == nil || got.Fill.Filled != 3 || got.Fill.Planted != 4 {
+		t.Errorf("fill = %+v, want 3 of 4", got.Fill)
+	}
+	if got.Syntax == nil || got.Syntax.Parsed != 2 || len(got.Syntax.Failures) != 1 {
+		t.Errorf("syntax = %+v, want 2 parsed and the failing file named", got.Syntax)
+	}
+	if got.Idempotent == nil || got.Idempotent.Differing[0] != "config/routes.rb" {
+		t.Errorf("idempotent = %+v, want the changed file named", got.Idempotent)
+	}
+
+	// A rejected answer never wrote a file. Storing its zeroes would put them
+	// in a denominator they do not belong in.
+	if e.Runs[1].Fill != nil || e.Runs[1].Syntax != nil || e.Runs[1].Idempotent != nil {
+		t.Errorf("an invalid sample carries signals it could not have produced: %+v", e.Runs[1])
+	}
+
+	// Round trip, because the entry is read back and not only written
+	// (prov-2026-c0f55691).
+	encoded, err := json.Marshal(e)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var back Entry
+	if err := json.Unmarshal(encoded, &back); err != nil {
+		t.Fatal(err)
+	}
+	if back.Runs[0].Fill == nil || back.Runs[0].Fill.Filled != 3 {
+		t.Errorf("the fill did not survive the round trip: %s", encoded)
+	}
+	if back.Runs[1].Fill != nil {
+		t.Error("an invalid sample gained a fill on the way back")
+	}
+}
+
+// An entry written before the signals existed reads as not recorded, never as a
+// sample that filled no anchors. The schema is additive.
+func TestAnOlderEntryReportsNoSignalsRatherThanZeroes(t *testing.T) {
+	const stored = `{"schema":1,"commit":"abc","clean":true,"case":"todo-rails-defined",
+	  "samples":1,"valid":1,"runs":[{"outcome":"valid","calls":1}]}`
+
+	var e Entry
+	if err := json.Unmarshal([]byte(stored), &e); err != nil {
+		t.Fatal(err)
+	}
+	if e.Runs[0].Fill != nil || e.Runs[0].Syntax != nil || e.Runs[0].Idempotent != nil {
+		t.Errorf("an older entry reports signals it never carried: %+v", e.Runs[0])
 	}
 }

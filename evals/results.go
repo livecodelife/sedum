@@ -138,6 +138,19 @@ type SampleRun struct {
 	// and a reader ignores what it does not recognise (prov-2026-eb283c56).
 	Rules       []string               `json:"rules,omitempty"`
 	Invocations []recording.Invocation `json:"invocations,omitempty"`
+
+	// Fill, Syntax and Idempotent are the three derived signals for this
+	// sample, stored per sample for the same reason Behavior is: a rate cannot
+	// be re-scored against a question sharpened after the run, and the
+	// interesting question later is which file failed on which draw.
+	//
+	// Pointers, so that an entry written before these reads as "not recorded"
+	// rather than as a sample that filled no anchors and parsed nothing. The
+	// schema is additive and a reader ignores what it does not recognise
+	// (prov-2026-eb283c56, prov-2026-d61010a4).
+	Fill       *AnchorFill  `json:"fill,omitempty"`
+	Syntax     *SyntaxCheck `json:"syntax,omitempty"`
+	Idempotent *Idempotency `json:"idempotent,omitempty"`
 }
 
 // EntrySchema is the current entry format. Additive changes do not move it.
@@ -198,6 +211,12 @@ func NewEntry(m Measurement, endpoint string) Entry {
 		case s.Invalid:
 			r.Outcome = "invalid"
 			r.Counts = nil
+		default:
+			// Only a sample that reached Phase 7 has these to record. A
+			// rejected answer never wrote a file, and storing its zeroes
+			// would put them in a denominator they do not belong in.
+			fill, syntax, idem := s.Fill, s.Syntax, s.Idempotent
+			r.Fill, r.Syntax, r.Idempotent = &fill, &syntax, &idem
 		}
 		e.Runs = append(e.Runs, r)
 	}

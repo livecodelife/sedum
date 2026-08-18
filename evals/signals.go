@@ -33,9 +33,9 @@ import (
 type AnchorFill struct {
 	// Planted is the anchors this run created that something it loaded could
 	// have written into.
-	Planted int
+	Planted int `json:"planted"`
 	// Filled is the subset a selection accounted for.
-	Filled int
+	Filled int `json:"filled"`
 }
 
 // Rate is the fraction of fillable planted anchors a selection accounted for,
@@ -121,11 +121,11 @@ type Check map[string][]string
 // claiming the rung above (prov-2026-c5697387).
 type SyntaxCheck struct {
 	// Checked is the files an entry in the case's Check covered.
-	Checked int
+	Checked int `json:"checked"`
 	// Parsed is the subset the command accepted.
-	Parsed int
+	Parsed int `json:"parsed"`
 	// Failures is one line per file the command rejected, in path order.
-	Failures []string
+	Failures []string `json:"failures,omitempty"`
 	// Unavailable names the commands that could not be run at all, because
 	// the binary is not on this machine.
 	//
@@ -134,7 +134,7 @@ type SyntaxCheck struct {
 	// that looks like a catastrophic finding about the model, which is the
 	// worst failure mode a measurement can have: wrong, alarming, and shaped
 	// exactly like a real result.
-	Unavailable []string
+	Unavailable []string `json:"unavailable,omitempty"`
 }
 
 // Rate is the fraction of checked files the target's parser accepted, and false
@@ -230,15 +230,19 @@ func writtenPaths(result *pipeline.Result) []string {
 // of having it rather than an argument against it.
 type Idempotency struct {
 	// Files is the files compared before and after the second application.
-	Files int
+	Files int `json:"files"`
 	// Stable is the subset whose bytes were identical.
-	Stable int
+	Stable int `json:"stable"`
 	// Differing names the files a rerun changed, in path order.
-	Differing []string
+	Differing []string `json:"differing,omitempty"`
 	// Err is set when the second application could not be made at all. It is
 	// a finding rather than a harness failure: the same invocations that
 	// applied cleanly once must apply cleanly again.
-	Err error
+	//
+	// A string rather than an error, because this is stored in an entry and a
+	// finding that survived only in a terminal is the failure mode the results
+	// file exists to prevent.
+	Err string `json:"err,omitempty"`
 }
 
 // Rate is the fraction of files a rerun left alone, and false when nothing was
@@ -268,7 +272,7 @@ func idempotencyOf(output string, result *pipeline.Result) Idempotency {
 		if err != nil {
 			// A path the run reported writing and that is not on disk is a
 			// defect worth surfacing rather than a file to skip.
-			out.Err = err
+			out.Err = err.Error()
 			return out
 		}
 		before[p] = content
@@ -281,20 +285,20 @@ func idempotencyOf(output string, result *pipeline.Result) Idempotency {
 	for _, s := range result.Selections {
 		expanded, err := expand.Expand(s.RecordID, s.Files, s.Invocations, result.Variables)
 		if err != nil {
-			out.Err = fmt.Errorf("record %s: %w", s.RecordID, err)
+			out.Err = fmt.Sprintf("record %s: %v", s.RecordID, err)
 			return out
 		}
 		resolved = append(resolved, expanded...)
 	}
 	if _, err := inject.Apply(resolved, inject.Options{Output: output}); err != nil {
-		out.Err = err
+		out.Err = err.Error()
 		return out
 	}
 
 	for _, p := range paths {
 		after, err := os.ReadFile(filepath.Join(output, p))
 		if err != nil {
-			out.Err = err
+			out.Err = err.Error()
 			return out
 		}
 		out.Files++
@@ -360,8 +364,8 @@ func (m Measurement) Signals() SignalTally {
 		t.Idempotent.Files += s.Idempotent.Files
 		t.Idempotent.Stable += s.Idempotent.Stable
 		t.Unstable = append(t.Unstable, s.Idempotent.Differing...)
-		if s.Idempotent.Err != nil {
-			t.Errs = append(t.Errs, firstLine(s.Idempotent.Err.Error()))
+		if s.Idempotent.Err != "" {
+			t.Errs = append(t.Errs, firstLine(s.Idempotent.Err))
 		}
 	}
 
