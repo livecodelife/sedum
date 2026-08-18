@@ -108,7 +108,9 @@ constraints:
     cell to collect a signal that could have been collected the first time.
 affected_scope:
   - evals/**
-forbidden_scope: []
+forbidden_scope:
+  - internal/**
+  - cmd/**
 type: blueprint
 implements: prov-2026-b6059aa7
 supersedes: ""
