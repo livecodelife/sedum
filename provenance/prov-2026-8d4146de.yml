@@ -1,0 +1,105 @@
+id: prov-2026-8d4146de
+title: 'The retry budget is a dimension: it bounds the timeout and gates comparison'
+status: draft
+created_at: "2026-08-17"
+author: calebcowen@gmail.com
+intent: |
+  Two places treat the retry budget as if it were not there. The derived timeout
+  ignores it, and history compares across it. Both are fixed; nothing else about
+  retries changes.
+
+  ## The timeout
+
+  planFor budgets one model call per sample. At a raised budget a sample may
+  spend every attempt it is allowed, so a run at `-retries 3` can need four
+  times the model time the plan reserved for it.
+
+  A coarse run of five samples with behaviour derives a twenty-five minute
+  timeout. The same run at three retries can legitimately need over half an
+  hour, and `go test` would kill it partway with no entry written - which is
+  exactly the failure the derived timeout exists to prevent
+  (prov-2026-d31cbfee). The run that found this was given `-timeout 45m` by
+  hand, and needing that is the bug.
+
+  Expect and Timeout keep answering different questions, which is why only one
+  of them moves. Expect stays the expectation - most samples validate on the
+  first call, and a plan that printed the worst case would overstate every run
+  that never uses its budget. Timeout becomes the worst case, because a budget
+  is a ceiling and a ceiling that assumes the good path is not one.
+
+  ## The comparison
+
+  history prints the retry budget in its own column and does not gate on it. An
+  entry drawn at three retries and one drawn at zero sit adjacent and get the
+  overlap test applied between them, so their validity rates are read as
+  answering one question.
+
+  They do not. Options.Retries has said so since it was written: at zero,
+  validity is what one call produces; at a raised budget it is a weaker claim
+  about more calls. The two are different measurements and the table already has
+  the vocabulary for saying so - a marked row that is printed and not compared,
+  the same treatment a dirty tree, an unstated resolution and a smoke sample
+  size already get (prov-2026-0baaa119).
+
+  ## What is deliberately not done
+
+  The budget stays a flag. Making it a case-declared axis would multiply run
+  cost across a variable whose effect has never been observed: thirty-one of the
+  thirty-five stored entries are at zero, the four that are not predate the
+  current fixtures, and across all of them the retry loop has been seen to
+  recover exactly one sample - whose rule slugs were not recorded because the
+  field did not exist yet.
+
+  A run at three retries on the current fixtures spent none of them: five of
+  five validated first call. Rejections run at roughly zero to one in five on
+  any arm worth shipping, so there is little to recover and no evidence about
+  what recovery is worth. Sweeping budgets is work to do when a run produces
+  rejections worth recovering, not before.
+constraints:
+  - >-
+    The timeout covers the worst case a budget allows: every sample spending
+    every attempt. A run that is doing what it was told must not be killed for
+    doing it.
+  - >-
+    Expect is unchanged and stays the expectation. A plan that printed the worst
+    case would overstate every run that never spends its budget, and the two
+    numbers exist to answer different questions.
+  - >-
+    A run at the default budget of zero derives exactly the timeout it derived
+    before. The change is invisible unless retries are asked for.
+  - >-
+    history marks an entry drawn at a different budget and does not compare it,
+    the same way it already treats a dirty tree, an unstated resolution and a
+    smoke sample size. The numbers are still printed: what the mark says is that
+    this entry and the one before it do not distinguish each other.
+  - >-
+    The budget stays a flag rather than becoming a case-declared axis. Nothing
+    measured so far says a sweep would find anything.
+affected_scope:
+  - evals/cmd/eval/main.go
+  - evals/cmd/eval/main_test.go
+  - evals/history.go
+  - evals/results_test.go
+  - evals/run_test.go
+forbidden_scope:
+  - internal/**
+  - cmd/**
+type: blueprint
+implements: prov-2026-d554bfc3
+supersedes: ""
+superseded_by: ""
+related:
+  - prov-2026-0811425c
+  - prov-2026-0baaa119
+  - prov-2026-b43799a0
+sealed_at_sha: ""
+associated_specs:
+  - path: evals/cmd/eval/main_test.go
+    run_command: go test ./$(dirname {{path}})
+  - path: evals/results_test.go
+    run_command: go test ./$(dirname {{path}})
+associated_traces: []
+monitors: []
+tags:
+  - sedum
+  - evals
