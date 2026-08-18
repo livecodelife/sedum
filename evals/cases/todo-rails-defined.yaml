@@ -54,6 +54,19 @@ models:
 # scope from seventeen paths to six, so the file list the model sees has
 # changed - and an expectation carried across that edit is a claim about a
 # prompt that no longer exists.
+# The target's own parser over what Sedum wrote, keyed by the extension it
+# reads. Milliseconds per sample, no container and no database - the rung
+# between "the right actions were selected" and "the application works".
+#
+# It says the output is well-formed Ruby and nothing more. params.permit(title,
+# completed) parses here and raises NameError the first time it runs, so this
+# passing is not the application working (prov-2026-d61010a4).
+#
+# .yml is not checked. The package claims it, but a syntax command for it would
+# be asserting something about a config file no action injects into.
+check:
+  ".rb": ["ruby", "-c"]
+
 expect:
   actions:
     # Two columns on the migration: title and completed.

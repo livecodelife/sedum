@@ -40,6 +40,14 @@ models:
     engine: llama.cpp
     quant: q4_k_m
 
+# The target's own parser over what Sedum wrote, keyed by the extension it
+# reads. gofmt -e reports parse errors and exits non-zero on them; -l keeps a
+# merely unformatted file from being reported as malformed, which it is not.
+#
+# It says the output is well-formed Go and nothing more (prov-2026-d61010a4).
+check:
+  ".go": ["gofmt", "-e", "-l"]
+
 expect:
   # Authored from the package, not established from a run - no run has produced
   # a complete answer to this record yet. Identical to todo-chi-defined's

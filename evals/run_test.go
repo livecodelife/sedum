@@ -712,6 +712,17 @@ func TestTheDescriptionArmsAreControlled(t *testing.T) {
 	if len(plain.Expect.Bindings) == 0 {
 		t.Error("neither arm expects any binding; the comparison measures selection only")
 	}
+	// A signal is a column of the matrix rather than a property of one arm, the
+	// same argument the model list is held to. A check command present in one
+	// arm and absent in the other would make the pair incomparable on
+	// syntactic validity the moment anyone ran it unfiltered
+	// (prov-2026-d61010a4).
+	if !reflect.DeepEqual(plain.Check, described.Check) {
+		t.Errorf("the arms run different syntax checks:\n  %v\n  %v", plain.Check, described.Check)
+	}
+	if len(plain.Check) == 0 {
+		t.Error("neither arm checks what it wrote; the pair reports no syntactic validity")
+	}
 }
 
 // The described set is the defined set with descriptions added, and this is what

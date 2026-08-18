@@ -77,6 +77,14 @@ models:
 # (prov-2026-6fc3d13d). The counts left are unchanged from that run; the two new
 # ones are authored from the package, since no run has established them and the
 # first that tried selected them in one sample of two.
+# The target's own parser over what Sedum wrote, keyed by the extension it
+# reads. gofmt -e reports parse errors and exits non-zero on them; -l keeps a
+# merely unformatted file from being reported as malformed, which it is not.
+#
+# It says the output is well-formed Go and nothing more (prov-2026-d61010a4).
+check:
+  ".go": ["gofmt", "-e", "-l"]
+
 expect:
   actions:
     # The service's own packages, wired once in main and once in the handler
