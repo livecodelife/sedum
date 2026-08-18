@@ -1,6 +1,6 @@
 id: prov-2026-0d30e826
 title: An absent default and an explicit nil are the same answer
-status: open
+status: implemented
 created_at: "2026-08-17"
 author: calebcowen@gmail.com
 intent: |
@@ -68,7 +68,7 @@ superseded_by: ""
 related:
   - prov-2026-66b0116d
   - prov-2026-f03916ba
-sealed_at_sha: ""
+sealed_at_sha: 4986046e5ad382139aead2ccbad51641869e527b
 associated_specs:
   - path: evals/binding_test.go
     run_command: go test ./$(dirname {{path}})
