@@ -1,0 +1,79 @@
+id: prov-2026-0d30e826
+title: An absent default and an explicit nil are the same answer
+status: draft
+created_at: "2026-08-17"
+author: calebcowen@gmail.com
+intent: |
+  The todo-rails cases expect `default: [~, "nil"]` on the title column rather
+  than `default: ~`. Omitting the kwarg and binding the literal nil are both
+  correct, and the expectation now says so.
+
+  ## What the run showed
+
+  A described-arm sample bound `default: "nil"` explicitly instead of omitting
+  the kwarg. It scored twenty of twenty on behaviour - the migration read
+  `t.string :title, null: false, default: nil`, byte for byte what an omission
+  produces, because the package's declared default is the same literal
+  (prov-2026-f03916ba).
+
+  The expectation would have scored it wrong. That is the expectation being
+  stricter than the code, which is the one thing a binding expectation must
+  never be: it would report a correct answer as a wrong argument and send
+  somebody looking for a defect that is not there.
+
+  ## Why a list rather than a looser comparison
+
+  This is the shape prov-2026-66b0116d already settled for `resource`, where
+  todo and todos render identically because the package's transforms are
+  [plural, snake] and [singular, snake]. A list enumerates the spellings a
+  reader can check against the package one at a time, which is exactly what a
+  regular expression could not do and why one is still refused.
+
+  The same discipline bounds it. `""`, `"false"` and anything else still score
+  wrong, because they render something else - `default: ""` does not parse and
+  `default: false` is a boolean default on a string column. The list admits two
+  answers because the package makes two answers identical, not because
+  scoring is being relaxed.
+
+  ## Why the two are identical here and not in general
+
+  They are identical only because the kwarg declares nil as its default. A
+  package whose default were something else would make omission mean that
+  other thing, and the list would be wrong. The expectation is a statement
+  about this package's declaration, which is why it lives in the case rather
+  than in the comparison.
+constraints:
+  - >-
+    The expectation admits an absent kwarg and the literal nil, and nothing
+    else. Every other value still scores wrong, because every other value
+    renders something else.
+  - >-
+    Both todo-rails cases carry the same expectation. They answer one record
+    and their expectation blocks are identical by design, which the
+    arms-controlled test already holds them to.
+  - >-
+    The bare `~` form keeps meaning "must not be bound". This widens one
+    expectation; it does not redefine the notation.
+affected_scope:
+  - evals/cases/todo-rails-defined.yaml
+  - evals/cases/todo-rails-described.yaml
+  - evals/binding_test.go
+forbidden_scope:
+  - internal/**
+  - cmd/**
+type: blueprint
+implements: prov-2026-d554bfc3
+supersedes: ""
+superseded_by: ""
+related:
+  - prov-2026-66b0116d
+  - prov-2026-f03916ba
+sealed_at_sha: ""
+associated_specs:
+  - path: evals/binding_test.go
+    run_command: go test ./$(dirname {{path}})
+associated_traces: []
+monitors: []
+tags:
+  - sedum
+  - evals
