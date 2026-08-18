@@ -1,9 +1,16 @@
 package evals
 
 import (
+	"context"
+	"os"
+	"os/exec"
+	"path/filepath"
+	"sort"
+	"strings"
 	"testing"
 
 	"github.com/calebcowen/sedum/internal/genpkg"
+	"github.com/calebcowen/sedum/internal/pipeline"
 	"github.com/calebcowen/sedum/internal/recording"
 	resolvepkg "github.com/calebcowen/sedum/internal/resolve"
 )
@@ -103,5 +110,116 @@ func TestAnchorFillIsAbsentRatherThanZeroWhenNothingWasPlanted(t *testing.T) {
 	}
 	if _, ok := fill.Rate(); ok {
 		t.Error("a run that planted no anchors reported a fill rate")
+	}
+}
+
+// wrote builds the run result and the on-disk output a syntax check reads,
+// which is the pair the signal is defined over: paths Sedum created, and the
+// bytes it left at them.
+func wrote(t *testing.T, files map[string]string) (string, *pipeline.Result) {
+	t.Helper()
+	dir := t.TempDir()
+	result := &pipeline.Result{}
+	for path, content := range files {
+		full := filepath.Join(dir, path)
+		if err := os.MkdirAll(filepath.Dir(full), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(full, []byte(content), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		result.Files = append(result.Files, resolvepkg.File{
+			Resolution: resolvepkg.Resolution{RecordID: "PR-014", Path: path},
+		})
+	}
+	sort.Slice(result.Files, func(i, j int) bool {
+		return result.Files[i].Path < result.Files[j].Path
+	})
+	return dir, result
+}
+
+// The command's exit status is the whole of the verdict. The harness runs what
+// the case named and reads the code; it does not parse the diagnostic, and it
+// has no opinion about what the command was.
+func TestTheSyntaxCheckIsTheCommandsExitStatus(t *testing.T) {
+	dir, result := wrote(t, map[string]string{
+		"app/models/todo.rb":  "class Todo\nend\n",
+		"app/models/user.rb":  "class User\nend\n",
+		"config/database.yml": "adapter: postgresql\n",
+	})
+
+	got := syntaxOf(context.Background(), Check{".rb": {"true"}}, dir, result)
+	if got.Checked != 2 || got.Parsed != 2 {
+		t.Fatalf("parsed %d of %d, want 2 of 2 - the .yml file has no entry and is not checked",
+			got.Parsed, got.Checked)
+	}
+	if rate, ok := got.Rate(); !ok || rate != 1 {
+		t.Errorf("rate = %v, %v; want 1, true", rate, ok)
+	}
+
+	rejected := syntaxOf(context.Background(), Check{".rb": {"false"}}, dir, result)
+	if rejected.Parsed != 0 || rejected.Checked != 2 {
+		t.Fatalf("parsed %d of %d, want 0 of 2", rejected.Parsed, rejected.Checked)
+	}
+	if len(rejected.Failures) != 2 {
+		t.Errorf("failures = %v, want one per rejected file", rejected.Failures)
+	}
+	if !strings.HasPrefix(rejected.Failures[0], "app/models/todo.rb") {
+		t.Errorf("a failure does not name its file first: %q", rejected.Failures[0])
+	}
+}
+
+// A machine without the interpreter installed must not report every file as
+// malformed. That number would be zero, alarming, and shaped exactly like a
+// real finding about the model - the worst thing a measurement can be.
+func TestAnAbsentInterpreterIsNotAFailingFile(t *testing.T) {
+	dir, result := wrote(t, map[string]string{"app/models/todo.rb": "class Todo\nend\n"})
+
+	got := syntaxOf(context.Background(), Check{".rb": {"sedum-no-such-interpreter"}}, dir, result)
+	if got.Checked != 0 || got.Parsed != 0 || len(got.Failures) != 0 {
+		t.Fatalf("an uninstalled command was counted: %+v", got)
+	}
+	if len(got.Unavailable) != 1 || got.Unavailable[0] != "sedum-no-such-interpreter" {
+		t.Fatalf("unavailable = %v, want the command that could not be run", got.Unavailable)
+	}
+	if _, ok := got.Rate(); ok {
+		t.Error("a rate was reported for files nothing checked")
+	}
+}
+
+// A case that declares no command is measured on every other signal and simply
+// reports no syntactic validity.
+func TestACaseWithNoCheckReportsNoSyntaxRate(t *testing.T) {
+	dir, result := wrote(t, map[string]string{"app/models/todo.rb": "class Todo\nend\n"})
+
+	got := syntaxOf(context.Background(), nil, dir, result)
+	if got.Checked != 0 {
+		t.Fatalf("checked = %d, want 0", got.Checked)
+	}
+	if _, ok := got.Rate(); ok {
+		t.Error("a case with no check command reported a syntax rate")
+	}
+}
+
+// Against a real parser, end to end: the signal exists to catch output that
+// does not parse, and the check that never fails on broken input is worthless.
+func TestARealParserRejectsMalformedOutput(t *testing.T) {
+	if _, err := exec.LookPath("gofmt"); err != nil {
+		t.Skip("gofmt is not on PATH")
+	}
+	dir, result := wrote(t, map[string]string{
+		"handlers/todo.go":   "package handlers\n\nfunc List() {}\n",
+		"handlers/broken.go": "package handlers\n\nfunc List( {}\n",
+	})
+
+	got := syntaxOf(context.Background(), Check{".go": {"gofmt", "-e", "-l"}}, dir, result)
+	if got.Checked != 2 {
+		t.Fatalf("checked = %d, want 2", got.Checked)
+	}
+	if got.Parsed != 1 {
+		t.Fatalf("parsed %d of 2, want 1 - the malformed file was accepted", got.Parsed)
+	}
+	if len(got.Failures) != 1 || !strings.HasPrefix(got.Failures[0], "handlers/broken.go") {
+		t.Errorf("failures = %v, want the broken file named", got.Failures)
 	}
 }

@@ -1,6 +1,12 @@
 package evals
 
 import (
+	"context"
+	"os/exec"
+	"path/filepath"
+	"sort"
+	"strings"
+
 	"github.com/calebcowen/sedum/internal/expand"
 	"github.com/calebcowen/sedum/internal/pipeline"
 	"github.com/calebcowen/sedum/internal/recording"
@@ -85,4 +91,123 @@ func fillOf(result *pipeline.Result) AnchorFill {
 		fill.Add(anchorFill(s.RecordID, s.Files, s.Invocations, result.Variables))
 	}
 	return fill
+}
+
+// Check is the command a case runs over what Sedum wrote, keyed by the file
+// extension it can read.
+//
+// Keyed by extension because a package writes more than one kind of file - the
+// rails package claims .rb and .yml - and ruby -c over a YAML file would fail
+// for a reason that has nothing to do with what the model chose. The harness
+// matches the suffix and runs the command; it does not interpret either, and it
+// has no table of languages to consult. A framework is added by writing a case,
+// never by editing this package (prov-2026-d61010a4).
+//
+// An extension no entry covers is not checked and is not counted, which is why
+// SyntaxCheck reports what it looked at rather than only what passed.
+type Check map[string][]string
+
+// SyntaxCheck is what the target's own parser said about the files a sample
+// wrote.
+//
+// It is not correctness and must never be reported as it. It catches malformed
+// output, not wrong output: params.permit(title, completed) parses as valid Ruby
+// and raises NameError the first time it runs, so the failure that motivated
+// this signal's sibling passes it. Anything read as a claim about behaviour is
+// claiming the rung above (prov-2026-c5697387).
+type SyntaxCheck struct {
+	// Checked is the files an entry in the case's Check covered.
+	Checked int
+	// Parsed is the subset the command accepted.
+	Parsed int
+	// Failures is one line per file the command rejected, in path order.
+	Failures []string
+	// Unavailable names the commands that could not be run at all, because
+	// the binary is not on this machine.
+	//
+	// Separated from a rejection deliberately. A laptop without ruby would
+	// otherwise report every Ruby file as malformed and produce a zero rate
+	// that looks like a catastrophic finding about the model, which is the
+	// worst failure mode a measurement can have: wrong, alarming, and shaped
+	// exactly like a real result.
+	Unavailable []string
+}
+
+// Rate is the fraction of checked files the target's parser accepted, and false
+// when nothing was checked - because the case declares no command, because no
+// file matched one, or because the command is not installed here.
+func (s SyntaxCheck) Rate() (float64, bool) {
+	if s.Checked == 0 {
+		return 0, false
+	}
+	return float64(s.Parsed) / float64(s.Checked), true
+}
+
+// syntaxOf runs the case's check commands over what the run wrote under output.
+//
+// The files are the ones Sedum created and wrote into, read from disk after
+// Phase 7 rather than from anything in memory: the point is what a target's
+// parser makes of the bytes that were actually produced.
+func syntaxOf(ctx context.Context, check Check, output string, result *pipeline.Result) SyntaxCheck {
+	var out SyntaxCheck
+	if len(check) == 0 {
+		return out
+	}
+
+	missing := map[string]bool{}
+	for _, path := range writtenPaths(result) {
+		cmd, ok := check[filepath.Ext(path)]
+		if !ok || len(cmd) == 0 {
+			continue
+		}
+		if _, err := exec.LookPath(cmd[0]); err != nil {
+			if !missing[cmd[0]] {
+				missing[cmd[0]] = true
+				out.Unavailable = append(out.Unavailable, cmd[0])
+			}
+			continue
+		}
+
+		out.Checked++
+		args := append(append([]string{}, cmd[1:]...), path)
+		c := exec.CommandContext(ctx, cmd[0], args...)
+		c.Dir = output
+		if combined, err := c.CombinedOutput(); err != nil {
+			out.Failures = append(out.Failures, path+": "+firstLine(strings.TrimSpace(string(combined))))
+			continue
+		}
+		out.Parsed++
+	}
+	sort.Strings(out.Unavailable)
+	return out
+}
+
+// writtenPaths is every path this run created or injected into, deduplicated
+// and in a stable order.
+//
+// Unmanaged paths are excluded: Sedum did not write them, so their contents are
+// not evidence about what the model chose. A path that was already on disk is
+// excluded for the same reason unless something was injected into it, in which
+// case the bytes are partly Sedum's and worth parsing.
+func writtenPaths(result *pipeline.Result) []string {
+	seen := map[string]bool{}
+	for _, f := range result.Files {
+		if f.Unmanaged || f.Existed {
+			continue
+		}
+		seen[f.Path] = true
+	}
+	for _, i := range result.Injections {
+		if i.Skipped {
+			continue
+		}
+		seen[i.Path] = true
+	}
+
+	out := make([]string, 0, len(seen))
+	for p := range seen {
+		out = append(out, p)
+	}
+	sort.Strings(out)
+	return out
 }

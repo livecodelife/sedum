@@ -114,6 +114,10 @@ type Sample struct {
 	// its Rate reports absent rather than zero when nothing was planted.
 	Fill AnchorFill
 
+	// Syntax is what the target's parser made of what this sample wrote, or
+	// the zero value when the case declares no check command.
+	Syntax SyntaxCheck
+
 	// Elapsed is how long this sample took end to end.
 	//
 	// Recorded because the harness could not previously answer "why is this
@@ -371,6 +375,11 @@ func sample(ctx context.Context, c Case, model string, opts Options) Sample {
 	// cannot: whether a selection accounted for the work its own created files
 	// declared (prov-2026-d61010a4).
 	s.Fill = fillOf(result)
+
+	// The target's own parser over the bytes Phase 7 produced. Malformed
+	// output, not wrong output - the distinction is the constraint, and the
+	// report keeps it (prov-2026-d61010a4).
+	s.Syntax = syntaxOf(ctx, c.Check, output, result)
 
 	// Behaviour last, and only for a sample that produced something to apply.
 	//

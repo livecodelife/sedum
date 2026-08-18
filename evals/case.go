@@ -82,6 +82,16 @@ type Case struct {
 	// Models are the models to measure, each run independently.
 	Models []Model `yaml:"models"`
 
+	// Check is the target's own parser, keyed by the extension it reads, run
+	// over what Sedum wrote. Optional: a case that declares none is measured
+	// on every other signal and reports no syntactic validity.
+	//
+	// It lives on the case rather than in the harness because it is target
+	// knowledge, and a harness carrying a switch on language is one that has to
+	// be edited to add a framework - which is the cost the matrix exists to
+	// avoid (prov-2026-d61010a4).
+	Check Check `yaml:"check,omitempty"`
+
 	Expect Expectations `yaml:"expect"`
 }
 
