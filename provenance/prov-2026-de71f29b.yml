@@ -1,6 +1,6 @@
 id: prov-2026-de71f29b
 title: A smaller model row, because the 14B rejects too rarely to measure recovery
-status: open
+status: implemented
 created_at: "2026-08-17"
 author: calebcowen@gmail.com
 intent: |
@@ -135,7 +135,7 @@ superseded_by: ""
 related:
   - prov-2026-8d4146de
   - prov-2026-b43799a0
-sealed_at_sha: ""
+sealed_at_sha: 33ffdee33e1e851ee7e04ee38f021d11afff2256
 associated_specs:
   - path: evals/run_test.go
     run_command: go test ./$(dirname {{path}})
