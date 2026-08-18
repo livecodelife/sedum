@@ -1,6 +1,6 @@
 id: prov-2026-8d4146de
 title: 'The retry budget is a dimension: it bounds the timeout and gates comparison'
-status: draft
+status: open
 created_at: "2026-08-17"
 author: calebcowen@gmail.com
 intent: |
