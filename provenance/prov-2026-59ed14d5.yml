@@ -1,6 +1,6 @@
 id: prov-2026-59ed14d5
 title: Per-sample cost is a property of the case, not a constant calibrated on one of them
-status: draft
+status: open
 created_at: "2026-08-18"
 author: calebcowen@gmail.com
 intent: |
