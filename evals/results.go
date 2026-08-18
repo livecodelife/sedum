@@ -151,6 +151,25 @@ type SampleRun struct {
 	Fill       *AnchorFill  `json:"fill,omitempty"`
 	Syntax     *SyntaxCheck `json:"syntax,omitempty"`
 	Idempotent *Idempotency `json:"idempotent,omitempty"`
+
+	// Files is what a baseline sample wrote, keyed by path, and is absent on
+	// the sedum arm - where Invocations above is the answer and the files are
+	// derivable from it and the package.
+	//
+	// The contents, not the paths. Storing a rate without the source that
+	// produced it makes an entry single-use: the first baseline run failed the
+	// same fifteen assertions in all five samples, and answering *why* meant
+	// re-deriving it from a separate hand-run probe because the samples
+	// themselves were gone. That is exactly the re-scoring prov-2026-2256e6fa
+	// stores invocations to allow, and the baseline arm's equivalent is this
+	// (prov-2026-a4dbe65c).
+	Files map[string]string `json:"files,omitempty"`
+
+	// Missing is the authorized paths a baseline answer left out, and
+	// Unexpected the paths it wrote that nothing authorized - the second never
+	// reached disk. Both are empty on the sedum arm.
+	Missing    []string `json:"missing,omitempty"`
+	Unexpected []string `json:"unexpected,omitempty"`
 }
 
 // EntrySchema is the current entry format. Additive changes do not move it.
@@ -215,8 +234,22 @@ func NewEntry(m Measurement, endpoint string) Entry {
 			// Only a sample that reached Phase 7 has these to record. A
 			// rejected answer never wrote a file, and storing its zeroes
 			// would put them in a denominator they do not belong in.
-			fill, syntax, idem := s.Fill, s.Syntax, s.Idempotent
-			r.Fill, r.Syntax, r.Idempotent = &fill, &syntax, &idem
+			syntax := s.Syntax
+			r.Syntax = &syntax
+
+			// Anchor fill and idempotency need a package and an invocation
+			// list. Storing them zero-valued for a baseline would put a
+			// measurement nobody made on disk, where the report's care about
+			// not printing them cannot help a later reader
+			// (prov-2026-a4dbe65c).
+			if m.Case.Arm == "baseline" {
+				r.Files = s.Files
+				r.Missing = s.Missing
+				r.Unexpected = s.Unexpected
+				break
+			}
+			fill, idem := s.Fill, s.Idempotent
+			r.Fill, r.Idempotent = &fill, &idem
 		}
 		e.Runs = append(e.Runs, r)
 	}

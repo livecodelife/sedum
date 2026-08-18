@@ -118,16 +118,24 @@ type Sample struct {
 	// the zero value when the case declares no check command.
 	Syntax SyntaxCheck
 
-	// Wrote, Missing and Unexpected are the baseline arm's account of what the
+	// Files, Missing and Unexpected are the baseline arm's account of what the
 	// model produced against what the record authorized, and are empty on the
 	// sedum arm - where Phase 3 creates the authorized paths and the question
 	// does not arise.
+	//
+	// Files carries the contents, not only the paths, and that is the whole
+	// point of it. For the sedum arm the answer is the invocation list and
+	// prov-2026-2256e6fa stores it so an entry can be re-scored against a
+	// question sharpened after the run. For this arm the answer *is* the
+	// source, and an entry without it is a rate nobody can go back to: the
+	// first baseline run failed fifteen assertions in every sample and the
+	// files that did it were already deleted.
 	//
 	// A baseline has no catalog, so "did it answer completely" is a question
 	// about paths rather than about actions. Missing is what it left out and
 	// Unexpected is what it wrote that nothing authorized; the first will fail
 	// the build and the second was never written to disk.
-	Wrote      []string
+	Files      map[string]string
 	Missing    []string
 	Unexpected []string
 

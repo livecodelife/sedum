@@ -829,6 +829,17 @@ TOOL_BOUNDARIES assigns to a different tool. So a baseline is comparable to a
 sedum entry **at `-retries 0`**, and the report says so on its own line rather
 than leaving a reader to notice.
 
+**Each sample's files are stored in the entry**, contents and all. For the
+sedum arm the answer is the invocation list and `2256e6fa` stores that so a
+question sharpened later can be asked of old draws; for this arm the answer
+*is* the source. The first baseline run failed the same fifteen assertions in
+all five samples, and answering *why* meant re-deriving it from a separate
+hand-run probe, because the samples were already gone.
+
+Anchor fill and idempotency are not stored for a baseline. The report already
+declines to print them; storing them zero-valued would leave a measurement
+nobody made on disk, where a later reader has only the file.
+
 **It reuses the behaviour harness.** Of the six phases, only `generate`
 differs — it copies the model's files in rather than running `sedum grow`.
 `scaffold`, `prepare`, `build`, `boot` and `verify` are the sedum arm's, which

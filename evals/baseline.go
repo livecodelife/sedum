@@ -214,7 +214,7 @@ func baselineSample(ctx context.Context, c Case, model string, opts Options) Sam
 		s.Counts[p]++
 	}
 	s.Total = len(files)
-	s.Wrote = sortedNames(files)
+	s.Files = files
 	s.Missing = missing(files, rec.Paths)
 	s.Unexpected = unexpected
 

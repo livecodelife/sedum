@@ -601,8 +601,8 @@ func baseline(out io.Writer, m Measurement) {
 		if s.Err != nil || s.Invalid {
 			continue
 		}
-		wrote += len(s.Wrote)
-		want += len(s.Wrote) + len(s.Missing)
+		wrote += len(s.Files)
+		want += len(s.Files) + len(s.Missing)
 		for _, p := range s.Missing {
 			missingBy[p]++
 		}

@@ -1,6 +1,7 @@
 package evals
 
 import (
+	"encoding/json"
 	"strings"
 	"testing"
 
@@ -142,7 +143,10 @@ func TestABaselineReportPrintsNothingItCannotHave(t *testing.T) {
 		Samples: []Sample{
 			{
 				Counts: map[string]int{"app/models/todo.rb": 1}, Total: 1, Calls: 1,
-				Wrote:   []string{"app/models/todo.rb", "config/routes.rb"},
+				Files: map[string]string{
+					"app/models/todo.rb": "class Todo < ApplicationRecord\nend\n",
+					"config/routes.rb":   "Rails.application.routes.draw do\nend\n",
+				},
 				Missing: []string{"db/migrate/1_create_todos.rb"},
 				Behavior: &BehaviorRun{Outcome: "broke", FailedPhase: "build",
 					Detail: "undefined method"},
@@ -192,5 +196,78 @@ func TestABaselineEntryCarriesItsArm(t *testing.T) {
 	}
 	if len(e.Runs) != 1 || e.Runs[0].Behavior == nil || e.Runs[0].Behavior.Outcome != "working" {
 		t.Errorf("the behaviour outcome did not reach the entry: %+v", e.Runs)
+	}
+}
+
+// The source is the baseline arm's answer, so an entry that stored only a rate
+// would be single-use. The first baseline run failed the same fifteen
+// assertions in all five samples, and answering why meant re-deriving the
+// files from a separate hand-run probe because the samples were already gone
+// (prov-2026-a4dbe65c).
+func TestABaselineEntryCarriesTheSourceItWasScoredOn(t *testing.T) {
+	controller := "class TodosController < ApplicationController\n  def todo_params\n    params.require(:todo).permit(:title)\n  end\nend\n"
+	m := Measurement{
+		Case:  Case{ID: "todo-rails-baseline", Arm: "baseline"},
+		Model: Model{ID: "qwen", Engine: "llama.cpp", Quant: "q4_k_m"},
+		Samples: []Sample{{
+			Counts: map[string]int{"app/controllers/todos_controller.rb": 1}, Total: 1, Calls: 1,
+			Files:      map[string]string{"app/controllers/todos_controller.rb": controller},
+			Missing:    []string{"config/routes.rb"},
+			Unexpected: []string{"config/database.yml"},
+			Behavior:   &BehaviorRun{Outcome: "checks_failed", Checks: 20, Passed: 5},
+		}},
+	}
+
+	encoded, err := json.Marshal(NewEntry(m, "http://localhost:1234/v1"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var back Entry
+	if err := json.Unmarshal(encoded, &back); err != nil {
+		t.Fatal(err)
+	}
+
+	got := back.Runs[0]
+	if got.Files["app/controllers/todos_controller.rb"] != controller {
+		t.Errorf("the source did not survive the round trip: %+v", got.Files)
+	}
+	// The question the first run could not answer from its own entry.
+	if !strings.Contains(got.Files["app/controllers/todos_controller.rb"], "params.require(:todo)") {
+		t.Error("the entry cannot be re-read for which request shape the model chose")
+	}
+	if len(got.Missing) != 1 || len(got.Unexpected) != 1 {
+		t.Errorf("missing=%v unexpected=%v, want both carried", got.Missing, got.Unexpected)
+	}
+
+	// Anchor fill and idempotency need a package and an invocation list. Stored
+	// zero-valued they would read as measured-and-zero to anyone reading the
+	// file rather than the report.
+	if got.Fill != nil || got.Idempotent != nil {
+		t.Errorf("a baseline entry stored signals the arm cannot have: fill=%+v idempotent=%+v", got.Fill, got.Idempotent)
+	}
+	// Syntax survives, because a file is a file whoever wrote it.
+	if got.Syntax == nil {
+		t.Error("the syntax check was not stored; it is the one derived signal a baseline carries")
+	}
+}
+
+// The sedum arm stores neither the files nor the path accounting: its answer is
+// the invocation list, and the files follow from it and the package.
+func TestASedumEntryStoresNoBaselineFields(t *testing.T) {
+	m := Measurement{
+		Case:  Case{ID: "todo-rails-defined", Arm: "sedum"},
+		Model: Model{ID: "qwen", Engine: "llama.cpp", Quant: "q4_k_m"},
+		Samples: []Sample{{
+			Counts: map[string]int{"addColumn": 2}, Total: 2, Calls: 1,
+			Fill: AnchorFill{Planted: 5, Filled: 5},
+		}},
+	}
+
+	e := NewEntry(m, "http://localhost:1234/v1")
+	if got := e.Runs[0]; got.Files != nil || got.Missing != nil || got.Unexpected != nil {
+		t.Errorf("a sedum entry carries the baseline arm's fields: %+v", got)
+	}
+	if e.Runs[0].Fill == nil {
+		t.Error("the sedum arm stopped storing anchor fill")
 	}
 }
