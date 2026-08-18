@@ -1,0 +1,125 @@
+id: prov-2026-59ed14d5
+title: Per-sample cost is a property of the case, not a constant calibrated on one of them
+status: draft
+created_at: "2026-08-18"
+author: calebcowen@gmail.com
+intent: |
+  A case may declare per_sample: how long one of its samples takes. The plan's
+  estimate and its derived timeout both read it, and a case that declares none
+  gets the constant they use today.
+
+  ## The run that found it
+
+  A coarse run of todo-chi-defined planned as `~8m (timeout 15m)`. The last
+  three clean entries for that case walled at 20m37s, 24m45s and 24m50s. The
+  run was given `-timeout 45m` by hand, and needing that is the bug - the same
+  bug and the same sentence as [[prov-2026-8d4146de]], which found the derived
+  timeout ignoring the retry budget. This is the other dimension it ignores.
+
+  Left alone, a default-timeout coarse run of either chi case is killed by
+  `go test` partway with no entry written, which is exactly the failure the
+  derived timeout exists to prevent ([[prov-2026-d31cbfee]]).
+
+  ## The constant is a rails number
+
+  perSample is 90 seconds, documented as the top of the 66-90s observed on the
+  local 14B row. That range was measured on todo-rails. Valid-sample times
+  across every clean entry, same 14B row, same llama.cpp engine:
+
+    todo-rails-defined       64 - 136s
+    todo-rails-described     65 - 130s
+    todo-chi-defined        154 - 494s
+    grocery-chi-defined     217 - 301s
+
+  Roughly three times, in the same direction, on both chi cases. The chi record
+  drives more files and a larger catalog, so a sample is a longer prompt and a
+  longer answer. That is a property of the case, and the constant is used as
+  though it were a property of the model row.
+
+  It is the same shape of error [[prov-2026-de71f29b]] names about reading a
+  rate: a number measured on one row is not a claim about another. Here a
+  number measured on one *case* is being spent on another.
+
+  ## Why the case declares it rather than the harness deriving it
+
+  [[prov-2026-6e3c846c]] already rejected reading a rate back from results/,
+  and that reasoning is untouched: a plan that changed with the last run could
+  not be reproduced from the invocation that printed it, and a new case has no
+  history to read. So the constant has to exist anyway, and a second path used
+  only sometimes is a second thing to be wrong.
+
+  A declared number keeps both properties. The plan is a pure function of the
+  invocation and the case, and a case with nothing declared behaves exactly as
+  it does today.
+
+  ## What the number is
+
+  A typical sample rather than the worst one. The existing constant is already
+  this - rails has been observed at 136s against a 90s constant - and it works
+  because headroom doubles it for the ceiling while the estimate stays honest
+  about what a run will take. A per_sample set to the slowest sample ever seen
+  would make every estimate overstate, and the estimate is what decides whether
+  a run gets started now.
+
+  Both chi cases declare 5m, against observed medians of 240s and 244s. That
+  puts a coarse chi run at `~25m (timeout 50m)` where the clean entries wall at
+  20-25m.
+
+  ## Model rows inside a case are not separated
+
+  A case's rows differ: the 4B rails samples run 32-59s against the 14B's
+  64-136s. per_sample is declared once per case and the faster row simply
+  overstates, which is the safe direction and costs nothing but a pessimistic
+  estimate.
+
+  Splitting it per row is the obvious next thing and is deliberately not done.
+  It would put a duration on every row of every case to fix an error that
+  headroom already absorbs, and nothing measured so far has been killed by it.
+constraints:
+  - >-
+    A case that declares no per_sample derives exactly the plan it derives
+    today. The change is invisible to every case that does not use it.
+  - >-
+    The plan stays a pure function of the invocation and the case files. Nothing
+    reads results/ to size a run, because a plan that changed with the last run
+    could not be reproduced from the invocation that printed it.
+  - >-
+    per_sample is a typical sample rather than the slowest one. Headroom makes
+    the ceiling safe; the estimate stays what a run will actually take, because
+    an estimate that overstates is one nobody starts a run from.
+  - >-
+    Expect and Timeout keep answering different questions. Both read per_sample
+    and neither becomes the other.
+  - >-
+    It is declared once per case. A model row that runs faster overstates, which
+    is the safe direction, and per-row durations are not added to fix an error
+    headroom already absorbs.
+affected_scope:
+  - evals/cmd/eval/main.go
+  - evals/cmd/eval/main_test.go
+  - evals/case.go
+  - evals/cases/**
+  - evals/README.md
+forbidden_scope:
+  - internal/**
+  - cmd/**
+type: blueprint
+implements: prov-2026-b6059aa7
+supersedes: ""
+superseded_by: ""
+related:
+  - prov-2026-6e3c846c
+  - prov-2026-8d4146de
+  - prov-2026-d31cbfee
+sealed_at_sha: ""
+associated_specs:
+  - path: evals/cmd/eval/main_test.go
+    run_command: go test -count=1 ./$(dirname {{path}})
+  - path: evals/run_test.go
+    run_command: go test -count=1 ./$(dirname {{path}})
+associated_traces: []
+monitors: []
+tags:
+  - sedum
+  - evals
+  - measurement
