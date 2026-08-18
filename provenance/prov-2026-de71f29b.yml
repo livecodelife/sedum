@@ -1,6 +1,6 @@
 id: prov-2026-de71f29b
 title: A smaller model row, because the 14B rejects too rarely to measure recovery
-status: draft
+status: open
 created_at: "2026-08-17"
 author: calebcowen@gmail.com
 intent: |
