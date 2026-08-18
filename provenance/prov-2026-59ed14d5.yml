@@ -99,6 +99,7 @@ affected_scope:
   - evals/cmd/eval/main_test.go
   - evals/case.go
   - evals/cases/**
+  - evals/run_test.go
   - evals/README.md
 forbidden_scope:
   - internal/**
