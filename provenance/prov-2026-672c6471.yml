@@ -1,6 +1,6 @@
 id: prov-2026-672c6471
 title: An intent-only arm, to separate what the record specifies from what the catalog does
-status: open
+status: implemented
 created_at: "2026-08-19"
 author: calebcowen@gmail.com
 intent: |
@@ -110,7 +110,7 @@ supersedes: ""
 superseded_by: ""
 related:
   - prov-2026-a4dbe65c
-sealed_at_sha: ""
+sealed_at_sha: 9a3654b237d41a5540906340a9795293250a1947
 associated_specs:
   # The arm is a prompt and a parsing rule, and both are unit-level claims the
   # eval package's own tests can hold without an endpoint.
