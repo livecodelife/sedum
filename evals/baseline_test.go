@@ -271,3 +271,84 @@ func TestASedumEntryStoresNoBaselineFields(t *testing.T) {
 		t.Error("the sedum arm stopped storing anchor fill")
 	}
 }
+
+// The first rung of the ladder is a prompt. A constraint or a file list in it
+// would be a rung it is not standing on (prov-2026-672c6471).
+func TestTheIntentPromptCarriesTheIntentAndNothingElse(t *testing.T) {
+	rec := &record.Record{
+		ID:          "eval-todo-rails",
+		Intent:      "Add the todo resource: a JSON API over /todos.",
+		Constraints: []string{"Five endpoints on /todos and /todos/:id."},
+		Paths:       []string{"app/models/todo.rb", "config/routes.rb"},
+	}
+
+	var whole string
+	for _, m := range intentPrompt(rec) {
+		whole += m.Content + "\n"
+	}
+
+	if !strings.Contains(whole, "Add the todo resource") {
+		t.Error("the intent is not in the prompt")
+	}
+	if strings.Contains(whole, "Five endpoints") {
+		t.Error("a constraint reached the prompt; this arm is given the intent and no more")
+	}
+	for _, p := range rec.Paths {
+		if strings.Contains(whole, p) {
+			t.Errorf("the file list reached the prompt: %s", p)
+		}
+	}
+
+	// The baseline arm is the rung above and must still carry both.
+	var baseline string
+	for _, m := range baselinePrompt(rec) {
+		baseline += m.Content + "\n"
+	}
+	if !strings.Contains(baseline, "Five endpoints") || !strings.Contains(baseline, "config/routes.rb") {
+		t.Error("the baseline arm lost its constraints or its file list")
+	}
+}
+
+// Told no paths, it cannot be held to them. Filtering an answer against a list
+// it never saw would score whether it guessed the paths this standard happens
+// to use.
+func TestAnswersAreNotFilteredWhenNoPathsWereGiven(t *testing.T) {
+	answer := "```app/models/thing.rb\nclass Thing; end\n```\n" +
+		"```lib/somewhere/else.rb\nmodule Else; end\n```\n"
+
+	files, unexpected, err := parseFencedFiles(answer, nil)
+	if err != nil {
+		t.Fatalf("parsing: %v", err)
+	}
+	if len(files) != 2 {
+		t.Errorf("kept %d of 2 files: %v", len(files), files)
+	}
+	if len(unexpected) != 0 {
+		t.Errorf("reported %v as unexpected, but no path was ever authorized", unexpected)
+	}
+
+	// An arm that was given paths is still held to them.
+	files, unexpected, err = parseFencedFiles(answer, []string{"app/models/thing.rb"})
+	if err != nil {
+		t.Fatalf("parsing: %v", err)
+	}
+	if len(files) != 1 {
+		t.Errorf("kept %d of 1 authorized file: %v", len(files), files)
+	}
+	if len(unexpected) != 1 || unexpected[0] != "lib/somewhere/else.rb" {
+		t.Errorf("unexpected paths were %v, want the one outside the record", unexpected)
+	}
+}
+
+// A package-free arm has no selection, binding, anchor fill or idempotency to
+// score, and the sites that ask are asking that rather than which arm it is.
+func TestBothPackageFreeArmsAreRecognised(t *testing.T) {
+	for _, tc := range []struct {
+		arm  string
+		want bool
+	}{{"sedum", false}, {"baseline", true}, {"intent", true}} {
+		if got := (Case{Arm: tc.arm}).WithoutPackage(); got != tc.want {
+			t.Errorf("arm %q: WithoutPackage() = %v, want %v", tc.arm, got, tc.want)
+		}
+	}
+}

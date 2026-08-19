@@ -259,7 +259,7 @@ func NewEntry(m Measurement, endpoint string) Entry {
 			// measurement nobody made on disk, where the report's care about
 			// not printing them cannot help a later reader
 			// (prov-2026-a4dbe65c).
-			if m.Case.Arm == "baseline" {
+			if m.Case.WithoutPackage() {
 				r.Files = s.Files
 				r.Missing = s.Missing
 				r.Unexpected = s.Unexpected

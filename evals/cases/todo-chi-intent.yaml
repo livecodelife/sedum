@@ -1,0 +1,62 @@
+# The first rung of the ladder: a prompt, and nothing else.
+#
+# The sedum arm has a record and a catalog. The baseline arm has the record - its
+# intent, its constraints and the paths it authorizes - which is a precise
+# specification, and it scores accordingly. This arm has the intent and no more,
+# so what it measures is what a sentence alone produces (prov-2026-672c6471).
+#
+# It is not a path-for-path comparison with the other arms and is not meant to
+# be. Told no paths, it cannot be held to them, so it is exempt from the filter
+# the others are held to and writes files of its own choosing. What the three
+# arms share is the behaviour question: the target boots what was written and
+# asserts against it, which is the same question whoever wrote the code.
+id: todo-chi-intent
+
+application:
+  name: todo
+  complexity: 1
+
+language: go
+framework: chi
+arm: intent
+
+# No generators line, and no constraints reaching the model. The record is still
+# named because the behaviour target reads it - the paths it authorizes are what
+# `prepare` clears - and because the intent this arm is given is the record's.
+records: todo-api/records
+
+# tightness is a property of a generator package and this arm has none.
+tightness: ""
+
+models:
+  - id: qwen2.5-coder-14b-instruct
+    engine: llama.cpp
+    quant: q4_k_m
+  - id: qwen/qwen3-4b-2507
+    engine: mlx
+    quant: 4bit
+  # The large row. A 30B mixture-of-experts on a machine that can hold it, so
+  # that a rate measured on a 4B and a 14B is read against something well above
+  # both rather than only against something below.
+  - id: qwen/qwen3-30b-a3b
+    engine: mlx
+    quant: 4bit
+
+# A baseline sample is one model call and then a scaffold, a bundle install, a
+# database and a boot - the same tail the sedum arm pays under -behavior. The
+# rails behaviour samples run about 20s warm on top of the call.
+per_sample: 3m
+
+# The same parser over what the model wrote. It is the one derived signal a
+# baseline can carry: fill rate needs anchors and idempotency needs invocations,
+# and this arm has neither.
+check:
+  ".rb": ["ruby", "-c"]
+
+expect:
+  # Behaviour is the only rung that can score an arm with no vocabulary: there is
+  # no selection to be right about, so a service that runs and satisfies the
+  # record is the whole measurement.
+  behavior:
+    target: todo-chi
+    pass_rate: 1.0

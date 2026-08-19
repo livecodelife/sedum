@@ -40,6 +40,43 @@ leave none of the listed files out.`
 // framework and its version would answer "does a catalog beat a good prompt"
 // rather than "does Sedum beat not using Sedum", and the second is the question
 // the arm exists for.
+// intentSystem is baselineSystem without the two promises the intent arm cannot
+// keep: it is given no constraints and no list of paths, so it has to decide for
+// itself which files a change needs and what belongs in each.
+//
+// The fenced-file format is unchanged, because the arms differ in what the model
+// is told about the change and not in how it answers.
+const intentSystem = `You write the source files a change requires.
+
+You will be given a change's intent. Decide which files the change needs, what
+each of them is called, and what belongs in them.
+
+Return one markdown code fence per file. The fence's info string is the file
+path and the fence body is the complete contents of that file:
+
+` + "```" + `path/to/file.ext
+the entire contents of that file
+` + "```" + `
+
+Write no prose outside the fences.`
+
+// intentPrompt is the record's intent and nothing else - no constraints, no
+// list of files to write.
+//
+// The three arms are a ladder of what the model was given: a prompt, a record, a
+// record and a catalog. The point of the first rung is what a sentence alone
+// produces, so anything else in the prompt is a rung it is not standing on
+// (prov-2026-672c6471).
+func intentPrompt(rec *record.Record) []selection.Message {
+	var b strings.Builder
+	b.WriteString("# Intent\n\n")
+	b.WriteString(strings.TrimSpace(rec.Intent))
+	return []selection.Message{
+		{Role: "system", Content: intentSystem},
+		{Role: "user", Content: b.String()},
+	}
+}
+
 func baselinePrompt(rec *record.Record) []selection.Message {
 	var b strings.Builder
 
@@ -76,7 +113,14 @@ func baselinePrompt(rec *record.Record) []selection.Message {
 // what affected_scope names - and a path outside the list is reported rather
 // than silently dropped, because a model writing the right code at the wrong
 // path is a different finding from one writing nothing.
+// A nil allowed list accepts every path the answer carries. That is the intent
+// arm, which is told no paths and so cannot be held to them: filtering against a
+// list it never saw would score whether it guessed the ones this standard
+// happens to use. It is therefore not a path-for-path comparison with the other
+// arms, which is the point rather than a defect - it is measuring the absence of
+// Sedum (prov-2026-672c6471).
 func parseFencedFiles(raw string, allowed []string) (map[string]string, []string, error) {
+	anyPath := allowed == nil
 	ok := map[string]bool{}
 	for _, p := range allowed {
 		ok[p] = true
@@ -107,7 +151,7 @@ func parseFencedFiles(raw string, allowed []string) (map[string]string, []string
 			content += "\n"
 		}
 		switch {
-		case ok[p]:
+		case anyPath, ok[p]:
 			files[p] = content
 		default:
 			unexpected = append(unexpected, p)
@@ -153,12 +197,24 @@ func missing(files map[string]string, allowed []string) []string {
 // the repair loop TOOL_BOUNDARIES assigns to another tool. It is comparable to
 // the sedum arm at retries zero, which is what almost every stored entry was
 // drawn at (prov-2026-a4dbe65c).
-func baselineAnswer(ctx context.Context, client selection.Client, rec *record.Record) (map[string]string, selection.Completion, []string, error) {
-	answer, err := client.Complete(ctx, baselinePrompt(rec))
+// The arm decides two things and nothing else: what the model is told, and
+// whether the answer is held to the record's paths. Everything after - the
+// scaffold, the build, the boot, the assertions - is the same question whoever
+// wrote the code (prov-2026-672c6471).
+func baselineAnswer(ctx context.Context, client selection.Client, rec *record.Record, arm string) (map[string]string, selection.Completion, []string, error) {
+	prompt := baselinePrompt(rec)
+	allowed := rec.Paths
+	if arm == "intent" {
+		prompt = intentPrompt(rec)
+		// nil, not empty: told no paths, it cannot be held to them.
+		allowed = nil
+	}
+
+	answer, err := client.Complete(ctx, prompt)
 	if err != nil {
 		return nil, answer, nil, err
 	}
-	files, unexpected, err := parseFencedFiles(answer.Content, rec.Paths)
+	files, unexpected, err := parseFencedFiles(answer.Content, allowed)
 	return files, answer, unexpected, err
 }
 
@@ -183,7 +239,7 @@ func baselineSample(ctx context.Context, c Case, model string, opts Options) Sam
 		return Sample{Err: err, Detail: firstLine(err.Error()), Elapsed: time.Since(started)}
 	}
 
-	files, answer, unexpected, err := baselineAnswer(ctx, client, rec)
+	files, answer, unexpected, err := baselineAnswer(ctx, client, rec, c.Arm)
 	s := Sample{
 		Counts:           map[string]int{},
 		Calls:            1,

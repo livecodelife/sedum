@@ -267,7 +267,7 @@ func Run(ctx context.Context, c Case, model Model, opts Options) (Measurement, e
 	// can score it. A run that could not collect the one number it exists to
 	// produce is refused before the first call rather than after paying for
 	// every sample (prov-2026-a4dbe65c).
-	if c.Arm == "baseline" {
+	if c.WithoutPackage() {
 		if !opts.Behavior {
 			return Measurement{}, fmt.Errorf(
 				"case %s has arm baseline, which only behaviour can score: run with -behavior or the samples measure nothing", c.ID)
@@ -317,7 +317,7 @@ func Run(ctx context.Context, c Case, model Model, opts Options) (Measurement, e
 			defer wg.Done()
 			slots <- struct{}{}
 			defer func() { <-slots }()
-			if c.Arm == "baseline" {
+			if c.WithoutPackage() {
 				m.Samples[i] = baselineSample(ctx, c, model.ID, opts)
 				return
 			}

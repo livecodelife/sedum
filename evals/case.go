@@ -59,9 +59,15 @@ type Case struct {
 	// rather than packages.
 	Tightness string `yaml:"tightness"`
 
-	// Arm is "sedum" or "baseline". A baseline arm asks the same model for the
-	// same application with no generator package and no action vocabulary, and
-	// exists because a selection rate has no meaning without one.
+	// Arm is "sedum", "baseline" or "intent" - a ladder of what the model was
+	// given. sedum has a record and a catalog; baseline has the record and no
+	// catalog; intent has the record's intent and nothing else, not its
+	// constraints and not its file list.
+	//
+	// The two lower rungs exist because a selection rate has no meaning without
+	// one, and because a baseline handed six constraints and a file list is a
+	// model given a precise specification rather than a model given no tooling
+	// (prov-2026-a4dbe65c, prov-2026-672c6471).
 	Arm string `yaml:"arm"`
 
 	// Generators and Records are directories, resolved against the root passed
@@ -109,6 +115,17 @@ type Case struct {
 	PerSample time.Duration `yaml:"per_sample,omitempty"`
 
 	Expect Expectations `yaml:"expect"`
+}
+
+// WithoutPackage reports whether the arm has no generator package, and so no
+// selection, binding, anchor fill or idempotency to score - which makes
+// behaviour the only rung that can measure it.
+//
+// A predicate rather than a comparison at each site, because the sites that ask
+// are asking that question and not which arm it is: a third arm that is also
+// package-free would otherwise have to be remembered in four places.
+func (c Case) WithoutPackage() bool {
+	return c.Arm == "baseline" || c.Arm == "intent"
 }
 
 // Model is one row of the model axis: what to ask for, and what is actually
@@ -325,8 +342,8 @@ func (c Case) validate(file string) error {
 					file, c.ID, label, dir)
 			}
 		}
-	case "baseline":
-		// A baseline arm has no generator package by construction - that
+	case "baseline", "intent":
+		// Neither arm has a generator package by construction - that
 		// absence is the arm - so the directory checks above do not apply. What
 		// it does need is somewhere to boot what the model writes, because
 		// behaviour is the only rung that can score it (prov-2026-a4dbe65c).

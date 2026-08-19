@@ -97,7 +97,7 @@ func Report(out io.Writer, m Measurement) {
 	// about it. What it produced is a set of paths against the ones the record
 	// authorized, which is the completeness question that survives without a
 	// vocabulary (prov-2026-a4dbe65c).
-	if m.Case.Arm == "baseline" {
+	if m.Case.WithoutPackage() {
 		baseline(out, m)
 		signals(out, m)
 		behavior(out, m)
