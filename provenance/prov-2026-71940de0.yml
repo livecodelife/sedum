@@ -1,6 +1,6 @@
 id: prov-2026-71940de0
 title: The assertions hold up as objective, and the Go arm gains the schema checks its record already required
-status: open
+status: implemented
 created_at: "2026-08-18"
 author: calebcowen@gmail.com
 intent: |
@@ -84,7 +84,7 @@ superseded_by: ""
 related:
   - prov-2026-d9e344f5
   - prov-2026-a4dbe65c
-sealed_at_sha: ""
+sealed_at_sha: c9e9a2685831531a66eef0094ee0aca2f3f1fc1e
 associated_specs:
   - path: evals/behavior/README.md
     run_command: test -f {{path}}
