@@ -1,0 +1,144 @@
+id: prov-2026-39b815a1
+status: draft
+created_at: "2026-08-18"
+author: calebcowen@gmail.com
+title: 'Sedum speaks the Anthropic wire format, and a wire format is part of a model row''s identity'
+intent: |
+  A second selection.Client implementation talks to /v1/messages. Which one a
+  run uses follows from which pair of environment variables is set. The eval's
+  Model type carries the wire format, because the same checkpoint served two
+  ways is two rows.
+
+  ## The configuration falls out of a record that already exists
+
+  [[prov-2026-2f131ba6]] settled why the endpoint is OPENAI_BASE_URL and the
+  credential is OPENAI_API_KEY:
+
+    They are the names go-openai's ecosystem already uses, which is the whole
+    argument... inventing SEDUM_-prefixed aliases would mean every user
+    configuring a local endpoint sets a second variable that means what the
+    first one already meant. A team that has an OpenAI-compatible endpoint
+    working for anything else has it working for Sedum.
+
+  That sentence transfers with one word changed. The Anthropic SDKs read
+  ANTHROPIC_API_KEY and ANTHROPIC_BASE_URL, so those are the names, and a team
+  with a working Anthropic configuration has a working Sedum configuration.
+
+  So there is no --llm-provider flag and no SEDUM_ prefix. The provider is
+  whichever pair is set. Both pairs set is an error naming both, in the same
+  register 2f131ba6 already refuses an empty key: a run that guessed which
+  endpoint was meant would be choosing an operational dependency on the user's
+  behalf.
+
+  This extends 2f131ba6 rather than revising it - the decision being followed is
+  its own, applied to a second provider.
+
+  ## Why it cannot be reached from the client that exists
+
+  The Anthropic API is POST /v1/messages, with a request and response envelope
+  the OpenAI /v1/chat/completions client cannot produce or parse. This is not a
+  base-URL change.
+
+  ## The dependency is an imprint-level decision, and this is its reason
+
+  [[prov-2026-d554bfc3]] names the baseline stack and requires a stated reason
+  for any addition. The addition is github.com/anthropics/anthropic-sdk-go, and
+  the reason is the paragraph above: the wire format is not reachable from the
+  client already vendored, and hand-rolling a second HTTP client for a
+  documented API is the kind of work "prefer well-known third-party packages
+  over hand-rolled equivalents" exists to prevent.
+
+  ## What must be re-established rather than assumed
+
+  [[prov-2026-4bcabb2f]] found that constraining the response envelope made the
+  model stop selecting: the same prompt that produced three correct invocations
+  produced {"invocations": []} every time, because grammar-constrained decoding
+  takes the shortest legal completion and an empty array is legal.
+
+  That is a finding about one server and one mechanism. Anthropic's structured
+  outputs are a different mechanism, so "no response_format is sent" carries
+  over as the *default* and not as a proven result. Whether constraining the
+  envelope there collapses selection the same way is measured, not inherited.
+
+  ## The wire format is part of a row's identity
+
+  [[prov-2026-e6969eb3]] made Engine part of the Model type because its absence
+  "is what silently merges two rows over one checkpoint", and
+  [[prov-2026-de71f29b]] leaned on the same point when it recorded a row as mlx
+  rather than as what its id suggested.
+
+  A wire format is the same kind of fact. LM Studio serves one loaded checkpoint
+  over both /chat/completions and /v1/messages, so the two differ in the
+  envelope, the system-prompt placement, and what the decoder will accept -
+  every one of which Phase 4 and Phase 5 are sensitive to. Two wire formats over
+  one checkpoint are two rows, for exactly the reason two runtimes are.
+
+  That is also what makes this worth measuring rather than merely supporting:
+  the same local model, the same package, the same record, one variable changed.
+
+  ## What is deliberately not done
+
+  No hosted Anthropic row is added. [[prov-2026-98ab639c]] already states what a
+  hosted row costs - a third party receives the record and the generator package
+  - and that argument is unchanged by which vendor is on the other end. A local
+  Anthropic-shaped endpoint has no such exposure and is where this starts.
+
+  Nothing about retries, backoff, or provider fallback. A transport concern is
+  not a wire-format concern and would be its own record.
+constraints:
+  - >-
+    The endpoint and credential are ANTHROPIC_BASE_URL and ANTHROPIC_API_KEY,
+    for the reason prov-2026-2f131ba6 gives for the OpenAI pair: a working
+    provider configuration should already be a working Sedum configuration.
+  - >-
+    The provider follows from which pair is set. No flag and no SEDUM_ prefix.
+    Both pairs set is an error naming both rather than a guess.
+  - >-
+    No generator package and no provenance record may name a provider, an
+    endpoint, or a credential. This is operational and belongs to the
+    invocation, exactly as the model name does.
+  - >-
+    Whether a constrained response envelope collapses selection on this wire
+    format is measured before anything relies on it. prov-2026-4bcabb2f is a
+    finding about one server and carries over as a default, not a result.
+  - >-
+    The eval's Model type carries the wire format, and a rate measured on one is
+    never read as a claim about the other. Two wire formats over one checkpoint
+    are two rows, for the reason two runtimes are.
+  - >-
+    Selection stays the model's only job. A different envelope does not license
+    tool calling, and prov-2026-4bcabb2f's reasoning about excluding models
+    without tool support is unaffected.
+affected_scope:
+  - internal/selection/**
+  - evals/case.go
+  - evals/run.go
+  - evals/run_test.go
+  - go.mod
+  - go.sum
+  - README.md
+forbidden_scope:
+  - internal/genpkg/**
+  - internal/inject/**
+  - internal/record/**
+type: blueprint
+implements: prov-2026-d554bfc3
+supersedes: ""
+superseded_by: ""
+related:
+  - prov-2026-2f131ba6
+  - prov-2026-4bcabb2f
+  - prov-2026-e6969eb3
+  - prov-2026-98ab639c
+sealed_at_sha: ""
+associated_specs:
+  - path: internal/selection/selection_test.go
+    run_command: go test -count=1 ./$(dirname {{path}})
+  - path: evals/run_test.go
+    run_command: go test -count=1 ./$(dirname {{path}})
+associated_traces: []
+monitors: []
+tags:
+  - sedum
+  - llm
+  - measurement
