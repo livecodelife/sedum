@@ -144,6 +144,11 @@ affected_scope:
   - internal/pipeline/**
   - internal/record/**
   - internal/cli/grow.go
+  # M7 is the last milestone, so implementing --execute removes the final
+  # caller of notImplemented and retires the test that asserted a command was
+  # still waiting on a milestone.
+  - internal/cli/config.go
+  - internal/cli/flags_test.go
   - testdata/**
 forbidden_scope: []
 type: blueprint
