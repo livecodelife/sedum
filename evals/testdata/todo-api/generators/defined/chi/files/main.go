@@ -48,5 +48,13 @@ func main() {
 
 	// sedum:anchor:routes
 
-	log.Fatal(http.ListenAndServe(":8080", r))
+	// The listen address comes from the environment, the same way the database
+	// URL two dozen lines up does. A service that configures one and hardcodes
+	// the other has no convention, only an accident.
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = "8080"
+	}
+
+	log.Fatal(http.ListenAndServe(":"+port, r))
 }

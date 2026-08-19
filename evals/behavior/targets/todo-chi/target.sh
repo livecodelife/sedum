@@ -70,9 +70,13 @@ target_boot() {
   createdb "$DBNAME" || return 1
   psql -q -d "$PGURL/$DBNAME" -f "$APP/init.sql" || return 1
 
-  APP_PORT=8080   # the file template hardcodes the listen port
+  # The harness picks the port and tells the service, rather than knowing
+  # what the template chose. main.go is in the record's affected_scope, so
+  # the baseline arm writes it too, and a hardcoded port here would fail an
+  # arm that listened anywhere else (prov-2026-682a079b).
+  APP_PORT=$(free_port)
   BASE_URL="http://127.0.0.1:$APP_PORT"
-  DATABASE_URL="$PGURL/$DBNAME?sslmode=disable" "$WORK/server" > "$LOGS/server.log" 2>&1 &
+  PORT="$APP_PORT" DATABASE_URL="$PGURL/$DBNAME?sslmode=disable" "$WORK/server" > "$LOGS/server.log" 2>&1 &
   APP_PID=$!
 
   # The base URL and no path: a boot gate waits for a listener, and any HTTP

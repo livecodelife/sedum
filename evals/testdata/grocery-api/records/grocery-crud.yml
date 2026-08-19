@@ -31,6 +31,10 @@ constraints:
     timestamps are supplied by the schema, so declaring any of those three again
     is a duplicate column.
   - >-
+    The service listens on the port named by the PORT environment variable,
+    defaulting to 8080. A caller cannot reach it without knowing that, which
+    is why it is here rather than left to the standard.
+  - >-
     JSON responses carry id, name, quantity, created_at and updated_at.
   - >-
     Only name and quantity are read from a request body. Anything else is
