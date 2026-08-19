@@ -1,0 +1,105 @@
+id: prov-2026-27c10ac4
+title: Attribute a dead build phase to the action whose region the compiler named
+status: draft
+created_at: "2026-08-19"
+author: calebcowen@gmail.com
+intent: |
+  A `failed` behaviour sample records which phase died and the tail of that
+  phase's log. It does not record which action wrote the line that killed it,
+  and the ownership marker already says.
+
+  ## What it costs today
+
+  A coarse run put five of ten Chi samples in `build`. Reading the numbers, that
+  was five identical-looking deaths. Reading the log tails by hand, it was three
+  distinct defects:
+
+      db/groceries.go:48:15: in.quantity undefined (type Grocery has no field
+        or method quantity, but does have field Quantity)     x3
+      db/todos.go:30:17: syntax error: unexpected literal `json:"title"`        x1
+      db/todos.go:26:2: other declaration of ID                                 x1
+
+  Attributing those to createQuery/insert, addStructField and addStructField
+  took a hand trace across the stored invocations of every failed sample. The
+  file and line were in the result the whole time, and so was the mapping.
+
+  ## The mapping already exists and is public
+
+  A region is written between markers naming the action, the variant, the kwargs
+  it was rendered from, and the record:
+
+      // sedum:createQuery:insert {"tier":"owned","record":"...","kwargs":{...}}
+      // /sedum:createQuery:insert
+
+  marker.go says the action and variant stay literal on the line precisely so
+  that "grepping markers yields file -> action -> variant with no maintained
+  index". Resolving `db/groceries.go:48` to an action is scanning that file for
+  the enclosing marker pair. It reads text and needs no compiler, no parser and
+  no knowledge of Go.
+
+  ## Where it has to happen
+
+  In behave.sh, at the point the phase's log tail is captured. The generated
+  project is deleted on teardown, so a lookup performed anywhere later has no
+  file to read. The result gains the attribution, not the tree.
+
+  ## What it is not
+
+  It is not feedback to the model. Sedum's loop must not consume a compiler's
+  opinion of the code: TOOL_BOUNDARIES.md 2-3 puts building and grading above
+  Sedum rather than inside it, and the completeness check is not precedent -
+  that signal is derived from disk state Sedum itself produced, planted minus
+  filled, rather than from another tool's judgment. This record adds a column to
+  a measurement and changes nothing about how a selection is made.
+
+  It also would not have saved the samples that prompted it. Told "you wrote
+  in.quantity and the field is Quantity", a model would have been asked to work
+  around a package that transformed one appearance of a name and not the other,
+  which is what prov-2026-0cc65e62 fixed at the source.
+constraints:
+  - >-
+    Attribution is computed while the generated project exists, in the phase
+    that captured the log, because teardown deletes the tree and a later lookup
+    has nothing to read.
+  - >-
+    The lookup is text. It finds the marker pair enclosing a line and reads the
+    action, variant and kwargs off it. Nothing parses the generated language,
+    and a target for a new stack inherits attribution without writing any.
+  - >-
+    A line no marker encloses is reported as unattributed rather than guessed
+    at. The compiler often names the file template's own text - the first of two
+    declarations is the template's line, not the injected one - and an
+    attribution that reached for the nearest marker would name an action that
+    did not write it.
+  - >-
+    A build naming several files and lines yields several attributions, counted
+    per action rather than collapsed to the first. Three samples dying in one
+    action and three dying in three are different findings.
+  - >-
+    Nothing is fed back to the model and no phase of a run changes. The eval
+    reports what it already had; a selection made before this change and one
+    made after are the same selection.
+  - >-
+    An older entry carries no attribution and reads as absent rather than as
+    none, on the rule the schema already holds itself to: a dash is not a zero.
+affected_scope:
+  - evals/behavior/behave.sh
+  - evals/behavior.go
+  - evals/behavior_test.go
+  - evals/report.go
+  - evals/results.go
+  - evals/results_test.go
+  - evals/behavior/README.md
+forbidden_scope:
+  - internal/**
+  - cmd/**
+type: blueprint
+supersedes: ""
+superseded_by: ""
+related:
+  - prov-2026-0cc65e62
+sealed_at_sha: ""
+associated_specs: []
+associated_traces: []
+monitors: []
+tags: []
