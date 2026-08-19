@@ -46,6 +46,24 @@ models:
   - id: qwen/qwen3-30b-a3b
     engine: mlx
     quant: 4bit
+  # The size ladder: one family, one specialisation, one quantisation, varying
+  # only in size. The 0.5B is expected to score badly and is the floor a low
+  # number is read against (prov-2026-84158f7e).
+  - id: qwen2.5-coder-0.5b-instruct-mlx
+    engine: mlx
+    quant: 4bit
+  - id: qwen2.5-coder-3b-instruct-mlx
+    engine: mlx
+    quant: 4bit
+  - id: qwen2.5-coder-7b-instruct-mlx
+    engine: mlx
+    quant: 4bit
+  # The specialised twin of qwen/qwen3-30b-a3b: same size, same mixture of
+  # experts, same active parameter count, same quantisation, differing only in
+  # what it was trained for. It carries no a3b in its name and is one.
+  - id: qwen/qwen3-coder-30b
+    engine: mlx
+    quant: 4bit
 
 # A baseline sample is one model call and then a scaffold, a bundle install, a
 # database and a boot - the same tail the sedum arm pays under -behavior. The
