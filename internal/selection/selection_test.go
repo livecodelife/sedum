@@ -1276,3 +1276,50 @@ func TestACompletionIsCapped(t *testing.T) {
 		t.Errorf("junk gave %d, want the default", got)
 	}
 }
+
+// Validate is the entry point replay uses. It exists so that there is one
+// validator rather than two that agree on the day they were written, so what is
+// asserted here is that reaching it from outside produces the same verdicts the
+// model path gets (prov-2026-6903db40).
+
+func TestValidateRejectsAnUnknownActionForANonModelCaller(t *testing.T) {
+	set := loadSet(t, generators())
+	files := created(t, set, "app/controllers/users_controller.rb@rails")
+
+	violations := Validate(files, []recording.Invocation{
+		{Action: "createControllerMethd", Kwargs: map[string]any{"controller": "users", "name": "index"}},
+	})
+
+	if len(violations) == 0 {
+		t.Fatal("an action that does not exist was accepted")
+	}
+	if violations[0].Rule != RuleUnknownAction {
+		t.Errorf("rule = %v, want the same rule the model path reports", violations[0].Rule)
+	}
+}
+
+func TestValidateRejectsAMissingRequiredKwarg(t *testing.T) {
+	set := loadSet(t, generators())
+	files := created(t, set, "app/controllers/users_controller.rb@rails")
+
+	violations := Validate(files, []recording.Invocation{
+		{Action: "createControllerMethod", Kwargs: map[string]any{"controller": "users"}},
+	})
+
+	if len(violations) == 0 {
+		t.Fatal("an invocation omitting a required kwarg was accepted")
+	}
+}
+
+// A correct invocation passes, so the checks above are rejecting the fault
+// rather than rejecting everything.
+func TestValidateAcceptsACorrectInvocation(t *testing.T) {
+	set := loadSet(t, generators())
+	files := created(t, set, "app/controllers/users_controller.rb@rails")
+
+	if violations := Validate(files, []recording.Invocation{
+		{Action: "createControllerMethod", Kwargs: map[string]any{"controller": "users", "name": "index", "collection": "users"}},
+	}); len(violations) > 0 {
+		t.Errorf("a correct invocation was rejected: %v", violations)
+	}
+}
