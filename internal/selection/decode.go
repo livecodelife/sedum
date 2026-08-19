@@ -65,7 +65,7 @@ func decode(raw string) ([]recording.Invocation, []Violation) {
 	)
 	for i, entry := range entries {
 		var wire wireInvocation
-		if err := strictJSON(entry, &wire); err != nil {
+		if err := readJSON(entry, &wire); err != nil {
 			violations = append(violations, Violation{
 				Index: i + 1,
 				Rule:  "invocation_shape",
@@ -106,7 +106,7 @@ func entriesOf(body string) ([]json.RawMessage, *Violation) {
 	}
 
 	var env envelope
-	if err := strictJSON([]byte(body), &env); err != nil {
+	if err := readJSON([]byte(body), &env); err != nil {
 		return nil, &Violation{
 			Rule: "response_shape",
 			Detail: fmt.Sprintf(
@@ -129,12 +129,23 @@ func entriesOf(body string) ([]json.RawMessage, *Violation) {
 	return env.Invocations, nil
 }
 
-// strictJSON decodes with unknown fields rejected. Every shape the model
-// returns is held to the schema it was given, and a key beyond it is reported
-// rather than dropped.
-func strictJSON(data []byte, into any) error {
+// readJSON decodes one complete JSON value, ignoring keys the shape does not
+// name.
+//
+// It used to reject them. A response is an answer to a question rather than a
+// schema, and an entry naming the right action with the right arguments was
+// being discarded whole for carrying anything beside them - so a model that
+// annotated its own choice scored nothing. Five of fifty samples on the 4B
+// described row never reached selection for it, while the other forty-five
+// produced 900 of 900 assertions (prov-2026-986ac4ca).
+//
+// Leniency does not hide a mistyped key. An entry sending "kwarg" rather than
+// "kwargs" decodes to no arguments and is rejected under missing_kwarg, naming
+// the arguments it lacks, which is more actionable than being told the entry was
+// unreadable. What is ignored is never read: a key the format does not define is
+// not a channel.
+func readJSON(data []byte, into any) error {
 	dec := json.NewDecoder(bytes.NewReader(data))
-	dec.DisallowUnknownFields()
 	if err := dec.Decode(into); err != nil {
 		return err
 	}

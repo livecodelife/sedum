@@ -340,23 +340,53 @@ func TestBothEnvelopeShapesAreAccepted(t *testing.T) {
 	}
 }
 
-// The tolerance stops at formatting. A key beyond the declared schema is the
-// clearest signal that the model has read the task differently, and dropping it
-// silently would discard exactly that (prov-2026-abd43bb4).
-func TestKeysBeyondTheSchemaAreRejected(t *testing.T) {
+// The tolerance now includes a key nobody asked for. abd43bb4 rejected one, on
+// the reasoning that ignoring it would discard the clearest signal that the
+// model had misread the task; measured, it discarded the opposite - five of
+// fifty samples on the 4B described row never reached selection for it, while
+// the other forty-five produced 900 of 900 assertions (prov-2026-ddb398f3).
+//
+// What still rejects is an answer that cannot be read, which is a different
+// thing from one that says more than it was asked to.
+func TestAKeyBeyondTheSchemaIsIgnored(t *testing.T) {
 	req := railsRequest(t)
 
-	wantViolation(t, req,
-		`{"invocations":[{"action":"createControllerMethod","kwargs":{"controller":"users","name":"index"},"reason":"the intent asks for a list"}]}`,
-		"invocation_shape", "reason")
+	// validResponse with an annotation added, so the only difference from an
+	// answer that is accepted is the key nobody asked for.
+	annotated := `{"invocations":[{"action":"createControllerMethod",` +
+		`"kwargs":{"controller":"users","name":"index","collection":"users"},` +
+		`"reason":"the intent asks for a list"}]}`
+	if _, _, err := selectWith(t, req, 0, annotated); err != nil {
+		t.Fatalf("an annotated invocation was rejected: %v", err)
+	}
 
-	wantViolation(t, req,
-		`{"invocations":[],"notes":"nothing to do"}`,
-		"response_shape", "notes")
+	// The same rule at the envelope, or it would depend on nesting depth.
+	if _, _, err := selectWith(t, req, 0, `{"invocations":[],"notes":"nothing to do"}`); err != nil {
+		t.Fatalf("an annotated envelope was rejected: %v", err)
+	}
+}
+
+// A mistyped kwargs key is the case abd43bb4 wanted caught, and it still is -
+// by the rule whose message names what is missing rather than one that says the
+// entry was unreadable.
+func TestAMistypedKwargsKeyIsRejectedAsMissingArguments(t *testing.T) {
+	wantViolation(t, railsRequest(t),
+		`{"invocations":[{"action":"createControllerMethod",`+
+			`"kwarg":{"controller":"users","name":"index","collection":"users"}}]}`,
+		"missing_kwarg")
+}
+
+// Leniency is not acceptance of an unreadable answer.
+func TestAnAnswerThatCannotBeReadIsStillRejected(t *testing.T) {
+	req := railsRequest(t)
 
 	wantViolation(t, req, `not json at all`, "response_shape")
 	wantViolation(t, req, ``, "empty_response")
 	wantViolation(t, req, `{"actions":[]}`, "response_shape", "invocations")
+	wantViolation(t, req,
+		`{"invocations":[{"action":"createControllerMethod","kwargs":"users"}]}`,
+		"invocation_shape")
+	wantViolation(t, req, `{"invocations":[]} trailing`, "response_shape")
 }
 
 // Rule one: the action exists and is exposed. An unexposed action is absent
