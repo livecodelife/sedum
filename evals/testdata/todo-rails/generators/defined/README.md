@@ -55,9 +55,15 @@ would be a directory split with nothing behind it.
 `config/database.yml` already existed — `rails new` wrote them. Phase 3 is
 create-if-absent and verifies that an existing file carries the markers its
 template declares, so a file Sedum is to inject into either gets its anchor
-planted by hand or gets replaced by the template outright. This standard takes
-the second path, which is why the routes template carries Rails' own `/up` and
-PWA routes: owning the file means owning everything in it.
+planted by hand or gets replaced by the template outright.
+
+This standard takes the first path for `config/routes.rb`: `rails new` writes
+that file, a service accumulates hand-written routes in it over its life, and a
+generator that replaced it outright would be hostile to how the file is
+actually used. Adopting it costs one comment line. The template still carries
+Rails' own `/up` route because it is what renders when the file is genuinely
+absent — owning the file means owning everything in it — and it is what
+declares the marker Phase 3 verifies when the file is not.
 
 **Rails' own routes belong in the template, not in an action.** They do not vary
 between services, and an action that every record must remember to invoke is an

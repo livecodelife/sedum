@@ -10,8 +10,15 @@ intent: |
 
   The rule the paragraph is illustrating is unchanged and still correct: a file
   template owns the whole file or none of it, so a file Sedum injects into
-  either has its anchor planted or is replaced outright. Only the example is
-  stale.
+  either has its anchor planted or is replaced outright.
+
+  The same paragraph then says "this standard takes the second path", and
+  [[prov-2026-ee1b3e46]] has since made the harness take the first - the
+  scaffold's routes.rb survives and the anchor is planted into it. Left alone, a
+  team adopting this package would read the README and delete their routes file,
+  which is the thing that record argued against. Both halves of the paragraph
+  are corrected here rather than one, because shipping the sentence half-right
+  is worse than the staleness it replaces.
 
   ## Why this is worth a record rather than a silent edit
 
@@ -26,8 +33,13 @@ intent: |
   it: the audit's own coverage was narrower than the record it produced.
 constraints:
   - >-
-    Only the stale example changes. The rule it illustrates - a file template
-    owns the whole file or none of it - is unchanged and still true.
+    The rule the paragraph illustrates is unchanged and still true: a file
+    template owns the whole file or none of it. What changes is the two claims
+    about this package that stopped being accurate.
+  - >-
+    The README names anchor-planting as what this standard does, because that is
+    now what the harness does and what a team adopting into an existing service
+    would do.
   - >-
     A package's prose is part of the package. Documentation that describes what
     the templates no longer do fails the same test the templates are held to.
