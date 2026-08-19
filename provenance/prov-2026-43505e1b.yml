@@ -1,6 +1,6 @@
 id: prov-2026-43505e1b
 title: 'The fixture is a dimension: an entry drawn against different packages is printed and not compared'
-status: draft
+status: open
 created_at: "2026-08-18"
 author: calebcowen@gmail.com
 intent: |
