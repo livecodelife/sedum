@@ -180,7 +180,7 @@ export const UNDEFINED_HERE = {
     "arm=intent is given no list of files. Its answer is accepted whatever paths it chooses, so " +
     "nothing can be missing and nothing can be unexpected — the rate would be 1.00 on every run " +
     "by construction. That is arithmetic with no question behind it, not a perfect score. The " +
-    "terminal report does print it; this page declines to.",
+    "terminal report does not print it either.",
 };
 
 function byCount(counts) {

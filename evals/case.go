@@ -128,6 +128,24 @@ func (c Case) WithoutPackage() bool {
 	return c.Arm == "baseline" || c.Arm == "intent"
 }
 
+// HeldToPaths reports whether an answer from this arm is scored against the
+// paths the record authorizes.
+//
+// The intent arm is not. It is told no paths, so filtering against a list it
+// never saw would score whether it guessed the ones this standard happens to
+// use (prov-2026-672c6471) - and a rate over a list that admits everything is
+// wrote/wrote on every run, which is arithmetic rather than a measurement.
+//
+// A predicate for the same reason WithoutPackage is one, and after the same
+// mistake: the answer is consumed by the parser's allowed list, by the report,
+// and by the published page, and three copies of `arm == "intent"` is how the
+// next arm gets one of them wrong (prov-2026-d773a705).
+func (c Case) HeldToPaths() bool { return heldToPaths(c.Arm) }
+
+// heldToPaths is the arm-level form, for the call that has the arm and not the
+// case it came from.
+func heldToPaths(arm string) bool { return arm != "intent" }
+
 // Model is one row of the model axis: what to ask for, and what is actually
 // answering.
 //

@@ -584,8 +584,17 @@ func signals(out io.Writer, m Measurement) {
 // No selection table, no bindings, no anchor fill and no idempotency. All four
 // need a catalog or an invocation list, and printing zeroes for them would
 // report a measurement that was not made (prov-2026-a4dbe65c).
+//
+// The paths rate is held to the same rule from the other direction. An arm
+// given no list of files cannot write to one outside it and cannot leave one
+// out, so its rate is 1.00 whatever it wrote - and a perfect score that cannot
+// be anything else ends the question a blank cell would have invited
+// (prov-2026-d773a705).
 func baseline(out io.Writer, m Measurement) {
-	fmt.Fprintf(out, "  arm=baseline: no package, no vocabulary. Selection, binding, anchor fill\n")
+	// The arm, not a literal. Every other field on the entry says which arm
+	// this was, and a header naming a different one is the kind of error a
+	// reader trusts because everything around it is right.
+	fmt.Fprintf(out, "  arm=%s: no package, no vocabulary. Selection, binding, anchor fill\n", m.Case.Arm)
 	fmt.Fprintf(out, "    and idempotency are undefined here and are not reported.\n")
 
 	// The comparison this arm exists for is only honest against a sedum entry
@@ -593,6 +602,14 @@ func baseline(out io.Writer, m Measurement) {
 	// a baseline gets one call by construction, because re-prompting a build
 	// error is a repair loop this repository does not build.
 	fmt.Fprintf(out, "    one call per sample; comparable to a sedum entry at retries 0.\n")
+
+	if !m.Case.HeldToPaths() {
+		fmt.Fprintf(out, "    given no list of files, so nothing can be missing and nothing\n")
+		fmt.Fprintf(out, "      unexpected: a written-paths rate would be 1.00 by construction\n")
+		fmt.Fprintf(out, "      and is not reported either. Behaviour is the rung this arm is\n")
+		fmt.Fprintf(out, "      scored on.\n")
+		return
+	}
 
 	var wrote, want int
 	missingBy := map[string]int{}
