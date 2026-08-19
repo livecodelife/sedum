@@ -1,0 +1,88 @@
+id: prov-2026-30cb01cc
+title: A description that names the rendered literal teaches the model to bind the wrong JSON type
+status: draft
+created_at: "2026-08-18"
+author: calebcowen@gmail.com
+intent: |
+  addFixtureAttribute's `value` description says what the answer must be, not
+  only what the file ends up containing.
+
+  ## The run that found it, and the defect it found
+
+  todo-rails-described at coarse on the 14B: one of five valid, against three of
+  five on the defined arm drawn the same way. Every one of the four rejections
+  carried kwarg_type. A single-sample probe names it exactly:
+
+      kwarg_type | addFixtureAttribute: kwarg "value" is declared literal but
+                   was bound to the bool false
+
+  The description [[prov-2026-7b4db9f2]] gave that kwarg reads:
+
+      written as the YAML literal it becomes - false for a boolean, 0 for an
+      integer, and bare text for a string
+
+  Every clause is true of the rendered fixture and wrong about the answer.
+  `literal` is "a string the template emits as source" ([[prov-2026-e3d7b9ac]]),
+  so the answer carries "false" and the file carries false. A description that
+  describes only the second teaches the first.
+
+  It is the same mistake this session's own canned answer made an hour earlier,
+  rejected by the same rule, and then written into the catalog as guidance.
+
+  ## What this costs and what it does not
+
+  The described arm's entry does not measure descriptions. It measures a
+  catalog with a defect in it, and the question it was drawn to answer - whether
+  a sentence prevents the addColumn.default binding the declaration alone did
+  not ([[prov-2026-b43799a0]]) - is untouched by it. That run has to happen
+  again.
+
+  The entry stays. It is a true observation, correctly labelled, and
+  [[prov-2026-b6059aa7]] holds that results are append-only.
+
+  ## A latent one that is deliberately left alone
+
+  addColumn's `default` carries a description of the same shape, predating this
+  session: "written as the Ruby literal it becomes - false for a boolean". The
+  probe did not fire on it, and the one valid sample bound it as the string
+  "false" correctly. So it is a hazard rather than an observed defect, and
+  editing it would change the arm's pre-existing content on suspicion.
+
+  If the re-run shows kwarg_type on `default`, that is its own record with its
+  own evidence. Guessing now would make the next entry as hard to read as this
+  one.
+constraints:
+  - >-
+    A literal kwarg's description says what the answer carries, not only what
+    the rendered file carries. The two differ by quotation marks and that
+    difference is the whole of the type rule.
+  - >-
+    Only addFixtureAttribute's value changes. addColumn's default carries the
+    same shape and has not been observed to fail, and editing it on suspicion
+    would alter the described arm beyond the defect this record is about.
+  - >-
+    The confounded entry stays. It is a true observation about a catalog that
+    existed, and deleting a result because it is inconvenient is what
+    append-only exists to prevent.
+affected_scope:
+  - evals/testdata/todo-rails/generators/described/rails/actions/actions.yaml
+forbidden_scope:
+  - internal/**
+  - cmd/**
+type: bug
+extends: prov-2026-7b4db9f2
+supersedes: ""
+superseded_by: ""
+related:
+  - prov-2026-e3d7b9ac
+  - prov-2026-b43799a0
+sealed_at_sha: ""
+associated_specs:
+  - path: evals/run_test.go
+    run_command: go test -count=1 ./$(dirname {{path}})
+associated_traces: []
+monitors: []
+tags:
+  - sedum
+  - evals
+  - fixtures
