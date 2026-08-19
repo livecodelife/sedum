@@ -1,6 +1,6 @@
 id: prov-2026-9accf575
 title: The signals block asks the predicate too, which is the fourth copy of one arm's name
-status: draft
+status: open
 created_at: "2026-08-19"
 author: calebcowen@gmail.com
 implements: prov-2026-d773a705
