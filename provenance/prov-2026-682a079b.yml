@@ -1,6 +1,6 @@
 id: prov-2026-682a079b
 title: The Go service takes its listen port from the environment, and the record says so
-status: draft
+status: open
 created_at: "2026-08-18"
 author: calebcowen@gmail.com
 intent: |
