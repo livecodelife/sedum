@@ -22,8 +22,14 @@ arm: sedum
 records: todo-rails/records
 generators: todo-rails/generators/defined
 
-# On a 24GB machine one 14B is resident at a time, so -eval.model narrows a run
-# to one row rather than forcing a model swap mid-run.
+# Three rows, the same three every case declares: a 4B, a 14B and a 30B. A row
+# is a column of the matrix rather than a property of one arm, so a case that
+# declared fewer would leave no way to widen a run later (prov-2026-de71f29b,
+# prov-2026-ad9751dc).
+#
+# How many are resident at once is the machine's business rather than the
+# matrix's. A run that cannot hold them narrows with -model; the cases do not
+# encode anyone's RAM.
 models:
   # Continuous batching is llama.cpp-only today, so this is the row that can be
   # sampled concurrently.
@@ -31,9 +37,6 @@ models:
     engine: llama.cpp
     quant: q4_k_m
   # Faster single-stream, no batching. The row that matches interactive use.
-  - id: qwen2.5-coder-14b-instruct-mlx
-    engine: mlx
-    quant: 4bit
   # A smaller row, brought forward from the model axis prov-2026-98ab639c
   # planned. It exists because the 14B rejects about five percent of the time,
   # which is too rarely to measure what the retry loop recovers - a weaker row
@@ -42,6 +45,12 @@ models:
   # mlx and 4bit as the server reports them, not as the id suggests: no
   # continuous batching, so this row is sampled one at a time.
   - id: qwen/qwen3-4b-2507
+    engine: mlx
+    quant: 4bit
+  # The large row. A 30B mixture-of-experts on a machine that can hold it, so
+  # that a rate measured on a 4B and a 14B is read against something well above
+  # both rather than only against something below.
+  - id: qwen/qwen3-30b-a3b
     engine: mlx
     quant: 4bit
 

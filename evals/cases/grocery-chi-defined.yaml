@@ -39,6 +39,15 @@ models:
   - id: qwen2.5-coder-14b-instruct
     engine: llama.cpp
     quant: q4_k_m
+  - id: qwen/qwen3-4b-2507
+    engine: mlx
+    quant: 4bit
+  # The large row. A 30B mixture-of-experts on a machine that can hold it, so
+  # that a rate measured on a 4B and a 14B is read against something well above
+  # both rather than only against something below.
+  - id: qwen/qwen3-30b-a3b
+    engine: mlx
+    quant: 4bit
 
 # The target's own parser over what Sedum wrote, keyed by the extension it
 # reads. gofmt -e reports parse errors and exits non-zero on them; -l keeps a

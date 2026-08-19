@@ -45,9 +45,6 @@ models:
   - id: qwen2.5-coder-14b-instruct
     engine: llama.cpp
     quant: q4_k_m
-  - id: qwen2.5-coder-14b-instruct-mlx
-    engine: mlx
-    quant: 4bit
   # A smaller row, brought forward from the model axis prov-2026-98ab639c
   # planned. It exists because the 14B rejects about five percent of the time,
   # which is too rarely to measure what the retry loop recovers - a weaker row
@@ -56,6 +53,12 @@ models:
   # mlx and 4bit as the server reports them, not as the id suggests: no
   # continuous batching, so this row is sampled one at a time.
   - id: qwen/qwen3-4b-2507
+    engine: mlx
+    quant: 4bit
+  # The large row. A 30B mixture-of-experts on a machine that can hold it, so
+  # that a rate measured on a 4B and a 14B is read against something well above
+  # both rather than only against something below.
+  - id: qwen/qwen3-30b-a3b
     engine: mlx
     quant: 4bit
 

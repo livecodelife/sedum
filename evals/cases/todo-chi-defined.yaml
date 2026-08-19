@@ -35,6 +35,15 @@ models:
   - id: qwen2.5-coder-14b-instruct
     engine: llama.cpp
     quant: q4_k_m
+  - id: qwen/qwen3-4b-2507
+    engine: mlx
+    quant: 4bit
+  # The large row. A 30B mixture-of-experts on a machine that can hold it, so
+  # that a rate measured on a 4B and a 14B is read against something well above
+  # both rather than only against something below.
+  - id: qwen/qwen3-30b-a3b
+    engine: mlx
+    quant: 4bit
 
 # One unfillable anchor remains: init.sql plants "extensions" and no action
 # targets it. It used to cost a completeness re-prompt on every sample - a
