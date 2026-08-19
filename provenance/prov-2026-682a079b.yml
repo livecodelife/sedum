@@ -1,0 +1,95 @@
+id: prov-2026-682a079b
+title: The Go service takes its listen port from the environment, and the record says so
+status: draft
+created_at: "2026-08-18"
+author: calebcowen@gmail.com
+intent: |
+  `main.go` reads its listen address from `PORT`, defaulting to 8080. Both chi
+  records state it. Both chi targets set `PORT` to a free port and poll it
+  instead of hardcoding 8080.
+
+  ## What was wrong
+
+  The template hardcoded `http.ListenAndServe(":8080", r)` in the same function
+  that reads `DATABASE_URL` from the environment. Configuring one and baking in
+  the other is not a convention anybody chose, and a team writing a
+  containerised Go service reads both.
+
+  The harness then depended on it, in writing:
+
+      APP_PORT=8080   # the file template hardcodes the listen port
+
+  `main.go` is in both chi records' affected_scope, so the baseline arm writes
+  it. A baseline listening on `:3000` - a perfectly ordinary choice - would have
+  failed at boot for a reason that is not about the model. There is no chi
+  baseline case yet, which is the only reason this never fired
+  ([[prov-2026-d318e3dd]]).
+
+  ## Why the record carries it, and the tension in that
+
+  The obvious objection is that a port is a team convention, and putting team
+  conventions in the record turns the record into the generator package - which
+  would make the baseline comparison trivial by handing one arm the other's
+  contents.
+
+  What separates this one: it is a *wire fact*, not a house style. The record
+  already states the wire - five endpoints on /todos and /todos/{id}, JSON
+  responses carrying id, title, completed, created_at and updated_at - because a
+  caller cannot integrate without them. Where the service listens is the same
+  kind of fact and the same kind of caller need.
+
+  The Rails side needs no equivalent because `rails server -p` is the
+  framework's own flag and the service code has no opinion. Go has no framework
+  runner, so the service itself is what reads the port. The asymmetry is in the
+  stacks, not in the fixtures.
+
+  ## What it does not license
+
+  This is not a precedent for moving package conventions into records whenever
+  the baseline would otherwise fail. The test is whether a caller integrating
+  with the service needs the fact. A 404-on-missing-record rule passes that; the
+  shape of a permitted-params helper does not, and stays in the package where it
+  belongs.
+constraints:
+  - >-
+    The service reads PORT and defaults to 8080, in the same function that reads
+    DATABASE_URL. A service that configures one and hardcodes the other has no
+    convention, only an accident.
+  - >-
+    Both chi records state where the service listens, because a caller cannot
+    reach it otherwise. Both arms are told the same thing.
+  - >-
+    The harness sets PORT and polls what it set. It does not know or assume what
+    the template chose.
+  - >-
+    A fact enters a record only if a caller integrating with the service needs
+    it. This is not a licence to move package conventions into records to spare
+    the baseline arm.
+  - >-
+    Both chi targets and both chi records change together. They are one standard
+    over two applications.
+affected_scope:
+  - evals/testdata/todo-api/generators/defined/chi/files/main.go
+  - evals/testdata/todo-api/records/todo-crud.yml
+  - evals/testdata/grocery-api/records/grocery-crud.yml
+  - evals/behavior/targets/todo-chi/target.sh
+  - evals/behavior/targets/grocery-chi/target.sh
+forbidden_scope:
+  - internal/**
+  - cmd/**
+type: imprint
+implements: prov-2026-d318e3dd
+supersedes: ""
+superseded_by: ""
+related:
+  - prov-2026-79e94e7c
+sealed_at_sha: ""
+associated_specs:
+  - path: evals/run_test.go
+    run_command: go test -count=1 ./$(dirname {{path}})
+associated_traces: []
+monitors: []
+tags:
+  - sedum
+  - evals
+  - fixtures
