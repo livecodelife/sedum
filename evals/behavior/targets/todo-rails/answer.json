@@ -97,6 +97,22 @@
         "resource": "todos",
         "verb": "destroy"
       }
+    },
+    {
+      "action": "addFixtureAttribute",
+      "kwargs": {
+        "resource": "todos",
+        "name": "title",
+        "value": "write the harness"
+      }
+    },
+    {
+      "action": "addFixtureAttribute",
+      "kwargs": {
+        "resource": "todos",
+        "name": "completed",
+        "value": "false"
+      }
     }
   ]
 }

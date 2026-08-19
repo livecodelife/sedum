@@ -169,6 +169,21 @@ actions:
     injects_into: "db/migrate/{{stamp}}_create_{{resource|table}}.rb"
     anchor: columns
 
+  # Rails supplies test data as fixtures, and `todos(:one)` is the first line of
+  # every controller test the scaffold generates. One attribute per invocation,
+  # for the reason addColumn gives above: a single YAML blob would need the
+  # caller to know a convention the catalog has nowhere to state.
+  addFixtureAttribute:
+    kwargs:
+      resource: { type: string, required: true }
+      name: { type: string, required: true }
+      # Emitted into the fixture verbatim, so `false` is the boolean and not the
+      # string. Declared literal for the reason every other emitted-as-source
+      # value in this standard is (prov-2026-c009d1ba).
+      value: { type: literal, required: true }
+    injects_into: "test/fixtures/{{resource|table}}.yml"
+    anchor: fixture
+
   addControllerTest:
     description: >-
       The minitest integration test for one endpoint, asserting the status and

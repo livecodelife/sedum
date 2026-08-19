@@ -1,0 +1,8 @@
+# Read about fixtures at
+# https://api.rubyonrails.org/classes/ActiveRecord/FixtureSet.html
+#
+# One fixture, and the anchor sits inside it. Every attribute an action adds
+# lands in this block, so nothing carries a label and no fixture depends on the
+# order its attributes arrive in.
+one:
+  # sedum:anchor:fixture

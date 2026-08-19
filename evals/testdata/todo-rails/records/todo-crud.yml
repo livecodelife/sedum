@@ -59,7 +59,8 @@ constraints:
     A missing record is a 404, decided the same way for every action rather than
     per action.
   - >-
-    Each endpoint carries a test asserting the status it returns.
+    Each endpoint carries a test asserting the status it returns, and the test
+    data is a fixture.
 # Five paths, one per thing an action injects into.
 affected_scope:
   - app/controllers/todos_controller.rb
@@ -67,6 +68,11 @@ affected_scope:
   - config/routes.rb
   - db/migrate/20260814000000_create_todos.rb
   - test/controllers/todos_controller_test.rb
+  # Rails supplies test data as fixtures. A record that authorized the tests but
+  # not the fixtures they read would forbid the framework's own convention, and
+  # an arm without a generator package walks into that every time
+  # (prov-2026-2fb763a0).
+  - test/fixtures/todos.yml
 forbidden_scope: []
 type: blueprint
 supersedes: ""

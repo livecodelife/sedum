@@ -83,6 +83,10 @@ expect:
     createEndpoint: 5
     addControllerTest: 5
     definePermittedParams: 1
+    # One per column the fixture carries, mirroring addColumn. Rails supplies
+    # test data as fixtures and the record now asks for them
+    # (prov-2026-2fb763a0).
+    addFixtureAttribute: 2
 
   # Authored from the record rather than established from a run, which is the
   # opposite discipline the counts above are under. A count is a property of
