@@ -728,7 +728,7 @@ Sedum is a component. Tools will be built on top of it — a loop that drives ge
 
 > **Everything a tool built on Sedum needs is derivable from artifacts on disk. Sedum exposes no runtime API, and nothing links against Sedum.**
 
-Four things are supported, three of them file formats and one a command:
+Five things are supported, three of them file formats and two of them commands:
 
 | Surface | Direction | Who else authors it |
 |---|---|---|
@@ -736,14 +736,17 @@ Four things are supported, three of them file formats and one a command:
 | **Generator package** (`sedum.yaml`, `actions.yaml`, templates) | read | users author them |
 | **Recording** (JSON) | **written** and read | Sedum can write them too |
 | **`sedum grow --execute`** | invoked | — |
+| **`sedum render`** | invoked | — |
 
 Everything else — Sedum's Go packages, the run log's shape, the `--stop-after` phase names — is internal and may change.
 
-**Of these, the markers and the generator package are live today; the recording and `--execute` land with M7.** The marker's guarantees below — unrecognised-key preservation in both directions, and the `writer` attribute — are implemented and tested now, because they are the ones whose absence would be expensive to correct after markers exist in generated repositories.
+**All five are live today.** The marker's guarantees below — unrecognised-key preservation in both directions, and the `writer` attribute — are implemented and tested now, because they are the ones whose absence would be expensive to correct after markers exist in generated repositories.
 
 **"What exists?"** Grep the markers. Enumerating what has been generated, with which action, variant, and arguments, is a filesystem walk needing nothing from Sedum's process.
 
-**"Could this be fixed deterministically?"** Read `actions.yaml`, render each action's `injects_into` against the kwargs already on the marker, and compare to the region in the file. Forward rendering and comparison, never inversion — `snake` and `plural` are not invertible. It works only because the kwargs are recorded on the marker.
+**"Could this be fixed deterministically?"** Ask `sedum render`, which renders an action's `injects_into` against the kwargs already on the marker so the caller can compare the result to the region in the file. Forward rendering and comparison, never inversion — `snake` and `plural` are not invertible. It works only because the kwargs are recorded on the marker.
+
+It is a command rather than an instruction to read `actions.yaml` and do it yourself: the inflection table ships per language rather than per package, so a caller rendering the pattern by hand reimplements `plural` and diverges on the first irregular.
 
 **"Do it."** Synthesise a recording of exactly the invocations wanted and `--execute` it, never touching Phase 4. `--record --dry-run` gives the other direction.
 
@@ -925,7 +928,7 @@ internal/record/      Provenance record ingestion and the authorized path set.
 internal/resolve/     Path-to-package resolution, template matching, file creation.
 internal/expand/      Phase 6: composite expansion, injects_into rendering, variant selection, transforms.
 internal/inject/      Phase 7: the marker format, anchor location, region replacement.
-internal/recording/   The recording schema. Types only; serialization is M7.
+internal/recording/   The recording schema, and reading and writing it.
 internal/transform/   Built-in operations, declarative pipelines, inflection.
 internal/filetmpl/    File template patterns, matching, and specificity ranking.
 internal/render/      Template rendering with transform pipes.

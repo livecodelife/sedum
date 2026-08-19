@@ -157,8 +157,6 @@ func runGrow(ctx context.Context, out, errOut io.Writer, cfg GrowConfig) error {
 // skips Phase 4, so nothing here builds a model client: the flags that
 // configure one are reported as ignored rather than honored.
 func runReplay(out, errOut io.Writer, cfg GrowConfig, stopAfter int, name string, log *runlog.Log) error {
-	printWarnings(errOut, ignoredNotice(cfg))
-
 	rec, err := readRecording(cfg.Execute)
 	if err != nil {
 		return err
@@ -228,17 +226,6 @@ func writeRecording(path string, rec recording.Recording) error {
 		return err
 	}
 	return f.Close()
-}
-
-// ignoredNotice turns the flags a replay will not consult into warnings, so a
-// run that was configured with them says so rather than appearing to honor
-// them.
-func ignoredNotice(cfg GrowConfig) []string {
-	var out []string
-	for _, flag := range cfg.IgnoredFlags() {
-		out = append(out, "ignored under --execute: "+flag)
-	}
-	return out
 }
 
 // report prints what the run got as far as, at the detail the stop point makes
