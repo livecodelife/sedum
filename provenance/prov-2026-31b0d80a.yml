@@ -1,6 +1,6 @@
 id: prov-2026-31b0d80a
 title: The rails package README stops documenting routes the template no longer plants
-status: open
+status: implemented
 created_at: "2026-08-18"
 author: calebcowen@gmail.com
 intent: |
@@ -54,7 +54,7 @@ supersedes: ""
 superseded_by: ""
 related:
   - prov-2026-f5e64f22
-sealed_at_sha: ""
+sealed_at_sha: 3754c660814efc76a55b76a6f8cc3ddc500d6866
 associated_specs:
   - path: evals/testdata/todo-rails/generators/defined/README.md
     run_command: test -f {{path}}
