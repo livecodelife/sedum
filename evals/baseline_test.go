@@ -232,6 +232,15 @@ func TestAnIntentReportPrintsNoRateItCannotLose(t *testing.T) {
 		}
 	}
 
+	// The signals block must skip the two rungs that need a catalog rather than
+	// report them empty, for this arm exactly as it does for baseline
+	// (prov-2026-9accf575).
+	for _, leak := range []string{"selected", "exact", "anchors filled", "idempotent"} {
+		if strings.Contains(got, leak) {
+			t.Errorf("the intent report prints %q, which needs a package:\n%s", leak, got)
+		}
+	}
+
 	// The rung all three arms share is untouched.
 	if !strings.Contains(got, "behavior") {
 		t.Errorf("the intent report drops behaviour, which is the only rung it has:\n%s", got)

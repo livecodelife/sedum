@@ -510,13 +510,16 @@ func signals(out io.Writer, m Measurement) {
 
 	fmt.Fprintf(out, "\n  signals  %d sample(s) applied\n", t.Applied)
 
-	// Anchor fill and idempotency need a package and an invocation list. The
-	// baseline arm has neither, and "nothing fillable was planted" would read
-	// as a finding about the answer rather than as the absence of a catalog -
-	// so the two rungs are skipped rather than reported empty
+	// Anchor fill and idempotency need a package and an invocation list. An arm
+	// without one has neither, and "nothing fillable was planted" would read as
+	// a finding about the answer rather than as the absence of a catalog - so
+	// the two rungs are skipped rather than reported empty
 	// (prov-2026-a4dbe65c). Syntactic validity survives, because a file is a
 	// file whoever wrote it.
-	packaged := m.Case.Arm != "baseline"
+	//
+	// By predicate, because naming one arm here is what let the intent arm
+	// print both lines the comment above forbids (prov-2026-9accf575).
+	packaged := !m.Case.WithoutPackage()
 
 	// Derived from the package and the record rather than from an expectation,
 	// which is what it is here to add. An anchor filled by the wrong action
