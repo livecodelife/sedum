@@ -1,6 +1,6 @@
 id: prov-2026-6903db40
 title: Replay validates through the selection package, so its validator is exported
-status: open
+status: implemented
 created_at: "2026-08-19"
 author: calebcowen@gmail.com
 intent: |
@@ -68,7 +68,7 @@ implements: prov-2026-dc227be7
 supersedes: ""
 superseded_by: ""
 related: []
-sealed_at_sha: ""
+sealed_at_sha: fdfe054db354f3a044a29e206f13e0f8f0183f44
 associated_specs:
   - path: internal/selection/selection_test.go
     run_command: go test -count=1 ./$(dirname {{path}})
