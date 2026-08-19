@@ -1,0 +1,91 @@
+id: prov-2026-84158f7e
+title: A size ladder in one family, and a specialised twin for the large row
+status: draft
+created_at: "2026-08-19"
+author: calebcowen@gmail.com
+intent: |
+  Four rows on every case, taking the matrix from three models to seven.
+
+  ## What they are for
+
+  **A size ladder.** qwen2.5-coder at 0.5B, 3B, 7B and 14B is one family, one
+  specialisation and one quantisation, varying only in size. Nothing in this
+  directory has isolated size before: every pair that differed in size also
+  differed in family or in what the model was trained for.
+
+  It is the question the Rails run left open. The 4B took 0 of 50 samples
+  working unaided and 45 of 50 with a catalog and descriptions, which says the
+  catalog carries a model that cannot do the task on its own - and leaves "how
+  small can that model be" unasked. A ladder answers it.
+
+  The 0.5B is expected to produce nonsense, and is declared anyway. A row that
+  fails everything is the harness's own floor: it says what the numbers look
+  like when the model contributes nothing, which is the only reading against
+  which a low score is legible as low (prov-2026-98ab639c anticipated exactly
+  this row).
+
+  **A specialised twin.** qwen/qwen3-coder-30b against qwen/qwen3-30b-a3b is the
+  same size, the same mixture-of-experts architecture, the same roughly 3B
+  active parameters and the same quantisation, differing only in what it was
+  trained for.
+
+  That is the confound the nine-cell Rails run could not resolve. The 30B lost to
+  the 14B on every arm - 20 of 50 samples working unaided against 34 - and the
+  likeliest explanation was that the 14B is qwen2.5-coder and the 30B is a
+  general reasoning model, not that it is smaller. One pair settles it.
+
+  ## The ids are the ones the endpoint serves
+
+  Verified against /api/v0/models rather than typed from a model card.
+  qwen/qwen3-coder-30b carries no a3b in its name and is one, which is exactly
+  the kind of difference that cost a run when qwen/qwen3-4b-2507 was confused
+  with qwen/qwen3-4b.
+constraints:
+  - >-
+    Every case declares the same seven rows, so no pair of cases is incomparable
+    because one carries a row the other does not (prov-2026-de71f29b).
+  - >-
+    Each row names a model the endpoint serves under exactly that id, verified
+    against the endpoint. A row naming a model nothing serves fails the run
+    rather than the row.
+  - >-
+    Engine and quant are recorded as the build names them. Six rows are mlx
+    4bit and the 14B is llama.cpp q4_k_m, which is the one row that is not
+    directly comparable on engine and was already the case before this record.
+  - >-
+    The ladder is one family, one specialisation and one quantisation. A row
+    that changed two things at once would measure neither.
+  - >-
+    The 0.5B is declared knowing it will score badly. A floor is not a wasted
+    row: without one, a low number has nothing to be low against.
+  - >-
+    No record, package, case arm or expectation changes, so the fixture digest
+    is untouched and entries drawn before this remain comparable with entries
+    drawn after. A case gains rows; its earlier entries hold no data for them.
+affected_scope:
+  - evals/cases/todo-chi-baseline.yaml
+  - evals/cases/todo-chi-defined.yaml
+  - evals/cases/todo-chi-intent.yaml
+  - evals/cases/grocery-chi-baseline.yaml
+  - evals/cases/grocery-chi-defined.yaml
+  - evals/cases/grocery-chi-intent.yaml
+  - evals/cases/todo-rails-baseline.yaml
+  - evals/cases/todo-rails-defined.yaml
+  - evals/cases/todo-rails-described.yaml
+  - evals/cases/todo-rails-intent.yaml
+forbidden_scope:
+  - internal/**
+  - cmd/**
+type: blueprint
+supersedes: ""
+superseded_by: ""
+related:
+  - prov-2026-de71f29b
+  - prov-2026-98ab639c
+sealed_at_sha: ""
+associated_specs:
+  - path: evals/run_test.go
+    run_command: go test -count=1 ./$(dirname {{path}})
+associated_traces: []
+monitors: []
+tags: []
