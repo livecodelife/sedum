@@ -1,6 +1,6 @@
 id: prov-2026-2fb763a0
 title: The Rails standard has no test fixtures, so idiomatic Rails tests cannot run
-status: draft
+status: open
 created_at: "2026-08-18"
 author: calebcowen@gmail.com
 intent: |
