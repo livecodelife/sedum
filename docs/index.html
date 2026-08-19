@@ -146,17 +146,25 @@
     </li>
     <li>
       <span class="rung-n">5</span>
-      <h3>Baseline <span class="rung-q">— what happens without Sedum?</span></h3>
+      <h3>Without Sedum <span class="rung-q">— and what exactly is being removed?</span></h3>
       <p>
-        The same model gets the same record and is asked to write the files itself: no
-        package, no action vocabulary, no catalog. It is scored only by booting what it wrote.
-        Without this column a good number anywhere above is unfalsifiable, because there is
-        nothing it is good <em>compared to</em>.
+        The same model is asked for the same application with the tooling taken away, and it
+        is taken away in two steps rather than one, because <em>the record and the catalog are
+        not the same thing</em>. Without both rungs a good number above is unfalsifiable —
+        there is nothing it is good <em>compared to</em>.
+      </p>
+      <p>
+        <strong>baseline</strong> keeps the whole record — intent, constraints, and the exact
+        paths it authorizes — and drops the catalog. That is not a model without tooling; it
+        is a model handed a precise specification, and it scores accordingly.
+        <strong>intent</strong> keeps one sentence and drops everything else, so what it
+        measures is what a sentence alone produces.
       </p>
       <p class="blind">
         <strong>Cannot see:</strong> selection, binding, anchor fill or idempotency — there is
-        no vocabulary to count and no anchor to fill. Those cells are left blank on this page,
-        never zero.
+        no vocabulary to count and no anchor to fill. Those cells are blank on this page,
+        never zero. The intent arm is also told no file paths, so it cannot be held to them
+        either.
       </p>
     </li>
   </ol>
@@ -294,13 +302,18 @@
       chose badly; the count is always shown beside the rate that excluded it.
     </dd>
 
-    <dt>arm — <code>sedum</code> vs <code>baseline</code></dt>
+    <dt>arm — a ladder of what the model was given</dt>
     <dd>
-      <strong>sedum</strong>: the model picks from the generator package's declared action
-      vocabulary. <strong>baseline</strong>: the same model, the same record, no package and
-      no vocabulary — it writes the files itself and is graded only by booting them. The
-      baseline gets one call and no retry, because re-prompting a build error is a repair
-      loop, and this is deliberately not a repair tool.
+      Three rungs, and the difference between them is the whole experiment.
+      <ul class="rules-gloss">
+        <li><strong><code>sedum</code></strong> — the provenance record <em>and</em> the generator package's action catalog. The model picks from a declared vocabulary; it does not write code.</li>
+        <li><strong><code>baseline</code></strong> — the record and no catalog. It gets the intent, the constraints, and the exact paths it may write, and produces the files itself.</li>
+        <li><strong><code>intent</code></strong> — the record's intent and nothing else. No constraints, no file list. It decides for itself which files the change even needs.</li>
+      </ul>
+      Both lower rungs get one call and no retry, because re-prompting a build error is a
+      repair loop and this is deliberately not a repair tool. All three share the behaviour
+      question — the application is booted and asserted against, whoever wrote the code — and
+      that is the only rung on which all three are comparable.
     </dd>
 
     <dt>tightness — <code>defined</code> vs <code>described</code></dt>
@@ -393,6 +406,18 @@
       grade it. Re-deriving a grade here would be a second implementation of the harness's
       scoring, and two implementations of one judgement eventually disagree. Run
       <code>go run ./evals/cmd/eval &lt;case&gt;</code> for the graded report.
+    </dd>
+
+    <dt>one number this page declines to draw</dt>
+    <dd>
+      <strong>The authorized-paths rate on the <code>intent</code> arm.</strong> That arm is
+      given no list of files, so its answer is accepted whatever paths it chooses — nothing
+      can be missing and nothing can be unexpected. The rate would therefore be
+      <code>1.00</code> on every intent run forever, by construction rather than by
+      performance. A zero that reads as a score is the mistake the blank cells above exist to
+      avoid; a perfect score that cannot be anything else is the same mistake with the sign
+      flipped, and it is worse, because a blank invites a question and a perfect score ends
+      one. The terminal report does print it. This page shows the reason instead.
     </dd>
   </dl>
 </section>

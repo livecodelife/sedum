@@ -375,6 +375,7 @@ table.mini th, table.mini td { text-align: left; padding: 0.3rem 0.6rem 0.3rem 0
 table.mini th { color: var(--ink-muted); font-weight: 600; font-size: 0.75rem; }
 table.mini td.num { text-align: right; padding-right: 1rem; }
 table.mini tr:last-child td { border-bottom: 0; }
+.violations { display: block; margin-top: 0.25rem; color: var(--ink-muted); font-family: var(--mono); font-size: 0.75rem; line-height: 1.5; }
 
 .samples { display: grid; gap: 0.35rem; }
 .sample {

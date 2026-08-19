@@ -129,13 +129,59 @@ export function caveats(entry) {
   return out;
 }
 
-// BASELINE_UNDEFINED is why four of the columns are blank on a baseline row.
-// Blank with a reason, never zero: a zero would read as a score
-// (prov-2026-a4dbe65c).
-export const BASELINE_UNDEFINED =
-  "arm=baseline has no generator package and no action vocabulary, so there is no selection to " +
-  "count, no binding to check, no anchor to fill and no injection to repeat. All four are " +
-  "undefined here rather than zero.";
+// The arms, as a ladder of what the model was given (prov-2026-672c6471).
+export const ARMS = {
+  sedum: {
+    given: "the provenance record and the generator package's action catalog",
+    withoutPackage: false,
+    heldToPaths: true,
+  },
+  baseline: {
+    given: "the record — its intent, its constraints, and the exact paths it authorizes — and no catalog",
+    withoutPackage: true,
+    heldToPaths: true,
+  },
+  intent: {
+    given: "the record's intent, and nothing else: no constraints and no list of files",
+    withoutPackage: true,
+    heldToPaths: false,
+  },
+};
+
+// withoutPackage mirrors Case.WithoutPackage() in evals/case.go, which exists as
+// a predicate rather than a comparison at each site precisely so that a third
+// package-free arm does not have to be remembered in four places. This file
+// remembered it in four places until the intent arm landed; now it does not.
+//
+// An unknown arm is treated as packaged, because reporting nothing is the
+// recoverable mistake and reporting a number the arm cannot have is not.
+export function withoutPackage(arm) {
+  return ARMS[arm]?.withoutPackage === true;
+}
+
+// heldToPaths reports whether the arm was given the paths it is scored against.
+// The intent arm is not: its answer is parsed with no allowed list, so every
+// path it writes is accepted and none can be missing or unexpected. The rate
+// would be wrote/wrote on every run forever (prov-2026-18a6e7a5).
+export function heldToPaths(arm) {
+  return ARMS[arm]?.heldToPaths !== false;
+}
+
+// UNDEFINED_HERE is why a cell is blank rather than zero, per arm.
+// Blank with a reason, never zero: a zero would read as a score, and a 1.00
+// that cannot be anything else ends a question instead of inviting one
+// (prov-2026-a4dbe65c, prov-2026-18a6e7a5).
+export const UNDEFINED_HERE = {
+  signals: (arm) =>
+    `arm=${arm} has no generator package and no action vocabulary, so there is no selection to ` +
+    "count, no binding to check, no anchor to fill and no injection to repeat. All four are " +
+    "undefined here rather than zero.",
+  paths:
+    "arm=intent is given no list of files. Its answer is accepted whatever paths it chooses, so " +
+    "nothing can be missing and nothing can be unexpected — the rate would be 1.00 on every run " +
+    "by construction. That is arithmetic with no question behind it, not a perfect score. The " +
+    "terminal report does print it; this page declines to.",
+};
 
 function byCount(counts) {
   return Object.entries(counts)
@@ -150,7 +196,8 @@ function byCount(counts) {
 // reader is never asked to guess what a rate was over.
 export function summarise(entry) {
   const runs = entry.runs || [];
-  const baseline = entry.arm === "baseline";
+  const arm = entry.arm || "sedum";
+  const packageless = withoutPackage(arm);
 
   // Failed samples never reached the model, so they stay outside every
   // denominator - an unreachable endpoint is not a model that chose badly
@@ -167,8 +214,9 @@ export function summarise(entry) {
     dirty: entry.dirty || [],
     fixture: entry.fixture || "",
     resolution: entry.resolution || "",
-    arm: entry.arm || "sedum",
-    baseline,
+    arm,
+    packageless,
+    heldToPaths: heldToPaths(arm),
     model: entry.model || {},
     endpoint: entry.endpoint || "",
     language: entry.language || "",
@@ -221,22 +269,37 @@ export function summarise(entry) {
       }
     : null;
 
+  // A slug can be tallied and a sentence cannot, so both are kept: the tally
+  // says how often, the sentence says what the answer got wrong. Violations are
+  // stored in the same order as the slugs they render (prov-2026-986ac4ca).
   const ruleCounts = {};
-  for (const r of runs) for (const rule of r.rules || []) ruleCounts[rule] = (ruleCounts[rule] || 0) + 1;
-  s.rules = byCount(ruleCounts);
+  const violationsByRule = {};
+  for (const r of runs) {
+    (r.rules || []).forEach((rule, i) => {
+      ruleCounts[rule] = (ruleCounts[rule] || 0) + 1;
+      const text = (r.violations || [])[i];
+      if (text) (violationsByRule[rule] ||= new Set()).add(text);
+    });
+  }
+  s.rules = byCount(ruleCounts).map((d) => ({
+    ...d,
+    violations: [...(violationsByRule[d.name] || [])],
+  }));
 
   s.behavior = behaviorOf(runs);
 
-  // Selection, binding, anchor fill and idempotency are undefined on the
-  // baseline arm and are not reported there (prov-2026-a4dbe65c).
-  if (!baseline) {
+  // Selection, binding, anchor fill and idempotency are undefined on any arm
+  // with no package, and are not reported there (prov-2026-a4dbe65c).
+  if (!packageless) {
     s.fill = signalOf(runs, "fill", "planted", "filled", "missed");
     s.syntax = signalOf(runs, "syntax", "checked", "parsed");
     s.idempotent = signalOf(runs, "idempotent", "files", "stable", "unstable");
     s.selection = selectionOf(runs);
+    s.paths = null;
   } else {
     s.fill = s.syntax = s.idempotent = s.selection = null;
-    s.paths = pathsOf(runs);
+    // And the path rate only for an arm that was given paths to be held to.
+    s.paths = s.heldToPaths ? pathsOf(runs) : null;
   }
 
   return s;

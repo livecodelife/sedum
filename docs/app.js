@@ -2,7 +2,7 @@
 // each entry with stats.js, and renders. It computes no number stats.js does
 // not, and writes nothing anywhere.
 
-import { wilson, fmtInterval, summarise, compare, BASELINE_UNDEFINED } from "./stats.js";
+import { wilson, fmtInterval, summarise, compare, ARMS, UNDEFINED_HERE } from "./stats.js";
 
 // ── tiny helpers ──────────────────────────────────────────────────
 
@@ -50,6 +50,11 @@ function strip(iv, title) {
       <span class="iv-point" style="left:calc(${point}% - 1.5px)"></span>
     </span>
   </span>`;
+}
+
+function armTitle(arm) {
+  const a = ARMS[arm];
+  return a ? `Given ${a.given}.` : `Unrecognised arm "${arm}".`;
 }
 
 function blank(reason) {
@@ -242,8 +247,8 @@ function renderTable(rows) {
         ? strip(s.behavior.workingRate, "samples whose application built, booted and passed every assertion")
         : `<span class="iv-none">not measured</span>`;
 
-      const fill = s.baseline
-        ? blank(BASELINE_UNDEFINED)
+      const fill = s.packageless
+        ? blank(UNDEFINED_HERE.signals(s.arm))
         : s.fill
           ? strip(s.fill.interval, "planted anchors a selection accounted for")
           : `<span class="iv-none">not recorded</span>`;
@@ -252,7 +257,7 @@ function renderTable(rows) {
         <td class="cell-date keep">${esc(fmtDate(s.at))}</td>
         <td class="cell-case">${esc(s.case)}<span class="stack">${esc([s.language, s.framework, s.tightness].filter(Boolean).join(" · "))}</span></td>
         <td class="cell-model">${esc(s.model.ID || "—")}<span class="engine">${esc([s.model.Engine, s.model.Quant].filter(Boolean).join(" · "))}</span></td>
-        <td><span class="armbadge armbadge-${esc(s.arm)}">${esc(s.arm)}</span></td>
+        <td><span class="armbadge armbadge-${esc(s.arm)}" title="${esc(armTitle(s.arm))}">${esc(s.arm)}</span></td>
         <td class="num">${s.samples} ${resolutionBadge(s)}</td>
         <td>${strip(s.validity, "samples the pipeline accepted")}${
           s.failed ? `<span class="iv-note">${s.failed} of ${s.samples} never reached the model</span>` : ""
@@ -308,6 +313,23 @@ function countTable(head, list, total) {
   </tbody></table>`;
 }
 
+// The rule tally with its rendered violations. A slug says how often; the
+// sentence says what the answer got wrong (prov-2026-986ac4ca).
+function ruleTable(rules) {
+  if (!rules || !rules.length) return "";
+  return `<table class="mini"><thead><tr><th>rejected under rule</th><th class="num">samples</th></tr></thead><tbody>
+    ${rules
+      .map(
+        (d) => `<tr><td>${esc(d.name)}${
+          d.violations.length
+            ? `<span class="violations">${d.violations.map((v) => esc(v)).join("<br>")}</span>`
+            : ""
+        }</td><td class="num">${d.n}</td></tr>`,
+      )
+      .join("")}
+  </tbody></table>`;
+}
+
 function group(title, inner) {
   return inner ? `<div class="dgroup"><h4>${esc(title)}</h4>${inner}</div>` : "";
 }
@@ -331,7 +353,7 @@ function openDetail(s) {
     <div class="cmp-row"><span class="cmp-label">valid of answered</span>${strip(s.validity)}</div>
     ${s.firstCall ? `<div class="cmp-row"><span class="cmp-label">valid on first call</span>${strip(s.firstCall)}</div>` : ""}
     ${s.failed ? `<p class="note">The ${s.failed} failed sample(s) are outside the denominator: an unreachable endpoint is not a model that chose badly.</p>` : ""}
-    ${countTable("rejected under rule", s.rules)}
+    ${ruleTable(s.rules)}
     ${s.details.length ? `<details class="more"><summary>${s.details.length} distinct reason(s) recorded</summary><pre class="inv">${esc(s.details.join("\n"))}</pre></details>` : ""}`,
   );
 
@@ -379,8 +401,8 @@ function openDetail(s) {
         `<p class="note">Not measured on this run. Behaviour is off by default — one sample costs a scaffold, a dependency install, a database and a boot. This is not a run whose application failed; it is a run where nothing was booted.</p>`,
       );
 
-  const signals = s.baseline
-    ? group("Form", `<p class="note">${esc(BASELINE_UNDEFINED)}</p>`)
+  const signals = s.packageless
+    ? group("Form", `<p class="note">${esc(UNDEFINED_HERE.signals(s.arm))}</p>`)
     : group(
         "Form — cheap checks over what was rendered",
         [
@@ -420,7 +442,9 @@ function openDetail(s) {
       )
     : "";
 
-  const paths = s.paths
+  const paths = s.packageless && !s.heldToPaths
+    ? group("Authorized paths written", `<p class="note">${esc(UNDEFINED_HERE.paths)}</p>`)
+    : s.paths
     ? group(
         "Authorized paths written",
         `<div class="cmp-row"><span class="cmp-label">written</span>${strip(s.paths.interval)}</div>
@@ -561,8 +585,8 @@ function renderCompare() {
       (a.behavior && b.behavior
         ? line("Applications that work", a.behavior.workingRate, b.behavior.workingRate)
         : `<div class="dgroup"><h4>Applications that work</h4><p class="note">Behaviour was not measured on both runs, so there is nothing to compare.</p></div>`) +
-      (a.baseline !== b.baseline
-        ? `<p class="note">One of these is the baseline arm — the same model and record with no generator package at all. Selection, binding and anchor fill do not exist on that side, so only the two rows above are comparable.</p>`
+      (a.packageless !== b.packageless
+        ? `<p class="note">One of these arms has no generator package — the same model and record with no action vocabulary at all. Selection, binding and anchor fill do not exist on that side, so only the two rows above are comparable.</p>`
         : "");
   };
 
