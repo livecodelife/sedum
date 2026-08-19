@@ -38,10 +38,10 @@ models:
   - id: qwen/qwen3-4b-2507
     engine: mlx
     quant: 4bit
-  # The large row. A 30B mixture-of-experts on a machine that can hold it, so
+  # The large row. A 35B mixture-of-experts on a machine that can hold it, so
   # that a rate measured on a 4B and a 14B is read against something well above
   # both rather than only against something below.
-  - id: qwen/qwen3-30b-a3b
+  - id: qwen/qwen3.6-35b-a3b
     engine: mlx
     quant: 4bit
 

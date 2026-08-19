@@ -21,7 +21,7 @@ intent: |
 
   - qwen2.5-coder-14b-instruct-mlx is removed from the three Rails cases.
   - qwen/qwen3-4b-2507 is added to the two Chi cases.
-  - qwen/qwen3-30b-a3b is added to all five, as the large row.
+  - qwen/qwen3.6-35b-a3b is added to all five, as the large row.
 
   ## What removing the MLX row costs, accurately
 
@@ -59,7 +59,12 @@ constraints:
     untouched and entries drawn before this remain comparable with entries drawn
     after. A case gains a row; its earlier entries simply hold no data for it.
   - >-
-    The 30B is declared, not measured cheaply. It is a much larger model on a
+    The large row is a mixture-of-experts with roughly 3B active parameters per
+    token, so it is declared on the strength of measured cost rather than
+    assumed to be expensive: a smoke calibration put it at 24-38s a sample,
+    alongside the 14B rather than an order above it.
+  - >-
+    The 35B is declared, not measured cheaply. It is a much larger model on a
     machine that can hold it, and a run that cannot afford every row narrows
     with -model rather than by a case declaring fewer rows than the matrix has.
 affected_scope:
