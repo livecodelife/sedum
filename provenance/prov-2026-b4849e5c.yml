@@ -1,6 +1,6 @@
 id: prov-2026-b4849e5c
 title: The example path in the prompt is not a file the answer wrote
-status: open
+status: implemented
 created_at: "2026-08-19"
 author: calebcowen@gmail.com
 intent: |
@@ -74,7 +74,7 @@ supersedes: ""
 superseded_by: ""
 related:
   - prov-2026-672c6471
-sealed_at_sha: ""
+sealed_at_sha: 1239582711fb36017f313663c6ace7e200f424cb
 associated_specs:
   - path: evals/baseline_test.go
     run_command: go test -count=1 ./$(dirname {{path}})
