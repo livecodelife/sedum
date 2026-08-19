@@ -1,0 +1,91 @@
+id: prov-2026-986ac4ca
+title: Ignore keys nobody asked for, and keep the text that says why an answer was rejected
+status: draft
+created_at: "2026-08-19"
+author: calebcowen@gmail.com
+intent: |
+  Two changes, both about a rejection that could not be read.
+
+  ## An invocation carrying an extra key is thrown away whole
+
+  decode.go decodes each invocation with DisallowUnknownFields against a struct
+  of exactly action and kwargs, so an entry naming the right action with the
+  right arguments is discarded if it carries anything else beside them.
+
+  On todo-rails-described the 4B row drew 50 samples: 45 validated and every one
+  of those 45 produced a working service, 900 of 900 assertions. The other five
+  never reached selection at all. They were rejected under invocation_shape -
+  which fires in decode, before any of the nine rules in validate.go - so what
+  the model chose was never judged. One of them spent three attempts emitting
+  ten malformed entries, which is the shape of a model re-sending the same
+  answer because the re-prompt says the envelope is wrong without saying which
+  key is unwelcome.
+
+  A response is an answer to a question, not a schema. If the action and the
+  kwargs are there, the invocation is readable, and a key nobody asked for is
+  something to ignore rather than grounds to refuse the whole entry.
+
+  ## Rejection detail is built and then dropped
+
+  decode builds the text that would explain it - "invocation 2 is not readable
+  as {action, kwargs}: ...; it was <the offending entry>" - and the entry stores
+  "the model's output did not validate within 3 attempt(s)".
+
+  That is the same defect prov-2026-eb283c56 added `rules` to work around: the
+  description A/B produced 7 rejections in one arm and 11 in the other and every
+  one rendered as that sentence, so a run could say the model failed more often
+  and not whether it failed differently. Slugs became countable and the prose
+  was left "for reading" - but the prose never arrives, so the only way to learn
+  what an answer looked like is to reproduce it.
+constraints:
+  - >-
+    An invocation carrying keys beyond action and kwargs is accepted, and the
+    extra keys are ignored rather than recorded. Nothing downstream may read
+    them: a key the format does not define is not a channel.
+  - >-
+    Leniency does not hide a mistyped key. An entry sending "kwarg" rather than
+    "kwargs" decodes to no arguments and is rejected under missing_kwarg,
+    naming the arguments it lacks - which is more actionable than being told the
+    entry was unreadable, so the failure surfaces better rather than worse.
+  - >-
+    The response envelope is decoded the same way, for the same reason. A stray
+    key beside "invocations" is the same class of thing as a stray key beside
+    "action", and refusing one while ignoring the other would make the rule
+    depend on nesting depth.
+  - >-
+    An action that is absent or empty still rejects, and kwargs that are present
+    but not an object still rejects. Ignoring unknown keys is not accepting an
+    unreadable entry.
+  - >-
+    Each rejected sample stores the detail text of every violation it was
+    rejected under, in attempt order, beside the slugs it already stores. The
+    text includes the offending entry as decode already truncates it, because a
+    rejection nobody can read is a measurement of nothing.
+  - >-
+    An entry written before this field reads as absent rather than as empty, on
+    the rule the schema already holds itself to: a dash is not a zero.
+  - >-
+    No rule is added, removed or renamed. A sample that validated before this
+    record validates after it, and a sample rejected for a reason other than an
+    unknown key is rejected identically - so entries drawn before and after stay
+    comparable except where an answer was previously refused for a key that is
+    now ignored.
+affected_scope:
+  - internal/selection/decode.go
+  - internal/selection/selection_test.go
+  - evals/run.go
+  - evals/results.go
+  - evals/run_test.go
+  - evals/results_test.go
+forbidden_scope:
+  - cmd/**
+type: blueprint
+supersedes: ""
+superseded_by: ""
+related:
+  - prov-2026-eb283c56
+sealed_at_sha: ""
+associated_specs: []
+associated_traces: []
+monitors: []
+tags: []
