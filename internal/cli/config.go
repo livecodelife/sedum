@@ -104,6 +104,15 @@ type ResolveConfig struct {
 	ShowTemplate bool
 }
 
+// RenderConfig drives target rendering for one invocation.
+type RenderConfig struct {
+	Generators string
+	Package    string
+	Action     string
+	Kwargs     string
+	JSON       bool
+}
+
 // ActionsConfig drives catalog inspection.
 type ActionsConfig struct {
 	Generators string

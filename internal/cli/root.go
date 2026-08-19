@@ -10,6 +10,8 @@ import (
 	"os"
 
 	"github.com/spf13/cobra"
+
+	"github.com/calebcowen/sedum/internal/recording"
 )
 
 const (
@@ -35,6 +37,11 @@ what templates they render, and where in a file the results belong.
 Sedum's core contains no language-specific knowledge. Adding a language or
 framework means authoring a generator package, never modifying Sedum.`,
 
+		// A caller told to invoke a binary must be able to check it is the one
+		// the instruction was written for (prov-2026-b5465dfa). The value is
+		// the recording's, so the surface and the artifact cannot disagree.
+		Version: recording.Version,
+
 		// Errors are reported once, by Execute, with a consistent prefix. Usage
 		// is not dumped on every failure: a specific diagnostic buried under
 		// forty lines of flag help is a worse diagnostic.
@@ -42,11 +49,18 @@ framework means authoring a generator package, never modifying Sedum.`,
 		SilenceUsage:  true,
 	}
 
+	// A bare semver, not cobra's "sedum version X" sentence. The consumer this
+	// exists for is checking a version floor before invoking a command
+	// (prov-2026-b5465dfa), and a string it has to strip a prefix off is a
+	// parsing rule stated nowhere.
+	root.SetVersionTemplate("{{.Version}}\n")
+
 	root.AddCommand(
 		newGrowCommand(),
 		newValidateCommand(),
 		newResolveCommand(),
 		newActionsCommand(),
+		newRenderCommand(),
 	)
 
 	return root

@@ -9,6 +9,9 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
+	"regexp"
+
+	"github.com/calebcowen/sedum/internal/recording"
 )
 
 // The flag surface is contract, not convenience: PRD.md's CLI tables are
@@ -337,5 +340,26 @@ func TestVarParsing(t *testing.T) {
 	// which, so it is refused rather than resolved by order.
 	if _, err := parseVars([]string{"module=a", "module=b"}); err == nil {
 		t.Error("a repeated --var silently took one of the two values")
+	}
+}
+
+// A caller told to invoke a binary must be able to check it is the one the
+// instruction was written for, and the value it reads must be the one a
+// recording carries - otherwise the two drift and the check is theatre
+// (prov-2026-b5465dfa).
+
+func TestVersionEmitsABareSemver(t *testing.T) {
+	out, err := exec(t, "--version")
+	if err != nil {
+		t.Fatalf("--version: %v\n%s", err, out)
+	}
+
+	got := strings.TrimSpace(out)
+	if got != recording.Version {
+		t.Errorf("--version emitted %q, which is not the value a recording carries (%q)", got, recording.Version)
+	}
+	// A prefix would be a parsing rule stated nowhere.
+	if !regexp.MustCompile(`^\d+\.\d+\.\d+$`).MatchString(got) {
+		t.Errorf("--version emitted %q, which is not a bare semver", got)
 	}
 }
