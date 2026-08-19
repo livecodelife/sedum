@@ -150,6 +150,9 @@ affected_scope:
   - internal/cli/config.go
   - internal/cli/flags_test.go
   - testdata/**
+  # Two README statements say the recording and --execute are still to come.
+  # Landing them makes both false.
+  - README.md
 forbidden_scope: []
 type: blueprint
 implements: prov-2026-d554bfc3
