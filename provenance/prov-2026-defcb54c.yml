@@ -1,0 +1,78 @@
+id: prov-2026-defcb54c
+title: The baseline arm exists for Go, so the comparison can be made there too
+status: draft
+created_at: "2026-08-19"
+author: calebcowen@gmail.com
+intent: |
+  Two case files: todo-chi-baseline and grocery-chi-baseline. No code changes -
+  the arm exists and [[prov-2026-672c6471]] just made the ladder three rungs.
+
+  ## The gap
+
+  todo-rails-baseline was the only case with arm: baseline, so "does Sedum beat
+  writing the files directly" had an answer for Ruby and none for Go.
+
+  That is the wrong half to be missing. The Rails answer, at n=50, is that it
+  does not: the 14B scored 34 of 50 samples working and 967 of 1000 assertions
+  unaided, against 32 and 30 with a catalog - intervals that overlap almost
+  entirely. What separated the arms was the model rather than the tooling: the
+  4B took 0 of 50 unaided and 45 of 50 with descriptions.
+
+  Go is where that reading is most likely to break. The 14B is qwen2.5-coder and
+  the chi cases are where the packages' own defects lived - a field name
+  transformed on one appearance and not the other, an import action bound to
+  five packages it did not need - so the arm that writes the files itself has
+  neither of those to trip over, and the arm that selects them does.
+
+  ## Why the records are the ones the sedum arms use
+
+  todo-api/records and grocery-api/records, unchanged. The arms differ in what
+  the model is given and in nothing else, which is the only way the comparison
+  reads - and it is what makes the same behaviour target able to score both.
+
+  Both records were cut to what the packages can express ([[prov-2026-40bdd9ac]]),
+  and that cut now sits on the wrong side of the comparison: constraints were
+  dropped because a generator package could not satisfy them, and a model
+  writing files by hand is not bound by what an action vocabulary can say. The
+  baseline arm is therefore being asked for less than it could do. That is worth
+  knowing when reading the numbers and is not worth fixing by giving the arms
+  different records, which would make them incomparable.
+constraints:
+  - >-
+    The records are the ones the sedum arms already use, unchanged. Two arms
+    given different records are two measurements rather than a comparison.
+  - >-
+    Each case names the behaviour target its sedum sibling names, because
+    behaviour is the only rung that can score an arm with no vocabulary and the
+    two arms have to be scored by the same assertions.
+  - >-
+    The same model rows every other case declares, so no pair of cases is
+    incomparable because one carries a row the other does not
+    (prov-2026-de71f29b).
+  - >-
+    No code changes. The arm is validated, dispatched and reported already; this
+    is two case files and the record that says why they exist.
+  - >-
+    The records' constraints were cut to what the generator packages can
+    express, so the baseline arm is asked for less than a model writing files by
+    hand could do. Stated rather than corrected: giving the arms different
+    records would remove the only thing that makes them comparable.
+affected_scope:
+  - evals/cases/todo-chi-baseline.yaml
+  - evals/cases/grocery-chi-baseline.yaml
+forbidden_scope:
+  - internal/**
+  - cmd/**
+type: blueprint
+supersedes: ""
+superseded_by: ""
+related:
+  - prov-2026-a4dbe65c
+  - prov-2026-672c6471
+sealed_at_sha: ""
+associated_specs:
+  - path: evals/run_test.go
+    run_command: go test -count=1 ./$(dirname {{path}})
+associated_traces: []
+monitors: []
+tags: []
