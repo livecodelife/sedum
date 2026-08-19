@@ -1,0 +1,102 @@
+id: prov-2026-b0bf8584
+title: A published dashboard that reads the stored results and refuses to over-read them
+status: draft
+created_at: "2026-08-19"
+author: calebcowen@gmail.com
+intent: |
+  A static site under docs/, published to GitHub Pages, that reads the JSONL
+  entries in evals/results/ and presents them to somebody who has never seen
+  this repository. It adds no measurement and stores no number of its own.
+
+  ## Why a reader, and why it is not a second harness
+
+  The numbers exist and are already correct. What does not exist is a way to
+  look at them without the terminal report, the case files and the fourteen
+  records under [[prov-2026-e6969eb3]] and [[prov-2026-b6059aa7]] that say what
+  each column is allowed to mean. `go run ./evals/cmd/eval` prints one run at a
+  time to a person who already knows the vocabulary; the stored file holds
+  forty-nine runs and answers nothing to anyone else.
+
+  So this is a reading of results/, and the direction of dependency is one way:
+  the site is downstream of the file, the file is never downstream of the site.
+  Results stay append-only observations ([[prov-2026-eb283c56]]) and nothing
+  here writes, edits, backfills or normalises one. An entry the site cannot
+  parse is shown as unreadable rather than repaired.
+
+  ## The honesty rules are the feature
+
+  A dashboard is the exact artifact this harness's records keep legislating
+  against. [[prov-2026-0baaa119]] added Wilson intervals because a column of
+  bare fractions invites a reader to see a change five samples cannot support.
+  [[prov-2026-3039750e]] refuses a run drawn below its resolution because a null
+  result from an underpowered run reads like a finding. [[prov-2026-c5ad54ff]]
+  stopped the history chain comparing entries that cannot be re-run from their
+  commit. Every one of those is a defence against a reader believing a number
+  more than it deserves, and a sortable table of rates is the single most
+  effective way to undo all of them at once - sorting by a rate puts 5/5 at n=2
+  on a dirty tree above 23/30 clean at fine, and the sort itself makes the claim.
+
+  The site therefore carries those rules rather than the report's formatting of
+  them. A rate never appears without its fraction and its interval. A smoke run,
+  a dirty run and a run with no stated resolution are marked wherever they
+  appear and are excluded from any side-by-side by default. Two rates whose
+  intervals overlap are said to be not distinguished, never said to differ. No
+  p-value, no pass/fail badge, no aggregate across entries drawn against
+  different fixtures ([[prov-2026-eb283c56]]'s digest is what tells them apart).
+
+  ## What a stranger needs, which is not more columns
+
+  The audience is a person who does not know what an arm, a rung, a tightness or
+  an anchor is. What they need is the ladder: selection, binding, form,
+  behaviour, baseline ([[prov-2026-b6059aa7]]) - what each rung asks, and the
+  fact that the value is in where two of them disagree rather than in any one
+  number. A perfect selection score beside a service that does not boot is the
+  finding, not a contradiction to be smoothed over.
+
+  So every term the table uses is defined in place, and each rung says what it
+  cannot see as plainly as what it can: anchor fill cannot tell a package's
+  ceiling from a model's miss, selection counts are hand-authored and can be
+  fitted, behaviour needs the application to build before it can assert anything.
+
+  ## The baseline arm reports less, and says so
+
+  arm=baseline has no package and no vocabulary, so selection, binding, anchor
+  fill and idempotency are undefined for it and are not reported
+  ([[prov-2026-a4dbe65c]]). Those cells are blank with a reason, never zero. A
+  zero would read as a score.
+
+  ## Build and deployment
+
+  A workflow discovers evals/results/*.jsonl, copies them with a generated
+  manifest, and deploys the result. Nothing generated is committed, so the site
+  cannot drift from the file it reads and a new case needs no edit here.
+constraints:
+  - The site is a reader. It never writes, edits, normalises or backfills an entry in evals/results/, and an entry it cannot parse is reported as unreadable rather than repaired.
+  - A rate is never shown without the fraction that produced it and a Wilson interval over samples. The interval goes beside the fraction, never instead of it.
+  - Smoke entries, dirty entries and entries with no stated resolution are marked wherever they appear and are excluded from comparison by default, exactly as the history chain excludes them.
+  - Two rates are described as not distinguished when their intervals overlap. Nothing here prints a significance test, a p-value, or a pass/fail verdict on a sampled rate.
+  - An interval is computed over samples and never over invocations. Invocation tallies are shown as bare ratios labelled as detail.
+  - Failed samples stay outside every denominator, and the count of them is shown wherever a denominator excludes them.
+  - Selection, binding, anchor fill and idempotency are not reported for arm=baseline. Those cells are blank with the reason, never zero.
+  - Entries drawn against different fixture digests are not aggregated into one number.
+  - Every term a column uses is defined on the page, and each rung states what it cannot see alongside what it measures.
+  - Nothing generated by the build is committed to the repository.
+affected_scope:
+  - docs/**
+  - .github/workflows/pages.yml
+forbidden_scope:
+  - evals/results/**
+  - internal/**
+  - cmd/**
+type: blueprint
+supersedes: ""
+superseded_by: ""
+related: []
+sealed_at_sha: ""
+associated_specs: []
+associated_traces: []
+monitors: []
+tags:
+  - sedum
+  - evals
+  - docs
