@@ -1,0 +1,75 @@
+id: prov-2026-6903db40
+title: Replay validates through the selection package, so its validator is exported
+status: draft
+created_at: "2026-08-19"
+author: calebcowen@gmail.com
+intent: |
+  M7 requires replay's validation to be "identical to model-output validation
+  but terminal". Identical is the load-bearing word: a recording naming a
+  nonexistent action, omitting a required kwarg, or targeting a file it did not
+  create has to fail exactly the checks a model response fails, or the
+  submission protocol and the model path diverge and the recording stops being a
+  first-class input.
+
+  `selection.validate` is that logic and it is unexported. So "identical" has
+  two possible implementations, and only one of them is honest.
+
+  ## Reimplementing it is the wrong kind of cheap
+
+  A second validator in `pipeline` would keep this milestone inside its declared
+  scope, which is the only argument for it. Every check would then exist twice -
+  the required-kwarg rule, the type satisfaction rule, the variant rule, the
+  target-authorization rule - and the two copies would agree on the day they
+  were written.
+
+  They would not stay agreed. A kwarg rule added for the model path is a rule a
+  recording is no longer held to, and the divergence shows up as a recording
+  Sedum accepts and a model answer it rejects for the same content. That is the
+  failure this constraint exists to prevent, reintroduced by the thing meant to
+  satisfy it.
+
+  ## Exporting is the whole change
+
+  `selection.Validate` wraps the unexported `validate` and builds its inputs the
+  same way `Select` does - `expand.Packages` over the files, then
+  `catalog.Build` over those packages. It is the same call `Select` makes on the
+  model's decoded output, with the same arguments, reached from a different
+  caller.
+
+  Nothing about the check moves and no rule is restated. The re-prompt loop
+  stays in `Select`, which is the only part replay does not want: there is
+  nothing to re-prompt, so violations are returned and the run halts.
+
+  ## What this costs
+
+  `internal/selection/**` was not in [[prov-2026-dc227be7]]'s affected_scope,
+  because the blueprint was written before it was clear that identical
+  validation meant reaching into the package that owns it. The scope is widened
+  rather than the requirement weakened.
+
+  It is a small widening and it is worth naming: the milestone that adds replay
+  touches the package that validates model output, and the reason is that these
+  are the same validation seen from two entry points. If that ever stops being
+  true, this record is where to look for why it was supposed to be.
+constraints:
+  - >-
+    There is one validator. Replay and model output are checked by the same
+    code reached from two callers, never by two implementations that agree
+    today.
+  - >-
+    Exporting stops at the check. The re-prompt loop is not part of what replay
+    reuses, because replay has nothing to re-prompt - violations are returned
+    and the run halts.
+affected_scope:
+  - internal/selection/**
+forbidden_scope: []
+type: imprint
+implements: prov-2026-dc227be7
+supersedes: ""
+superseded_by: ""
+related: []
+sealed_at_sha: ""
+associated_specs: []
+associated_traces: []
+monitors: []
+tags: []
