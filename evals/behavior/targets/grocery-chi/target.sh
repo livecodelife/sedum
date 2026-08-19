@@ -129,6 +129,25 @@ target_verify() {
   code=$(status DELETE /groceries/999999)
   check "delete of a missing record returns 404" "$code" "404"
 
+  # The schema init.sql actually produced.
+  #
+  # Both records state the column rules in the same words, and only the Rails
+  # target checked them - so the two arms of the language comparison were
+  # reading their records to different depths. No HTTP call can observe a
+  # default on a NOT NULL column the caller always supplies, which is the
+  # blindness the Rails side added these for after a green wall lied once
+  # (prov-2026-71940de0).
+  local coldefault
+  coldefault=$(psql -X -A -t -d "$PGURL/$DBNAME" -c \
+    "SELECT coalesce(column_default, 'NULL') FROM information_schema.columns
+      WHERE table_name = 'groceries' AND column_name = 'name'")
+  check "name carries no column default" "$coldefault" "NULL"
+
+  coldefault=$(psql -X -A -t -d "$PGURL/$DBNAME" -c \
+    "SELECT coalesce(column_default, 'NULL') FROM information_schema.columns
+      WHERE table_name = 'groceries' AND column_name = 'quantity'")
+  check "quantity defaults to zero" "$coldefault" "0"
+
   ( cd "$APP" && go test ./... 2>&1 ) > "$LOGS/gotest.log"
   local rc=$?
   check "the generated go test suite passes" "$rc" "0"
