@@ -1,6 +1,6 @@
 id: prov-2026-3957eed2
 title: A behaviour run has a deadline, because a phase that hangs stops the measurement rather than failing a sample
-status: draft
+status: open
 created_at: "2026-08-19"
 author: calebcowen@gmail.com
 intent: |
