@@ -1,6 +1,6 @@
 id: prov-2026-986ac4ca
 title: A rejected sample keeps the text that says why it was rejected
-status: open
+status: implemented
 created_at: "2026-08-19"
 author: calebcowen@gmail.com
 intent: |
@@ -49,7 +49,7 @@ supersedes: ""
 superseded_by: ""
 related:
   - prov-2026-eb283c56
-sealed_at_sha: ""
+sealed_at_sha: 7d2e9501265fe3d41299fab0db931999a36e8316
 associated_specs:
   # The decode change is a unit-level claim - an entry carrying an extra key is
   # accepted, a mistyped key still rejects - so the package's own tests are the
