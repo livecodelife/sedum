@@ -1,6 +1,6 @@
 id: prov-2026-b0bf8584
 title: A published dashboard that reads the stored results and refuses to over-read them
-status: open
+status: implemented
 created_at: "2026-08-19"
 author: calebcowen@gmail.com
 intent: |
@@ -93,7 +93,7 @@ type: blueprint
 supersedes: ""
 superseded_by: ""
 related: []
-sealed_at_sha: ""
+sealed_at_sha: 2f12714c2ba37441e910d3e6cdad54985e261b2a
 associated_specs:
   - path: docs/stats_test.mjs
     run_command: node --test {{path}}
