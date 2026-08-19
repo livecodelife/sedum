@@ -1,0 +1,140 @@
+id: prov-2026-2fb763a0
+title: The Rails standard has no test fixtures, so idiomatic Rails tests cannot run
+status: draft
+created_at: "2026-08-18"
+author: calebcowen@gmail.com
+intent: |
+  The Rails record authorizes test/fixtures/{table}.yml, and the standard gains
+  a file template for it plus an addFixtureAttribute action. Both package sets
+  change together.
+
+  ## What the baseline run found
+
+  Five baseline samples on the fixed fixtures, all valid, all writing every
+  authorized path. Four of five passed nineteen of twenty assertions - the
+  service works. Every one of the five failed the same remaining assertion:
+  the generated minitest suite.
+
+  The cause is one line the model wrote in all five:
+
+      setup do
+        @todo = todos(:one)
+      end
+
+  `todos(:one)` is a Rails fixture reference. It needs test/fixtures/todos.yml,
+  which the record does not authorize, so every test errors before asserting
+  anything.
+
+  No sample tried to write the file. `unexpected` is empty across all five, so
+  this is not the harness discarding an attempt - the model wrote the tests
+  `rails new` teaches and never reached for the file they depend on.
+
+  ## Why that is a defect in the fixture and not a finding about the model
+
+  [[prov-2026-d318e3dd]] holds that a generated service is what an engineer
+  would have built, following the conventions of its framework. Fixtures are
+  how Rails supplies test data: the scaffold generates them, the guides teach
+  them, and `todos(:one)` is the first line of every generated controller test.
+  A Rails standard that cannot express them is not a Rails standard.
+
+  The package sidesteps them instead. Its test templates build their own data
+  inline - `post "/todos", params: { title: "write it down" }, as: :json` - and
+  nothing in the standard references a fixture. That works, and it is why the
+  sedum arm passes the suite. But it means the record's scope silently forbids
+  the idiomatic path, and the arm without a package walks into it every time.
+
+  That is the same shape as the CSRF finding: an unstated convention the package
+  knows and the baseline has no way to. The audit that produced d318e3dd checked
+  the scaffold, the routes, the port, the health endpoint and the assertions,
+  and did not check how the standard supplies test data.
+
+  ## The shape of the action follows the standard's own rule
+
+  addColumn's declaration says why it is one kwarg per option:
+
+      A single options string needs the caller to know a convention - where the
+      comma goes, whether the type repeats - and the catalog has nowhere to say
+      what that convention is, so the caller guesses and the template renders
+      the guess.
+
+  So the attributes are not one YAML blob. addFixtureAttribute takes a name and
+  a value and renders one line, exactly as addColumn does for a column.
+
+  ## One fixture, and the anchor sits inside it
+
+  The file template declares the fixture label and plants the anchor within it:
+
+      one:
+        # sedum:anchor:fixture
+
+  Every attribute then lands inside `one` with no ordering to get wrong. The
+  alternative - a label kwarg on each attribute, with the anchor at the top
+  level - would make a fixture's block depend on invocations arriving in the
+  right order, and a wrong order produces YAML that parses into the wrong shape
+  rather than failing.
+
+  The template carries two leading spaces because that is the depth its anchor
+  sits at, which is the convention [[prov-2026-df491217]] settled: markers take
+  the anchor's indentation and bodies are written at the depth they land in, the
+  way addColumn is written six spaces deep to sit inside create_table.
+
+  `rails new` generates two fixtures. One is enough for every assertion this
+  record's tests make, and a second would double the invocations for nothing a
+  test reads.
+
+  ## What is deliberately not done
+
+  **The package's own test templates keep building their own data.** Creating a
+  record in the test that needs one is also idiomatic - it is what the scaffold
+  does for `create` - and rewriting the five variants to read fixtures is a
+  change to what the sedum arm is measured on, not a fix for the defect this
+  record is about. The defect is that the fixture file cannot be expressed at
+  all; that is what closes here.
+
+  **No Go equivalent.** The chi standard has no fixture concept to be missing.
+constraints:
+  - >-
+    The record authorizes test/fixtures/{table}.yml, because a Rails service's
+    test data lives there and a record that forbids it forbids the framework's
+    own convention.
+  - >-
+    Attributes are one kwarg per value, never a single YAML blob, for the reason
+    addColumn gives: a caller guessing at a convention the catalog cannot state
+    produces a guess the template renders.
+  - >-
+    The fixture label is in the file template and the anchor sits inside it, so
+    no attribute carries a label and no fixture depends on invocation order.
+  - >-
+    The action template is written at the depth its anchor sits at, per
+    prov-2026-df491217 - markers take the anchor's indentation and bodies do not.
+  - >-
+    Both package sets change identically. The description A/B differs only by
+    descriptions and a fix to one arm would make the pair measure two things.
+  - >-
+    The existing test templates are untouched. Building a record in the test
+    that needs one is idiomatic too, and rewriting them would change what the
+    sedum arm is measured on rather than close this defect.
+affected_scope:
+  - evals/testdata/todo-rails/**
+  - evals/cases/todo-rails-defined.yaml
+  - evals/cases/todo-rails-described.yaml
+forbidden_scope:
+  - internal/**
+  - cmd/**
+type: bug
+extends: prov-2026-d318e3dd
+supersedes: ""
+superseded_by: ""
+related:
+  - prov-2026-a4dbe65c
+  - prov-2026-df491217
+sealed_at_sha: ""
+associated_specs:
+  - path: evals/run_test.go
+    run_command: go test -count=1 ./$(dirname {{path}})
+associated_traces: []
+monitors: []
+tags:
+  - sedum
+  - evals
+  - fixtures
