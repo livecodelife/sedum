@@ -1,6 +1,6 @@
 id: prov-2026-dc227be7
 title: M7 - Recording and replay
-status: open
+status: implemented
 created_at: "2026-08-07"
 author: calebcowen@gmail.com
 intent: |
@@ -162,7 +162,7 @@ related:
   - prov-2026-59535684
   - prov-2026-b5465dfa
   - prov-2026-36c8a99c
-sealed_at_sha: ""
+sealed_at_sha: f42d7e9e5fe7cb10a4bc20659a14f015c86ec3fb
 associated_specs:
   # The schema half and the behaviour half. The recording spec asserts the
   # properties a committed artifact has to keep - clean diffs, the reserved
