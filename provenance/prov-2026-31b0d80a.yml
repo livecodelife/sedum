@@ -1,0 +1,54 @@
+id: prov-2026-31b0d80a
+title: The rails package README stops documenting routes the template no longer plants
+status: draft
+created_at: "2026-08-18"
+author: calebcowen@gmail.com
+intent: |
+  One sentence in the defined set's README describes the routes template as
+  carrying Rails' `/up` and the PWA routes. [[prov-2026-f5e64f22]] removed the
+  PWA routes; the sentence was not updated with them.
+
+  The rule the paragraph is illustrating is unchanged and still correct: a file
+  template owns the whole file or none of it, so a file Sedum injects into
+  either has its anchor planted or is replaced outright. Only the example is
+  stale.
+
+  ## Why this is worth a record rather than a silent edit
+
+  A generator package's README is part of what a team reads to understand the
+  standard. [[prov-2026-d318e3dd]] holds that a package is what an engineering
+  team would author, and prose that describes routes the package does not
+  generate fails that on its own terms - a reader would go looking for the PWA
+  routes and not find them.
+
+  It was also missed by the sweep that produced f5e64f22, which checked the
+  templates and not the documentation beside them. That is the reason to name
+  it: the audit's own coverage was narrower than the record it produced.
+constraints:
+  - >-
+    Only the stale example changes. The rule it illustrates - a file template
+    owns the whole file or none of it - is unchanged and still true.
+  - >-
+    A package's prose is part of the package. Documentation that describes what
+    the templates no longer do fails the same test the templates are held to.
+affected_scope:
+  - evals/testdata/todo-rails/generators/defined/README.md
+forbidden_scope:
+  - internal/**
+  - cmd/**
+type: imprint
+implements: prov-2026-d318e3dd
+supersedes: ""
+superseded_by: ""
+related:
+  - prov-2026-f5e64f22
+sealed_at_sha: ""
+associated_specs:
+  - path: evals/testdata/todo-rails/generators/defined/README.md
+    run_command: test -f {{path}}
+associated_traces: []
+monitors: []
+tags:
+  - sedum
+  - evals
+  - fixtures
