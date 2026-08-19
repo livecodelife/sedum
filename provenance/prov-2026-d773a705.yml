@@ -1,0 +1,92 @@
+id: prov-2026-d773a705
+title: A written-paths rate is reported only by an arm that was given paths
+status: draft
+created_at: "2026-08-19"
+author: calebcowen@gmail.com
+intent: |
+  `report.go`'s package-free branch prints "authorized paths written" for every
+  arm that reaches it. For the intent arm that number is 1.00 on every run, and
+  it always will be.
+
+  ## Why it cannot be anything else
+
+  `baselineAnswer` hands `parseFencedFiles` a nil allowed list for the intent
+  arm, and `parseFencedFiles` accepts every path an answer carries when the list
+  is nil. So `unexpected` is empty by construction and `missing` is empty by
+  construction, which makes the rate wrote/wrote. The comment on that branch
+  already says the reason - "told no paths, it cannot be held to them" - and the
+  case file calls it the point rather than a defect. The report is the one place
+  that did not get the message.
+
+  [[prov-2026-a4dbe65c]] blanked four cells because "printing zeroes for them
+  would report a measurement that was not made". A 1.00 that cannot be anything
+  else is that same rule, and it is the worse direction: a blank cell invites a
+  question and a perfect score ends one. Somebody reading a matrix would find
+  the intent arm placing first on the only completeness number in the table.
+
+  ## Two more things wrong in the same twelve lines
+
+  **It calls itself `arm=baseline` whatever arm it is.** The label is a string
+  literal, so an intent run's report opens by naming a different arm. Every
+  other field on the entry is right and the sentence at the top is wrong, which
+  is the kind of defect a reader trusts precisely because everything around it
+  is correct.
+
+  **The parser's exemption and the report's are two copies of `arm ==
+  "intent"`.** This is the third time this exact shape has cost something.
+  [[prov-2026-672c6471]] added `Case.WithoutPackage()` as a predicate because "a
+  third arm that is also package-free would otherwise have to be remembered in
+  four places"; [[prov-2026-18a6e7a5]] then found the published page had
+  remembered it in four places. The path exemption is now in the same position
+  the package question was in before that method existed, and it gets the same
+  treatment before a fourth arm arrives rather than after.
+
+  ## The behaviour rung is untouched
+
+  What the intent arm can be scored on does not change. All three arms share the
+  behaviour question - the target boots what was written and asserts against it,
+  whoever wrote the code - and that is the comparison the arm exists to make.
+  This removes a number that was never a measurement and removes nothing else.
+
+  ## The page follows the report rather than diverging from it
+
+  [[prov-2026-18a6e7a5]] had the published page decline this rate while the
+  report still printed it, and said so on the page because two surfaces
+  disagreeing in silence is worse than either answer. With the report fixed the
+  divergence is gone, so the page stops claiming one.
+constraints:
+  - Whether an arm is held to the record's paths is decided in one place and read everywhere else. The parser's allowed list and the report's rate must not be able to disagree about it.
+  - An arm not given a list of files reports no written-paths rate. The report says why the number is absent rather than omitting it silently, exactly as it already does for selection, binding, anchor fill and idempotency.
+  - The package-free report names the arm it is reporting on. No arm's label is a string literal.
+  - The behaviour rung is unchanged for every arm. This record removes a number that was never a measurement and adds none.
+  - The published page stops claiming a divergence from the terminal report once the report no longer has one.
+affected_scope:
+  - evals/report.go
+  - evals/case.go
+  - evals/baseline.go
+  - evals/baseline_test.go
+  - docs/stats.js
+  - docs/index.html
+forbidden_scope:
+  - evals/results/**
+  - internal/**
+  - cmd/**
+type: blueprint
+supersedes: ""
+superseded_by: ""
+related:
+  - prov-2026-672c6471
+  - prov-2026-18a6e7a5
+  - prov-2026-a4dbe65c
+sealed_at_sha: ""
+associated_specs:
+  - path: evals/baseline_test.go
+    run_command: go test ./$(dirname {{path}})
+  - path: docs/stats_test.mjs
+    run_command: node --test {{path}}
+associated_traces: []
+monitors: []
+tags:
+  - sedum
+  - evals
+  - measurement
