@@ -75,7 +75,9 @@ target_boot() {
   DATABASE_URL="$PGURL/$DBNAME?sslmode=disable" "$WORK/server" > "$LOGS/server.log" 2>&1 &
   APP_PID=$!
 
-  wait_for "$BASE_URL/todos" 30 || { tail -40 "$LOGS/server.log"; return 1; }
+  # The base URL and no path: a boot gate waits for a listener, and any HTTP
+  # response proves one (prov-2026-79e94e7c).
+  wait_for "$BASE_URL/" 30 || { tail -40 "$LOGS/server.log"; return 1; }
   echo "up on $BASE_URL"
 }
 

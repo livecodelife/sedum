@@ -131,7 +131,12 @@ target_boot() {
   bin/rails server -b 127.0.0.1 -p "$APP_PORT" > "$LOGS/server.log" 2>&1 &
   APP_PID=$!
 
-  wait_for "$BASE_URL/up" 60 || { tail -40 "$LOGS/server.log"; return 1; }
+  # The base URL and no path. This waits for a listener, which is the whole of
+  # what a boot gate does - any HTTP response proves the process is accepting
+  # connections, and a 404 for a route nobody defined is as good an answer as a
+  # 200. It used to poll /up, a route config/routes.rb carries and the record
+  # authorizes any arm to replace (prov-2026-79e94e7c).
+  wait_for "$BASE_URL/" 60 || { tail -40 "$LOGS/server.log"; return 1; }
   echo "up on $BASE_URL"
 }
 
