@@ -1,0 +1,89 @@
+id: prov-2026-ad9751dc
+title: "Square the model matrix: drop the redundant quant, add the small and large rows everywhere"
+status: open
+created_at: "2026-08-19"
+author: calebcowen@gmail.com
+intent: |
+  Every case declares the same three model rows: the 14B under llama.cpp, a 4B
+  and a 30B under MLX. Three edits get there.
+
+  ## The matrix is not square today
+
+  The Rails cases carry three rows and the Chi cases carry one. A model row is a
+  column of the matrix rather than a property of one arm, and a row present in
+  one case and absent from another makes the pair incomparable the moment anyone
+  runs unfiltered (prov-2026-de71f29b). The 4B is the row that most needs it: it
+  reached 100/100 assertions on todo-rails-described and 95/100 on
+  todo-rails-defined, better than either 14B row, and there is no measurement of
+  it against Go at all.
+
+  ## What changes
+
+  - qwen2.5-coder-14b-instruct-mlx is removed from the three Rails cases.
+  - qwen/qwen3-4b-2507 is added to the two Chi cases.
+  - qwen/qwen3-30b-a3b is added to all five, as the large row.
+
+  ## What removing the MLX row costs, accurately
+
+  It is redundant, and that is the argument for dropping it: it is the same
+  checkpoint as the llama.cpp row under a different quantization, so it answers
+  a question about quantization rather than about models, and no decision has
+  turned on it.
+
+  It is not consistently worse, and this record should not claim it was. On
+  todo-rails-defined at fine it took 26/30 valid against the llama.cpp row's
+  30/30 - but on the same case at coarse it held 87/100 assertions against 67/80,
+  and on todo-rails-described it held 98/100 against 87/100 and reached 5/5
+  working where llama.cpp reached 4/5. It won about as often as it lost.
+
+  What goes with it is the engine comparison. The row existed because MLX 4-bit
+  and a llama.cpp Q4_K_M build of one checkpoint are not the same model for
+  measurement purposes, and after this the only llama.cpp row left is the 14B.
+  A future question about engines has to reintroduce a pair deliberately rather
+  than read one out of this matrix.
+constraints:
+  - >-
+    Every case declares the same three rows, so no pair of cases is
+    incomparable because one carries a row the other does not.
+  - >-
+    Each row names a model the endpoint serves under exactly that id. A row
+    naming a model nothing serves fails the run rather than the row, and
+    qwen/qwen3-4b-2507 already cost one aborted attempt by being confused with
+    qwen/qwen3-4b.
+  - >-
+    Engine and quant are recorded as the build names them - mlx and 4bit for
+    both new rows - because the same weights under two runtimes are not the same
+    model and a row that did not say which would let one be read as the other.
+  - >-
+    No record, package or expectation changes, so the fixture digest is
+    untouched and entries drawn before this remain comparable with entries drawn
+    after. A case gains a row; its earlier entries simply hold no data for it.
+  - >-
+    The 30B is declared, not measured cheaply. It is a much larger model on a
+    machine that can hold it, and a run that cannot afford every row narrows
+    with -model rather than by a case declaring fewer rows than the matrix has.
+affected_scope:
+  - evals/cases/todo-chi-defined.yaml
+  - evals/cases/grocery-chi-defined.yaml
+  - evals/cases/todo-rails-defined.yaml
+  - evals/cases/todo-rails-described.yaml
+  - evals/cases/todo-rails-baseline.yaml
+forbidden_scope:
+  - internal/**
+  - cmd/**
+type: blueprint
+supersedes: ""
+superseded_by: ""
+related:
+  - prov-2026-de71f29b
+sealed_at_sha: ""
+associated_specs:
+  # The cases are loaded and validated by the eval package's own tests, which is
+  # what a row declaration can be held to without an endpoint: a spec that
+  # curled the model server would make this record uncompletable on any machine
+  # that was not serving these four models at that moment.
+  - path: evals/run_test.go
+    run_command: go test -count=1 ./$(dirname {{path}})
+associated_traces: []
+monitors: []
+tags: []
