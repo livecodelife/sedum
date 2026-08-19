@@ -116,6 +116,11 @@ constraints:
     sedum arm is measured on rather than close this defect.
 affected_scope:
   - evals/testdata/todo-rails/**
+  # The target's canned answer is a hand-authored assertion of what a correct
+  # selection looks like, and a correct selection now includes the fixture. An
+  # answer that omitted it would exercise a package the harness no longer
+  # matches, and the unfilled anchor would show up as the harness's own defect.
+  - evals/behavior/targets/todo-rails/answer.json
   - evals/cases/todo-rails-defined.yaml
   - evals/cases/todo-rails-described.yaml
 forbidden_scope:
