@@ -1,6 +1,6 @@
 id: prov-2026-3957eed2
 title: A behaviour run has a deadline, because a phase that hangs stops the measurement rather than failing a sample
-status: open
+status: implemented
 created_at: "2026-08-19"
 author: calebcowen@gmail.com
 intent: |
@@ -109,7 +109,7 @@ supersedes: ""
 superseded_by: ""
 related:
   - prov-2026-83340ba0
-sealed_at_sha: ""
+sealed_at_sha: a15b415e0e2c0b846220ee393afcc6682666b5fb
 associated_specs:
   - path: evals/behavior_test.go
     run_command: go test -count=1 -run Deadline ./$(dirname {{path}})
