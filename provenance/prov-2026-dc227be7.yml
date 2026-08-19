@@ -1,6 +1,6 @@
 id: prov-2026-dc227be7
 title: M7 - Recording and replay
-status: draft
+status: open
 created_at: "2026-08-07"
 author: calebcowen@gmail.com
 intent: |
@@ -152,7 +152,17 @@ related:
   - prov-2026-b5465dfa
   - prov-2026-36c8a99c
 sealed_at_sha: ""
-associated_specs: []
+associated_specs:
+  # The schema half and the behaviour half. The recording spec asserts the
+  # properties a committed artifact has to keep - clean diffs, the reserved
+  # phase level, pre-expansion invocations - because those are the decisions a
+  # later migration would cost the most. The pipeline spec asserts replay
+  # itself: identical output, terminal validation, package identity, and the
+  # duplicate-path check now living at Phase 4's entry.
+  - path: internal/recording/recording_test.go
+    run_command: go test -count=1 ./$(dirname {{path}})
+  - path: internal/pipeline/replay_test.go
+    run_command: go test -count=1 ./$(dirname {{path}})
 associated_traces: []
 monitors: []
 tags:
