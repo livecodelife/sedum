@@ -70,9 +70,11 @@ type Set struct {
 	Records []*Record
 }
 
-// Paths returns every literal path the set authorizes, sorted. Ingestion
-// rejects a path named by two records, so each path here belongs to exactly one
-// of them.
+// Paths returns every literal path the set authorizes, sorted.
+//
+// A path may appear once per record naming it. Ingestion no longer rejects a
+// path named by two records - CheckDuplicatePaths does, at Phase 4's entry - so
+// a caller that needs each path once deduplicates.
 func (s *Set) Paths() []string {
 	var out []string
 	for _, r := range s.Records {
@@ -139,7 +141,6 @@ func Load(dir string, opts Options) (*Set, []string, error) {
 	sort.Slice(records, func(i, j int) bool { return records[i].ID < records[j].ID })
 
 	problems = append(problems, checkForbidden(records)...)
-	problems = append(problems, checkDuplicatePaths(records)...)
 	warnings = append(warnings, warnEmpty(records)...)
 
 	if len(problems) > 0 {
@@ -282,14 +283,26 @@ func checkForbidden(records []*Record) []error {
 	return problems
 }
 
-// checkDuplicatePaths rejects a path named by two records. Phase 4 makes one
-// model call per record, so two records naming one file means two independent
-// invocation lists injecting into it, which the PRD puts out of scope. This is
-// the last point at which both record IDs are in hand to name.
-func checkDuplicatePaths(records []*Record) []error {
+// CheckDuplicatePaths rejects a path named by two records.
+//
+// It is a method rather than part of ingestion because its justification is not
+// a property of records: Phase 4 makes one model call per record, so two
+// records naming one file would mean two independent invocation lists deciding
+// one file's contents. That reason holds at Phase 4's entry and nowhere else.
+//
+// Under replay there is no model call and the reason does not survive. The
+// recording already says what happens to the file, and a caller supplying
+// records purely for scope validation is asking whether paths were authorized -
+// two records legitimately refining regions in one file is what the marker's
+// record attribute exists to support. Ingesting is what ingestion does
+// (prov-2026-dc227be7).
+//
+// This is still the last point at which both record IDs are in hand to name, so
+// the diagnostic is unchanged.
+func (s *Set) CheckDuplicatePaths() error {
 	owners := map[string][]string{}
 	var order []string
-	for _, r := range records {
+	for _, r := range s.Records {
 		for _, p := range r.Paths {
 			if len(owners[p]) == 0 {
 				order = append(order, p)
@@ -306,7 +319,7 @@ func checkDuplicatePaths(records []*Record) []error {
 				p, strings.Join(owners[p], " and ")))
 		}
 	}
-	return problems
+	return errors.Join(problems...)
 }
 
 // warnEmpty reports a record that authorizes only patterns. Generating nothing

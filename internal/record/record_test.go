@@ -174,15 +174,51 @@ forbidden_scope:
 }
 
 // One file, two records means two model calls injecting into the same file,
-// which the PRD puts out of scope. It has to fail here, where both record IDs
-// are still in hand to name.
+// which the PRD puts out of scope. The check reports both record IDs, because
+// this is still the last point at which both are in hand to name.
 func TestTwoRecordsNamingOnePathIsAnError(t *testing.T) {
-	_, _, err := Load(writeRecords(t, map[string]string{
+	set, _, err := Load(writeRecords(t, map[string]string{
 		"a.yml": "id: prov-2026-aaaaaaaa\naffected_scope: [app/models/user.rb]\n",
 		"b.yml": "id: prov-2026-bbbbbbbb\naffected_scope: [app/models/user.rb]\n",
 	}), Options{})
+	if err != nil {
+		t.Fatalf("load: %v", err)
+	}
 
-	wantErr(t, err, "app/models/user.rb", "prov-2026-aaaaaaaa", "prov-2026-bbbbbbbb")
+	wantErr(t, set.CheckDuplicatePaths(), "app/models/user.rb", "prov-2026-aaaaaaaa", "prov-2026-bbbbbbbb")
+}
+
+// Ingesting is what ingestion does. The duplicate-path rule's justification is
+// Phase 4's one-call-per-record shape, so it lives at Phase 4's entry and a
+// caller that never reaches Phase 4 is never subject to it - which is what lets
+// replay validate scope for two records that legitimately refine regions in one
+// file (prov-2026-dc227be7).
+func TestIngestionDoesNotRejectADuplicatePath(t *testing.T) {
+	set, _, err := Load(writeRecords(t, map[string]string{
+		"a.yml": "id: prov-2026-aaaaaaaa\naffected_scope: [app/models/user.rb]\n",
+		"b.yml": "id: prov-2026-bbbbbbbb\naffected_scope: [app/models/user.rb]\n",
+	}), Options{})
+	if err != nil {
+		t.Fatalf("ingestion rejected a duplicate path it no longer owns: %v", err)
+	}
+	if len(set.Records) != 2 {
+		t.Fatalf("want both records ingested, got %d", len(set.Records))
+	}
+}
+
+// A path named once is not a duplicate, and the check must not invent one out
+// of a record that lists it twice - Paths is deduplicated per record.
+func TestCheckDuplicatePathsPassesWhenEachPathHasOneOwner(t *testing.T) {
+	set, _, err := Load(writeRecords(t, map[string]string{
+		"a.yml": "id: prov-2026-aaaaaaaa\naffected_scope: [app/models/user.rb, app/models/user.rb]\n",
+		"b.yml": "id: prov-2026-bbbbbbbb\naffected_scope: [app/models/order.rb]\n",
+	}), Options{})
+	if err != nil {
+		t.Fatalf("load: %v", err)
+	}
+	if err := set.CheckDuplicatePaths(); err != nil {
+		t.Errorf("unexpected duplicate: %v", err)
+	}
 }
 
 // Every authorized path is created under the output directory, so a path that

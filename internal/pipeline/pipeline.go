@@ -297,6 +297,18 @@ func Run(ctx context.Context, cfg Config) (*Result, error) {
 // empty list, and paying for a call to be told so would be a cost the run can
 // see is pointless before it is incurred.
 func selectAll(ctx context.Context, cfg Config, records *record.Set, files []resolve.File, variables map[string]string, log *runlog.Log) ([]Selection, error) {
+	// Phase 4's entry is where the duplicate-path check belongs, because this
+	// is the phase whose one-call-per-record shape is the reason for it. Two
+	// records naming one file would mean two independent calls deciding that
+	// file's contents (prov-2026-dc227be7).
+	//
+	// It halts before the first call rather than before records are read, so
+	// nothing has been paid for. Replay never reaches this function and is
+	// therefore never subject to a rule that has no meaning without a model.
+	if err := records.CheckDuplicatePaths(); err != nil {
+		return nil, err
+	}
+
 	var out []Selection
 
 	for _, rec := range records.Records {
