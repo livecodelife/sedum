@@ -46,6 +46,14 @@ func main() {
 
 	r := chi.NewRouter()
 
+	// What a load balancer polls and what an orchestrator restarts on. It is
+	// plain 200 rather than a database round trip: the service has already
+	// refused to start without one above, and the endpoint polled most often is
+	// the wrong place to put a query.
+	r.Get("/healthz", func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	})
+
 	// sedum:anchor:routes
 
 	// The listen address comes from the environment, the same way the database
