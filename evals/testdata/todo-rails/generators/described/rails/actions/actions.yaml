@@ -194,11 +194,11 @@ actions:
         type: literal
         required: true
         description: >-
-          The value the fixture carries, written as the YAML literal it becomes
-          - false for a boolean, 0 for an integer, and bare text for a string.
-          A string carries no quotation marks here, which is the opposite of a
-          Ruby default: this file is YAML, so "false" in quotation marks is the
-          four-letter string and not the boolean.
+          The value the fixture carries. Bind it as a string in your answer,
+          always - "false" and not false, "0" and not 0 - and the template
+          writes it into the file unquoted, where YAML reads it back as the
+          boolean or the number. Binding the bare JSON value is rejected before
+          anything is written.
     injects_into: "test/fixtures/{{resource|table}}.yml"
     anchor: fixture
 
