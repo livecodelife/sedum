@@ -1,6 +1,6 @@
 id: prov-2026-84158f7e
 title: A size ladder in one family, and a specialised twin for the large row
-status: open
+status: implemented
 created_at: "2026-08-19"
 author: calebcowen@gmail.com
 intent: |
@@ -82,7 +82,7 @@ superseded_by: ""
 related:
   - prov-2026-de71f29b
   - prov-2026-98ab639c
-sealed_at_sha: ""
+sealed_at_sha: d39b99d3370870344be7ee62bc86a8996231a9a1
 associated_specs:
   - path: evals/run_test.go
     run_command: go test -count=1 ./$(dirname {{path}})
