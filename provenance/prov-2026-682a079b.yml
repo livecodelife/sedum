@@ -1,6 +1,6 @@
 id: prov-2026-682a079b
 title: The Go service takes its listen port from the environment, and the record says so
-status: open
+status: implemented
 created_at: "2026-08-18"
 author: calebcowen@gmail.com
 intent: |
@@ -83,7 +83,7 @@ supersedes: ""
 superseded_by: ""
 related:
   - prov-2026-79e94e7c
-sealed_at_sha: ""
+sealed_at_sha: 19708578a079eabe66cebd3028d897b50fccb194
 associated_specs:
   - path: evals/run_test.go
     run_command: go test -count=1 ./$(dirname {{path}})
