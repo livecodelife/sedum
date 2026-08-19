@@ -1,6 +1,6 @@
 id: prov-2026-88e36921
 title: A recording decodes leniently, because the checks that matter are on actions and kwargs
-status: open
+status: implemented
 created_at: "2026-08-19"
 author: calebcowen@gmail.com
 intent: |
@@ -70,7 +70,7 @@ supersedes: ""
 superseded_by: ""
 related:
   - prov-2026-d554bfc3
-sealed_at_sha: ""
+sealed_at_sha: 3cab4b4ad6cfb7f4b6f3edefcd0654fbe1fec8b1
 associated_specs:
   - path: internal/recording/recording_test.go
     run_command: go test -count=1 ./$(dirname {{path}})
