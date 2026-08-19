@@ -160,9 +160,15 @@ constraints:
     An assertion tests what the record requires, never what a package happens to
     emit. An assertion that only one arm can satisfy is measuring the fixture.
   - >-
-    A boot probe proves the service is healthy rather than that something
-    answered, and does not depend on a path a generated file may legitimately
+    A boot probe does not depend on a path a generated file may legitimately
     replace.
+
+    An earlier draft of this constraint also required the probe to prove the
+    service healthy rather than merely answering. That was wrong and is
+    withdrawn: waiting for a listener is the probe's whole job, and a service
+    that boots with a broken route should fail at verify, with the failing
+    assertion named, rather than at boot as an outcome that only says "broke".
+    See prov-2026-79e94e7c.
 affected_scope:
   - evals/**
 forbidden_scope:
