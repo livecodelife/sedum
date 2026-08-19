@@ -1,6 +1,6 @@
 id: prov-2026-0cc65e62
 title: Bind a field name once and transform it once, everywhere it appears
-status: draft
+status: open
 created_at: "2026-08-19"
 author: calebcowen@gmail.com
 intent: |
@@ -151,7 +151,15 @@ supersedes: ""
 superseded_by: ""
 related: []
 sealed_at_sha: ""
-associated_specs: []
+associated_specs:
+  # The claim this record makes is that a service generated from the reduced
+  # package builds, boots and satisfies its record. Only booting one shows that,
+  # so the proof is the behaviour target rather than a unit test. Each spec
+  # asserts its canned answer exists and then runs the six phases against it.
+  - path: evals/behavior/targets/todo-chi/answer.json
+    run_command: bash -c 'test -f {{path}} && cd evals && bash behavior/behave.sh todo-chi'
+  - path: evals/behavior/targets/grocery-chi/answer.json
+    run_command: bash -c 'test -f {{path}} && cd evals && bash behavior/behave.sh grocery-chi' 
 associated_traces: []
 monitors: []
 tags: []
