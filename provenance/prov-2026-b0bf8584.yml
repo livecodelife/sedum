@@ -1,6 +1,6 @@
 id: prov-2026-b0bf8584
 title: A published dashboard that reads the stored results and refuses to over-read them
-status: draft
+status: open
 created_at: "2026-08-19"
 author: calebcowen@gmail.com
 intent: |
@@ -84,6 +84,7 @@ constraints:
 affected_scope:
   - docs/**
   - .github/workflows/pages.yml
+  - README.md
 forbidden_scope:
   - evals/results/**
   - internal/**
@@ -93,7 +94,11 @@ supersedes: ""
 superseded_by: ""
 related: []
 sealed_at_sha: ""
-associated_specs: []
+associated_specs:
+  - path: docs/stats_test.mjs
+    run_command: node --test {{path}}
+  - path: docs/build.py
+    run_command: python3 {{path}} --check
 associated_traces: []
 monitors: []
 tags:
