@@ -59,10 +59,13 @@ type Record struct {
 // claimed it, which file template matched, and what that template's captures
 // bound.
 type File struct {
-	Path     string            `json:"path"`
-	Package  string            `json:"package"`
-	Template string            `json:"template"`
-	Captures map[string]string `json:"captures"`
+	Path     string `json:"path"`
+	Package  string `json:"package"`
+	Template string `json:"template"`
+	// Captures carries omitempty for the same reason Variables does: a file
+	// whose template bound nothing would otherwise write "captures": null into
+	// every entry, and a recording's value is that it diffs cleanly.
+	Captures map[string]string `json:"captures,omitempty"`
 }
 
 // Phase is a named, ordered group of invocations. Replay executes phases in
