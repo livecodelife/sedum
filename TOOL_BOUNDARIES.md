@@ -102,8 +102,27 @@ model server.
 
 ## 4. The integration surface is file formats, not an API
 
-> **Everything a harness needs is derivable from artifacts on disk. Sedum exposes
-> no runtime API, and a harness never links against Sedum.**
+> **Everything a tool built on Sedum needs is derivable from artifacts on disk.
+> Sedum exposes no runtime API, and nothing links against Sedum.**
+
+This used to read "a harness never links against Sedum", which permitted a
+standalone format module that Sedum and a harness both linked against. The PRD
+said "nothing links against Sedum" and is authoritative, so the strict reading
+governs and the first-party harness is included (`prov-2026-b5465dfa`).
+
+The reason travels with the rule, because a constraint recorded without its
+justification reads as fastidiousness and is relaxed by whoever first finds it
+inconvenient. **The formats must be sufficient without linking, and the only
+thing that forces them to be is that nobody gets an exemption.** Once a
+first-party harness can link Go, every awkward format is cheaper to route around
+with one more exported helper than to fix. Third-party harnesses inherit the
+gap, and the gap is invisible to the party best placed to notice it, because
+that party is not experiencing it. The same party authors these formats and is
+their most privileged consumer, so the rule that we eat the same food is the
+only thing standing between the surface and quiet insufficiency.
+
+Five surfaces, counted as five rather than folded into four, because a surface
+that grows silently is one nobody audits.
 
 | Surface | Read/write | Who else authors it |
 |---|---|---|
@@ -111,15 +130,27 @@ model server.
 | **Generator package** (`sedum.yaml`, `actions.yaml`, templates) | harness reads | users author them |
 | **Recording** (JSON) | harness **writes**, Sedum reads | Sedum can write them too |
 | **`sedum grow --execute`** | harness invokes | — |
+| **`sedum render`** | harness invokes | — |
 
 **"What exists?"** — grep the markers. ODQ §13's world-state scan is a filesystem
 walk requiring nothing from Sedum's process.
 
-**"Could I fix this deterministically?"** — read `actions.yaml`, render each
-action's `injects_into` against the kwargs already on the marker, compare to the
-region's file. Forward rendering and comparison, never inversion — which matters,
-because `snake` and `plural` are not invertible. It works *only because kwargs are
+**"Could I fix this deterministically?"** — `sedum render --package <name>
+--action <name> --kwargs <json>` renders that action's `injects_into` against the
+kwargs already on the marker, and the harness compares the result to the region's
+file. Forward rendering and comparison, never inversion — which matters, because
+`snake` and `plural` are not invertible. It works *only because kwargs are
 recorded on the marker*, which ODQ §3 asserts and which this makes load-bearing.
+
+This is a command because the instruction it replaces was not executable from
+artifacts on disk. `sedum.yaml` carries the pipelines and `op_exceptions`, but
+the inflection table ships per language rather than per package, and the
+word-splitting semantics and the leading-case match are not published at all. A
+harness answering this by hand reimplements `plural`, diverges on the first
+irregular, and concludes no deterministic fix exists when one does — a wrong
+answer wearing the shape of a correct refusal. That this section's own claim was
+false for its own second question, before any foreign consumer existed, is the
+demonstration the strict reading was argued from.
 
 **"Do it."** — synthesise a recording of just those invocations and `--execute`
 it. A harness doing its own selection never touches Phase 4; `--record --dry-run`
@@ -392,9 +423,10 @@ breaking change — an existing field whose *meaning* changes — and nothing on
 horizon is one. Recorded as a constraint on Record A so it is a decision rather
 than an omission.
 
-**Whether `--only` needs region granularity.** A harness can synthesise a
-single-invocation recording today, which may be sufficient and avoids a new
-selector vocabulary. Confirm before M7.
+~~**Whether `--only` needs region granularity.**~~ **Decided: no.** A harness
+synthesises a single-invocation recording, which works today. The consumer that
+arrived needs no selector vocabulary, and a surface grows when a caller
+demonstrates it must, not before (`prov-2026-b5465dfa`).
 
 **Whether the duplicate-path check applies under `--execute`** (§6.2 ⚠︎). In
 M7's scope, in `prov-2026-dc227be7`.
@@ -406,6 +438,14 @@ distinction, which rarely matters, but a harness deciding whether to queue a pat
 or halt on it may want more than the pattern. ODQ §13's beat-one break makes this
 sharper than it was: an unmanaged path is a *precondition* of beat two, and a
 caller that must decide whether to block on one has only the pattern to go on.
+
+**A reserved consumer namespace in the generator package is not open, and is
+recorded here because it was never written down.** It was proposed as somewhere
+a caller could keep per-stack configuration Sedum validates the shape of but
+never interprets. The consumer that arrived derives that configuration instead,
+so it is not being added on a consumer's account. It remains defensible on
+Sedum's own extensibility grounds and is unclaimed rather than refused
+(`prov-2026-b5465dfa`).
 
 **Whether `package` belongs on the marker** (5.3).
 

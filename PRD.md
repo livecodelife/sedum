@@ -622,9 +622,13 @@ This section states what such a tool may depend on.
 
 > **Everything a tool built on Sedum needs is derivable from artifacts on disk. Sedum exposes no runtime API, and nothing links against Sedum.**
 
+Read strictly: the first-party harness is included, and a shared module that Sedum and a consumer both link against is not an available answer to any gap in the formats. Proposing one is a signal that a format is insufficient.
+
+The reason travels with the rule, because a constraint recorded without its justification reads as fastidiousness and is relaxed by whoever first finds it inconvenient. **The formats must be sufficient without linking, and the only thing that forces them to be is that nobody gets an exemption.** Once a first-party consumer can link Go, every awkward format is cheaper to route around with one more exported helper than to fix. Third-party consumers inherit the gap, and the gap is invisible to the party best placed to notice it, because that party is not experiencing it. The same party authors these formats and is their most privileged consumer, so the rule that we eat the same food is the only thing standing between the surface and quiet insufficiency.
+
 ### The supported surface
 
-Four things, three of them file formats and one a command.
+Five things, three of them file formats and two of them commands. Counting an addition rather than folding it into an existing row is deliberate: a surface that grows silently is one nobody audits.
 
 | Surface | Direction | Who else authors it |
 |---|---|---|
@@ -632,6 +636,7 @@ Four things, three of them file formats and one a command.
 | **Generator package** (`sedum.yaml`, `actions.yaml`, templates) | read | users author them |
 | **Recording** (JSON) | **written** and read | Sedum can write them too |
 | **`sedum grow --execute`** | invoked | — |
+| **`sedum render`** | invoked | — |
 
 Everything else — Sedum's packages, its internal vocabulary, the run log's shape, the `--stop-after` phase names — is internal and may change.
 
@@ -639,7 +644,11 @@ Four questions, and what answers each:
 
 **"What exists?"** Grep the markers. Enumerating what has been generated, with which action, variant, and arguments, is a filesystem walk that requires nothing from Sedum's process.
 
-**"Could this be fixed deterministically?"** Read `actions.yaml`, render each action's `injects_into` against the kwargs already recorded on the marker, and compare the result to the region in the file. Forward rendering and comparison, never inversion — `snake` and `plural` are not invertible, and no part of this surface may imply otherwise. It works only because the kwargs are recorded on the marker, which is what makes that decision load-bearing rather than merely convenient.
+**"Could this be fixed deterministically?"** Ask Sedum where an invocation lands: `sedum render --package <name> --action <name> --kwargs <json>` renders that action's `injects_into` against the kwargs already recorded on the marker, and the caller compares the result to the region in the file. Forward rendering and comparison, never inversion — `snake` and `plural` are not invertible, and no part of this surface may imply otherwise. It works only because the kwargs are recorded on the marker, which is what makes that decision load-bearing rather than merely convenient.
+
+The rendering is a command rather than an instruction to reimplement, and the difference is the whole of the previous paragraph. `sedum.yaml` carries the declarative pipelines and the `op_exceptions` table, so those are derivable — but the inflection table is not, because it ships per language rather than per package, and neither are the word-splitting semantics the case operations share nor the leading-case match applied to an inflected word. A caller answering this question by hand must reimplement `plural`. It diverges on the first irregular, renders a path that does not match the region, and concludes that no deterministic fix exists when one does: a wrong answer wearing the shape of a correct refusal, which is worse than an error because nothing reports it.
+
+Transform behaviour is therefore exposed as behaviour and not as a data dump. Publishing the inflection table would sanction the reimplementation this exists to prevent.
 
 **"Do it."** Synthesise a recording containing exactly the invocations wanted and `--execute` it. A caller doing its own selection never touches Phase 4 at all. `--record --dry-run` gives the other direction: Sedum's selection, captured, with nothing written.
 
@@ -783,6 +792,39 @@ sedum actions --generators ./generators --package rails
 | `--package <name>` | Package to inspect. Required. |
 | `--all` | Include unexposed actions, marked as such. |
 | `--json` | Emit the raw catalog payload rather than formatted output. |
+
+### `sedum render`
+
+Prints the file an action's invocation would land in, by rendering that action's `injects_into` pattern against supplied kwargs with the package's own transform engine. This is how a tool built on Sedum answers "could this be fixed deterministically?" without reimplementing the transforms; see *The Integration Surface*.
+
+Rendering is forward only. `snake` and `plural` are not invertible, so there is no way to ask which kwargs produce a given path.
+
+A composite has no pattern of its own and reports its children's, in execution order — one selection visibly touching two files.
+
+```
+sedum render --generators ./generators --package rails --action createControllerMethod \
+  --kwargs '{"controller":"Order","name":"index"}'
+```
+
+| Flag | Description |
+|---|---|
+| `--generators <dir>` | Generators directory. Required. |
+| `--package <name>` | Package declaring the action. Required. |
+| `--action <name>` | Action to render the target of. Required. |
+| `--kwargs <json>` | Bound arguments, as a JSON object. Defaults to `{}`. |
+| `--json` | Emit the result as JSON rather than formatted output. |
+
+It is its own command rather than a mode of `sedum actions`. That command answers "what can this package do", which is a per-package listing; this one answers "where does this invocation land", which is per-invocation and takes kwargs. Overloading the first with the second would make a listing command require an action and a kwargs blob to answer its second question.
+
+### `sedum --version`
+
+Emits a bare semver string. It is the same value a recording carries in `sedum_version`, so the binary's answer and the artifact's cannot drift.
+
+```
+sedum --version
+```
+
+A caller that depends on a command depends on a version of it. Under the linking rule it cannot read a constant out of the package, so the surface has to answer the question.
 
 ---
 
