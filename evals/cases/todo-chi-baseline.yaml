@@ -1,0 +1,68 @@
+# The column todo-chi-defined is read against, for Go.
+#
+# The same model, the same record, the same application - and no generator
+# package, no action vocabulary, no catalog. todo-rails-baseline was the only
+# baseline arm, so "does Sedum beat writing the files directly" had an answer for
+# Ruby and none for Go (prov-2026-defcb54c).
+#
+# Go is where that answer is most likely to differ. The chi packages are where
+# their own defects lived - a field name transformed on one appearance and not
+# the other, an import action bound to five packages it did not need - and an arm
+# that writes the files itself has neither of those to trip over.
+id: todo-chi-baseline
+
+application:
+  name: todo
+  complexity: 1
+
+language: go
+framework: chi
+arm: baseline
+
+# No generators line, and its absence is the arm rather than an omission. The
+# record is the whole of what the model is given: its intent, its constraints and
+# the paths it authorizes.
+#
+# The same record todo-chi-defined is measured on, so the two differ in the vocabulary
+# and in nothing else. Its constraints were cut to what the generator package can
+# express (prov-2026-40bdd9ac), so this arm is asked for less than a model
+# writing files by hand could do - which is worth knowing and is not worth fixing
+# by giving the arms different records.
+records: todo-api/records
+
+# tightness is a property of a generator package and this arm has none.
+tightness: ""
+
+models:
+  - id: qwen2.5-coder-14b-instruct
+    engine: llama.cpp
+    quant: q4_k_m
+  - id: qwen/qwen3-4b-2507
+    engine: mlx
+    quant: 4bit
+  # The large row. A 30B mixture-of-experts on a machine that can hold it, so
+  # that a rate measured on a 4B and a 14B is read against something well above
+  # both rather than only against something below.
+  - id: qwen/qwen3-30b-a3b
+    engine: mlx
+    quant: 4bit
+
+# A baseline sample is one model call and then a scaffold, a bundle install, a
+# database and a boot - the same tail the sedum arm pays under -behavior. The
+# rails behaviour samples run about 20s warm on top of the call.
+per_sample: 3m
+
+# The same parser over what the model wrote. It is the one derived signal a
+# baseline can carry: fill rate needs anchors and idempotency needs invocations,
+# and this arm has neither.
+check:
+  ".rb": ["ruby", "-c"]
+
+expect:
+  # Behaviour is the only rung that can score an arm with no vocabulary, and it
+  # is the target todo-chi-defined names, so the two arms are scored by the same
+  # assertions - including the schema ones, which no HTTP call can observe
+  # (prov-2026-71940de0).
+  behavior:
+    target: todo-chi
+    pass_rate: 1.0
