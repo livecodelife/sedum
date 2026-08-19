@@ -137,6 +137,9 @@ constraints:
     validation enabled. That combination is how a caller driving Sedum uses it,
     and no check may forbid it for a reason belonging to a phase replay skips.
 affected_scope:
+  # Widened during implementation: replay's validation must be the selection
+  # package's own, not a second copy of it (prov-2026-6903db40).
+  - internal/selection/**
   - internal/recording/**
   - internal/pipeline/**
   - internal/record/**
