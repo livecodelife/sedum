@@ -1201,6 +1201,68 @@ func TestARejectedSampleRecordsWhichRulesRejectedIt(t *testing.T) {
 	}
 }
 
+// A slug says a sample was rejected under invocation_shape; the text says the
+// entry was `{"action":...,"reason":...}`. The first is countable and the second
+// is the only one that says what the answer looked like, so both are kept and
+// neither is scored (prov-2026-986ac4ca).
+func TestARejectedSampleKeepsTheTextThatSaysWhy(t *testing.T) {
+	rejection := &selection.Rejection{
+		RecordID: "eval-todo-rails",
+		Retries:  1,
+		Attempts: []selection.Attempt{
+			{Number: 1, Violations: []selection.Violation{
+				{Index: 1, Action: "addColumn", Rule: "missing_kwarg", Detail: `addColumn is missing "stamp"`},
+				{Index: 3, Rule: "invocation_shape", Detail: `invocation 3 is not readable: it was {"act":"x"}`},
+			}},
+			{Number: 2, Violations: []selection.Violation{
+				{Index: 1, Action: "addColumn", Rule: "missing_kwarg", Detail: `addColumn is missing "stamp"`},
+			}},
+		},
+	}
+
+	want := []string{
+		`addColumn is missing "stamp"`,
+		`invocation 3 is not readable: it was {"act":"x"}`,
+		`addColumn is missing "stamp"`,
+	}
+	got := violationsOf(rejection)
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("collected %v, want %v in attempt order with repeats kept", got, want)
+	}
+
+	// One entry per slug, in the same order, so the two lists read together.
+	if rules := rulesOf(rejection); len(rules) != len(got) {
+		t.Errorf("%d rules against %d violations; they are meant to be read side by side", len(rules), len(got))
+	}
+
+	e := NewEntry(Measurement{
+		Case:    Case{ID: "x"},
+		Model:   Model{ID: "m", Engine: "test"},
+		Samples: []Sample{{Invalid: true, Detail: "did not validate", Rules: rulesOf(rejection), Violations: got}},
+	}, "http://endpoint")
+
+	if len(e.Runs) != 1 {
+		t.Fatalf("the sample was stored as %+v", e.Runs)
+	}
+	if !reflect.DeepEqual(e.Runs[0].Violations, want) {
+		t.Errorf("the entry stored violations %v, want %v", e.Runs[0].Violations, want)
+	}
+}
+
+// An entry written before the field carries none, and that reads as "not
+// recorded" rather than as "nothing was wrong".
+func TestAnEntryWithoutViolationsReadsAsAbsent(t *testing.T) {
+	e := NewEntry(Measurement{
+		Case:    Case{ID: "x"},
+		Model:   Model{ID: "m", Engine: "test"},
+		Samples: []Sample{{Invalid: true, Detail: "did not validate", Rules: []string{"missing_kwarg"}}},
+	}, "http://endpoint")
+
+	if e.Runs[0].Violations != nil {
+		t.Errorf("stored %v, want nil so the field is omitted entirely", e.Runs[0].Violations)
+	}
+}
+
 // Counts are a projection of the invocations and were the only thing kept. A
 // wrong argument on a correctly selected action - which is every failure kwarg
 // descriptions were added for - is invisible in the projection and plain in the

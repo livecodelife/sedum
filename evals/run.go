@@ -46,6 +46,10 @@ type Sample struct {
 	// reported without the ability to say what the misses looked like.
 	Detail string
 
+	// Violations is the rendered text of each rule Rules names, in the same
+	// order: the tally says how often, the sentence says what the answer was.
+	Violations []string
+
 	// Rules are the rule slugs this sample was rejected under, one entry per
 	// violation, in attempt order and with repeats kept.
 	//
@@ -379,6 +383,7 @@ func sample(ctx context.Context, c Case, model string, opts Options) Sample {
 				Invalid:          true,
 				Detail:           firstLine(err.Error()),
 				Rules:            rulesOf(rejected),
+				Violations:       violationsOf(rejected),
 				Calls:            rejected.Calls,
 				Rejected:         rejected.Rejected,
 				Completeness:     rejected.Completeness,
@@ -457,6 +462,29 @@ func rulesOf(r *selection.Rejection) []string {
 	for _, a := range r.Attempts {
 		for _, v := range a.Violations {
 			out = append(out, v.Rule)
+		}
+	}
+	return out
+}
+
+// violationsOf is every rejection's rendered text, in attempt order, repeats
+// kept - the same traversal rulesOf makes, keeping the other half of what a
+// violation carries.
+//
+// rulesOf exists because the prose cannot be counted. That is still true, and it
+// is not a reason to discard the prose: a slug says a sample was rejected under
+// invocation_shape and the text says the entry was `{"action":...,"reason":...}`,
+// which is the difference between knowing that answers were refused and knowing
+// what they looked like. Deciding what invocation_shape meant on the 4B row took
+// reading the decoder and inferring from violation counts, and the reversal in
+// prov-2026-ddb398f3 was made on that inference (prov-2026-986ac4ca).
+//
+// Stored beside the slugs rather than instead of them, and nothing scores it.
+func violationsOf(r *selection.Rejection) []string {
+	var out []string
+	for _, a := range r.Attempts {
+		for _, v := range a.Violations {
+			out = append(out, v.Detail)
 		}
 	}
 	return out

@@ -146,7 +146,12 @@ type SampleRun struct {
 	// An entry written before these carries neither, which reads as "not
 	// recorded" exactly as the earlier additions do - the schema is additive
 	// and a reader ignores what it does not recognise (prov-2026-eb283c56).
-	Rules       []string               `json:"rules,omitempty"`
+	Rules []string `json:"rules,omitempty"`
+	// Violations is the rendered text of each rule Rules names, in the same
+	// order. A slug can be tallied and a sentence cannot, which is why both are
+	// kept: the tally says how often, the sentence says what the answer was
+	// (prov-2026-986ac4ca).
+	Violations  []string               `json:"violations,omitempty"`
 	Invocations []recording.Invocation `json:"invocations,omitempty"`
 
 	// Fill, Syntax and Idempotent are the three derived signals for this
@@ -231,6 +236,7 @@ func NewEntry(m Measurement, endpoint string) Entry {
 			PromptTokens:     s.PromptTokens,
 			CompletionTokens: s.CompletionTokens,
 			Rules:            s.Rules,
+			Violations:       s.Violations,
 			Invocations:      s.Invocations,
 			Behavior:         s.Behavior,
 		}
