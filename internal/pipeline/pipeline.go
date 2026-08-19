@@ -280,7 +280,7 @@ func Run(ctx context.Context, cfg Config) (*Result, error) {
 	applied, err := inject.Apply(resolved, inject.Options{
 		Output:    cfg.Output,
 		DryRun:    cfg.DryRun,
-		Unwritten: unwritten(cfg, files),
+		Unwritten: unwrittenFiles(cfg.DryRun, files),
 		Log:       log,
 	})
 	if err != nil {
@@ -350,26 +350,6 @@ func selectAll(ctx context.Context, cfg Config, records *record.Set, files []res
 	}
 
 	return out, nil
-}
-
-// unwritten collects what Phase 3 rendered for files a dry run declined to
-// create, so Phase 7 can decide against them without anything being written.
-//
-// It is empty for a real run, where every created file is on disk and injection
-// reads it there (prov-2026-23653fdc).
-func unwritten(cfg Config, files []resolve.File) map[string]string {
-	if !cfg.DryRun {
-		return nil
-	}
-
-	out := map[string]string{}
-	for _, f := range files {
-		if f.Existed || f.Unmanaged {
-			continue
-		}
-		out[f.Path] = f.Rendered
-	}
-	return out
 }
 
 // filesOf returns the files created for one record.

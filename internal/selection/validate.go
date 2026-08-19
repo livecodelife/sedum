@@ -90,6 +90,22 @@ func (v Violation) String() string {
 // early exit - a response with three faults re-prompts with three, because one
 // model call per fault is exactly the cost this design exists to avoid
 // (prov-2026-9dcf2658).
+// Validate checks invocations that did not come from a model.
+//
+// It is the entry point replay uses, and it exists so that there is one
+// validator rather than two that agree on the day they were written. The inputs
+// are built exactly as Select builds them - the packages the files resolved to,
+// and the catalog over those packages - so a recording is held to the same
+// rules a model response is, check for check (prov-2026-6903db40).
+//
+// What it does not carry is the re-prompt loop. A recording has nothing to
+// re-prompt, so the violations are returned and the caller halts on them.
+func Validate(files []resolve.File, invocations []recording.Invocation) []Violation {
+	packages := expand.Packages(files)
+	cat := catalog.Build(packages, catalog.Options{})
+	return validate(cat, packages, files, invocations)
+}
+
 func validate(cat catalog.Catalog, packages []*genpkg.Package, files []resolve.File, invocations []recording.Invocation) []Violation {
 	var out []Violation
 	for i, inv := range invocations {

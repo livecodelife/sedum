@@ -17,6 +17,7 @@ package record
 import (
 	"errors"
 	"fmt"
+	"github.com/calebcowen/sedum/internal/pathpat"
 	"os"
 	"path"
 	"path/filepath"
@@ -346,4 +347,63 @@ func normalize(p string) string {
 // escapes reports whether a cleaned path resolves outside the output directory.
 func escapes(clean string) bool {
 	return path.IsAbs(clean) || clean == ".." || strings.HasPrefix(clean, "../")
+}
+
+// Authorizes reports whether this record's affected_scope covers a path, by
+// naming it literally or by matching a pattern entry.
+//
+// Both kinds count. A pattern authorizes matches without naming a file, which
+// is what makes it usable for a path a record bounds but does not enumerate.
+func (r *Record) Authorizes(target string) bool {
+	target = normalize(target)
+	for _, p := range r.Paths {
+		if p == target {
+			return true
+		}
+	}
+	_, ok := pathpat.MatchAny(r.Patterns, target)
+	return ok
+}
+
+// Authorize checks a set of paths against every record in the set.
+//
+// A path is authorized when some record's affected_scope covers it, and refused
+// when a record covering it also forbids it. Replay uses this when records are
+// supplied: it is asking whether the paths a recording names were authorized,
+// which is a question about scope alone and involves no model and no phase that
+// consults one (prov-2026-dc227be7).
+//
+// Every unauthorized path is reported rather than only the first, so a
+// synthesised recording is corrected in one pass rather than one path at a
+// time.
+func (s *Set) Authorize(paths []string) error {
+	var problems []error
+
+	for _, target := range paths {
+		var authorized bool
+		for _, r := range s.Records {
+			if !r.Authorizes(target) {
+				continue
+			}
+			// A record that authorizes and forbids the same path has no
+			// reading Sedum can act on, and ingestion already refuses that
+			// combination for literal paths. A pattern reaching it here is the
+			// same fault and is named the same way.
+			if entry, forbidden := r.Forbids(target); forbidden {
+				problems = append(problems, fmt.Errorf(
+					"record %s authorizes %s and forbids it through forbidden_scope entry %s; the record has no reading Sedum can act on",
+					r.ID, target, entry))
+				continue
+			}
+			authorized = true
+			break
+		}
+		if authorized {
+			continue
+		}
+		problems = append(problems, fmt.Errorf(
+			"path %s is not authorized by any supplied record; no affected_scope entry names or matches it", target))
+	}
+
+	return errors.Join(problems...)
 }
