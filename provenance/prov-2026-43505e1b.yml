@@ -1,6 +1,6 @@
 id: prov-2026-43505e1b
 title: 'The fixture is a dimension: an entry drawn against different packages is printed and not compared'
-status: open
+status: implemented
 created_at: "2026-08-18"
 author: calebcowen@gmail.com
 intent: |
@@ -101,7 +101,7 @@ related:
   - prov-2026-d318e3dd
   - prov-2026-8d4146de
   - prov-2026-eb283c56
-sealed_at_sha: ""
+sealed_at_sha: 3fd2cb1147649c86882222f6436b9a5a99244b55
 associated_specs:
   - path: evals/results_test.go
     run_command: go test -count=1 ./$(dirname {{path}})
