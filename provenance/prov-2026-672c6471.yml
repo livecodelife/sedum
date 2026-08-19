@@ -1,0 +1,103 @@
+id: prov-2026-672c6471
+title: An intent-only arm, to separate what the record specifies from what the catalog does
+status: draft
+created_at: "2026-08-19"
+author: calebcowen@gmail.com
+intent: |
+  A third arm. It asks the same model for the same files from the same record,
+  with the constraints removed from the prompt.
+
+  ## What the current baseline actually measures
+
+  baseline.go says "baselinePrompt is the record, and only the record", and the
+  record is a detailed specification. The six constraints name the five
+  endpoints and their verbs, the exact nullability and default of both columns,
+  that only title and completed may be assigned, that a missing row is a 404
+  decided the same way everywhere, and that each endpoint carries a test. The
+  prompt also lists the files to write.
+
+  So the baseline arm is not a model without tooling. It is a model handed a
+  precise spec, and it scores accordingly: at n=50 the 14B took 967 of 1000
+  assertions and 34 of 50 samples working, which does not distinguish it from
+  either sedum arm - 32 and 30 of 50, on intervals that overlap almost entirely.
+
+  That result is read two ways and this arm decides between them. Either the
+  catalog adds nothing for a capable model, or the record is doing the work on
+  both arms and the catalog's contribution is invisible because the baseline
+  already has most of it.
+
+  The 4B says the second reading has something in it: unaided it took 300 of
+  1000 assertions and not one working sample, with `create returns 201` failing
+  in all fifty - and with the catalog and descriptions it took 900 of 900. A spec
+  it could not act on became a service it could.
+
+  ## What the arm is
+
+  Intent, and the list of files to write. Nothing else.
+
+  The file list stays because it is the answer protocol rather than the
+  specification: an answer carrying no authorized file is invalid, so a prompt
+  without the list would measure whether a model guesses the same paths this
+  standard chose, which is a different question and a less interesting one.
+
+  The constraints go because they are the specification. Everything they say is
+  a thing a team would expect a service to do without being told twice, which is
+  exactly the claim a generator package makes about boilerplate.
+
+  ## A caveat this record has to record
+
+  The baseline arm is one call by design: it has no Phase 5, the only check it
+  could fail is the build, and re-prompting with a compiler error is the loop
+  TOOL_BOUNDARIES assigns to another tool. baseline.go says it is therefore
+  comparable to the sedum arm at retries zero.
+
+  Tonight's run drew the sedum arms at retries two and the baseline at its
+  structural one call. The comparison stands on the behaviour rate, where the
+  budget only decides which samples reached behaviour at all, but it is not the
+  like-for-like the code describes, and the same asymmetry will apply to this
+  arm. Either the sedum arms are drawn at retries zero for the comparison, or
+  the entry says which budget each side had. It already stores it.
+constraints:
+  - >-
+    The arm differs from baseline in the prompt and in nothing else. Same record,
+    same behaviour target, same parsing of the answer, same outcome vocabulary -
+    or the two cannot be read side by side, which is the only reason to build it.
+  - >-
+    The files to write stay in the prompt. They are how an answer is addressed
+    rather than what it is asked for, and an arm that dropped them would measure
+    path guessing.
+  - >-
+    A third arm value is a schema change: arm is validated against sedum and
+    baseline today, and a case naming anything else is refused. The value is
+    added rather than the check relaxed.
+  - >-
+    Nothing about the sedum or baseline arms changes. Entries already drawn on
+    either remain comparable with entries drawn after this record, because this
+    adds a column to the matrix rather than moving one.
+  - >-
+    The retry asymmetry is stated wherever the arms are compared. A baseline is
+    structurally one call, so a comparison against a sedum arm drawn at retries
+    two is not like-for-like and the report should not imply it is.
+affected_scope:
+  - evals/case.go
+  - evals/baseline.go
+  - evals/baseline_test.go
+  - evals/cases/todo-rails-intent.yaml
+  - evals/report.go
+  - evals/results.go
+  - evals/run.go
+  - evals/run_test.go
+  - evals/README.md
+forbidden_scope:
+  - internal/**
+  - cmd/**
+type: blueprint
+supersedes: ""
+superseded_by: ""
+related:
+  - prov-2026-a4dbe65c
+sealed_at_sha: ""
+associated_specs: []
+associated_traces: []
+monitors: []
+tags: []
