@@ -1,0 +1,97 @@
+id: prov-2026-f5e64f22
+title: The Rails service is an API-only application, so the template stops skipping a filter that is not there
+status: draft
+created_at: "2026-08-18"
+author: calebcowen@gmail.com
+intent: |
+  The Rails behaviour target scaffolds with `--api`. The controller template
+  drops `skip_before_action :verify_authenticity_token` and the routes template
+  drops the two PWA routes. Both package sets change together.
+
+  ## One decision, three edits
+
+  An engineer building a JSON API in Rails runs `rails new --api`. Everything
+  else here follows from that and is not separately arguable, which is why this
+  is one imprint rather than three.
+
+  `ActionController::API` does not include RequestForgeryProtection, so there is
+  no `verify_authenticity_token` callback to skip and `skip_before_action`
+  raises at class definition time. And the PWA routes render `app/views/pwa`,
+  which an API-only scaffold does not have.
+
+  ## Checked rather than assumed
+
+  A throwaway `rails _7.2.3_ new --api` was generated and read:
+
+    app/controllers/application_controller.rb   class ApplicationController < ActionController::API
+    config/routes.rb                            get "up" => "rails/health#show"  (present)
+    config/routes.rb                            service-worker, manifest         (absent)
+
+  So `/up` survives `--api` and the PWA routes do not, which is what decides
+  which lines leave the routes template and which stays.
+
+  ## Why it was the other way
+
+  [[prov-2026-d318e3dd]] records the circle: the template skipped CSRF because
+  the scaffold was not `--api`, and the scaffold was not `--api` because the
+  template skipped CSRF. The scaffold said so in a comment. What broke the tie
+  was a measurement - the first baseline run scored 0 of 5 and the server log
+  named `ActionController::InvalidAuthenticityToken` fifteen times.
+
+  The resulting package is smaller than the one it replaces. A fix that only
+  deletes is a strong sign the lines were serving the harness rather than a
+  team.
+
+  ## What is not changed here
+
+  The `rescue_from ActiveRecord::RecordNotFound` stays. It is a genuine
+  convention - a missing record is a 404 decided once for the controller rather
+  than in every action - and it is exactly what a repeatable template is for.
+
+  The `/up` route stays in the template. `--api` generates it, so a template
+  that dropped it would be removing something the framework's own scaffold
+  provides.
+
+  The boot probe's dependence on `/up` is a separate defect and is not fixed
+  here: `config/routes.rb` is authorized, so any arm may legitimately replace
+  the file, and a probe that polls a generated route is asking the answer
+  whether it is alive. That is its own imprint.
+constraints:
+  - >-
+    The scaffold is `rails new --api`, chosen because it is what an engineer
+    building a JSON API runs, not because a template needs it.
+  - >-
+    No template line exists to accommodate the scaffold. The controller skips no
+    filter, because under ActionController::API there is none to skip and the
+    attempt raises.
+  - >-
+    Both package sets change identically. The description A/B differs only by
+    descriptions and a fix to one arm would make the pair measure two things.
+  - >-
+    The health route stays because `--api` generates it; the PWA routes go
+    because it does not. Verified against a real scaffold rather than inferred.
+affected_scope:
+  - evals/behavior/targets/todo-rails/target.sh
+  - evals/testdata/todo-rails/generators/defined/rails/files/app/controllers/{name}_controller.rb
+  - evals/testdata/todo-rails/generators/defined/rails/files/config/routes.rb
+  - evals/testdata/todo-rails/generators/described/rails/files/app/controllers/{name}_controller.rb
+  - evals/testdata/todo-rails/generators/described/rails/files/config/routes.rb
+forbidden_scope:
+  - internal/**
+  - cmd/**
+type: imprint
+implements: prov-2026-d318e3dd
+supersedes: ""
+superseded_by: ""
+related:
+  - prov-2026-a4dbe65c
+sealed_at_sha: ""
+associated_specs:
+  - path: evals/run_test.go
+    run_command: go test -count=1 ./$(dirname {{path}})
+associated_traces: []
+monitors: []
+tags:
+  - sedum
+  - evals
+  - fixtures
