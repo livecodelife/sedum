@@ -219,6 +219,10 @@ func TestLegalFlagCombinations(t *testing.T) {
 		// phase runs, so this fragment proves the flags were accepted and the
 		// run got as far as needing a model.
 		reachesTheModel = "--model is required"
+		// A replay builds no model client, so it gets as far as reading the
+		// recording. Failing to open a file these cases name but do not create
+		// is what proves the flags were accepted.
+		reachesTheRecording = "opening the recording"
 	)
 
 	tests := []struct {
@@ -228,10 +232,10 @@ func TestLegalFlagCombinations(t *testing.T) {
 		fails string
 	}{
 		{"record composes with dry-run", []string{"grow", "--generators", "g", "--records", "r", "--record", "out.json", "--dry-run"}, reachesTheModel},
-		{"execute composes with dry-run", []string{"grow", "--generators", "g", "--execute", "in.json", "--dry-run"}, "not implemented"},
-		{"execute makes records optional", []string{"grow", "--generators", "g", "--execute", "in.json"}, "not implemented"},
-		{"execute accepts records for scope validation", []string{"grow", "--generators", "g", "--records", "r", "--execute", "in.json"}, "not implemented"},
-		{"replay may stop after expansion without record", []string{"grow", "--generators", "g", "--execute", "in.json", "--stop-after", "expansion"}, "not implemented"},
+		{"execute composes with dry-run", []string{"grow", "--generators", "g", "--execute", "in.json", "--dry-run"}, reachesTheRecording},
+		{"execute makes records optional", []string{"grow", "--generators", "g", "--execute", "in.json"}, reachesTheRecording},
+		{"execute accepts records for scope validation", []string{"grow", "--generators", "g", "--records", "r", "--execute", "in.json"}, reachesTheRecording},
+		{"replay may stop after expansion without record", []string{"grow", "--generators", "g", "--execute", "in.json", "--stop-after", "expansion"}, reachesTheRecording},
 		{"stop-after files needs no record", []string{"grow", "--generators", "g", "--records", "r", "--stop-after", "files"}, reachesThePipeline},
 		{"stop-after resolution needs no record", []string{"grow", "--generators", "g", "--records", "r", "--stop-after", "resolution"}, reachesThePipeline},
 		{"repeated lang and only", []string{"grow", "--generators", "g", "--records", "r", "--lang", "rails", "--lang", "chi", "--only", "PR-1", "--only", "PR-2"}, reachesTheModel},
@@ -255,23 +259,9 @@ func TestLegalFlagCombinations(t *testing.T) {
 	}
 }
 
-// Until a milestone lands its command must fail loudly and name the milestone,
-// so a user never mistakes an unimplemented phase for a no-op run.
-func TestUnimplementedCommandsNameTheirMilestone(t *testing.T) {
-	tests := []struct {
-		args      []string
-		milestone string
-	}{
-		{[]string{"grow", "--generators", "g", "--execute", "rec.json"}, "M7"},
-	}
-
-	for _, tc := range tests {
-		t.Run(tc.args[0], func(t *testing.T) {
-			_, err := exec(t, tc.args...)
-			wantErr(t, err, "not implemented", tc.milestone)
-		})
-	}
-}
+// Every milestone has landed, so no command names one it is waiting on. The
+// test that asserted otherwise was retired with M7 rather than left asserting
+// over an empty table (prov-2026-dc227be7).
 
 // validate is the one command a milestone has landed, so it is exercised end
 // to end here: the checks themselves are genpkg's to test, but that the command

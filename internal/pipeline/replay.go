@@ -130,10 +130,10 @@ func Replay(rec recording.Recording, cfg ReplayConfig) (*Result, error) {
 	}
 	result.Resolutions = resolutions
 
-	if cfg.StopAfterPhase == PhaseResolve {
-		log.Info("stopping after resolution")
-		return result, nil
-	}
+	// There is no stop after resolution here. Replay is handed resolution
+	// rather than computing it, so a boundary "after" it is not one this path
+	// has - which is what the stop-point table means by runByReplay, and why
+	// the command refuses the combination rather than silently accepting it.
 
 	// Phase 3 - create files from the recorded resolution.
 	files, err := resolve.Create(resolutions, resolve.Options{

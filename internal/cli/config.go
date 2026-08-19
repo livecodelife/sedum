@@ -121,13 +121,6 @@ type ActionsConfig struct {
 	JSON       bool
 }
 
-// notImplemented reports that a command's owning milestone has not landed. It
-// names the milestone so an unimplemented phase is never mistaken for a run
-// that did nothing.
-func notImplemented(command, milestone, summary string) error {
-	return fmt.Errorf("%s is not implemented yet (%s: %s)", command, milestone, summary)
-}
-
 // parseVars turns repeated --var name=value flags into bindings.
 //
 // Split on the first = only, because a value may contain one and a name may

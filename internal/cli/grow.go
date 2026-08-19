@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"os"
+	"path/filepath"
 	"sort"
 	"strings"
 
@@ -11,6 +13,7 @@ import (
 
 	"github.com/calebcowen/sedum/internal/inject"
 	"github.com/calebcowen/sedum/internal/pipeline"
+	"github.com/calebcowen/sedum/internal/recording"
 	"github.com/calebcowen/sedum/internal/runlog"
 	"github.com/calebcowen/sedum/internal/selection"
 )
@@ -69,10 +72,6 @@ Nothing is created that a provenance record did not authorize.`,
 // at the model call would leave the output tree half built for a reason the
 // user could have been told first.
 func runGrow(ctx context.Context, out, errOut io.Writer, cfg GrowConfig) error {
-	if cfg.Replaying() {
-		return notImplemented("grow --execute", "M7", "recording and replay")
-	}
-
 	// No --stop-after means run every phase. Zero is not a stop point, so it
 	// reads as "stop after nothing".
 	stopAfter := 0
@@ -90,6 +89,10 @@ func runGrow(ctx context.Context, out, errOut io.Writer, cfg GrowConfig) error {
 		return err
 	}
 	defer log.Close()
+
+	if cfg.Replaying() {
+		return runReplay(out, errOut, cfg, stopAfter, name, log)
+	}
 
 	// A run halting before Phase 4 never consults a model, so it never needs
 	// one configured. That is what makes --stop-after resolution and
@@ -135,7 +138,107 @@ func runGrow(ctx context.Context, out, errOut io.Writer, cfg GrowConfig) error {
 	if name != "" {
 		fmt.Fprintf(out, "\nstopped after %s\n", name)
 	}
+
+	// Written after the report, so a run whose recording cannot be written
+	// still tells the user what it decided. The model call is already paid
+	// for and its output is the thing at risk of being lost.
+	if cfg.RecordTo != "" {
+		if err := writeRecording(cfg.RecordTo, pipeline.Capture(result)); err != nil {
+			return err
+		}
+		fmt.Fprintf(out, "\nrecording written to %s\n", cfg.RecordTo)
+	}
 	return nil
+}
+
+// runReplay executes a recording instead of consulting a model.
+//
+// Replay enters the pipeline at Phase 3 with resolution already decided and
+// skips Phase 4, so nothing here builds a model client: the flags that
+// configure one are reported as ignored rather than honored.
+func runReplay(out, errOut io.Writer, cfg GrowConfig, stopAfter int, name string, log *runlog.Log) error {
+	printWarnings(errOut, ignoredNotice(cfg))
+
+	rec, err := readRecording(cfg.Execute)
+	if err != nil {
+		return err
+	}
+
+	variables, err := parseVars(cfg.Vars)
+	if err != nil {
+		return err
+	}
+
+	result, err := pipeline.Replay(rec, pipeline.ReplayConfig{
+		Generators: cfg.Generators,
+		Output:     cfg.Output,
+		// Optional under --execute. Supplied, every recorded path is checked
+		// against affected_scope and forbidden_scope; omitted, the recording
+		// executes as written.
+		Records:        cfg.Records,
+		Variables:      variables,
+		DryRun:         cfg.DryRun,
+		StopAfterPhase: stopAfter,
+		Log:            log,
+	})
+	if err != nil {
+		return err
+	}
+
+	printWarnings(errOut, result.Warnings)
+	report(out, result, stopAfter, cfg.DryRun)
+	if name != "" {
+		fmt.Fprintf(out, "\nstopped after %s\n", name)
+	}
+	return nil
+}
+
+// readRecording loads a recording, naming the file in anything that goes wrong
+// with it. The recording is an input format, so a caller authoring one against
+// these diagnostics has to be able to tell which file was rejected.
+func readRecording(path string) (recording.Recording, error) {
+	f, err := os.Open(path)
+	if err != nil {
+		return recording.Recording{}, fmt.Errorf("opening the recording: %w", err)
+	}
+	defer f.Close()
+
+	rec, err := recording.Read(f)
+	if err != nil {
+		return recording.Recording{}, fmt.Errorf("%s: %w", path, err)
+	}
+	return rec, nil
+}
+
+// writeRecording writes a recording, creating the directories above it.
+func writeRecording(path string, rec recording.Recording) error {
+	if dir := filepath.Dir(path); dir != "." {
+		if err := os.MkdirAll(dir, 0o755); err != nil {
+			return fmt.Errorf("creating the directory for the recording: %w", err)
+		}
+	}
+
+	f, err := os.Create(path)
+	if err != nil {
+		return fmt.Errorf("creating the recording: %w", err)
+	}
+	defer f.Close()
+
+	if err := recording.Write(f, rec); err != nil {
+		return err
+	}
+	return f.Close()
+}
+
+// ignoredNotice turns the flags a replay will not consult into warnings, so a
+// run that was configured with them says so rather than appearing to honor
+// them.
+func ignoredNotice(cfg GrowConfig) []string {
+	var out []string
+	for _, flag := range cfg.IgnoredFlags() {
+		out = append(out, "ignored under --execute: "+flag)
+	}
+	return out
 }
 
 // report prints what the run got as far as, at the detail the stop point makes
