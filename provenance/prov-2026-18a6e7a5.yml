@@ -1,6 +1,6 @@
 id: prov-2026-18a6e7a5
 title: The intent arm reports what it can be held to, and the page learns arms by predicate
-status: open
+status: implemented
 created_at: "2026-08-19"
 author: calebcowen@gmail.com
 intent: |
@@ -86,7 +86,7 @@ superseded_by: ""
 related:
   - prov-2026-b0bf8584
   - prov-2026-672c6471
-sealed_at_sha: ""
+sealed_at_sha: 967e98be4251551de61e244bd1abf3b32df47c1f
 associated_specs:
   - path: docs/stats_test.mjs
     run_command: node --test {{path}}
