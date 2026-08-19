@@ -1,6 +1,6 @@
 id: prov-2026-ddb398f3
 title: The response envelope is an object, and a key nobody asked for is ignored
-status: open
+status: implemented
 created_at: "2026-08-19"
 author: calebcowen@gmail.com
 intent: |
@@ -80,7 +80,7 @@ implements: prov-2026-f095e19f
 supersedes: prov-2026-abd43bb4
 superseded_by: ""
 related: []
-sealed_at_sha: ""
+sealed_at_sha: 8311dbaa2c16547b30d1b768b30815c9f68e5b2e
 associated_specs:
   - path: internal/selection/selection_test.go
     run_command: go test -count=1 ./$(dirname {{path}})
