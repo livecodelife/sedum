@@ -38,6 +38,29 @@ target_scaffold() {
     --skip-action-cable --skip-jbuilder --skip-system-test
 }
 
+# plant_routes_anchor inserts the marker Sedum's routes template declares into
+# the routes file `rails new` wrote, immediately before the closing `end` of the
+# draw block.
+#
+# The indentation matches the template's, because injection takes its
+# indentation from the marker it lands on. Planting twice would leave two
+# regions for one anchor to choose between, so it is idempotent.
+plant_routes_anchor() {
+  ruby -e '
+    path = ARGV[0]
+    lines = File.readlines(path)
+    if lines.any? { |l| l.include?("sedum:anchor:routes") }
+      puts "  config/routes.rb already carries its anchor"
+      exit 0
+    end
+    idx = lines.rindex { |l| l.rstrip == "end" }
+    abort "config/routes.rb has no closing end to plant before" if idx.nil?
+    lines.insert(idx, "\n", "  # sedum:anchor:routes\n")
+    File.write(path, lines.join)
+    puts "  planted sedum:anchor:routes in the scaffolded config/routes.rb"
+  ' "$1"
+}
+
 target_prepare() {
   # The paths the record authorizes, read from the record rather than listed
   # again here - the record is what decides them.
@@ -47,11 +70,27 @@ target_prepare() {
       puts (YAML.safe_load_file(f)["affected_scope"] || [])
     end' "$SEDUM_REPO/$RECORDS")
 
+  # An authorized path the scaffold already wrote is adopted, not deleted.
+  #
+  # Phase 3 is create-if-absent: a file already on disk is left alone and
+  # checked for the markers its template declares. So an existing file is not a
+  # problem for Sedum - an existing file *without the anchors* is, and the fix
+  # is one comment line rather than handing the whole file over. A routes file
+  # accumulates hand-written routes over the life of a service, and a generator
+  # that owned it outright would be hostile to how the file is actually used
+  # (prov-2026-ee1b3e46).
   for p in $scope; do
-    if [ -e "$APP/$p" ]; then
-      echo "removing scaffolded $p so Sedum's file template owns it"
-      rm -f "$APP/$p"
-    fi
+    [ -e "$APP/$p" ] || continue
+    case "$p" in
+      config/routes.rb) plant_routes_anchor "$APP/$p" || return 1 ;;
+      *)
+        # The harness cannot know where another file's anchors belong. That is
+        # what `adopt` is for (OPEN_QUESTIONS section 3) and it is unbuilt, so
+        # this refuses rather than guesses.
+        echo "authorized path $p already exists and the harness cannot place its anchors" >&2
+        return 1
+        ;;
+    esac
   done
 
   # The record does not authorize database.yml, so the scaffold's is what runs.
