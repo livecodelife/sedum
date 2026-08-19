@@ -71,7 +71,9 @@ superseded_by: ""
 related:
   - prov-2026-d554bfc3
 sealed_at_sha: ""
-associated_specs: []
+associated_specs:
+  - path: internal/recording/recording_test.go
+    run_command: go test -count=1 ./$(dirname {{path}})
 associated_traces: []
 monitors: []
 tags: []
