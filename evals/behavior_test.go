@@ -1,6 +1,7 @@
 package evals
 
 import (
+	"context"
 	"encoding/json"
 	"os"
 	"strings"
@@ -223,4 +224,27 @@ func TestTheReportSaysWhyAPhaseDied(t *testing.T) {
 	if strings.Count(got, "invalid character U+0024") != 1 {
 		t.Errorf("an identical reason was printed per sample rather than counted:\n%s", got)
 	}
+}
+
+// A phase that will not finish must fail the sample and not the run. The
+// deadline signals the whole process group, because bash defers a signal while a
+// foreground command is running and behave.sh runs every phase in the
+// foreground (prov-2026-3957eed2).
+func TestABehaviourRunThatPassesItsDeadlineFailsTheSample(t *testing.T) {
+	t.Setenv("SEDUM_BEHAVIOR_DEADLINE", "3s")
+
+	started := time.Now()
+	run := runHarness(context.Background(), "todo-chi", nil, nil, started)
+	elapsed := time.Since(started)
+
+	if run.Outcome != "failed" {
+		t.Fatalf("outcome %q with err %v, want failed", run.Outcome, run.Err)
+	}
+	if elapsed > 90*time.Second {
+		t.Errorf("took %s; the deadline did not reach what the script was waiting on", elapsed)
+	}
+	if !strings.Contains(run.Detail, "deadline") {
+		t.Errorf("detail does not say it was the deadline: %q", run.Detail)
+	}
+	t.Logf("failed after %s in phase %q", elapsed, run.FailedPhase)
 }

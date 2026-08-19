@@ -27,40 +27,51 @@ intent: |
   everything else a phase shells out to: bundle install, go build, createdb, a
   server that starts and never listens.
 
-  ## Why the deadline is on the run and not on each phase
+  ## Where it lives, and why not in the shell
 
-  phase() runs its command in the current shell on purpose:
+  In the Go caller, which already runs behave.sh through exec.CommandContext.
+  The first attempt put it in behave.sh as a background watchdog, and that was
+  wrong twice over.
+
+  bash defers a signal while a foreground command is running, and phase() runs
+  its command in the foreground on purpose:
 
     Not a subshell. A phase sets variables the next one reads - the port the
     application came up on, the pid to kill - and a subshell would discard them
     along with every assertion the verify phase recorded.
 
-  So the obvious shape - wrapping each phase in `timeout` - is the one shape
-  that cannot be used. boot exports APP_PORT, BASE_URL and APP_PID; verify
-  accumulates CHECKS_JSON. A per-phase wrapper would either lose them or force
-  every phase to serialise its state, which is a redesign of the runner to buy a
-  timeout.
+  So signalling the script alone is queued until the command returns, which for
+  a hung phase is never - the watchdog would fire only between phases, which is
+  exactly when nothing is stuck. Killing the child as well fixes that, and a
+  background `sleep` in a subshell then turned out not to survive reliably
+  across the phases it has to outlive: armed and observed firing at one and
+  three seconds, silently gone by five.
 
-  A deadline armed once for the whole run needs none of that. It knows the phase
-  in flight because phase() already records it, and killing the run is the same
-  thing the runner does when a phase exits non-zero.
+  The caller has neither problem. It puts the script in its own process group
+  and signals the group, so the command dies, the script regains control, and
+  its EXIT trap removes the project, the server and the database. WaitDelay
+  bounds the trap in turn, because a deadline that hung waiting for its own
+  cleanup would be the thing it exists to prevent.
 
-  ## Where it does not belong
+  ## The outcome is the caller's, not the script's
 
-  Not in the targets. behave.sh is the runner and knows nothing about any
-  framework; everything stack-specific is targets/<name>/target.sh, and adding a
-  stack is a new directory rather than a change to the runner. A timeout written
-  per target would be written three times today and once more per stack forever,
-  and would drift.
+  The trap writes the outcome it was holding, and a run killed mid-phase is
+  still holding "ok" with nothing asserted. Read back naively that produces a
+  result that says ok because it was interrupted before anything could go
+  wrong - which is the one reading a deadline must never produce. The caller
+  therefore fixes the outcome as failed and uses the script's result only for
+  the phase name.
+
 constraints:
   - >-
     A run that passes its deadline is killed and the sample is failed, naming
     the phase that was in flight. It is not `checks_failed`: nothing was
     asserted, and a service that never came up is not a service that disagreed.
   - >-
-    The deadline is on the run rather than on each phase, because phase() runs
-    in the current shell so that boot can export the port and the pid and verify
-    can accumulate its assertions. A per-phase wrapper would discard them.
+    The deadline signals the process group, not the script. bash defers a signal
+    while a foreground command runs and every phase runs in the foreground, so a
+    signal to the script alone arrives only when the phase it was meant to
+    interrupt has already ended.
   - >-
     The default is generous enough that no sample which was going to finish is
     cut short. The 30B rows took 27 to 37 minutes for fifty samples with
@@ -70,9 +81,13 @@ constraints:
     It is overridable, because a cold bundle install on a fresh machine is
     minutes and a first run is not a hang.
   - >-
-    It lives in behave.sh and in no target. A stack-specific timeout would be
-    written once per stack and would drift; the runner already knows which phase
-    is running and already knows how to end a run.
+    It lives in the caller and in no target and no phase. A stack-specific
+    timeout would be written once per stack and would drift.
+  - >-
+    A run killed at its deadline is failed whatever its result file says. The
+    script's EXIT trap writes the outcome it was holding, which for a run
+    interrupted before anything was asserted is "ok" - so a caller that trusted
+    it would record a pass for a sample that never ran.
   - >-
     Killing the run leaves nothing behind: the temporary project, the server and
     the database are removed exactly as they are on an ordinary failure. A
@@ -83,10 +98,9 @@ constraints:
     a run that hit the deadline says what it was doing rather than only that it
     stopped.
 affected_scope:
-  - evals/behavior/behave.sh
-  - evals/behavior/README.md
   - evals/behavior.go
   - evals/behavior_test.go
+  - evals/behavior/README.md
 forbidden_scope:
   - internal/**
   - cmd/**
@@ -96,7 +110,9 @@ superseded_by: ""
 related:
   - prov-2026-83340ba0
 sealed_at_sha: ""
-associated_specs: []
+associated_specs:
+  - path: evals/behavior_test.go
+    run_command: go test -count=1 -run Deadline ./$(dirname {{path}})
 associated_traces: []
 monitors: []
 tags: []

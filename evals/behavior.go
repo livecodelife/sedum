@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/calebcowen/sedum/internal/recording"
@@ -170,7 +171,27 @@ func runHarness(ctx context.Context, target string, arm []string, variables map[
 	}
 	defer os.RemoveAll(results)
 
-	cmd := exec.CommandContext(ctx, "bash", append([]string{harnessScript, target}, arm...)...)
+	deadlineCtx, cancel := context.WithTimeout(ctx, behaviorDeadline())
+	defer cancel()
+
+	cmd := exec.CommandContext(deadlineCtx, "bash", append([]string{harnessScript, target}, arm...)...)
+
+	// Its own process group, so the deadline can reach what the script is
+	// waiting on. bash defers a signal while a foreground command runs, and
+	// behave.sh runs every phase in the foreground on purpose - so signalling
+	// the script alone is queued until the command returns, which for a hung
+	// bundle install or a server that never listens is never. Signalling the
+	// group kills the command too, which returns the script to its own control
+	// and lets its EXIT trap remove the project, the server and the database
+	// (prov-2026-3957eed2).
+	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
+	cmd.Cancel = func() error {
+		return syscall.Kill(-cmd.Process.Pid, syscall.SIGTERM)
+	}
+	// If the trap does not finish, stop waiting on it. A deadline that hung
+	// waiting for its own cleanup would be the thing it exists to prevent.
+	cmd.WaitDelay = 20 * time.Second
+
 	cmd.Env = append(os.Environ(), "RESULTS_DIR="+results)
 	// The case's variables reach the target as environment, so the scaffold and
 	// the generation read one value rather than two that agree by convention:
@@ -180,6 +201,33 @@ func runHarness(ctx context.Context, target string, arm []string, variables map[
 		cmd.Env = append(cmd.Env, "SEDUM_VAR_"+strings.ToUpper(name)+"="+variables[name])
 	}
 	out, runErr := cmd.CombinedOutput()
+
+	// A run that passed its deadline is a failed sample naming the phase that
+	// was in flight - which behave.sh's own result says, if its trap got far
+	// enough to write one. If it did not, the sample is failed with the tail of
+	// what it had printed.
+	if deadlineCtx.Err() == context.DeadlineExceeded {
+		// The outcome is ours and not the script's. Killing it lets its EXIT
+		// trap run, which is what removes the project and the database - but the
+		// trap writes the outcome it was holding, and a run killed mid-phase is
+		// still holding "ok" with nothing asserted. A result that says ok
+		// because it was interrupted before anything could go wrong is the one
+		// reading a deadline must never produce.
+		//
+		// Failed rather than checks_failed: nothing was asserted, and a service
+		// that never came up is not one that disagreed.
+		phase := lastPhase(string(out))
+		if parsed, _, err := readResult(results); err == nil && parsed.FailedPhase != "" {
+			phase = parsed.FailedPhase
+		}
+		return BehaviorRun{
+			Outcome:     "failed",
+			FailedPhase: phase,
+			Detail: fmt.Sprintf("the behaviour run passed its %s deadline during %s\n%s",
+				behaviorDeadline(), phase, strings.TrimSpace(tail(string(out), 20))),
+			Elapsed: time.Since(started),
+		}
+	}
 
 	// The exit status is not the measurement. behave.sh exits zero on a run
 	// whose assertions failed, because a failed assertion is a result; what
@@ -394,4 +442,36 @@ func sortedNames(variables map[string]string) []string {
 	}
 	sort.Strings(out)
 	return out
+}
+
+// behaviorDeadline is how long one behaviour run may take.
+//
+// Generous on purpose: the phases of one sample are tens of seconds, and a cold
+// bundle install on a fresh machine is minutes and is not a hang. It exists for
+// the case that is neither - a phase that will never finish - which stopped two
+// runs in one session and cost a row of fifty samples, because an entry is only
+// written when a row finishes (prov-2026-3957eed2).
+func behaviorDeadline() time.Duration {
+	if v := os.Getenv("SEDUM_BEHAVIOR_DEADLINE"); v != "" {
+		if d, err := time.ParseDuration(v); err == nil && d > 0 {
+			return d
+		}
+	}
+	return 10 * time.Minute
+}
+
+// lastPhase reads the phase in flight out of what the script had printed, for
+// the case where the deadline fired before its trap wrote a result.
+//
+// The script announces each phase as it starts it, so the last one announced is
+// the one it was in. A guess from output rather than a field, and it is only
+// reached when the field does not exist.
+func lastPhase(out string) string {
+	phase := ""
+	for _, line := range strings.Split(out, "\n") {
+		if rest, ok := strings.CutPrefix(strings.TrimSpace(line), "\u2192 "); ok {
+			phase = strings.TrimSpace(rest)
+		}
+	}
+	return phase
 }
