@@ -1246,3 +1246,33 @@ func TestARequiredListBoundToAnEmptyArrayIsAccepted(t *testing.T) {
 		`{"invocations":[{"action":"tagResource","kwargs":{"controller":"","tags":[]}}]}`,
 		RuleEmptyKwarg, `"controller"`)
 }
+
+// Nothing capped a completion, so a model that does not stop generated until the
+// context ran out - 40,076 tokens on a prompt that returns 173 when replayed
+// (prov-2026-7f79ba36).
+func TestACompletionIsCapped(t *testing.T) {
+	if got := maxCompletionTokens(); got != 16384 {
+		t.Errorf("default cap is %d, want 16384", got)
+	}
+
+	// Above every completion this harness has legitimately received: the
+	// largest on record is 9,759, a baseline arm writing six whole files.
+	if maxCompletionTokens() <= 9759 {
+		t.Errorf("cap %d is not above the largest answer on record", maxCompletionTokens())
+	}
+
+	t.Setenv(EnvMaxTokens, "2048")
+	if got := maxCompletionTokens(); got != 2048 {
+		t.Errorf("override gave %d, want 2048", got)
+	}
+
+	// A value nobody can generate against is ignored rather than obeyed.
+	t.Setenv(EnvMaxTokens, "0")
+	if got := maxCompletionTokens(); got != 16384 {
+		t.Errorf("zero gave %d, want the default", got)
+	}
+	t.Setenv(EnvMaxTokens, "not a number")
+	if got := maxCompletionTokens(); got != 16384 {
+		t.Errorf("junk gave %d, want the default", got)
+	}
+}

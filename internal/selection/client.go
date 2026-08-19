@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"strconv"
 
 	openai "github.com/sashabaranov/go-openai"
 )
@@ -89,6 +90,7 @@ func (o *OpenAI) Complete(ctx context.Context, messages []Message) (Completion, 
 	resp, err := o.client.CreateChatCompletion(ctx, openai.ChatCompletionRequest{
 		Model:       o.model,
 		Temperature: 0,
+		MaxTokens:   maxCompletionTokens(),
 		Messages:    wire(messages),
 	})
 	if err != nil {
@@ -113,4 +115,31 @@ func wire(messages []Message) []openai.ChatCompletionMessage {
 		out = append(out, openai.ChatCompletionMessage{Role: m.Role, Content: m.Content})
 	}
 	return out
+}
+
+// EnvMaxTokens overrides the completion cap, for a standard whose files are
+// larger than any this one has seen.
+const EnvMaxTokens = "SEDUM_MAX_COMPLETION_TOKENS"
+
+// maxCompletionTokens bounds one completion.
+//
+// Nothing capped it before, so a model that does not emit a stop token generates
+// until the context is exhausted: a 0.5B produced 40,076 tokens on a prompt that
+// returns 173 and stops when replayed. The cause was not the prompt and not a
+// sampling parameter - the same prompt replayed eight times returns the same 173
+// tokens, and temperature, frequency and presence penalties change nothing - and
+// a cap does not need to know why a model failed to stop, only that the failure
+// costs one sample (prov-2026-7f79ba36).
+//
+// 16384 against a largest-ever legitimate completion of 9,759 tokens, which was
+// a baseline arm writing six whole source files. A truncated answer is not
+// repaired or quietly kept: it decodes as malformed and is rejected by the rules
+// that already exist, which is what a model that will not stop deserves.
+func maxCompletionTokens() int {
+	if v := os.Getenv(EnvMaxTokens); v != "" {
+		if n, err := strconv.Atoi(v); err == nil && n > 0 {
+			return n
+		}
+	}
+	return 16384
 }
