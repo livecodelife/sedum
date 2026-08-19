@@ -1,0 +1,77 @@
+id: prov-2026-88e36921
+title: A recording decodes leniently, because the checks that matter are on actions and kwargs
+status: draft
+created_at: "2026-08-19"
+author: calebcowen@gmail.com
+intent: |
+  M7 says replay's validation is "identical to model-output validation but
+  terminal". That settles what happens to an action that does not exist and a
+  kwarg that is not bound. It says nothing about a JSON key the schema does not
+  model, and the two candidate answers point opposite ways.
+
+  `sedum.yaml` and `actions.yaml` decode with `KnownFields(true)` - an
+  unrecognised key is a load error. Copying that here is the obvious move and is
+  wrong, for two reasons that only apply to this artifact.
+
+  ## A recording is a committed artifact read by more than one Sedum
+
+  [[prov-2026-d554bfc3]] requires durable artifacts to be "versioned by shape,
+  not by a version token", so that "a field added later is an addition rather
+  than a migration across repositories that already carry them". Strict decoding
+  makes that false in one direction: a recording written by a newer Sedum stops
+  loading in an older one, and a team with recordings committed as standard
+  service scaffolds discovers it on upgrade, in every repository at once. The
+  phases grouping exists precisely so the schema can grow. Rejecting the growth
+  at the door would spend that nesting for nothing.
+
+  A generator package has no equivalent exposure. It is read by whichever Sedum
+  the author is running, and a typo in it is an authoring mistake caught in the
+  same sitting.
+
+  ## The checks that matter are downstream and are not weakened
+
+  The failure a hand-editor actually makes is a wrong action name, a missing
+  required kwarg, or a path the recording did not create. All three are terminal
+  under validation that already exists, and none of them are reached by strict
+  decoding. What strict decoding adds over that is catching a misspelled *key* -
+  `kwarg` for `kwargs` - and that case does not go silent either: the invocation
+  arrives with nothing bound and fails the required-kwarg check with a
+  diagnostic naming the action.
+
+  So the recovered ground is small, and it is paid for with a compatibility
+  break across exactly the artifact the brief singles out as one that must not
+  need migrating.
+
+  ## Decided
+
+  Lenient decoding. Unknown keys are ignored rather than rejected, and the
+  terminal checks on actions, kwargs and paths are what a recording is held to.
+  `sedum_version` is what a caller reads when it needs to know which Sedum wrote
+  a file; that field exists for this and is the right place for the question.
+
+  This is not a licence to leave the schema loose. It is the statement that a
+  recording's correctness is judged on what it asks Sedum to do, not on whether
+  its keys are exhaustively known.
+constraints:
+  - >-
+    A recording decodes leniently. An unrecognised key is ignored, never a load
+    error, so that a field added by a later Sedum is an addition rather than a
+    migration across every repository holding a committed recording.
+  - >-
+    Leniency stops at the door. What a recording asks Sedum to do - the action,
+    its kwargs, the path it targets - is validated exactly as model output is
+    and fails terminally.
+affected_scope:
+  - internal/recording/**
+forbidden_scope: []
+type: imprint
+implements: prov-2026-dc227be7
+supersedes: ""
+superseded_by: ""
+related:
+  - prov-2026-d554bfc3
+sealed_at_sha: ""
+associated_specs: []
+associated_traces: []
+monitors: []
+tags: []
