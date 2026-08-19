@@ -1,0 +1,75 @@
+# Publishes the eval dashboard.
+#
+# The site is derived from evals/results/ on every build rather than committed,
+# so it cannot drift from the file it reads and a new case needs no edit here
+# (prov-2026-b0bf8584).
+#
+# Pages must be set to deploy from "GitHub Actions" in the repository settings
+# for the deploy job to have somewhere to go.
+
+name: Pages
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "evals/results/**"
+      - "evals/cases/**"
+      - "docs/**"
+      - ".github/workflows/pages.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# One deployment at a time, and never cancel one in flight: a half-published
+# site is worse than a stale one.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - run: python -m pip install --upgrade pyyaml
+
+      # The reading rules are asserted before anything is published. A page
+      # that hides a fraction behind an interval, or scores the baseline arm
+      # on a vocabulary it does not have, does not ship.
+      - name: Assert the reading rules
+        run: node --test docs/stats_test.mjs
+
+      # And that the site is a faithful copy: every results file published
+      # byte for byte, the manifest naming all of them and none it invented,
+      # and evals/results untouched by the build.
+      - name: Verify the build is a faithful copy
+        run: python docs/build.py --check
+
+      - run: python docs/build.py -o _site
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

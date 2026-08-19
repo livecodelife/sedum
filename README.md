@@ -8,6 +8,15 @@ A provenance record declares intent, constraints, and the files a change is auth
 
 ---
 
+## Evaluation results
+
+Measured runs of the harness under `evals/` — what a model selected, what it
+bound, and whether the application it produced builds, boots and answers — are
+published at **<https://livecodelife.github.io/sedum/>**, read directly from
+`evals/results/`.
+
+---
+
 ## Status
 
 Sedum is under active development. The **deterministic half of the pipeline has
