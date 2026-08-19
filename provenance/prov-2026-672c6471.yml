@@ -35,46 +35,49 @@ intent: |
 
   Intent, and the list of files to write. Nothing else.
 
-  The file list stays, and the reason is symmetry rather than convenience.
-  parseFencedFiles keeps only the paths the record authorized, because the sedum
+  Intent. Not the constraints, and not the file list either.
+
+  The three arms are then a ladder of what the model was given: a prompt, a
+  record, a record and a catalog. The point of the first rung is what a sentence
+  alone produces, so anything else in the prompt is a rung it is not standing on.
+
+  ## What dropping the file list costs, and why it is the right cost
+
+  parseFencedFiles keeps only the paths a record authorized, because the sedum
   arm cannot write outside them either - Phase 3 creates only what
-  affected_scope names. Given that filter, naming the paths is the only way an
-  answer can comply, and withholding the list while still filtering would score
-  a model on whether it guessed the paths this standard happens to use.
+  affected_scope names. An arm with no file list has to be exempt from that
+  filter, or every sample is invalid for naming paths nobody told it about.
 
-  An arm that accepted any path would be a different question - whether a model
-  can write a working resource in files of its choosing - and it could not be
-  read against the sedum arm at all, only on its own, because it would carry a
-  freedom the sedum arm structurally lacks. Worth building; not this.
+  So this arm accepts whatever paths the answer carries, and it is therefore not
+  a path-for-path comparison against the sedum arm. That is the intended
+  reading: it is not measuring Sedum, it is measuring the absence of it. What it
+  shares with the other arms is the question the behaviour target asks - does
+  the service run and does it do what the record describes - and verify is HTTP
+  assertions against a running service, which is the same question whoever wrote
+  the code and whatever the files are called.
 
-  The constraints go because they are the specification. Everything they say is
-  a thing a team would expect a service to do without being told twice, which is
-  exactly the claim a generator package makes about boilerplate.
+  Paths the record did not authorize are recorded rather than discarded, because
+  a model writing the right code in files of its own choosing is the most likely
+  outcome here and is a finding, not an error.
 
-  ## A caveat this record has to record
-
-  The baseline arm is one call by design: it has no Phase 5, the only check it
-  could fail is the build, and re-prompting with a compiler error is the loop
-  TOOL_BOUNDARIES assigns to another tool. baseline.go says it is therefore
-  comparable to the sedum arm at retries zero.
-
-  Tonight's run drew the sedum arms at retries two and the baseline at its
-  structural one call. The comparison stands on the behaviour rate, where the
-  budget only decides which samples reached behaviour at all, but it is not the
-  like-for-like the code describes, and the same asymmetry will apply to this
-  arm. Either the sedum arms are drawn at retries zero for the comparison, or
-  the entry says which budget each side had. It already stores it.
 constraints:
   - >-
     The arm differs from baseline in the prompt and in nothing else. Same record,
     same behaviour target, same parsing of the answer, same outcome vocabulary -
     or the two cannot be read side by side, which is the only reason to build it.
   - >-
-    The files to write stay in the prompt, because the harness keeps only
-    authorized paths and the sedum arm is held to the same set by Phase 3.
-    Dropping the list without dropping the filter would measure path guessing;
-    dropping both would grant this arm a freedom the arm it is compared against
-    does not have.
+    The prompt carries intent and nothing else. No constraints, no file list: the
+    rung this arm stands on is a sentence, and anything added to it is a
+    different rung.
+  - >-
+    The arm accepts whatever paths the answer carries, and records the ones no
+    record authorized. It is exempt from the path filter the other arms are held
+    to, so it is not a path-for-path comparison with them - which is the point
+    rather than a defect, because it is measuring the absence of Sedum.
+  - >-
+    What the arms share is the behaviour question. verify boots the service and
+    asserts over HTTP, which is the same question whoever wrote the code and
+    whatever the files were called.
   - >-
     A third arm value is a schema change: arm is validated against sedum and
     baseline today, and a case naming anything else is refused. The value is
