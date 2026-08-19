@@ -1,0 +1,99 @@
+id: prov-2026-ee1b3e46
+title: The harness plants the anchor in the scaffold's routes file instead of deleting it
+status: draft
+created_at: "2026-08-18"
+author: calebcowen@gmail.com
+intent: |
+  target_prepare stops removing `config/routes.rb`. It inserts
+  `# sedum:anchor:routes` into the file `rails new` wrote, and Sedum injects
+  into that.
+
+  ## Why deleting was wrong
+
+  Phase 3 is create-if-absent: a path already on disk is left alone and checked
+  for the markers its template declares (PRD "Phase 3 is create-if-absent"). So
+  a file that exists is not a problem for Sedum. A file that exists *without the
+  anchors* is, and the two supported answers are to plant the marker by hand or
+  to let the template own the file outright. The rails package took the second,
+  and the harness deleted the scaffold's routes.rb to make it true.
+
+  That is the shape [[prov-2026-d318e3dd]] was opened to find: the harness
+  accommodating a package decision. Ask its test - would a team who had never
+  heard of Sedum hand over their whole `config/routes.rb`? Almost certainly not.
+  A routes file accumulates hand-written routes over the life of a service, and
+  a generator that owns it outright is hostile to how the file is actually used.
+  Adding one comment line, once, at adoption is the lighter and more realistic
+  choice.
+
+  ## What it changes about what is measured
+
+  Sedum now injects into a file it did not create. That is closer to how the
+  tool is actually used than the previous arrangement, where every authorized
+  path was generated from a template in the same run - and it exercises the
+  create-if-absent path and checkMarkers, which no behaviour run reached before.
+
+  ## Why the harness plants it and not Sedum
+
+  `adopt` - a command that inserts markers where a file's skeleton still
+  literally matches a file template - is named in OPEN_QUESTIONS section 3 and
+  is unbuilt, and where it should live is explicitly open there and in
+  TOOL_BOUNDARIES. This record does not settle that or pre-empt it.
+
+  Until it exists the marker is planted by whoever adopts, and in this fixture
+  that is the harness. It goes in `targets/todo-rails/target.sh` because which
+  marker a Rails routes file needs is stack knowledge, which is what a target
+  file is for - behave.sh itself learns nothing.
+
+  ## An existing authorized file that is not routes.rb is an error
+
+  The loop used to delete anything the record authorized that the scaffold had
+  written. Only routes.rb ever matched. Rather than keep a general deletion for
+  a case that does not arise, an unexpected existing path now fails loudly: the
+  harness has no way to know where another file's anchors belong, and guessing
+  is what `adopt` exists to do properly.
+
+  ## What is not changed
+
+  The routes file template keeps its `/up` route and its anchor. It renders only
+  when the file is absent, which `rails new` makes rare, but it is still what
+  declares the marker Phase 3 verifies - so it is load-bearing whether or not it
+  ever renders.
+constraints:
+  - >-
+    The scaffold's own `config/routes.rb` survives. The harness adds one comment
+    line and removes nothing, which is what a team adopting Sedum into an
+    existing service would do.
+  - >-
+    The planted marker matches the template's, indentation included, because
+    injection takes its indentation from the marker it lands on.
+  - >-
+    Planting is idempotent. A prepare that ran twice would otherwise plant two
+    anchors and injection would have two regions to choose between.
+  - >-
+    An authorized path that exists and is not the routes file fails the phase.
+    The harness cannot know where another file's anchors belong, and a silent
+    guess is what the refusal exists to prevent.
+  - >-
+    Stack knowledge stays in the target. behave.sh learns nothing about Rails,
+    routes, or markers.
+affected_scope:
+  - evals/behavior/targets/todo-rails/target.sh
+forbidden_scope:
+  - internal/**
+  - cmd/**
+type: imprint
+implements: prov-2026-d318e3dd
+supersedes: ""
+superseded_by: ""
+related:
+  - prov-2026-f5e64f22
+sealed_at_sha: ""
+associated_specs:
+  - path: evals/behavior/README.md
+    run_command: test -f {{path}}
+associated_traces: []
+monitors: []
+tags:
+  - sedum
+  - evals
+  - fixtures
