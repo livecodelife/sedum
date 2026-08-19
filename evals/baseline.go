@@ -17,6 +17,15 @@ import (
 // It states the response shape and nothing about any stack. Every sentence
 // naming a framework, a version or a convention would be a package rendered as
 // prose, and the package is the variable under test (prov-2026-a4dbe65c).
+// examplePath is the placeholder both system prompts show, and the one path the
+// parser refuses.
+//
+// Named once so the example a model is shown and the example the parser drops
+// cannot drift apart - a parser refusing a string no prompt shows would be
+// refusing a path a model might legitimately have chosen
+// (prov-2026-b4849e5c).
+const examplePath = "path/to/file.ext"
+
 const baselineSystem = `You write the source files a change requires.
 
 You will be given a change's intent, its constraints, and the exact list of file
@@ -26,7 +35,7 @@ Return one markdown code fence per file. The fence's info string is the file
 path, exactly as it was given to you, and the fence body is the complete
 contents of that file:
 
-` + "```" + `path/to/file.ext
+` + "```" + examplePath + `
 the entire contents of that file
 ` + "```" + `
 
@@ -54,7 +63,7 @@ each of them is called, and what belongs in them.
 Return one markdown code fence per file. The fence's info string is the file
 path and the fence body is the complete contents of that file:
 
-` + "```" + `path/to/file.ext
+` + "```" + examplePath + `
 the entire contents of that file
 ` + "```" + `
 
@@ -151,6 +160,13 @@ func parseFencedFiles(raw string, allowed []string) (map[string]string, []string
 			content += "\n"
 		}
 		switch {
+		// The placeholder is the harness's own text. A path is a thing the
+		// answer chose and the example is a thing the answer was shown, and an
+		// answer that echoes one did not write a file - so it is dropped rather
+		// than reported as a path outside the record, which is the different
+		// finding that list exists for.
+		case p == examplePath:
+			continue
 		case anyPath, ok[p]:
 			files[p] = content
 		default:

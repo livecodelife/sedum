@@ -352,3 +352,46 @@ func TestBothPackageFreeArmsAreRecognised(t *testing.T) {
 		}
 	}
 }
+
+// A model that echoes the prompt has not written a file. The 0.5B row returns
+// the intent back inside one fence whose info string is the example, and
+// keeping it made a garbage answer valid - which cost a Rails scaffold, a gem
+// install and a boot attempt per sample (prov-2026-b4849e5c).
+func TestTheExamplePathIsNotAFileTheAnswerWrote(t *testing.T) {
+	echoed := "```" + examplePath + "\nthe entire contents of that file\n\n# Intent\n\nAdd the todo resource.\n```\n"
+
+	// The intent arm accepts any path, and still must not accept this one.
+	// Nothing is left, so the answer is an error - which is what makes the
+	// sample invalid and stops a behaviour run being spent on it.
+	files, unexpected, err := parseFencedFiles(echoed, nil)
+	if err == nil {
+		t.Errorf("an answer that echoes the example parsed as %v, want an error", files)
+	}
+	if len(files) != 0 {
+		t.Errorf("kept %v; an answer that echoes the example wrote nothing", files)
+	}
+	// Dropped, not reported: it is not the right code in the wrong place.
+	if len(unexpected) != 0 {
+		t.Errorf("reported %v as an unexpected path; it is the prompt's own text", unexpected)
+	}
+
+	// A real file beside the echo is still kept.
+	mixed := echoed + "```app/models/todo.rb\nclass Todo; end\n```\n"
+	files, _, err = parseFencedFiles(mixed, nil)
+	if err != nil {
+		t.Fatalf("parsing: %v", err)
+	}
+	if len(files) != 1 || files["app/models/todo.rb"] == "" {
+		t.Errorf("kept %v, want only the real file", files)
+	}
+}
+
+// The example the model is shown and the example the parser drops are one
+// string, or a prompt edit would quietly re-open this.
+func TestBothSystemPromptsShowTheExampleThePartserDrops(t *testing.T) {
+	for name, prompt := range map[string]string{"baseline": baselineSystem, "intent": intentSystem} {
+		if !strings.Contains(prompt, examplePath) {
+			t.Errorf("the %s system prompt does not show %s, so the parser drops a path nothing shows", name, examplePath)
+		}
+	}
+}
