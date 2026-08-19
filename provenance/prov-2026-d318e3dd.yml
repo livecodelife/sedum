@@ -1,0 +1,192 @@
+id: prov-2026-d318e3dd
+title: The fixtures are what an engineer would build, and the harness is neutral between the arms
+status: draft
+created_at: "2026-08-18"
+author: calebcowen@gmail.com
+intent: |
+  Three rules, and everything below is their application:
+
+  1. **A generated service is what an engineer would have built.** It follows
+     the conventions and the best practice of its language and framework, as
+     though nobody involved had heard of Sedum.
+  2. **A generator package is what an engineering team would author** who wanted
+     a repeatable template for new services - their conventions, written once.
+  3. **The eval checks whether Sedum satisfied that**, at each level it can
+     measure. It does not check whether the output matches what the harness was
+     tuned to expect.
+
+  The test each line of a fixture has to pass: *would a team writing this
+  template, who had never heard of Sedum, put this here?*
+
+  ## The run that found it
+
+  The first baseline run scored 0 of 5 working, failing fifteen of twenty
+  assertions identically in every sample. The cause was not the model. The
+  server log:
+
+      Parameters: {"title"=>"...", "todo"=>{"title"=>"..."}}
+      Can't verify CSRF token authenticity.
+      Completed 422 Unprocessable Content
+
+  The scaffold is a full Rails application, so forgery protection is on. The
+  generator package's controller template carries
+  `skip_before_action :verify_authenticity_token`; the baseline's controller,
+  written by a model told only what the record says, does not. Every POST, PUT
+  and DELETE fails. The five assertions that passed are exactly the ones needing
+  no mutating request.
+
+  So the run measured a CSRF filter rather than a model, and the number it
+  produced is worthless for the question it was drawn to answer.
+
+  ## The circularity
+
+  The scaffold says why it is what it is:
+
+      Not --api. The controller template skips the CSRF filter unconditionally,
+      and ActionController::API has no such filter to skip, so an API-only
+      scaffold raises at class definition time.
+
+  The template skips CSRF because the scaffold is not `--api`. The scaffold is
+  not `--api` because the template skips CSRF. Neither choice survives rule 1:
+  an engineer building a JSON API in Rails runs `rails new --api`, and having
+  done so writes no such line, because there is no filter to skip.
+
+  The correct package is *simpler* than the current one, which is the sign that
+  this is a defect rather than a trade.
+
+  ## What the audit found
+
+  **Rails - the package encodes a full-Rails application it should not.**
+
+  - `skip_before_action :verify_authenticity_token` in the controller template.
+    Its own comment argues "callers are services, not browsers", which is the
+    argument for `--api` rather than for skipping a filter `--api` would not
+    have.
+  - The routes template plants `service-worker` and `manifest`, described as
+    rendering `app/views/pwa`. A JSON API has no service worker and no web app
+    manifest.
+  - Both package sets carry both, and TestTheDescribedSetDiffersOnlyByDescriptions
+    holds them in sync, so the description A/B inherits it.
+
+  **Rails - the harness leans on what the package happens to emit.**
+
+  - `target_boot` polls `/up`, a route Rails' own scaffold provides and the
+    package template re-emits. `config/routes.rb` is in affected_scope, so any
+    arm may legitimately rewrite it - and the baseline did, dropping the route.
+    The log shows `No route matches [GET] "/up"`.
+  - It passed anyway, because `wait_for` uses `curl -o /dev/null` and treats any
+    HTTP response as success. So the boot gate proves something answered, not
+    that the service is healthy. Both halves are wrong and they masked each
+    other.
+
+  **Chi - the same defect, latent rather than observed.**
+
+  - `main.go` hardcodes `http.ListenAndServe(":8080", r)` while reading
+    `DATABASE_URL` from the environment. A team writing a containerised Go
+    service reads the port from the environment too; hardcoding one and not the
+    other is not a convention anybody chose.
+  - `target_boot` sets `APP_PORT=8080` with the comment *"the file template
+    hardcodes the listen port"* - the harness knowing the package's choice and
+    depending on it.
+  - `main.go` and `init.sql` are both in the chi record's affected_scope, so a
+    baseline arm writes them. One that listened on `:3000`, or that bootstrapped
+    its schema with migrations rather than an `init.sql` the harness applies by
+    hand, would fail for reasons that are not about the model. There is no chi
+    baseline case yet, which is the only reason this has not fired.
+  - The service has no health endpoint, so boot polls `/todos`. That is a route
+    the record requires, so it is not arm-advantaging - but it is not what a team
+    running this in a container would build either.
+
+  The chi package is otherwise the cleaner of the two, and the reason is
+  instructive: Go has no framework doing things on the service's behalf, so
+  there was less for a template to accommodate.
+
+  ## What this costs
+
+  Changing the Rails package invalidates comparability with every stored Rails
+  entry - eleven clean ones across the two arms, including the only run that
+  scored five of five working. They remain true observations about a package
+  that will no longer exist.
+
+  That is the price and it is worth paying. A number drawn against a fixture
+  that was bent to flatter the mechanism is not evidence, and eleven of them are
+  not eleven pieces of evidence.
+
+  ## How it is implemented
+
+  By imprint, one decision at a time. This record states the rule and the audit;
+  each fixture change is a decision about what a team would actually write, and
+  those are argued individually rather than bundled into one commit that says
+  "make the fixtures objective".
+
+  ## Deliberately not decided here
+
+  **Whether results/ is cleared.** Once the fixtures change, every stored entry
+  describes a package that no longer exists, and there is a real argument for
+  starting the file empty rather than carrying numbers nobody should cite.
+  Against it: [[prov-2026-b6059aa7]] holds that results are append-only
+  observations pinned to a commit, and deleting them because they became
+  inconvenient is the habit that rule exists to prevent. The entries are also
+  still true - they are evidence about the old package, correctly labelled with
+  the commit that produced it.
+
+  A decision either way belongs in its own record, after the fixtures are fixed
+  and it is clear what a reader of the file would actually be misled by.
+constraints:
+  - >-
+    A generated service follows the conventions and best practice of its
+    language and framework, as though nobody involved had heard of Sedum. A
+    template line that exists only because of how the harness runs is a defect.
+  - >-
+    A generator package is what a team would author who wanted a repeatable
+    template for new services. The test for any line is whether a team who had
+    never heard of Sedum would put it there.
+  - >-
+    The harness is neutral between the arms. It does not scaffold, boot or
+    assert in a way that depends on a choice one arm's package happens to make
+    and the other arm has no way to know.
+  - >-
+    Where a fixture and the harness disagree, the fixture is what an engineer
+    would build and the harness changes. The scaffold was chosen to accommodate
+    a template, which is the inversion this rule exists to forbid.
+  - >-
+    Both package sets change together. The description A/B is held to differing
+    only by descriptions, and a fix applied to one arm would make the pair
+    measure two things.
+  - >-
+    Implemented by imprint, one decision at a time. Each change is an argument
+    about what a team would write and is recorded as one.
+  - >-
+    An assertion tests what the record requires, never what a package happens to
+    emit. An assertion that only one arm can satisfy is measuring the fixture.
+  - >-
+    A boot probe proves the service is healthy rather than that something
+    answered, and does not depend on a path a generated file may legitimately
+    replace.
+affected_scope:
+  - evals/**
+forbidden_scope:
+  - internal/**
+  - cmd/**
+type: blueprint
+implements: prov-2026-b6059aa7
+supersedes: ""
+superseded_by: ""
+related:
+  - prov-2026-a4dbe65c
+  - prov-2026-83340ba0
+  - prov-2026-e6969eb3
+  - prov-2026-090ab9c8
+sealed_at_sha: ""
+associated_specs:
+  - path: evals/run_test.go
+    run_command: go test -count=1 ./$(dirname {{path}})
+  - path: evals/behavior/README.md
+    run_command: test -f {{path}}
+associated_traces: []
+monitors: []
+tags:
+  - sedum
+  - evals
+  - measurement
+  - fixtures
