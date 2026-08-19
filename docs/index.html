@@ -1,0 +1,423 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sedum — evaluation results</title>
+<meta name="description" content="Every recorded run of the Sedum eval harness: what a model selected, what it bound, and whether the application it produced works.">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<header class="masthead">
+  <div class="wrap">
+    <p class="eyebrow">Sedum</p>
+    <h1>Evaluation results</h1>
+    <p class="lede">
+      Every run the harness has recorded, read straight from the append-only results file.
+      This page adds no measurement of its own — it shows what each run stored, and states
+      plainly what those numbers can and cannot support.
+    </p>
+    <p class="built" id="built"></p>
+  </div>
+</header>
+
+<main class="wrap">
+
+<!-- ───────────────────────── orientation ───────────────────────── -->
+
+<section id="what" class="prose">
+  <h2>What is being measured</h2>
+
+  <p>
+    <strong>Sedum generates boilerplate from a provenance record.</strong> A record declares
+    intent, constraints, and the files a change is authorized to touch. A <em>generator
+    package</em> declares a team's conventions: which code-injection actions exist, what
+    arguments they take, what they render, and where the result belongs. Sedum hands both to
+    a language model, which replies with a list of action invocations — and then executes
+    that list deterministically.
+  </p>
+
+  <p>
+    So the model never writes code. It chooses from a closed vocabulary somebody else
+    declared. <strong>These runs measure how well that choosing works</strong>, and where it
+    breaks down when it doesn't.
+  </p>
+
+  <div class="defbox">
+    <h3>The three words the whole page rests on</h3>
+    <dl>
+      <dt>Case</dt>
+      <dd>
+        A fixture: one provenance record, one generator package, one small application to
+        build. <code>todo-rails-defined</code> is a to-do API in Rails, generated from a
+        tightly-specified package. Everything is vendored into the repository, so a number
+        measured today can be re-run tomorrow.
+      </dd>
+      <dt>Sample</dt>
+      <dd>
+        One prompt, one call, one act of reasoning. A run draws <em>n</em> samples from one
+        model against one case. Every number on this page is a proportion of samples.
+      </dd>
+      <dt>Run</dt>
+      <dd>
+        One case × one model × <em>n</em> samples, recorded as a single entry with the commit
+        it was drawn at. Runs are never edited — a measurement that turns out to be wrong is
+        superseded by a later one, not corrected in place.
+      </dd>
+    </dl>
+  </div>
+</section>
+
+<!-- ───────────────────────── the ladder ───────────────────────── -->
+
+<section id="ladder" class="prose">
+  <h2>Five rungs, and why more than one is needed</h2>
+
+  <p>
+    Each rung sits further down the pipeline than the last. <strong>The value is in where two
+    of them disagree, not in any one number.</strong> A run can select exactly the right
+    actions, bind every argument correctly, and still produce a service that does not boot —
+    and that is a finding about the generator package, not a contradiction to be smoothed
+    over. Each rung below says what it <em>cannot</em> see as plainly as what it measures.
+  </p>
+
+  <ol class="rungs">
+    <li>
+      <span class="rung-n">1</span>
+      <h3>Selection <span class="rung-q">— which actions were chosen?</span></h3>
+      <p>
+        The model replies with invocations. Did it reach for the actions a complete answer
+        needs? A reply the pipeline rejects outright is counted separately, as
+        <a href="#g-valid">invalid</a>.
+      </p>
+      <p class="blind">
+        <strong>Cannot see:</strong> whether the arguments were right. A perfectly selected
+        action with a broken argument scores the same as a correct one.
+      </p>
+    </li>
+    <li>
+      <span class="rung-n">2</span>
+      <h3>Binding <span class="rung-q">— what were the arguments set to?</span></h3>
+      <p>
+        Scored per argument rather than per invocation, because naming <em>which</em> argument
+        is wrong is the entire point. Four samples once scored a perfect six-of-six on
+        selection while every one of them bound a column default wrongly.
+      </p>
+      <p class="blind">
+        <strong>Cannot see:</strong> whether the rendered file is even syntactically valid.
+        <code>t.string :title:string, null: false</code> is a perfect count and broken Ruby.
+      </p>
+      <p class="note">
+        Binding is scored by the harness at run time against the case's expectations. That
+        score is not stored in the results file, so this page does not show it — see
+        <a href="#g-notshown">what this page cannot show</a>.
+      </p>
+    </li>
+    <li>
+      <span class="rung-n">3</span>
+      <h3>Form <span class="rung-q">— is the output complete and well-formed?</span></h3>
+      <p>
+        Three cheap checks needing no database and no boot:
+        <strong><a href="#g-fill">anchor fill</a></strong> (how much of the work the created
+        files declared was accounted for), <strong><a href="#g-parses">parses</a></strong>
+        (does the rendered output survive the language's own parser), and
+        <strong><a href="#g-idem">idempotent</a></strong> (does applying the same answer twice
+        change anything).
+      </p>
+      <p class="blind">
+        <strong>Cannot see:</strong> whether the code does what it is supposed to.
+        <code>params.permit(title, completed)</code> parses cleanly and raises the first time
+        it runs. Anchor fill also cannot tell a model that missed an anchor from a package
+        with an anchor nothing can fill.
+      </p>
+    </li>
+    <li>
+      <span class="rung-n">4</span>
+      <h3>Behaviour <span class="rung-q">— does the application build, boot and answer?</span></h3>
+      <p>
+        Each valid sample's own choices are applied to a freshly scaffolded application, which
+        is then built, booted, and asserted against over HTTP. Off by default: one behaviour
+        sample costs a scaffold, a dependency install, a database and a boot.
+      </p>
+      <p class="blind">
+        <strong>Cannot see:</strong> whether any of it beats not using Sedum at all.
+      </p>
+    </li>
+    <li>
+      <span class="rung-n">5</span>
+      <h3>Baseline <span class="rung-q">— what happens without Sedum?</span></h3>
+      <p>
+        The same model gets the same record and is asked to write the files itself: no
+        package, no action vocabulary, no catalog. It is scored only by booting what it wrote.
+        Without this column a good number anywhere above is unfalsifiable, because there is
+        nothing it is good <em>compared to</em>.
+      </p>
+      <p class="blind">
+        <strong>Cannot see:</strong> selection, binding, anchor fill or idempotency — there is
+        no vocabulary to count and no anchor to fill. Those cells are left blank on this page,
+        never zero.
+      </p>
+    </li>
+  </ol>
+</section>
+
+<!-- ───────────────────────── how to read a rate ───────────────────────── -->
+
+<section id="reading" class="prose">
+  <h2>How to read a rate here</h2>
+
+  <div class="rules">
+    <div class="rule">
+      <h3>Every rate carries its interval</h3>
+      <p>
+        <code>4/5 [0.38, 0.96]</code> is one number, not two. The bracket is a 95% Wilson
+        score interval: the range of true rates consistent with what was actually drawn.
+      </p>
+      <p>
+        <strong>A perfect score at five samples is consistent with a true rate of 57%.</strong>
+        That is why the fraction never appears without the interval, and the interval never
+        replaces the fraction — the sample count is the fact that produced the width.
+      </p>
+      <figure class="demo" id="demo-intervals"></figure>
+    </div>
+
+    <div class="rule">
+      <h3>Overlapping intervals are not a difference</h3>
+      <p>
+        When two intervals overlap, the honest statement is <em>these runs do not distinguish
+        these rates</em> — never that the rates are the same, and never that one is better.
+        <code>4/5</code> and <code>5/5</code> overlap heavily.
+      </p>
+      <p>
+        There are no p-values, significance tests, pass/fail badges or league tables on this
+        page. A p-value is a verdict wearing a number, and the harness is not entitled to make
+        that decision on your behalf.
+      </p>
+    </div>
+
+    <div class="rule">
+      <h3>Three kinds of run are shown but never compared</h3>
+      <p>They stay visible — they are honest records of what happened — but they are excluded
+      from every aggregate and every comparison, and marked wherever they appear.</p>
+      <ul class="flaglist">
+        <li><span class="flag flag-smoke">smoke</span> Drawn at n=1 or 2 to prove the plumbing works. Not a measurement.</li>
+        <li><span class="flag flag-dirty">dirty</span> Uncommitted changes at run time, so the commit pins nothing. Not re-runnable.</li>
+        <li><span class="flag flag-unstated">unstated</span> Drawn before the harness asked what a sample size was <em>for</em>. Its n was a default, not a decision.</li>
+      </ul>
+    </div>
+
+    <div class="rule">
+      <h3>Sample size is a property of the question</h3>
+      <p>Every citable run declares which of three questions it was drawn for.</p>
+      <ul class="reslist">
+        <li><span class="res res-smoke">smoke</span> <span>n≈2 — does the plumbing work at all?</span></li>
+        <li><span class="res res-coarse">coarse</span> <span>n≈5 — differences that are enormous. Does a 4B model select usefully where a 14B does?</span></li>
+        <li><span class="res res-fine">fine</span> <span>n≈30 — moving a rate that is already high, where an interval at n=5 is decoration.</span></li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- ───────────────────────── the runs ───────────────────────── -->
+
+<section id="runs">
+  <div class="prose">
+    <h2>The runs</h2>
+    <p>
+      Every recorded run. Click any row to open what its individual samples did. Sort by any
+      column; filter by any axis of the matrix.
+    </p>
+  </div>
+
+  <div class="controls" id="controls" role="group" aria-label="Filter runs"></div>
+
+  <div class="summary-bar" id="summary-bar"></div>
+
+  <div class="tablewrap">
+    <table class="runs" id="runs-table">
+      <thead>
+        <tr>
+          <th class="sortable" data-sort="at" scope="col">Date</th>
+          <th class="sortable" data-sort="case" scope="col">Case</th>
+          <th class="sortable" data-sort="model" scope="col">Model</th>
+          <th class="sortable" data-sort="arm" scope="col">Arm</th>
+          <th class="sortable num" data-sort="samples" scope="col">n</th>
+          <th class="sortable" data-sort="validity" scope="col">
+            Valid <span class="th-sub">accepted answers</span>
+          </th>
+          <th class="sortable" data-sort="behavior" scope="col">
+            Works <span class="th-sub">builds, boots, answers</span>
+          </th>
+          <th class="sortable" data-sort="fill" scope="col">
+            Anchors <span class="th-sub">filled of planted</span>
+          </th>
+          <th scope="col">Flags</th>
+        </tr>
+      </thead>
+      <tbody id="runs-body"></tbody>
+    </table>
+  </div>
+  <p class="empty" id="runs-empty" hidden>No runs match these filters.</p>
+</section>
+
+<!-- ───────────────────────── compare ───────────────────────── -->
+
+<section id="compare">
+  <div class="prose">
+    <h2>Put two runs side by side</h2>
+    <p>
+      Only runs that can be cited are offered here — smoke, dirty and unstated runs are left
+      out, exactly as the harness's own history chain leaves them out. The answer is either
+      <em>the intervals overlap</em> or <em>they do not</em>. Nothing stronger is available
+      from data this size.
+    </p>
+  </div>
+  <div class="compare-grid" id="compare-grid"></div>
+  <div class="compare-out" id="compare-out"></div>
+</section>
+
+<!-- ───────────────────────── glossary ───────────────────────── -->
+
+<section id="glossary" class="prose">
+  <h2>Glossary</h2>
+
+  <dl class="glossary">
+    <dt id="g-valid">valid · invalid · failed</dt>
+    <dd>
+      Three outcomes a sample can have, and conflating any two of them hides something.
+      <strong>Valid</strong>: the model answered and the pipeline accepted the answer.
+      <strong>Invalid</strong>: it answered and the answer was rejected by a validation rule —
+      a real measurement of the model, reported as its own rate, not an error.
+      <strong>Failed</strong>: the call never reached the model at all. Failed samples are
+      excluded from every denominator, because an unreachable endpoint is not a model that
+      chose badly; the count is always shown beside the rate that excluded it.
+    </dd>
+
+    <dt>arm — <code>sedum</code> vs <code>baseline</code></dt>
+    <dd>
+      <strong>sedum</strong>: the model picks from the generator package's declared action
+      vocabulary. <strong>baseline</strong>: the same model, the same record, no package and
+      no vocabulary — it writes the files itself and is graded only by booting them. The
+      baseline gets one call and no retry, because re-prompting a build error is a repair
+      loop, and this is deliberately not a repair tool.
+    </dd>
+
+    <dt>tightness — <code>defined</code> vs <code>described</code></dt>
+    <dd>
+      Two generator packages over the same record, differing only in how much the action
+      catalog explains itself. <code>defined</code> declares its arguments and their types;
+      <code>described</code> adds a sentence of prose to each. The axis exists to answer
+      whether a description moves the selection rate.
+    </dd>
+
+    <dt>rejection rules</dt>
+    <dd>
+      Why an invalid sample was rejected. The vocabulary is fixed so that a slug written today
+      still resolves a year from now:
+      <ul class="rules-gloss">
+        <li><code>response_shape</code> — the reply was not a decodable invocation list.</li>
+        <li><code>unknown_action</code> — an action no package exposes.</li>
+        <li><code>ambiguous_action</code> — an action more than one package claims.</li>
+        <li><code>missing_kwarg</code> — a required argument the model never mentioned.</li>
+        <li><code>empty_kwarg</code> — a required argument mentioned and left empty. Kept apart from the above on purpose: a value nobody wrote and one deliberately emptied are different mistakes.</li>
+        <li><code>unknown_kwarg</code> — an argument the action does not declare.</li>
+        <li><code>kwarg_type</code> — an argument bound to the wrong type.</li>
+        <li><code>missing_derived_kwarg</code> — an argument the chosen template renders but the invocation never bound, whatever the schema calls optional.</li>
+        <li><code>variant</code> — a discriminator bound to a value with no template behind it.</li>
+        <li><code>unauthorized_path</code> — the invocation would write to a path the record does not authorize.</li>
+      </ul>
+    </dd>
+
+    <dt id="g-fill">anchor · anchor fill</dt>
+    <dd>
+      A file template plants <em>anchors</em> — named places where injected code belongs. The
+      created files therefore state what work they expect, and anchor fill is the fraction of
+      that work a selection accounted for. Its virtue is that it is <strong>derived, not
+      declared</strong>: it comes from the package and the record rather than from anyone's
+      hand-written expectation, so it cannot be fitted. Its limit is that an anchor filled by
+      the <em>wrong</em> action still counts as filled, and a package carrying an anchor
+      nothing can target has a ceiling below 100% that is a property of the package, not of
+      the answer. The denominator is planted anchors, not samples.
+    </dd>
+
+    <dt id="g-parses">parses</dt>
+    <dd>
+      The rendered output handed to the language's own parser — <code>ruby -c</code>, and so
+      on. Syntax only, never correctness. Code that parses can still raise the first time it
+      runs. The denominator is files checked, not samples.
+    </dd>
+
+    <dt id="g-idem">idempotent</dt>
+    <dd>
+      Whether applying the same answer a second time leaves the files unchanged. Sedum
+      replaces regions it owns in place on every rerun, so anything that shifts on a second
+      application is a defect. The denominator is files, not samples.
+    </dd>
+
+    <dt>behaviour: working · disagreed · broke</dt>
+    <dd>
+      Kept apart rather than reduced to one rate, because a service that never booted and one
+      that booted and answered wrongly are different findings — a single number would merge a
+      broken generator package with a merely wrong one. <strong>Working</strong>: every
+      assertion held. <strong>Disagreed</strong>: it built, booted, answered, and failed at
+      least one assertion — the named assertions are listed on each run.
+      <strong>Broke</strong>: a phase died, so the assertions never ran.
+    </dd>
+
+    <dt>commit · clean · fixture digest</dt>
+    <dd>
+      Because every fixture is vendored into the repository, the commit pins the generator
+      package, the record and Sedum's own code — everything except the model's sampling. It
+      pins none of that if the tree was <strong>dirty</strong>. The <strong>fixture
+      digest</strong> is a hash of the packages, records and behaviour target a run was drawn
+      against; two runs with different digests were not asked the same question, so this page
+      never aggregates across them.
+    </dd>
+
+    <dt>calls · retries</dt>
+    <dd>
+      A retry budget lets a rejected answer be re-prompted. Raising it improves the headline
+      validity number and — measurably — does not improve the software, which is why
+      first-call validity is reported separately wherever a budget was spent, and why nearly
+      every run here is drawn at zero retries.
+    </dd>
+
+    <dt id="g-notshown">what this page cannot show</dt>
+    <dd>
+      <strong>Selection and binding scores.</strong> The harness grades an answer against each
+      case's declared expectations at run time and prints that grade to the terminal, but it
+      stores the raw invocations rather than the grade — deliberately, so that a run can be
+      re-scored later against a sharper question. This page therefore <em>describes</em> what
+      was selected (how often each action was chosen, what it was bound to) and does not
+      grade it. Re-deriving a grade here would be a second implementation of the harness's
+      scoring, and two implementations of one judgement eventually disagree. Run
+      <code>go run ./evals/cmd/eval &lt;case&gt;</code> for the graded report.
+    </dd>
+  </dl>
+</section>
+
+<footer class="wrap">
+  <p>
+    Read directly from <code>evals/results/*.jsonl</code>. Results are append-only
+    observations and are never edited; this page only reads them.
+  </p>
+  <p id="source-note"></p>
+</footer>
+
+</main>
+
+<dialog id="detail" class="detail" aria-label="Run detail">
+  <div class="detail-head">
+    <div class="detail-title">
+      <h3 id="detail-title"></h3>
+      <p class="detail-sub" id="detail-sub"></p>
+    </div>
+    <button class="detail-close" id="detail-close">Close</button>
+  </div>
+  <div class="detail-inner" id="detail-inner"></div>
+</dialog>
+
+<script type="module" src="app.js"></script>
+</body>
+</html>
