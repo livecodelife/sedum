@@ -1,6 +1,6 @@
 id: prov-2026-d318e3dd
 title: The fixtures are what an engineer would build, and the harness is neutral between the arms
-status: open
+status: implemented
 created_at: "2026-08-18"
 author: calebcowen@gmail.com
 intent: |
@@ -183,7 +183,7 @@ related:
   - prov-2026-83340ba0
   - prov-2026-e6969eb3
   - prov-2026-090ab9c8
-sealed_at_sha: ""
+sealed_at_sha: 935b5280ce2405369a7d3fb6c8c800839486f22e
 associated_specs:
   - path: evals/run_test.go
     run_command: go test -count=1 ./$(dirname {{path}})
