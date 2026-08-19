@@ -1,6 +1,6 @@
 id: prov-2026-79e94e7c
 title: The boot probe waits for a listener, not for a route a generated file may replace
-status: open
+status: implemented
 created_at: "2026-08-18"
 author: calebcowen@gmail.com
 intent: |
@@ -75,7 +75,7 @@ supersedes: ""
 superseded_by: ""
 related:
   - prov-2026-ee1b3e46
-sealed_at_sha: ""
+sealed_at_sha: 2ff3507262404802281124ab9760e66bb2d8eadd
 associated_specs:
   - path: evals/behavior/README.md
     run_command: test -f {{path}}
