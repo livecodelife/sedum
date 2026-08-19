@@ -1,0 +1,96 @@
+id: prov-2026-71940de0
+title: The assertions hold up as objective, and the Go arm gains the schema checks its record already required
+status: draft
+created_at: "2026-08-18"
+author: calebcowen@gmail.com
+intent: |
+  Every assertion in both targets was read against the record it is supposed to
+  be testing. They hold. The one gap found is coverage rather than objectivity,
+  and is closed here: the Go target never checked the schema its record
+  specifies, where the Rails target does.
+
+  ## The audit, and the evidence that settles it
+
+  [[prov-2026-d318e3dd]] requires that an assertion test what the record
+  requires and never what a package happens to emit. The suspicious ones are the
+  status codes - 201 on create, 200 on read and update, 204 on delete - because
+  no record enumerates them. Each record says only "five endpoints ... addressed
+  by integer id per REST convention" and "each endpoint carries a test asserting
+  the status it returns".
+
+  So the question is whether those codes are convention or whether they are the
+  package's choices with an assertion written to match, which is the shape the
+  CSRF defect took.
+
+  The baseline arm answers it. Given the record and nothing else - no package,
+  no vocabulary, no framework named - it wrote:
+
+      index, show, update    render json: ..., status: :ok        200
+      create                 render json: ..., status: :created   201
+      destroy                head :no_content                     204
+      missing record         status: :not_found                   404
+
+  Every status the assertions check, chosen by an arm that was never told any of
+  them. That is as direct a demonstration as this question can have: the codes
+  are REST convention, and an arm without the package reaches them unaided.
+
+  The remaining assertions map onto stated constraints without argument - the
+  JSON response shape, the ignored unpermitted attribute, the 404 on a missing
+  record, the two column rules, and the requirement that each endpoint carry a
+  test.
+
+  ## The gap
+
+  Both records state the column rules in the same words: title not null with no
+  default, completed not null defaulting to false. The Rails target checks both
+  against `information_schema`, and its comment says why - "a green wall lied
+  once", because no HTTP call can observe a default on a NOT NULL column the
+  caller always supplies.
+
+  The Go target checks neither. The same blindness exists there and nothing
+  looks for it, so `init.sql` could declare `DEFAULT ''` on title and every
+  assertion would still pass. The two arms of the language comparison were
+  reading their records to different depths, which is a confound in a comparison
+  whose whole point is that the records ask for the same thing.
+
+  ## What is deliberately not added
+
+  No assertion about `/healthz`. [[prov-2026-d9e344f5]] put it in the Go
+  template and kept the boot probe off it, for the reason that `main.go` is
+  authorized and the baseline arm writes that file. An assertion would
+  reintroduce exactly the coupling that record avoided.
+constraints:
+  - >-
+    An assertion tests a constraint the record states. The status codes survive
+    that test on evidence rather than on argument: the baseline arm chose every
+    one of them without being told.
+  - >-
+    Both language arms read their records to the same depth. A constraint stated
+    identically in two records and checked in only one makes the comparison
+    measure the harness.
+  - >-
+    Nothing asserts against the health endpoint, because main.go is authorized
+    and only one arm's package plants it.
+affected_scope:
+  - evals/behavior/targets/todo-chi/target.sh
+  - evals/behavior/targets/grocery-chi/target.sh
+forbidden_scope:
+  - internal/**
+  - cmd/**
+type: imprint
+implements: prov-2026-d318e3dd
+supersedes: ""
+superseded_by: ""
+related:
+  - prov-2026-d9e344f5
+  - prov-2026-a4dbe65c
+sealed_at_sha: ""
+associated_specs:
+  - path: evals/behavior/README.md
+    run_command: test -f {{path}}
+associated_traces: []
+monitors: []
+tags:
+  - sedum
+  - evals
+  - fixtures
