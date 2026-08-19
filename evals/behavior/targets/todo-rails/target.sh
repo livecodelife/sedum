@@ -24,11 +24,16 @@ DBNAME="sedum_behave_$$"
 
 target_scaffold() {
   mkdir -p "$(dirname "$APP")"
-  # Not --api. The controller template skips the CSRF filter unconditionally,
-  # and ActionController::API has no such filter to skip, so an API-only
-  # scaffold raises at class definition time. The standard these generators
-  # describe is a full Rails application serving JSON.
-  rails "_${RAILS_VERSION}_" new "$APP" \
+  # --api, because that is what an engineer building a JSON API in Rails runs.
+  #
+  # It used to be a full application, and the reason was circular: the
+  # controller template skipped the CSRF filter, which ActionController::API
+  # does not have, so an API-only scaffold raised at class definition time. The
+  # template skipped it because the scaffold was not --api. The first baseline
+  # run is what broke the tie - it scored 0 of 5 with the server log naming
+  # InvalidAuthenticityToken fifteen times, because the arm without the package
+  # wrote the controller an engineer would write (prov-2026-f5e64f22).
+  rails "_${RAILS_VERSION}_" new "$APP" --api \
     --database=postgresql --skip-git --skip-action-mailbox --skip-action-text \
     --skip-action-cable --skip-jbuilder --skip-system-test
 }
