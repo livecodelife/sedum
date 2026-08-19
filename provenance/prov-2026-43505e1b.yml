@@ -1,0 +1,115 @@
+id: prov-2026-43505e1b
+title: 'The fixture is a dimension: an entry drawn against different packages is printed and not compared'
+status: draft
+created_at: "2026-08-18"
+author: calebcowen@gmail.com
+intent: |
+  An entry records a digest of the fixture it was drawn against - the generator
+  package set, the records, and the behaviour target the case names. history
+  marks an entry whose digest differs from the one before it, prints its numbers,
+  and does not compare them.
+
+  ## Why now
+
+  [[prov-2026-d318e3dd]] changed the fixtures in five material ways across seven
+  imprints: the Rails application became API-only, its controller template
+  stopped skipping a filter, its routes template stopped planting PWA endpoints,
+  the Go service began reading its port from the environment and gained a health
+  endpoint. Every entry in results/ predates all of it.
+
+  Those entries are still true. They are observations about packages that no
+  longer exist, correctly labelled with the commit that produced them, and
+  [[prov-2026-b6059aa7]] holds that results are append-only observations pinned
+  to a commit - deleting them because they became inconvenient is the habit that
+  rule exists to prevent.
+
+  What is not true is the comparison. history reads them as one series and
+  applies the overlap test between an entry drawn against the old Rails package
+  and one drawn against the new, which are not measurements of the same thing.
+
+  ## It is the same treatment four other dimensions already get
+
+  A dirty tree, an unstated resolution, a smoke sample size and a raised retry
+  budget are each printed and not compared. [[prov-2026-8d4146de]] settled the
+  shape when it added the retry budget: the numbers are still printed, and what
+  the mark says is that this entry and the one before it do not distinguish each
+  other. [[prov-2026-b6059aa7]] then wrote it as a constraint - "every dimension
+  added later joins them". This is a dimension added later.
+
+  ## A digest rather than a commit boundary
+
+  The obvious cheap version is to compare each entry's commit against the SHA
+  the fixtures changed at. That is wrong twice: it hardcodes one moment into the
+  reader, so the next fixture change needs another, and it says nothing about
+  entries whose commit predates the file's own history.
+
+  A digest of the fixture answers the question directly - was this drawn against
+  the same inputs - and keeps answering it for every change after this one,
+  without anybody remembering to update a constant.
+
+  An entry written before the field carries none, which reads as unknown and is
+  compared against nothing. That is the honest reading: there is no way to know
+  what those runs were drawn against beyond their commit.
+
+  ## What the digest covers
+
+  The generator package set and the records directory always, because every
+  number depends on both. The behaviour target when the case names one.
+
+  Including the target even for a run that did not measure behaviour is
+  deliberate and errs toward incomparability: it is the safe direction, and a
+  case that names a target is the same case whether or not a given run spent the
+  minutes.
+
+  ## What it is not
+
+  Not a lockfile and not a validity check. Nothing refuses to run because a
+  fixture changed, and no entry is rewritten or removed. The digest is recorded
+  and read; the only behaviour that changes is which pairs of rows the overlap
+  test is applied between.
+constraints:
+  - >-
+    An entry records the digest of the fixture it was drawn against. It is
+    computed from file contents rather than from paths or timestamps, so the same
+    fixture digests the same on any machine.
+  - >-
+    history marks an entry whose fixture differs from the last compared one,
+    prints its numbers in full, and does not compare them - the same treatment a
+    dirty tree, an unstated resolution, a smoke sample size and a raised retry
+    budget already get.
+  - >-
+    A marked entry becomes the baseline, so the entry after it is read against
+    something drawn the same way rather than against nothing.
+  - >-
+    An entry written before the field carries no digest, reads as unknown, and is
+    compared against nothing. The schema stays additive and nothing already
+    stored is rewritten.
+  - >-
+    Nothing is deleted and nothing refuses to run. The entries drawn against the
+    old fixtures are true observations about packages that no longer exist, and
+    they stay.
+affected_scope:
+  - evals/**
+forbidden_scope:
+  - internal/**
+  - cmd/**
+type: blueprint
+implements: prov-2026-b6059aa7
+supersedes: ""
+superseded_by: ""
+related:
+  - prov-2026-d318e3dd
+  - prov-2026-8d4146de
+  - prov-2026-eb283c56
+sealed_at_sha: ""
+associated_specs:
+  - path: evals/results_test.go
+    run_command: go test -count=1 ./$(dirname {{path}})
+  - path: evals/run_test.go
+    run_command: go test -count=1 ./$(dirname {{path}})
+associated_traces: []
+monitors: []
+tags:
+  - sedum
+  - evals
+  - measurement
