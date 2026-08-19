@@ -1,6 +1,6 @@
 id: prov-2026-abd43bb4
 title: The response envelope is an object, and lenient decoding has a limit
-status: implemented
+status: superseded
 created_at: "2026-08-14"
 author: calebcowen@gmail.com
 intent: |
@@ -65,7 +65,7 @@ forbidden_scope: []
 type: imprint
 implements: prov-2026-f095e19f
 supersedes: ""
-superseded_by: ""
+superseded_by: prov-2026-ddb398f3
 related: []
 sealed_at_sha: a5d8f8e78079d3832c2db122d6b59c678d607d23
 associated_specs:

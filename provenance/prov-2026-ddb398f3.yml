@@ -1,0 +1,88 @@
+id: prov-2026-ddb398f3
+title: The response envelope is an object, and a key nobody asked for is ignored
+status: draft
+created_at: "2026-08-19"
+author: calebcowen@gmail.com
+intent: |
+  Supersedes [[prov-2026-abd43bb4]] to reverse one of its constraints. Everything
+  else it decided is carried forward unchanged and restated here, because a
+  superseded record stops being the place to read them.
+
+  ## Carried forward
+
+  The envelope is an object, {"invocations": [...]}, because json_schema and
+  json_object alike require a document root to be an object, so an array root is
+  the one shape a server could never constrain. Sedum asks no server to constrain
+  anything ([[prov-2026-4bcabb2f]]), but the envelope is what a caller would reach
+  for the moment it wanted to.
+
+  A bare array is still accepted: the PRD names that shape, models return it
+  unprompted, and spending a retry on one nesting level that costs nothing to
+  read would be a rejection nobody learns from.
+
+  A surrounding markdown fence is still stripped.
+
+  ## Reversed
+
+  abd43bb4 held that "an invocation carrying a key other than action and kwargs
+  is rejected, naming the key", on the reasoning that ignoring it "would discard
+  the clearest signal that the model has misread the task".
+
+  Measured, it discards the opposite. On todo-rails-described the 4B row drew 50
+  samples at a retry budget of 2: 45 validated and every one of those produced a
+  working service, 900 of 900 assertions. The other five never reached selection.
+  They were rejected in decode under invocation_shape, so what the model chose was
+  never judged at all - and one of them spent three attempts emitting ten
+  malformed entries, which is a model re-sending an answer it has no way to know
+  is unwelcome, because the re-prompt says the envelope is wrong without saying
+  which key is unwanted.
+
+  A key beside action and kwargs is not evidence of misreading the task. It is
+  most often a model annotating a choice it has already made correctly, and the
+  choice is right there beside the annotation.
+
+  ## Why leniency loses nothing
+
+  A mistyped key still fails. An entry sending "kwarg" rather than "kwargs"
+  decodes to no arguments and is rejected under missing_kwarg, naming the
+  arguments it lacks - a better message than being told the entry was unreadable.
+  So the signal abd43bb4 wanted to keep is still raised, by the rule that was
+  always better placed to raise it.
+
+constraints:
+  - >-
+    The envelope is an object with an invocations array, and a bare array is
+    accepted as well. A surrounding markdown fence is stripped.
+  - >-
+    An invocation carrying keys beyond action and kwargs is accepted and the
+    extra keys are ignored. Nothing downstream may read them: a key the format
+    does not define is not a channel.
+  - >-
+    The response envelope is decoded the same way. A stray key beside
+    "invocations" is the same class of thing as a stray key beside "action", and
+    refusing one while ignoring the other would make the rule depend on nesting
+    depth.
+  - >-
+    An action that is absent or empty still rejects, kwargs present but not an
+    object still rejects, trailing content after a complete value still rejects,
+    and a response with no invocations key still rejects. Ignoring unknown keys
+    is not accepting an unreadable response.
+  - >-
+    A mistyped kwargs key is rejected under missing_kwarg rather than passing
+    silently, so the misreading abd43bb4 wanted caught is still caught, by the
+    rule whose message names what is missing.
+affected_scope:
+  - internal/selection/decode.go
+  - internal/selection/selection_test.go
+forbidden_scope: []
+type: blueprint
+supersedes: prov-2026-abd43bb4
+superseded_by: ""
+related: []
+sealed_at_sha: ""
+associated_specs:
+  - path: internal/selection/selection_test.go
+    run_command: go test -count=1 ./$(dirname {{path}})
+associated_traces: []
+monitors: []
+tags: []
