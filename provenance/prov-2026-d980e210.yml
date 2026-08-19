@@ -1,0 +1,105 @@
+id: prov-2026-d980e210
+title: Reasoning effort is a property of the row, recorded like engine and quant
+status: draft
+created_at: "2026-08-19"
+author: calebcowen@gmail.com
+intent: |
+  A model row gains an optional reasoning_effort. It is sent with the request,
+  it appears in the row's label, and it is stored on the entry - because a rate
+  drawn at one effort is not a rate drawn at another, and nothing today would
+  say which produced a number.
+
+  ## What forced it
+
+  qwen/qwen3.6-35b-a3b was declared as the large row after a smoke calibration
+  measured qwen/qwen3-30b-a3b at 24-38s a sample. The 35B was never measured,
+  and it reasons far more: asked to reply with one word, it spent 97 of 101
+  completion tokens on reasoning. On a real prompt that is tens of thousands of
+  tokens before the answer starts, and it is why the 35B row was dropped from
+  the n=50 run rather than allowed to consume the window.
+
+  Reasoning itself is not the problem and this record does not treat it as one.
+  qwen/qwen3-4b-2507 reasons and calibrated at 6.9-20s a sample; the 30B reasons
+  and calibrated at 24-38s. One checkpoint reasons unboundedly and the ladder
+  the endpoint already accepts is how to bound it.
+
+  ## Why not max_tokens
+
+  Reasoning is emitted before the answer, so a cap on completion tokens does not
+  bound the reasoning - it truncates the answer. That converts a slow valid
+  sample into a fast invalid one, and the invalid one then spends the retry
+  budget. A limit that makes a run cheaper by making it wrong is not a limit
+  worth having.
+
+  ## Why not a client default
+
+  reasoning_effort is a per-request field, so setting it in the client sets it
+  for every row. The 4B reasons, and its strongest result - 100/100 assertions
+  on todo-rails-described - was drawn with reasoning on. A global default would
+  change what that row means while the run that recorded it was still being
+  read.
+
+  It belongs where engine and quant already are. Those exist because the same
+  weights under two runtimes are not the same model for measurement purposes,
+  and folding them into one row would let a rate measured on one be read as a
+  claim about the other. Effort is the same kind of fact, and the same argument
+  applies to it unchanged.
+
+  A row carrying it also makes the comparison expressible: one checkpoint can
+  appear twice, at two efforts, and the pair is the measurement.
+
+  ## The open question this record has to settle
+
+  The effort has to reach internal/selection, which today takes a model name and
+  the environment and nothing else - deliberately, so that no committed artifact
+  carries an operational dependency. Either NewOpenAI grows an option, or the
+  harness stops using it. The first is a smaller change and keeps one client
+  path serving a local server and a hosted API, which is the reason that client
+  is OpenAI-compatible at all. It is chosen here, and the alternative is
+  recorded so the choice is visible.
+constraints:
+  - >-
+    An absent reasoning_effort sends no field and is not the same as "none". A
+    row that says nothing must behave exactly as rows behaved before this record,
+    so that entries drawn before it stay comparable with entries drawn after.
+  - >-
+    The effort appears in the row's label, beside engine and quant, so two rows
+    over one checkpoint at two efforts are distinguishable in a report rather
+    than rendering identically.
+  - >-
+    The effort is stored on the entry. An entry drawn before this field existed
+    reads as absent rather than as none, on the rule the schema already holds
+    itself to: a dash is not a zero.
+  - >-
+    Nothing dispatches on the value. It is passed through as the endpoint's
+    vocabulary, the way engine is free-form, because the ladder a server accepts
+    is the server's business and a fixed enum here would reject a value some
+    endpoint takes.
+  - >-
+    The graded levels are measured before a row declares one. "none" is known to
+    work - 97 reasoning tokens to 0 - and minimal, low, medium and high are
+    untested, because testing them meant loading a model while a run held the
+    endpoint. A row declaring an effort nobody measured is a row nobody can
+    size.
+affected_scope:
+  - internal/selection/client.go
+  - internal/selection/selection_test.go
+  - evals/case.go
+  - evals/run.go
+  - evals/results.go
+  - evals/report.go
+  - evals/run_test.go
+  - evals/results_test.go
+  - evals/README.md
+forbidden_scope:
+  - cmd/**
+type: blueprint
+supersedes: ""
+superseded_by: ""
+related:
+  - prov-2026-ad9751dc
+sealed_at_sha: ""
+associated_specs: []
+associated_traces: []
+monitors: []
+tags: []
