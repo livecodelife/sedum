@@ -1,10 +1,9 @@
 func Delete{{resource|exported}}(ctx context.Context, id int64) error {
-	result, err := conn.ExecContext(ctx, `DELETE FROM {{resource|table}} WHERE id = $1`, id)
+	res, err := conn.ExecContext(ctx, `DELETE FROM {{resource|table}} WHERE id = $1`, id)
 	if err != nil {
 		return err
 	}
-
-	affected, err := result.RowsAffected()
+	affected, err := res.RowsAffected()
 	if err != nil {
 		return err
 	}

@@ -42,29 +42,42 @@ intent: |
 
   ## What changes
 
-  The file template grows two helpers that carry anchors, so the argument lists
-  stop being literals the model restates:
+  The file template stops describing a resource only as a struct, and starts
+  describing it as a struct plus the three lists every query needs: its column
+  names, its insert arguments, and its scan targets. Each is a region an action
+  fills.
 
+      var todoColumns = []string{ /* anchor:columns */ }
+      func todoColumnList() string { ... }
+      func todoPlaceholders(offset int) string { ... }
+      func todoAssignments(offset int) string { ... }
       func (r Todo) insertArgs() []any { return []any{ /* anchor:insert_args */ } }
-      func (r *Todo) scanTargets() []any { return []any{ &r.ID, /* anchor:scan_targets */, &r.CreatedAt, &r.UpdatedAt } }
+      func (r *Todo) scanTargets() []any { return []any{ &r.ID, /* anchor:scan_targets */ } }
 
-  addModelField becomes a composite injecting three regions from one binding -
-  the struct field, `r.{{name|exported}},` and `&r.{{name|exported}},` - so all
-  three go through the same transform from the same value and desync stops being
-  representable. createQuery's insert_values, update_values and scan_targets are
-  removed, and its variants call the helpers.
+  addModelField becomes a composite filling four regions from one binding - the
+  struct field, the column name, the insert argument and the scan target - so
+  every appearance of a field name comes from the same value through the same
+  transform, and desync stops being representable.
 
-  The anchors are planted by the *file* template rather than by createQuery's,
-  which is what makes this safe. Injection keeps a per-file buffer and applies
-  invocations in list order, so an anchor planted by an action template would
-  only be reachable when the model happened to order createQuery before
-  addModelField. Phase 3 plants a file template's anchors before any injection
-  runs, and depends on nothing the model chose.
+  createQuery keeps resource and operation and loses all seven literals. Its
+  templates build their SQL from the column list rather than from strings the
+  model wrote. It still says which operations a resource has, which is the
+  record's decision and the part worth measuring; it no longer says anything
+  about fields, which the record already decided through addModelField.
 
-  Separately, go_type's description gains "unquoted". One sample bound
-  `"string"`, which rendered a struct field with a quoted type and failed to
-  parse. That is a description gap, the same shape as columns already saying
-  "names only, no types".
+  The helpers are named from the resource rather than shared, because every
+  resource in a service compiles into one db package and a shared helper would
+  be redeclared once per file.
+
+  ## What this deliberately does not do
+
+  It does not move the queries into the file template. Five CRUD bodies are
+  invariant given the operation set, so a template could write them - but the
+  operation set is the record's decision, and a template writes the same five
+  whether a record authorized five or two. An action is how a record's decision
+  reaches the code, so createQuery stays an action even though nothing about
+  its body varies.
+
 constraints:
   - >-
     A field name is bound once. No kwarg asks the model to restate a name that
@@ -81,14 +94,26 @@ constraints:
     Three of its seven literals go away, and the measurement says literals are
     where this package loses samples.
   - >-
-    columns and placeholders stay literals and stay the model's to bind. They
-    sit inside a raw SQL string, where a // marker is text rather than a
-    comment, so no anchor can reach them. Position desync between columns and
-    the injected argument list remains possible and is not claimed fixed.
+    createQuery binds resource and operation and nothing else. A literal that
+    names a field is the defect this record exists for, and leaving one behind
+    would leave the defect behind with it.
+  - >-
+    The column list, the insert arguments and the scan targets are one
+    invocation's three consequences, so they cannot disagree about order or
+    about spelling. Position desync between a column list and an argument list
+    stops being representable rather than being made less likely.
   - >-
     No rule is added that would require Sedum to know what a file declares. A
     duplicate field is a compile error and belongs to whatever builds the code,
     which is above Sedum rather than inside it.
+  - >-
+    grocery-chi-defined stops measuring binding, and that is a cost rather than
+    a tidy-up. Its createQuery expectations were the point of the case - values
+    derivable from the record and the templates and from nothing else - and the
+    kwargs they scored are gone. Nothing on the reduced action can replace them:
+    an operation is a variant name, not a value a model gets subtly wrong. The
+    description experiment continues on the Rails pair, which keeps its
+    addColumn expectations.
   - >-
     Both Chi cases draw on this one package set, so grocery-chi-defined and
     todo-chi-defined are both affected by one change and neither is measured
@@ -99,6 +124,8 @@ constraints:
 affected_scope:
   - evals/testdata/todo-api/generators/defined/chi/actions/actions.yaml
   - evals/testdata/todo-api/generators/defined/chi/actions/addModelField.go
+  - evals/testdata/todo-api/generators/defined/chi/actions/addStructField.go
+  - evals/testdata/todo-api/generators/defined/chi/actions/addColumnName.go
   - evals/testdata/todo-api/generators/defined/chi/actions/addInsertArg.go
   - evals/testdata/todo-api/generators/defined/chi/actions/addScanTarget.go
   - evals/testdata/todo-api/generators/defined/chi/files/db/{name}.go
@@ -113,6 +140,9 @@ affected_scope:
   # dependency prov-2026-2fb763a0 had to widen for.
   - evals/behavior/targets/todo-chi/answer.json
   - evals/behavior/targets/grocery-chi/answer.json
+  # The case states what a correct binding looks like for kwargs this record
+  # removes.
+  - evals/cases/grocery-chi-defined.yaml
 forbidden_scope:
   - internal/**
   - cmd/**

@@ -73,51 +73,30 @@ expect:
     addModelField: 2
     createTable: 1
 
-  # These are the point of the case.
+  # This case carried binding expectations on createQuery's columns,
+  # placeholders, insert_values and scan_targets, and they were the point of it:
+  # every value was derivable from this record and the templates and from
+  # nothing else, so a model applying the descriptions' rules bound them and a
+  # model reusing the descriptions' examples bound the todo forms and scored
+  # zero (prov-2026-2b121b62).
   #
-  # Every value below is derivable from this record and the package's templates
-  # and from nothing else - which is the discipline a binding expectation is
-  # under (prov-2026-2b121b62), and here it is also the experiment. A model
-  # applying the descriptions' rules binds these. A model reusing the strings
-  # the descriptions use as examples binds the todo forms, scores zero on these
-  # kwargs, and still selects every action perfectly.
-  bindings:
-    createQuery:
-      because: >-
-        The templates fix these. insert renders `INSERT INTO groceries
-        ({{columns}}) VALUES ({{placeholders}})` and passes {{insert_values}} as
-        the query arguments, so columns and placeholders are SQL and
-        insert_values is Go, read off the `in` parameter in the same order.
-        selectByID renders `SELECT id, {{columns}}, created_at, updated_at` and
-        scans into {{scan_targets}}, so the targets are pointers on a variable
-        named for the resource - grocery, singular and lowercase - one per
-        column the SELECT lists, in that order. The record says the resource's
-        own columns are name and quantity, and the template supplies id,
-        created_at and updated_at itself.
-      key: [operation]
-      invocations:
-        - operation: insert
-          columns: "name, quantity"
-          placeholders: "$1, $2"
-          insert_values: "in.Name, in.Quantity"
-        - operation: selectByID
-          columns: "name, quantity"
-          scan_targets: "&grocery.ID, &grocery.Name, &grocery.Quantity, &grocery.CreatedAt, &grocery.UpdatedAt"
-
-    # addModelField carries no binding expectation, and the reason is the same
-    # one that made `resource` a list in the Rails case (prov-2026-66b0116d).
-    #
-    # Its template writes {{name|exported}} for the field and {{name|snake}} for
-    # the json tag, so `name` and `Name` render identically - Name and "name" in
-    # both cases. Neither spelling is more correct, and pairing looks a key value
-    # up rather than comparing it, so a key kwarg cannot be a list. An
-    # expectation naming either form scores the author's preference and reports a
-    # correct answer as unpaired, which the first run of this case did: ten
-    # expected invocations unanswered beside ten answered that nobody expected.
-    #
-    # go_type is the value worth scoring here and it is not left unmeasured: a
-    # wrong one does not compile, and the behaviour target caught exactly that
-    # when a sample bound "\"string\"" with the quotes included.
+  # Those kwargs no longer exist. createQuery binds resource and operation, and
+  # the field names it used to restate are bound once by addModelField and
+  # rendered through the same transform everywhere they appear
+  # (prov-2026-0cc65e62). The expectation is removed rather than rewritten
+  # because there is nothing left on this action to score: an operation is a
+  # variant name, not a value a model can get subtly wrong.
+  #
+  # addModelField still carries none, for the reason it never did. Its templates
+  # write {{name|exported}} and {{name|snake}}, so `name` and `Name` render
+  # identically and neither spelling is more correct - and pairing looks a key
+  # up rather than comparing it, so a key kwarg cannot be a list
+  # (prov-2026-66b0116d). go_type is the value worth scoring and is not left
+  # unmeasured: a wrong one does not compile, and the behaviour target caught
+  # exactly that when a sample bound "\"string\"" with the quotes included.
+  #
+  # So this case no longer measures binding at all. The description experiment
+  # still runs on the Rails pair, which keeps its addColumn expectations.
 
   behavior:
     target: grocery-chi

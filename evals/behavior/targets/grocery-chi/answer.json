@@ -27,37 +27,28 @@
       "action": "createQuery",
       "kwargs": {
         "resource": "groceries",
-        "operation": "insert",
-        "columns": "name, quantity",
-        "placeholders": "$1, $2",
-        "insert_values": "in.Name, in.Quantity"
+        "operation": "insert"
       }
     },
     {
       "action": "createQuery",
       "kwargs": {
         "resource": "groceries",
-        "operation": "selectAll",
-        "columns": "name, quantity",
-        "scan_targets": "&grocery.ID, &grocery.Name, &grocery.Quantity, &grocery.CreatedAt, &grocery.UpdatedAt"
+        "operation": "selectAll"
       }
     },
     {
       "action": "createQuery",
       "kwargs": {
         "resource": "groceries",
-        "operation": "selectByID",
-        "columns": "name, quantity",
-        "scan_targets": "&grocery.ID, &grocery.Name, &grocery.Quantity, &grocery.CreatedAt, &grocery.UpdatedAt"
+        "operation": "selectByID"
       }
     },
     {
       "action": "createQuery",
       "kwargs": {
         "resource": "groceries",
-        "operation": "update",
-        "set_clause": "name = $2, quantity = $3",
-        "update_values": "id, in.Name, in.Quantity"
+        "operation": "update"
       }
     },
     {
