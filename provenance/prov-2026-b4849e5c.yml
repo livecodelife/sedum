@@ -1,6 +1,6 @@
 id: prov-2026-b4849e5c
 title: The example path in the prompt is not a file the answer wrote
-status: draft
+status: open
 created_at: "2026-08-19"
 author: calebcowen@gmail.com
 intent: |
