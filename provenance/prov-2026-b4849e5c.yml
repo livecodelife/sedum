@@ -1,0 +1,83 @@
+id: prov-2026-b4849e5c
+title: The example path in the prompt is not a file the answer wrote
+status: draft
+created_at: "2026-08-19"
+author: calebcowen@gmail.com
+intent: |
+  parseFencedFiles accepts `path/to/file.ext` as a path. It is the placeholder in
+  the harness's own system prompt, so an answer that echoes the example is read
+  as an answer that wrote a file.
+
+  ## What it cost
+
+  The 0.5B row on todo-rails-intent. Asked for the files a change requires, it
+  returns the prompt back inside one fence whose info string is the example:
+
+      ```path/to/file.ext
+      the entire contents of that file
+
+      # Intent
+
+      Add the todo resource: a JSON API over /todos ...
+
+  173 tokens, finish_reason stop, four tenths of a second. It is not a loop and
+  no sampling parameter changes it - temperature 0, temperature 0.2 with a
+  frequency penalty, and temperature 0 with a presence penalty all produce the
+  same 173 tokens, and temperature 0.7 produces seventeen and no fence at all.
+  The model cannot do the task, which is what that row was declared to
+  demonstrate (prov-2026-98ab639c).
+
+  What it should not do is cost anything. The intent arm accepts any path by
+  construction, so the echoed placeholder is kept as a file, the sample is valid,
+  and the behaviour target scaffolds Rails, installs its gems, and tries to boot
+  a service whose only source file is called path/to/file.ext. Thirty times per
+  cell, ten cells, for an answer that is the prompt.
+
+  ## The fix, and why it is not a special case
+
+  The placeholder is the harness's own text. A path is a thing the answer chose;
+  the example is a thing the answer was shown. Reading one as the other is the
+  same class of mistake as reading a description's example as a value to bind -
+  which is what the 14B does with `false` on a text column
+  (prov-2026-30cb01cc), and what the grocery case warns about in its bindings.
+
+  It is one constant, named once and used by both system prompts and by the
+  parser, so the example the model is shown and the example the parser refuses
+  cannot drift apart.
+constraints:
+  - >-
+    The example path is a named constant, used by both system prompts and by the
+    parser. Two copies of the same string could drift, and a parser refusing a
+    path no prompt shows would be refusing a path a model might legitimately
+    choose.
+  - >-
+    A fence whose info string is the example is dropped rather than reported as
+    an unexpected path. It is not a model writing the right code in the wrong
+    place - the case the unexpected list exists for - it is a model that did not
+    answer.
+  - >-
+    An answer left with no file is invalid, which is what the arm already does
+    with an answer that carried no authorized file. The sample is then scored
+    without a behaviour run, because there is nothing to boot.
+  - >-
+    Every other path is unaffected. This drops one string that the harness
+    itself put in front of the model, and nothing else about what an answer may
+    name.
+affected_scope:
+  - evals/baseline.go
+  - evals/baseline_test.go
+forbidden_scope:
+  - internal/**
+  - cmd/**
+type: blueprint
+supersedes: ""
+superseded_by: ""
+related:
+  - prov-2026-672c6471
+sealed_at_sha: ""
+associated_specs:
+  - path: evals/baseline_test.go
+    run_command: go test -count=1 ./$(dirname {{path}})
+associated_traces: []
+monitors: []
+tags: []
