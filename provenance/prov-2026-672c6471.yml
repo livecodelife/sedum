@@ -35,10 +35,17 @@ intent: |
 
   Intent, and the list of files to write. Nothing else.
 
-  The file list stays because it is the answer protocol rather than the
-  specification: an answer carrying no authorized file is invalid, so a prompt
-  without the list would measure whether a model guesses the same paths this
-  standard chose, which is a different question and a less interesting one.
+  The file list stays, and the reason is symmetry rather than convenience.
+  parseFencedFiles keeps only the paths the record authorized, because the sedum
+  arm cannot write outside them either - Phase 3 creates only what
+  affected_scope names. Given that filter, naming the paths is the only way an
+  answer can comply, and withholding the list while still filtering would score
+  a model on whether it guessed the paths this standard happens to use.
+
+  An arm that accepted any path would be a different question - whether a model
+  can write a working resource in files of its choosing - and it could not be
+  read against the sedum arm at all, only on its own, because it would carry a
+  freedom the sedum arm structurally lacks. Worth building; not this.
 
   The constraints go because they are the specification. Everything they say is
   a thing a team would expect a service to do without being told twice, which is
@@ -63,9 +70,11 @@ constraints:
     same behaviour target, same parsing of the answer, same outcome vocabulary -
     or the two cannot be read side by side, which is the only reason to build it.
   - >-
-    The files to write stay in the prompt. They are how an answer is addressed
-    rather than what it is asked for, and an arm that dropped them would measure
-    path guessing.
+    The files to write stay in the prompt, because the harness keeps only
+    authorized paths and the sedum arm is held to the same set by Phase 3.
+    Dropping the list without dropping the filter would measure path guessing;
+    dropping both would grant this arm a freedom the arm it is compared against
+    does not have.
   - >-
     A third arm value is a schema change: arm is validated against sedum and
     baseline today, and a case naming anything else is refused. The value is
