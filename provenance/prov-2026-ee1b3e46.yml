@@ -1,6 +1,6 @@
 id: prov-2026-ee1b3e46
 title: The harness plants the anchor in the scaffold's routes file instead of deleting it
-status: open
+status: implemented
 created_at: "2026-08-18"
 author: calebcowen@gmail.com
 intent: |
@@ -87,7 +87,7 @@ supersedes: ""
 superseded_by: ""
 related:
   - prov-2026-f5e64f22
-sealed_at_sha: ""
+sealed_at_sha: a55251d45780d94e57ae674a9c0d83b4fde8c47b
 associated_specs:
   - path: evals/behavior/README.md
     run_command: test -f {{path}}
