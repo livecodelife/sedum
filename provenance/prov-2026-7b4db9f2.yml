@@ -1,0 +1,67 @@
+id: prov-2026-7b4db9f2
+title: The described set's new action carries descriptions, because that is the only thing that set varies
+status: draft
+created_at: "2026-08-18"
+author: calebcowen@gmail.com
+intent: |
+  addFixtureAttribute's kwargs gain descriptions in the described package set.
+  The defined set is untouched.
+
+  ## A gap introduced by the record that added the action
+
+  [[prov-2026-2fb763a0]] added addFixtureAttribute to both package sets
+  identically, with the reasoning written as YAML comments. Comments do not
+  reach the catalog. Every other action in the described set describes every
+  kwarg; this one described none, so the set stopped being what it claims to be.
+
+  [[prov-2026-ac15ed2b]] built that set as the defined set with descriptions
+  added and nothing else changed, and TestTheDescribedSetDiffersOnlyByDescriptions
+  exists to keep the two from drifting. That test compares the loaded packages
+  and passes here, because an absent description is not a difference it can see
+  - the arms genuinely do differ only by descriptions, and now differ by one
+  fewer than they should.
+
+  So the A/B was quietly measuring a described package with an undescribed
+  action in it. That is not a wrong number yet - no run has drawn against it -
+  but it is the kind of gap that produces one.
+
+  ## What the descriptions say
+
+  The style the set already uses: state the form, name the wrong form, and
+  explain the mechanism where the mechanism is what bites. `value` gets the most
+  care, because it is the kwarg most like the one this session watched fail -
+  a literal the model supplies and the template emits verbatim.
+constraints:
+  - >-
+    Only the described set changes. The defined set's actions carry no kwarg
+    descriptions and that is the variable under test.
+  - >-
+    Every kwarg of every action in the described set carries a description. A
+    set that describes all but one action is not the thing prov-2026-ac15ed2b
+    built.
+  - >-
+    The descriptions state the form and name the wrong form, matching the set's
+    existing voice. A description that only restated the kwarg name would widen
+    the catalog without varying what the arm measures.
+affected_scope:
+  - evals/testdata/todo-rails/generators/described/rails/actions/actions.yaml
+forbidden_scope:
+  - internal/**
+  - cmd/**
+type: bug
+extends: prov-2026-2fb763a0
+supersedes: ""
+superseded_by: ""
+related:
+  - prov-2026-ac15ed2b
+  - prov-2026-d318e3dd
+sealed_at_sha: ""
+associated_specs:
+  - path: evals/run_test.go
+    run_command: go test -count=1 ./$(dirname {{path}})
+associated_traces: []
+monitors: []
+tags:
+  - sedum
+  - evals
+  - fixtures
