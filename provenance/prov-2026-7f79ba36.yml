@@ -1,6 +1,6 @@
 id: prov-2026-7f79ba36
 title: A completion is bounded, so a model that will not stop fails a sample instead of a run
-status: draft
+status: open
 created_at: "2026-08-19"
 author: calebcowen@gmail.com
 intent: |
