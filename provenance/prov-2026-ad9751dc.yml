@@ -1,6 +1,6 @@
 id: prov-2026-ad9751dc
 title: "Square the model matrix: drop the redundant quant, add the small and large rows everywhere"
-status: open
+status: implemented
 created_at: "2026-08-19"
 author: calebcowen@gmail.com
 intent: |
@@ -81,7 +81,7 @@ supersedes: ""
 superseded_by: ""
 related:
   - prov-2026-de71f29b
-sealed_at_sha: ""
+sealed_at_sha: 18796dbf7348b0722b5b8378ca0e53e3fb3cfa37
 associated_specs:
   # The cases are loaded and validated by the eval package's own tests, which is
   # what a row declaration can be held to without an endpoint: a spec that
