@@ -1,6 +1,6 @@
 id: prov-2026-9accf575
 title: The signals block asks the predicate too, which is the fourth copy of one arm's name
-status: open
+status: implemented
 created_at: "2026-08-19"
 author: calebcowen@gmail.com
 implements: prov-2026-d773a705
@@ -51,7 +51,7 @@ type: imprint
 supersedes: ""
 superseded_by: ""
 related: []
-sealed_at_sha: ""
+sealed_at_sha: 640ff8abd4a015c77a293ebe919cdbe509e1e478
 associated_specs:
   - path: evals/baseline_test.go
     run_command: go test ./$(dirname {{path}})
