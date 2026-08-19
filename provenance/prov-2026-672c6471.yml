@@ -95,6 +95,8 @@ affected_scope:
   - evals/baseline.go
   - evals/baseline_test.go
   - evals/cases/todo-rails-intent.yaml
+  - evals/cases/todo-chi-intent.yaml
+  - evals/cases/grocery-chi-intent.yaml
   - evals/report.go
   - evals/results.go
   - evals/run.go
@@ -109,7 +111,11 @@ superseded_by: ""
 related:
   - prov-2026-a4dbe65c
 sealed_at_sha: ""
-associated_specs: []
+associated_specs:
+  # The arm is a prompt and a parsing rule, and both are unit-level claims the
+  # eval package's own tests can hold without an endpoint.
+  - path: evals/baseline_test.go
+    run_command: go test -count=1 ./$(dirname {{path}})
 associated_traces: []
 monitors: []
 tags: []
