@@ -1,0 +1,102 @@
+id: prov-2026-3957eed2
+title: A behaviour run has a deadline, because a phase that hangs stops the measurement rather than failing a sample
+status: draft
+created_at: "2026-08-19"
+author: calebcowen@gmail.com
+intent: |
+  behave.sh gains a deadline. When it passes, the run is killed, the sample is
+  `failed` with the phase that was in flight, and the measurement continues.
+
+  ## What it cost
+
+  Twice in one session a run stopped because a behaviour phase hung and nothing
+  bounded it.
+
+  The first left the eval process alive at 0% CPU with no connection to the
+  endpoint and a child bash nine minutes old. It was read as a crashed endpoint
+  and the row was killed by hand; the row's fifty samples were lost, because an
+  entry is written when a row finishes.
+
+  The second was diagnosed only because the first had taught the signature.
+  Deciding whether a run was working or hung took inspecting the process tree
+  for a ruby doing work, which is not a check anyone should have to invent while
+  a measurement is running.
+
+  Every HTTP call the harness makes is already bounded - curl carries
+  --max-time 15 and wait_for gives up after its count. What is unbounded is
+  everything else a phase shells out to: bundle install, go build, createdb, a
+  server that starts and never listens.
+
+  ## Why the deadline is on the run and not on each phase
+
+  phase() runs its command in the current shell on purpose:
+
+    Not a subshell. A phase sets variables the next one reads - the port the
+    application came up on, the pid to kill - and a subshell would discard them
+    along with every assertion the verify phase recorded.
+
+  So the obvious shape - wrapping each phase in `timeout` - is the one shape
+  that cannot be used. boot exports APP_PORT, BASE_URL and APP_PID; verify
+  accumulates CHECKS_JSON. A per-phase wrapper would either lose them or force
+  every phase to serialise its state, which is a redesign of the runner to buy a
+  timeout.
+
+  A deadline armed once for the whole run needs none of that. It knows the phase
+  in flight because phase() already records it, and killing the run is the same
+  thing the runner does when a phase exits non-zero.
+
+  ## Where it does not belong
+
+  Not in the targets. behave.sh is the runner and knows nothing about any
+  framework; everything stack-specific is targets/<name>/target.sh, and adding a
+  stack is a new directory rather than a change to the runner. A timeout written
+  per target would be written three times today and once more per stack forever,
+  and would drift.
+constraints:
+  - >-
+    A run that passes its deadline is killed and the sample is failed, naming
+    the phase that was in flight. It is not `checks_failed`: nothing was
+    asserted, and a service that never came up is not a service that disagreed.
+  - >-
+    The deadline is on the run rather than on each phase, because phase() runs
+    in the current shell so that boot can export the port and the pid and verify
+    can accumulate its assertions. A per-phase wrapper would discard them.
+  - >-
+    The default is generous enough that no sample which was going to finish is
+    cut short. The 30B rows took 27 to 37 minutes for fifty samples with
+    behaviour, so a single sample's scaffold, build, boot and verify is tens of
+    seconds and a deadline in minutes is not a tight budget.
+  - >-
+    It is overridable, because a cold bundle install on a fresh machine is
+    minutes and a first run is not a hang.
+  - >-
+    It lives in behave.sh and in no target. A stack-specific timeout would be
+    written once per stack and would drift; the runner already knows which phase
+    is running and already knows how to end a run.
+  - >-
+    Killing the run leaves nothing behind: the temporary project, the server and
+    the database are removed exactly as they are on an ordinary failure. A
+    deadline that leaked a postgres database or a listening port every time it
+    fired would trade one stall for a slower one.
+  - >-
+    The phase log survives into the result, as it does for any failed phase, so
+    a run that hit the deadline says what it was doing rather than only that it
+    stopped.
+affected_scope:
+  - evals/behavior/behave.sh
+  - evals/behavior/README.md
+  - evals/behavior.go
+  - evals/behavior_test.go
+forbidden_scope:
+  - internal/**
+  - cmd/**
+type: blueprint
+supersedes: ""
+superseded_by: ""
+related:
+  - prov-2026-83340ba0
+sealed_at_sha: ""
+associated_specs: []
+associated_traces: []
+monitors: []
+tags: []
