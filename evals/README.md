@@ -160,6 +160,32 @@ overlaps the previous comparable entry, which is the harness saying *these two
 runs do not distinguish each other*. A history with `~` down the whole column is
 a history in which nothing measurable has changed.
 
+### The fixture is a dimension
+
+An entry records a digest of what it was drawn against — the generator package
+set, the records, and the behaviour target its case names:
+
+```
+f 2026-08-19 aa12bcd   coarse    5  0  1  5/5 [0.57,1.00]  ...
+  f drawn against different packages, records or behaviour target: not a
+    measurement of the same thing, and not compared
+```
+
+Seven imprints under `prov-2026-d318e3dd` changed the fixtures materially — the
+Rails application became API-only, its controller stopped skipping a CSRF filter
+it no longer had, the Go service began reading its port from the environment.
+Every entry stored before that describes packages that no longer exist.
+
+Those entries are true and they stay. What stops is the comparison: the overlap
+test between an entry drawn against the old Rails package and one drawn against
+the new is not a reading about the same thing.
+
+A digest rather than a commit boundary, because a hardcoded SHA would need
+updating at the next fixture change and would say nothing about entries older
+than the file. Entries written before the field carry no digest and compare as
+they always did — marking every historical row would tell you nothing you could
+act on, and exactly one mark at the boundary is what the field can honestly say.
+
 ### Only some entries are compared
 
 An entry joins the comparison chain when it is **clean and states a
@@ -303,6 +329,7 @@ weighing and rejecting it, it was never arriving there.
 | *Why* is this case slow? | the `completion` half of `tokens:` — the prompt is cached |
 | Is the box throttling? | the fastest-to-slowest spread |
 | Did my change do anything? | the `~` marks in `history` |
+| Was this drawn against the packages I have now? | the `f` marks in `history` |
 | Did the answer cover what the files asked for? | `anchors filled` |
 | Is the output even well-formed? | `parses` |
 | Did a rerun change anything? | `idempotent` |

@@ -36,6 +36,7 @@ func History(out io.Writer, caseID string, entries []Entry) {
 	var smoked bool
 	var unlabelled bool
 	var budgeted bool
+	var refixtured bool
 
 	// The interval the next row is compared against is the last one that could
 	// be compared at all. A smoke entry is not a measurement, so marking a real
@@ -52,6 +53,11 @@ func History(out io.Writer, caseID string, entries []Entry) {
 		// what one call produces; at a raised budget it is a weaker claim about
 		// more calls, so the two are not one series (prov-2026-8d4146de).
 		lastRetries int
+		// The fixture the last compared entry was drawn against. Two entries
+		// measured against different packages are not one series either, and
+		// for a more basic reason than the budget: they are not measurements of
+		// the same thing at all (prov-2026-43505e1b).
+		lastFixture string
 	)
 
 	for _, e := range entries {
@@ -92,6 +98,18 @@ func History(out io.Writer, caseID string, entries []Entry) {
 		case !Resolution(e.Resolution).Cites():
 			row = "s"
 			smoked = true
+		case last != nil && !sameFixture(e.Fixture, lastFixture):
+			// Drawn against different packages, different records, or a
+			// different behaviour target - so the numbers are not about the
+			// same thing. Ahead of the budget check because it is the more
+			// basic difference: a raised budget is a weaker claim about the
+			// same fixture, and this is a claim about another one.
+			row = "f"
+			refixtured = true
+			carried := valid
+			last = &carried
+			lastRetries = e.Retries
+			lastFixture = e.Fixture
 		case last != nil && e.Retries != lastRetries:
 			// Drawn under a different budget, so it answers a different
 			// question than the entry above it. Printed and not compared - and
@@ -102,6 +120,7 @@ func History(out io.Writer, caseID string, entries []Entry) {
 			carried := valid
 			last = &carried
 			lastRetries = e.Retries
+			lastFixture = e.Fixture
 		default:
 			if last != nil && valid.Overlaps(*last) {
 				row = "~"
@@ -110,6 +129,7 @@ func History(out io.Writer, caseID string, entries []Entry) {
 			carried := valid
 			last = &carried
 			lastRetries = e.Retries
+			lastFixture = e.Fixture
 		}
 
 		fmt.Fprintf(out, "%s %-10s %-9s %-8s %2d %2d %2d  %-18s %-18s %-6s %-11s %-8s %s\n",
@@ -135,6 +155,9 @@ func History(out io.Writer, caseID string, entries []Entry) {
 	}
 	if budgeted {
 		fmt.Fprintln(out, "  r drawn at a different retry budget: validity at one budget is not validity at another, and these are not compared")
+	}
+	if refixtured {
+		fmt.Fprintln(out, "  f drawn against different packages, records or behaviour target: not a measurement of the same thing, and not compared")
 	}
 	if overlapped {
 		fmt.Fprintln(out, "  ~ interval overlaps the previous comparable entry: these runs do not distinguish each other")

@@ -59,6 +59,16 @@ type Entry struct {
 	Concurrency int    `json:"concurrency"`
 	Retries     int    `json:"retries"`
 
+	// Fixture is a digest of the generator packages, the records and the
+	// behaviour target this entry was drawn against.
+	//
+	// It is what lets history tell an entry drawn against one fixture from an
+	// entry drawn against another, and stop comparing across the difference.
+	// Omitted on entries written before the field, which read as unknown and
+	// are compared against nothing - there is no way to recover what those runs
+	// used beyond their commit (prov-2026-43505e1b).
+	Fixture string `json:"fixture,omitempty"`
+
 	// Resolution is the question the sample size was drawn for: smoke, coarse
 	// or fine.
 	//
@@ -200,6 +210,7 @@ func NewEntry(m Measurement, endpoint string) Entry {
 		Samples:     len(m.Samples),
 		Concurrency: m.Concurrency,
 		Retries:     m.Retries,
+		Fixture:     fixtureOf(m.Case),
 		Resolution:  string(m.Resolution),
 		Valid:       t.Valid,
 		Invalid:     t.Invalid,
@@ -377,4 +388,18 @@ func gitState() (commit string, clean bool, dirty []string) {
 		}
 	}
 	return commit, len(dirty) == 0, dirty
+}
+
+// fixtureOf digests the case, or returns empty when it cannot.
+//
+// A digest that could not be computed is recorded as absent rather than as a
+// failed run. It is a reading aid for history, and a measurement that was
+// otherwise fine should not be lost because a fixture directory moved between
+// the run and the write.
+func fixtureOf(c Case) string {
+	digest, err := FixtureDigest(c)
+	if err != nil {
+		return ""
+	}
+	return digest
 }

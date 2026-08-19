@@ -289,3 +289,121 @@ func TestHistoryDoesNotCompareAcrossRetryBudgets(t *testing.T) {
 		t.Errorf("a run at one budget was marked:\n%s", same.String())
 	}
 }
+
+// Seven imprints changed the fixtures materially, and every entry stored before
+// them describes packages that no longer exist. They are true observations and
+// they stay; what stops is comparing across the change (prov-2026-43505e1b).
+func TestHistoryDoesNotCompareAcrossFixtures(t *testing.T) {
+	entries := []Entry{
+		{Commit: "aaaaaaa", Clean: true, Resolution: "coarse", Samples: 5, Valid: 5,
+			Fixture: "old0old0old0", At: time.Now()},
+		{Commit: "bbbbbbb", Clean: true, Resolution: "coarse", Samples: 5, Valid: 4, Invalid: 1,
+			Fixture: "old0old0old0", At: time.Now()},
+		{Commit: "ccccccc", Clean: true, Resolution: "coarse", Samples: 5, Valid: 5,
+			Fixture: "new1new1new1", At: time.Now()},
+	}
+	for i := range entries {
+		for j := 0; j < entries[i].Valid; j++ {
+			entries[i].Runs = append(entries[i].Runs, SampleRun{Outcome: "valid", Calls: 1})
+		}
+		for j := 0; j < entries[i].Invalid; j++ {
+			entries[i].Runs = append(entries[i].Runs, SampleRun{Outcome: "invalid", Calls: 1, Rejected: 1})
+		}
+	}
+
+	var out strings.Builder
+	History(&out, "todo-rails-defined", entries)
+	got := out.String()
+
+	var marks []string
+	for _, line := range strings.Split(got, "\n") {
+		if strings.Contains(line, "aaaaaaa") || strings.Contains(line, "bbbbbbb") || strings.Contains(line, "ccccccc") {
+			marks = append(marks, line[:1])
+		}
+	}
+	if len(marks) != 3 {
+		t.Fatalf("found %d rows, want 3:\n%s", len(marks), got)
+	}
+	// The two drawn against one fixture are compared to each other; the third
+	// is not compared to them.
+	if marks[2] != "f" {
+		t.Errorf("the row drawn against a new fixture is marked %q, want \"f\":\n%s", marks[2], got)
+	}
+	if marks[0] == "f" || marks[1] == "f" {
+		t.Errorf("entries sharing a fixture were marked as differing: %v\n%s", marks, got)
+	}
+	if !strings.Contains(got, "f drawn against different packages") {
+		t.Errorf("the legend does not explain the mark:\n%s", got)
+	}
+}
+
+// Entries written before the digest existed compare as they always did. Marking
+// every historical row would add a mark to each while telling the reader nothing
+// they could act on; the boundary is what the field can speak to.
+func TestHistoryStillComparesEntriesWrittenBeforeTheDigest(t *testing.T) {
+	entries := []Entry{
+		{Commit: "aaaaaaa", Clean: true, Resolution: "coarse", Samples: 5, Valid: 5, At: time.Now()},
+		{Commit: "bbbbbbb", Clean: true, Resolution: "coarse", Samples: 5, Valid: 5, At: time.Now()},
+		{Commit: "ccccccc", Clean: true, Resolution: "coarse", Samples: 5, Valid: 5,
+			Fixture: "new1new1new1", At: time.Now()},
+	}
+	for i := range entries {
+		for j := 0; j < entries[i].Valid; j++ {
+			entries[i].Runs = append(entries[i].Runs, SampleRun{Outcome: "valid", Calls: 1})
+		}
+	}
+
+	var out strings.Builder
+	History(&out, "todo-rails-defined", entries)
+	got := out.String()
+
+	if strings.Count(got, "\nf ") != 1 {
+		t.Errorf("want exactly one fixture mark, at the boundary:\n%s", got)
+	}
+}
+
+// The digest is what the numbers were drawn against, so a change to any of the
+// three inputs has to move it or the mark never fires.
+func TestTheFixtureDigestCoversPackagesRecordsAndTarget(t *testing.T) {
+	cases, err := Load("cases", "testdata")
+	if err != nil {
+		t.Fatalf("loading cases: %v", err)
+	}
+	var c Case
+	for _, k := range cases {
+		if k.ID == "todo-rails-defined" {
+			c = k
+		}
+	}
+
+	base, err := FixtureDigest(c)
+	if err != nil {
+		t.Fatalf("digesting: %v", err)
+	}
+	if base == "" {
+		t.Fatal("the digest is empty")
+	}
+	// Stable: the same case digests the same twice, or every run would mark
+	// every entry.
+	again, _ := FixtureDigest(c)
+	if again != base {
+		t.Errorf("digest is not stable: %s then %s", base, again)
+	}
+
+	// Each input moves it.
+	swapped := c
+	swapped.Generators = "testdata/todo-rails/generators/described"
+	if d, _ := FixtureDigest(swapped); d == base {
+		t.Error("swapping the package set did not move the digest")
+	}
+	swapped = c
+	swapped.Records = "testdata/todo-api/records"
+	if d, _ := FixtureDigest(swapped); d == base {
+		t.Error("swapping the records did not move the digest")
+	}
+	swapped = c
+	swapped.Expect.Behavior = &BehaviorExpectation{Target: "todo-chi"}
+	if d, _ := FixtureDigest(swapped); d == base {
+		t.Error("swapping the behaviour target did not move the digest")
+	}
+}
