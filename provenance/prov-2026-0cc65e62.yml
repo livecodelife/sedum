@@ -1,0 +1,127 @@
+id: prov-2026-0cc65e62
+title: Bind a field name once and transform it once, everywhere it appears
+status: draft
+created_at: "2026-08-19"
+author: calebcowen@gmail.com
+intent: |
+  The Chi package asks the model to write a field name twice: once as
+  addModelField's `name`, which the template renders through `exported`, and
+  again inside createQuery's `insert_values`, `update_values` and `scan_targets`,
+  which are literals and are rendered verbatim. A model that binds `quantity`
+  and then writes `in.quantity` is being faithful to its own answer, and the
+  service does not compile, because the first appearance became `Quantity` and
+  the second did not.
+
+  ## The measurement
+
+  Five of ten Chi samples in a coarse run died in `build`, and three of them
+  died this way:
+
+      db/groceries.go:48:15: in.quantity undefined
+        (type Grocery has no field or method quantity, but does have field Quantity)
+
+  The five grocery samples separate cleanly:
+
+  | sample | addModelField.name | insert_values | outcome |
+  |---|---|---|---|
+  | s0, s2, s4 | name, quantity | in.name, in.quantity | build failed |
+  | s1 | Name, Quantity | in.Name, in.Quantity | ok |
+  | s3 | name, quantity | in.Name, in.Quantity | built |
+
+  The three failures are the internally consistent answers. s3 builds because it
+  contradicted itself and happened to land on what the template produces. The
+  package rewards a model for disagreeing with its own binding, which is not
+  something a description can fix and not something the model did wrong.
+
+  No retry budget reaches this. All five samples validated on the first call and
+  were never rejected, because every rule in Phase 5 is structural - unknown
+  action, missing kwarg, kwarg type, variant, unauthorized path - and none of
+  them can see that a literal names a field that does not exist. The thing that
+  knows is the Go compiler, which Sedum does not run and must not
+  (TOOL_BOUNDARIES.md 2-3).
+
+  ## What changes
+
+  The file template grows two helpers that carry anchors, so the argument lists
+  stop being literals the model restates:
+
+      func (r Todo) insertArgs() []any { return []any{ /* anchor:insert_args */ } }
+      func (r *Todo) scanTargets() []any { return []any{ &r.ID, /* anchor:scan_targets */, &r.CreatedAt, &r.UpdatedAt } }
+
+  addModelField becomes a composite injecting three regions from one binding -
+  the struct field, `r.{{name|exported}},` and `&r.{{name|exported}},` - so all
+  three go through the same transform from the same value and desync stops being
+  representable. createQuery's insert_values, update_values and scan_targets are
+  removed, and its variants call the helpers.
+
+  The anchors are planted by the *file* template rather than by createQuery's,
+  which is what makes this safe. Injection keeps a per-file buffer and applies
+  invocations in list order, so an anchor planted by an action template would
+  only be reachable when the model happened to order createQuery before
+  addModelField. Phase 3 plants a file template's anchors before any injection
+  runs, and depends on nothing the model chose.
+
+  Separately, go_type's description gains "unquoted". One sample bound
+  `"string"`, which rendered a struct field with a quoted type and failed to
+  parse. That is a description gap, the same shape as columns already saying
+  "names only, no types".
+constraints:
+  - >-
+    A field name is bound once. No kwarg asks the model to restate a name that
+    another action already binds, so no answer can be internally consistent and
+    still wrong about it.
+  - >-
+    Every anchor these actions target is planted by a file template, never by
+    another action's template. Injection applies invocations in the order the
+    model listed them, so an anchor planted by an action is reachable only when
+    the model happens to order two actions correctly, and that is not a
+    property a package may depend on.
+  - >-
+    createQuery no longer declares insert_values, update_values or scan_targets.
+    Three of its seven literals go away, and the measurement says literals are
+    where this package loses samples.
+  - >-
+    columns and placeholders stay literals and stay the model's to bind. They
+    sit inside a raw SQL string, where a // marker is text rather than a
+    comment, so no anchor can reach them. Position desync between columns and
+    the injected argument list remains possible and is not claimed fixed.
+  - >-
+    No rule is added that would require Sedum to know what a file declares. A
+    duplicate field is a compile error and belongs to whatever builds the code,
+    which is above Sedum rather than inside it.
+  - >-
+    Both Chi cases draw on this one package set, so grocery-chi-defined and
+    todo-chi-defined are both affected by one change and neither is measured
+    against the other's fixture.
+  - >-
+    The package validates clean under `sedum validate --strict`, and the Chi
+    behaviour target builds and boots what a corrected selection produces.
+affected_scope:
+  - evals/testdata/todo-api/generators/defined/chi/actions/actions.yaml
+  - evals/testdata/todo-api/generators/defined/chi/actions/addModelField.go
+  - evals/testdata/todo-api/generators/defined/chi/actions/addInsertArg.go
+  - evals/testdata/todo-api/generators/defined/chi/actions/addScanTarget.go
+  - evals/testdata/todo-api/generators/defined/chi/files/db/{name}.go
+  - evals/testdata/todo-api/generators/defined/chi/actions/createQuery/insert.go
+  - evals/testdata/todo-api/generators/defined/chi/actions/createQuery/selectAll.go
+  - evals/testdata/todo-api/generators/defined/chi/actions/createQuery/selectByID.go
+  - evals/testdata/todo-api/generators/defined/chi/actions/createQuery/update.go
+  - evals/testdata/todo-api/generators/defined/chi/actions/createQuery/delete.go
+  - evals/testdata/todo-api/generators/defined/chi/actions/createQuery/_default.go
+  # The targets' canned answers bind the kwargs this record removes, so they
+  # stop being a correct selection the moment the package changes. Same
+  # dependency prov-2026-2fb763a0 had to widen for.
+  - evals/behavior/targets/todo-chi/answer.json
+  - evals/behavior/targets/grocery-chi/answer.json
+forbidden_scope:
+  - internal/**
+  - cmd/**
+type: blueprint
+supersedes: ""
+superseded_by: ""
+related: []
+sealed_at_sha: ""
+associated_specs: []
+associated_traces: []
+monitors: []
+tags: []
