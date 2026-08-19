@@ -1,0 +1,87 @@
+id: prov-2026-79e94e7c
+title: The boot probe waits for a listener, not for a route a generated file may replace
+status: draft
+created_at: "2026-08-18"
+author: calebcowen@gmail.com
+intent: |
+  Both targets' boot phases poll the service's base URL rather than a path. The
+  probe's job is to wait until the process is accepting connections, and that is
+  said where it happens.
+
+  ## The defect is smaller than [[prov-2026-d318e3dd]] claimed
+
+  That record's audit said the boot gate "proves something answered, not that
+  the service is healthy" and listed it as a defect to fix. Checking what
+  `wait_for` actually does first:
+
+    404 response      curl exit 0
+    connection refused curl exit 7
+    404 with -f       curl exit 22
+
+  So the existing check already distinguishes a listening server from an absent
+  one, which is exactly what a boot gate is for. Requiring a successful status
+  would be the real mistake: a service that boots with a broken route would fail
+  at boot as `broke`, an outcome carrying only a phase name, instead of failing
+  at verify with the assertion named. That is strictly less information about a
+  strictly worse-diagnosed failure.
+
+  The blueprint's constraint has been narrowed to the half that survives, and
+  this record is what it points at.
+
+  ## What is actually wrong
+
+  Rails polls `/up`. That route comes from the scaffold and is re-emitted by the
+  package's routes template, and `config/routes.rb` is in the record's
+  affected_scope - so any arm may legitimately replace the file and drop it. The
+  baseline did: its server log carries `No route matches [GET] "/up"`, and the
+  run proceeded only because a 404 is a response.
+
+  Nothing was broken by that, and that is the problem. A probe that depends on
+  generated content and passes anyway is a coupling nobody will notice until it
+  is load-bearing.
+
+  Chi polls `/todos`, which the record requires of both arms, so it is not
+  arm-advantaging. It is changed for the same reason regardless: the probe is
+  waiting for a listener and should not name a route to do it.
+
+  ## What the probe cannot say
+
+  Any HTTP response counts, including a 500. A service whose database is
+  unreachable answers and boots green here, then fails its assertions with the
+  reason attached. That is the intended division and is written at the call site
+  so the next reader does not re-derive it.
+constraints:
+  - >-
+    The probe polls the base URL and names no path. A boot gate that depends on
+    generated content is coupled to one arm's choices for no benefit.
+  - >-
+    Any HTTP response proves the listener is up, including an error status.
+    Requiring success would move a diagnosable verify failure to an
+    undiagnosable boot failure.
+  - >-
+    Both targets change together. The probe's job does not vary by stack, and
+    only Chi's was arm-neutral to begin with.
+affected_scope:
+  - evals/behavior/targets/todo-rails/target.sh
+  - evals/behavior/targets/todo-chi/target.sh
+  - evals/behavior/targets/grocery-chi/target.sh
+  - evals/behavior/behave.sh
+forbidden_scope:
+  - internal/**
+  - cmd/**
+type: imprint
+implements: prov-2026-d318e3dd
+supersedes: ""
+superseded_by: ""
+related:
+  - prov-2026-ee1b3e46
+sealed_at_sha: ""
+associated_specs:
+  - path: evals/behavior/README.md
+    run_command: test -f {{path}}
+associated_traces: []
+monitors: []
+tags:
+  - sedum
+  - evals
+  - fixtures
