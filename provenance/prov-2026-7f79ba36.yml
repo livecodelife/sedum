@@ -1,6 +1,6 @@
 id: prov-2026-7f79ba36
 title: A completion is bounded, so a model that will not stop fails a sample instead of a run
-status: open
+status: implemented
 created_at: "2026-08-19"
 author: calebcowen@gmail.com
 intent: |
@@ -77,7 +77,7 @@ supersedes: ""
 superseded_by: ""
 related:
   - prov-2026-b4849e5c
-sealed_at_sha: ""
+sealed_at_sha: 60cff35d60395b6706bbcd4f5eba8a4dc7eb4176
 associated_specs:
   - path: internal/selection/selection_test.go
     run_command: go test -count=1 ./$(dirname {{path}})
