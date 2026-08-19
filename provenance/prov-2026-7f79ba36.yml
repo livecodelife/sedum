@@ -1,0 +1,86 @@
+id: prov-2026-7f79ba36
+title: A completion is bounded, so a model that will not stop fails a sample instead of a run
+status: draft
+created_at: "2026-08-19"
+author: calebcowen@gmail.com
+intent: |
+  The client sends max_tokens. Nothing capped a completion before, so a model
+  that does not emit a stop token generates until the context is exhausted.
+
+  ## What happened
+
+  The 0.5B row on todo-rails-intent accumulated 40,076 tokens on one sample,
+  against a 173-token answer for the same prompt.
+
+  ## What the cause is not
+
+  It is not the prompt. The exact prompt the harness sends, replayed eight times
+  in a row at temperature 0, returns 173 tokens and finish_reason stop every
+  time - with a cap and without one.
+
+  It is not a sampling parameter. Temperature 0, temperature 0.2 with a frequency
+  penalty, and temperature 0 with a presence penalty all return the same 173
+  tokens byte for byte; temperature 0.7 returns seventeen tokens and no fence at
+  all, which is worse rather than better.
+
+  ## What the cause probably is, and why it does not need settling
+
+  The likeliest remaining difference is cache state. A sweep runs a scaffold, a
+  gem install and a boot between samples, so the server's KV cache is cold or
+  evicted in a way that back-to-back replays never reproduce, and 4-bit MLX
+  inference is not bit-identical across that.
+
+  That is a hypothesis and this record does not rest on it. A cap does not need
+  to know why a model failed to stop; it needs the failure to cost one sample.
+  Diagnosing it would mean reproducing a nondeterministic condition inside
+  someone else's server, and the run it is blocking is fifteen hours long.
+
+  ## The value
+
+  16384. The largest completion in every stored result is 9,759 tokens - a
+  baseline arm writing six whole source files - so the cap is two thirds again
+  beyond the largest answer this harness has ever legitimately received, and a
+  fifth of the runaway it exists to stop.
+
+  A truncated answer is not silently accepted. It arrives with finish_reason
+  length, decodes as malformed, and is rejected under the rules that already
+  exist - which is the outcome the arm wants: a model that will not stop is a
+  model that failed, and it should fail in seconds.
+constraints:
+  - >-
+    The cap is above every completion this harness has legitimately received.
+    9,759 tokens is the largest on record and the cap is 16384, so no answer that
+    would have been valid becomes invalid because of it.
+  - >-
+    A truncated answer is rejected rather than repaired or silently kept. It is
+    malformed by the rules that already exist, and a model that will not stop is
+    a sample that failed.
+  - >-
+    Temperature stays at zero. Sampling is the one source of variation this tool
+    can turn down, and raising it to break a repetition loop would trade a
+    bounded failure for an unreproducible run across every model
+    (prov-2026-4bcabb2f's neighbours).
+  - >-
+    It is overridable, because a stack whose files are larger than this one's
+    would need a larger cap and should not have to patch the client to get one.
+  - >-
+    It applies to every arm and every model. A cap that applied only to the row
+    that misbehaved would be a cap nobody could reason about, and the sedum arm's
+    completions are an order of magnitude below it.
+affected_scope:
+  - internal/selection/client.go
+  - internal/selection/selection_test.go
+forbidden_scope:
+  - cmd/**
+type: blueprint
+supersedes: ""
+superseded_by: ""
+related:
+  - prov-2026-b4849e5c
+sealed_at_sha: ""
+associated_specs:
+  - path: internal/selection/selection_test.go
+    run_command: go test -count=1 ./$(dirname {{path}})
+associated_traces: []
+monitors: []
+tags: []
