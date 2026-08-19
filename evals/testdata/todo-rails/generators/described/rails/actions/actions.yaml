@@ -175,12 +175,30 @@ actions:
   # caller to know a convention the catalog has nowhere to state.
   addFixtureAttribute:
     kwargs:
-      resource: { type: string, required: true }
-      name: { type: string, required: true }
-      # Emitted into the fixture verbatim, so `false` is the boolean and not the
-      # string. Declared literal for the reason every other emitted-as-source
-      # value in this standard is (prov-2026-c009d1ba).
-      value: { type: literal, required: true }
+      resource:
+        type: string
+        required: true
+        description: >-
+          The resource whose fixtures gain the attribute, singular and
+          lowercase - todo, not Todos. The fixture file is named from its
+          plural.
+      name:
+        type: string
+        required: true
+        description: >-
+          The column this attribute sets, as it appears in the database -
+          title, not :title. It must be a column the migration creates, because
+          a fixture naming a column the table does not have fails every test
+          that loads it.
+      value:
+        type: literal
+        required: true
+        description: >-
+          The value the fixture carries, written as the YAML literal it becomes
+          - false for a boolean, 0 for an integer, and bare text for a string.
+          A string carries no quotation marks here, which is the opposite of a
+          Ruby default: this file is YAML, so "false" in quotation marks is the
+          four-letter string and not the boolean.
     injects_into: "test/fixtures/{{resource|table}}.yml"
     anchor: fixture
 
