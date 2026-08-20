@@ -624,6 +624,35 @@ func checkUnmanaged(pkg *Package, r *reporter) {
 	}
 }
 
+// checkTestPaths validates a package's test_paths declarations, and validates
+// nothing else about them.
+//
+// An unreadable pattern is an error for the same reason an unreadable unmanaged
+// entry is: left alone it matches nothing, so a declaration meant to name a
+// package's tests would quietly name none of them - and because nothing in
+// Sedum reads this field, a silent mismatch would surface first in a consumer
+// that has no way to trace it back here.
+//
+// There is deliberately no second half. checkUnmanaged goes on to reject two
+// ways a package can contradict itself; this has none to reject. A path may
+// match both test_paths and unmanaged, and inventing a contradiction there
+// would be inventing a rule neither consumer asked for: Sedum does not write an
+// unmanaged path, so whether one also holds tests is the reader's question
+// (prov-2026-3f01a02d). Nor is a test path checked against the file templates,
+// because a package is not obliged to know how to write its own tests.
+func checkTestPaths(pkg *Package, r *reporter) {
+	for _, entry := range pkg.TestPaths {
+		if strings.TrimSpace(entry) == "" {
+			r.errorf(manifestFile, RuleTestPathsInvalid,
+				"test_paths carries an empty entry; an entry that names nothing names no tests")
+			continue
+		}
+		if err := pathpat.Check(entry); err != nil {
+			r.errorf(manifestFile, RuleTestPathsInvalid, "test_paths entry %v", err)
+		}
+	}
+}
+
 // defaultTypeOf names the kwarg type a decoded YAML value carries.
 //
 // YAML's scalars decode to Go's own types rather than JSON's single number

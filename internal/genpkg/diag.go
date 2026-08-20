@@ -66,6 +66,14 @@ const (
 	RuleUnmanagedInvalid       = "unmanaged_invalid"
 	RuleUnmanagedContradiction = "unmanaged_contradiction"
 
+	// RuleTestPathsInvalid names a test_paths entry Sedum cannot read. There
+	// is no contradiction rule beside it, unlike unmanaged: a path may be
+	// declared both unmanaged and a test path, and that is not a
+	// contradiction, because Sedum does not write an unmanaged path and
+	// whether one counts as a test is the reader's question
+	// (prov-2026-3f01a02d).
+	RuleTestPathsInvalid = "test_paths_invalid"
+
 	// RuleTemplateValueUndeclared names a template rendering a value its
 	// action has no kwarg for. It is an error rather than a render-time
 	// failure because it is almost always a typo, and a typo found at load is

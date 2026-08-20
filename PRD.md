@@ -97,6 +97,28 @@ Two contradictions are load-time errors: a file template whose own path is decla
 
 Two packages declaring the same path do not conflict; they agree. A path one package disowns and another would claim by extension is unmanaged, because the alternative is behavior that depends on which package was consulted first.
 
+### Test paths
+
+A package may declare which of its paths hold tests:
+
+```yaml
+test_paths:
+  - "spec/**"
+  - "**/*_test.go"
+```
+
+Same grammar as `unmanaged` and a record's `affected_scope`. Entries are validated at load — an empty or unreadable one is an error naming it — and **Sedum does not read them.** No phase consults the field, no output partitions on it, and no other check refers to it.
+
+That is the unusual part, so the reason goes with it. Two consumers want the fact and neither is Sedum today: a tool above Sedum partitioning a record's regions into assertions and logic, and Sedum's own two-pass generation, for which the recording's `phases` grouping is already reserved. Both read a package's conventions, and which files hold tests is a convention — a property of a stack, not of an invocation, by the same argument that puts `unmanaged` on the package.
+
+It has to live here rather than in either consumer's own configuration, and that is forced rather than chosen. `sedum.yaml` is decoded strictly: a package declaring a key Sedum has not modelled does not load at all, with every action in it unavailable. So a caller told to read `sedum.yaml` directly cannot ask a package author to declare anything Sedum has not declared first. Sedum governs what may appear in that file no matter who does the reading, which makes declaring a field it does not use the only way to let someone else use one.
+
+Patterns rather than a directory, for the Go case exactly: `user_test.go` sits beside `user.go` with the same extension in the same package, so no directory-shaped declaration can separate them.
+
+A path may match both `test_paths` and `unmanaged`, and that is not a contradiction — Sedum does not write an unmanaged path, so whether it also holds tests is the reader's question. Nor is a test path checked against the file templates: a package is not obliged to know how to write its own tests.
+
+The risk that a declaration nothing enforces drifts from reality is real and is accepted. The mitigation is that the grammar is checked, not that the meaning is.
+
 ---
 
 ## File Templates
@@ -640,7 +662,7 @@ Five things, three of them file formats and two of them commands. Counting an ad
 
 Everything else — Sedum's packages, its internal vocabulary, the run log's shape, the `--stop-after` phase names — is internal and may change.
 
-Four questions, and what answers each:
+Five questions, and what answers each:
 
 **"What exists?"** Grep the markers. Enumerating what has been generated, with which action, variant, and arguments, is a filesystem walk that requires nothing from Sedum's process.
 
@@ -653,6 +675,8 @@ Transform behaviour is therefore exposed as behaviour and not as a data dump. Pu
 **"Do it."** Synthesise a recording containing exactly the invocations wanted and `--execute` it. A caller doing its own selection never touches Phase 4 at all. `--record --dry-run` gives the other direction: Sedum's selection, captured, with nothing written.
 
 **"What did Sedum decline to do?"** The `unmanaged` patterns are in `sedum.yaml`, which is already being read. A path Sedum skipped is reported by the run and derivable from the package.
+
+**"Which of these paths hold tests?"** The `test_paths` patterns, from the same file. Sedum declares the key and validates its grammar without reading it, because strict decoding means a package cannot carry a key Sedum has not modelled — so a field Sedum does not use is the only way a caller gets one. It is the first surface here that exists purely for a consumer, and the shape it takes is the shape any future one will: a declaration Sedum checks and does not interpret, never an opaque namespace.
 
 ### The recording is an input format
 

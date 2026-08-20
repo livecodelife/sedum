@@ -26,6 +26,7 @@ type manifest struct {
 	Transforms    map[string][]string          `yaml:"transforms"`
 	OpExceptions  map[string]map[string]string `yaml:"op_exceptions"`
 	Unmanaged     []string                     `yaml:"unmanaged"`
+	TestPaths     []string                     `yaml:"test_paths"`
 	Variables     map[string]Variable          `yaml:"variables"`
 }
 
@@ -295,6 +296,26 @@ type Package struct {
 	// this says only that Sedum is not what touches it. The usual reason is
 	// a file a person or another tool owns - a Gemfile, a lockfile, a key.
 	Unmanaged []string
+
+	// TestPaths are the paths this package declares hold tests, in the same
+	// grammar as Unmanaged and a record's scope entries.
+	//
+	// Sedum validates these and does not read them. That is the whole of the
+	// field and it is deliberate (prov-2026-3f01a02d): the consumers are a
+	// caller partitioning a record's regions into assertions and logic, and
+	// Sedum's own future two-pass generation, and neither is in M1-M7.
+	//
+	// It is here rather than in a caller's own configuration because sedum.yaml
+	// is decoded strictly. KnownFields(true) means a package declaring a key
+	// Sedum has not modelled does not load at all - not "loads and is ignored",
+	// but rejected with every action in it unavailable. So a caller told to
+	// read sedum.yaml directly cannot ask a package author to declare anything
+	// Sedum has not declared first, whoever ends up doing the reading.
+	//
+	// Patterns rather than a directory, because Go puts user_test.go beside
+	// user.go: same extension, same package, same directory, and nothing
+	// directory-shaped can separate them.
+	TestPaths []string
 
 	// Variables are the project facts this package's templates reference and
 	// cannot know. The run supplies their values (prov-2026-6fc3d13d).

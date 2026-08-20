@@ -2,6 +2,12 @@ name: chi
 extensions: [".go"]
 comment_prefix: "//"
 
+# The case that decides the grammar. Go puts user_test.go beside user.go -
+# same extension, same package, same directory - so there is no tree to name
+# and nothing directory-shaped could express this.
+test_paths:
+  - "**/*_test.go"
+
 transforms:
   exported: [pascal]
   receiver: [singular, camel]

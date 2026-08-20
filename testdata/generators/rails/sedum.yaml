@@ -12,6 +12,14 @@ transforms:
   instantize: [plural, "prefix:@"]
   tablename: [plural, snake]
 
+# Which of this package's paths hold tests. Sedum validates these patterns and
+# does not read them - the readers are a caller partitioning a record's regions
+# into assertions and logic, and Sedum's own future two-pass generation. The
+# field lives here rather than in either reader's configuration because strict
+# decoding means Sedum has to declare a key before any package may carry it.
+test_paths:
+  - "spec/**"
+
 # Irregular mappings, handled by a table rather than by new machinery.
 op_exceptions:
   pascal:
