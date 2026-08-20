@@ -1,0 +1,100 @@
+id: prov-2026-18a6e7a5
+title: The intent arm reports what it can be held to, and the page learns arms by predicate
+status: implemented
+created_at: "2026-08-19"
+author: calebcowen@gmail.com
+intent: |
+  [[prov-2026-672c6471]] added a third arm. The dashboard
+  ([[prov-2026-b0bf8584]]) does not know about it, and the way it does not know
+  is the same mistake [[prov-2026-672c6471]] fixed in Go on its way past.
+
+  ## The bug is the one case.go had just finished removing
+
+  `Case.WithoutPackage()` was added as a predicate rather than a comparison at
+  each site, and its comment says why: "a third arm that is also package-free
+  would otherwise have to be remembered in four places". The page remembers it
+  in four places, all of them spelled `arm === "baseline"`.
+
+  So an intent entry would take the packaged branch. Selection, binding, anchor
+  fill and idempotency would read "not recorded" — the phrase reserved for an
+  entry written before a signal existed — rather than "not defined", which is
+  what they are for an arm with no vocabulary to count. The distinction is the
+  whole of [[prov-2026-a4dbe65c]]'s rule, and the page would break it the first
+  time an intent run landed.
+
+  Nothing is misdrawn today: three intent cases exist and no intent entry does.
+  This lands before the first one rather than after.
+
+  ## The path rate is a 1.00 that means nothing
+
+  The larger defect, and it points the other way from the one the rule was
+  written for.
+
+  An intent answer is parsed with a nil allowed list, so every path it carries
+  is accepted, `unexpected` is empty by construction and `missing` is empty by
+  construction. "Authorized paths written" therefore computes wrote/wrote — a
+  perfect interval, on every intent run, forever. It is not a measurement that
+  came out well. It is arithmetic with no question behind it.
+
+  [[prov-2026-a4dbe65c]] blanked four cells because a zero would read as a
+  score. A 1.00 that cannot be anything else is the same error with the sign
+  flipped, and it is worse, because a blank invites a question and a perfect
+  score ends one.
+
+  The intent arm is told no paths and so cannot be held to them — the case file
+  says exactly that, and calls it the point rather than a defect. So the page
+  reports the rate for `baseline` and blanks it for `intent`, with the reason.
+
+  **This is the page departing from the terminal report, and it is deliberate.**
+  `report.go` calls `baseline()` under `WithoutPackage()`, so it will print that
+  vacuous rate for an intent run. That is a finding to hand to whoever owns the
+  harness, not something this record changes: the page does not edit results and
+  does not send patches upstream. It declines to draw a number it cannot read,
+  which is the only move available to a reader.
+
+  ## Three arms are a ladder, and the page should say so
+
+  A stranger reading "arm: intent" learns nothing. The ladder is what carries
+  the meaning — a prompt, a record, a record and a catalog — and the finding
+  [[prov-2026-672c6471]] was built on is exactly the kind this page exists to
+  make legible: the 14B's unaided baseline did not distinguish itself from
+  either sedum arm, while the 4B went from no working sample at all to all of
+  them. So the glossary gains the third rung and says what each one withholds.
+
+  ## Violations travel with their slug
+
+  [[prov-2026-986ac4ca]] added `violations` beside `rules`: the rendered
+  sentence for each slug, "because a slug can be tallied and a sentence cannot".
+  The page tallies the slugs and drops the sentences, which is half the record.
+  A rejected sample should be able to say what it actually got wrong.
+constraints:
+  - An arm with no generator package is recognised by predicate, never by comparing against one arm's name. Selection, binding, anchor fill and idempotency are blank with a reason for every such arm.
+  - The authorized-paths rate is reported only for an arm that was given paths to be held to. For the intent arm it is blank with the reason, because a rate that is 1.00 by construction is not a measurement.
+  - The page keeps 'not defined' and 'not recorded' distinct. The first is a question the arm cannot be asked; the second is a signal that did not exist when the run was drawn.
+  - Where the page declines to draw a number the terminal report draws, it says so on the page rather than leaving the two silently disagreeing.
+  - A rejected sample shows the rendered violation beside the rule slug it was counted under, so a tally can always say what the answer got wrong.
+  - The glossary names all three arms as a ladder and states what each one withholds from the model.
+affected_scope:
+  - docs/**
+forbidden_scope:
+  - evals/**
+  - internal/**
+  - cmd/**
+type: blueprint
+supersedes: ""
+superseded_by: ""
+related:
+  - prov-2026-b0bf8584
+  - prov-2026-672c6471
+sealed_at_sha: 967e98be4251551de61e244bd1abf3b32df47c1f
+associated_specs:
+  - path: docs/stats_test.mjs
+    run_command: node --test {{path}}
+  - path: docs/build.py
+    run_command: python3 {{path}} --check
+associated_traces: []
+monitors: []
+tags:
+  - sedum
+  - evals
+  - docs

@@ -219,11 +219,17 @@ func missing(files map[string]string, allowed []string) []string {
 // wrote the code (prov-2026-672c6471).
 func baselineAnswer(ctx context.Context, client selection.Client, rec *record.Record, arm string) (map[string]string, selection.Completion, []string, error) {
 	prompt := baselinePrompt(rec)
-	allowed := rec.Paths
 	if arm == "intent" {
 		prompt = intentPrompt(rec)
-		// nil, not empty: told no paths, it cannot be held to them.
-		allowed = nil
+	}
+
+	// nil, not empty: an arm told no paths cannot be held to them. Read from
+	// the predicate rather than decided here a second time, so the list the
+	// parser filters against and the rate the report prints cannot disagree
+	// about which arms have one (prov-2026-d773a705).
+	var allowed []string
+	if heldToPaths(arm) {
+		allowed = rec.Paths
 	}
 
 	answer, err := client.Complete(ctx, prompt)

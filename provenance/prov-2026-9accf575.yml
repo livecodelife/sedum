@@ -1,0 +1,63 @@
+id: prov-2026-9accf575
+title: The signals block asks the predicate too, which is the fourth copy of one arm's name
+status: implemented
+created_at: "2026-08-19"
+author: calebcowen@gmail.com
+implements: prov-2026-d773a705
+intent: |
+  Found while checking the fixed report's output against the baseline arm's,
+  which is the only reason it was found at all: the two arms printed different
+  signal blocks and only one of them could be right.
+
+  `signals()` computes `packaged := m.Case.Arm != "baseline"`. So the intent arm
+  is treated as though it had a package, and prints
+
+      anchors filled: nothing fillable was planted
+
+  along with an idempotency line if one is ever recorded. The comment four lines
+  above that assignment already forbids exactly this. It says the two rungs are
+  "skipped rather than reported empty" because "nothing fillable was planted"
+  would read as a finding about the answer rather than as the absence of a
+  catalog, and it cites [[prov-2026-a4dbe65c]] for the rule.
+
+  The comment is right and the line under it is wrong, and it went wrong the
+  moment a second package-free arm existed.
+
+  ## Why this is worth an imprint rather than a quiet edit
+
+  It is the fourth site. `Case.WithoutPackage()` was introduced with a comment
+  predicting three - "a third arm that is also package-free would otherwise have
+  to be remembered in four places" - and the count is now exact: the parser's
+  allowed list, the report's paths rate, the published page, and this. Three of
+  the four were found by something other than looking, which is the argument for
+  the predicate rather than for more care.
+
+  So the fix is `packaged := !m.Case.WithoutPackage()` and not a second name
+  added to the comparison. A comparison is what has failed four times.
+
+  ## What it changes about a number
+
+  Nothing, and that is worth stating. No rate moves. Two lines that described
+  the absence of a catalog as though it were a property of the answer stop being
+  printed for the arm that has no catalog.
+constraints:
+  - The signals block decides packaged-ness by predicate, not by naming an arm. Anchor fill and idempotency are skipped for every package-free arm rather than reported empty.
+  - No rate changes. This removes two lines that described a missing catalog as a finding about the answer.
+affected_scope:
+  - evals/report.go
+  - evals/baseline_test.go
+forbidden_scope: []
+type: imprint
+supersedes: ""
+superseded_by: ""
+related: []
+sealed_at_sha: 640ff8abd4a015c77a293ebe919cdbe509e1e478
+associated_specs:
+  - path: evals/baseline_test.go
+    run_command: go test ./$(dirname {{path}})
+associated_traces: []
+monitors: []
+tags:
+  - sedum
+  - evals
+  - measurement

@@ -178,6 +178,102 @@ func TestABaselineReportPrintsNothingItCannotHave(t *testing.T) {
 	}
 }
 
+// The intent arm is parsed with a nil allowed list, so every path it writes is
+// accepted and none can be missing or unexpected. A written-paths rate is
+// therefore wrote/wrote on every run - and a perfect score that cannot be
+// anything else ends the question a blank cell would have invited
+// (prov-2026-d773a705).
+func TestAnIntentReportPrintsNoRateItCannotLose(t *testing.T) {
+	m := Measurement{
+		Case: Case{ID: "todo-rails-intent", Arm: "intent",
+			Expect: Expectations{Behavior: &BehaviorExpectation{Target: "todo-rails"}}},
+		Model: Model{ID: "qwen", Engine: "llama.cpp", Quant: "q4_k_m"},
+		Samples: []Sample{
+			{
+				Total: 1, Calls: 1,
+				// Two files, nothing missing and nothing unexpected, which is
+				// the only shape this arm can produce.
+				Files: map[string]string{
+					"app/models/todo.rb":                  "class Todo < ApplicationRecord\nend\n",
+					"app/controllers/todos_controller.rb": "class TodosController\nend\n",
+				},
+				Behavior: &BehaviorRun{Outcome: "checks_failed", Checks: 20, Passed: 11},
+			},
+		},
+	}
+
+	var out strings.Builder
+	Report(&out, m)
+	got := out.String()
+
+	if strings.Contains(got, "authorized paths written") {
+		t.Errorf("the intent report prints a paths rate it cannot lose:\n%s", got)
+	}
+	// 2/2 is what the rate would have been. It must appear nowhere.
+	if strings.Contains(got, "2/2") {
+		t.Errorf("the intent report prints wrote/wrote:\n%s", got)
+	}
+
+	// The header line prints arm=intent whatever this block does, so the label
+	// is tested by its absence: baseline's name must not appear on an intent
+	// report at all.
+	if strings.Contains(got, "arm=baseline") {
+		t.Errorf("the intent report labels itself as the baseline arm:\n%s", got)
+	}
+
+	for _, want := range []string{
+		"undefined here and are not reported",
+		// The absence is explained, not silent.
+		"1.00 by construction",
+		"Behaviour is the rung this arm is",
+	} {
+		if !strings.Contains(got, want) {
+			t.Errorf("the intent report does not contain %q:\n%s", want, got)
+		}
+	}
+
+	// The signals block must skip the two rungs that need a catalog rather than
+	// report them empty, for this arm exactly as it does for baseline
+	// (prov-2026-9accf575).
+	for _, leak := range []string{"selected", "exact", "anchors filled", "idempotent"} {
+		if strings.Contains(got, leak) {
+			t.Errorf("the intent report prints %q, which needs a package:\n%s", leak, got)
+		}
+	}
+
+	// The rung all three arms share is untouched.
+	if !strings.Contains(got, "behavior") {
+		t.Errorf("the intent report drops behaviour, which is the only rung it has:\n%s", got)
+	}
+}
+
+// The parser's allowed list and the report's rate must not be able to disagree
+// about which arms were given paths, which is what a second copy of
+// `arm == "intent"` would eventually let them do.
+func TestOneAnswerDecidesWhoIsHeldToPaths(t *testing.T) {
+	for _, tc := range []struct {
+		arm  string
+		held bool
+	}{
+		{"sedum", true},
+		{"baseline", true},
+		{"intent", false},
+	} {
+		if got := (Case{Arm: tc.arm}).HeldToPaths(); got != tc.held {
+			t.Errorf("Case{Arm: %q}.HeldToPaths() = %v, want %v", tc.arm, got, tc.held)
+		}
+		if got := heldToPaths(tc.arm); got != tc.held {
+			t.Errorf("heldToPaths(%q) = %v, want %v", tc.arm, got, tc.held)
+		}
+	}
+
+	// And the parser reads the same answer: an arm not held to paths gets a nil
+	// list, which is what makes every path it chooses acceptable.
+	if heldToPaths("intent") {
+		t.Fatal("the intent arm must not be held to paths, or the nil allowed list is unreachable")
+	}
+}
+
 // The two arms are stored in one schema and told apart by the field that says
 // which is which, so neither is a special case a reader has to know about.
 func TestABaselineEntryCarriesItsArm(t *testing.T) {

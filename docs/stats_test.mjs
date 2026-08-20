@@ -21,6 +21,9 @@ import {
   caveats,
   summarise,
   compare,
+  withoutPackage,
+  heldToPaths,
+  ARMS,
 } from "./stats.js";
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -132,6 +135,86 @@ test("failed samples stay outside the denominator and are still counted", () => 
   assert.equal(s.answered, 0);
   assert.equal(s.validity, null, "no answered samples is not a rate of zero");
   assert.equal(s.failed, 2, "the excluded count is still visible");
+});
+
+// A package-free arm is recognised by predicate, never by comparing against one
+// arm's name — the mistake Case.WithoutPackage() exists in Go to prevent, and
+// the one this file made until the intent arm landed (prov-2026-18a6e7a5).
+test("every package-free arm blanks the four signals, not just baseline", () => {
+  const entry = (arm) => ({
+    case: "x",
+    at: "2026-08-19T00:00:00Z",
+    arm,
+    valid: 1,
+    invalid: 0,
+    failed: 0,
+    samples: 1,
+    // Signals a packaged run would have recorded. A package-free arm must
+    // ignore them rather than report them.
+    runs: [{
+      outcome: "valid",
+      ms: 1,
+      counts: { addColumn: 2 },
+      fill: { planted: 4, filled: 4 },
+      syntax: { checked: 2, parsed: 2 },
+      idempotent: { files: 2, stable: 2 },
+      files: { "a.rb": "x" },
+    }],
+  });
+
+  for (const arm of Object.keys(ARMS)) {
+    const s = summarise(entry(arm));
+    if (!withoutPackage(arm)) continue;
+    for (const field of ["selection", "fill", "syntax", "idempotent"]) {
+      assert.equal(s[field], null, `${arm}: ${field} must be undefined, not reported`);
+    }
+  }
+
+  // And the predicate itself, so a fourth arm cannot be added to ARMS without
+  // this file having an opinion about it.
+  assert.equal(withoutPackage("baseline"), true);
+  assert.equal(withoutPackage("intent"), true);
+  assert.equal(withoutPackage("sedum"), false);
+  assert.equal(withoutPackage("something-new"), false, "an unknown arm is treated as packaged");
+});
+
+test("the intent arm reports no path rate, because it was given no paths", () => {
+  // Its answer is parsed with no allowed list, so nothing can be missing and
+  // nothing unexpected: wrote/wrote on every run forever. A 1.00 that cannot be
+  // anything else is the same error as a zero that reads as a score
+  // (prov-2026-18a6e7a5).
+  const s = summarise({
+    case: "todo-rails-intent",
+    at: "2026-08-19T00:00:00Z",
+    arm: "intent",
+    valid: 1,
+    invalid: 0,
+    failed: 0,
+    samples: 1,
+    runs: [{ outcome: "valid", ms: 1, files: { "a.rb": "x", "b.rb": "y" }, missing: [], unexpected: [] }],
+  });
+  assert.equal(s.paths, null, "a rate that is 1.00 by construction is not a measurement");
+  assert.equal(heldToPaths("intent"), false);
+  assert.equal(heldToPaths("baseline"), true, "the baseline arm IS given its paths and is scored on them");
+});
+
+test("a rejected sample keeps the sentence beside the slug it was counted under", () => {
+  const s = summarise({
+    case: "x",
+    at: "2026-08-19T00:00:00Z",
+    valid: 0,
+    invalid: 2,
+    failed: 0,
+    samples: 2,
+    runs: [
+      { outcome: "invalid", ms: 1, rules: ["kwarg_type"], violations: ['addFixtureAttribute: kwarg "value" is declared literal but was bound to the bool false'] },
+      { outcome: "invalid", ms: 1, rules: ["kwarg_type"], violations: ['addFixtureAttribute: kwarg "value" is declared literal but was bound to the bool false'] },
+    ],
+  });
+  const rule = s.rules.find((r) => r.name === "kwarg_type");
+  assert.equal(rule.n, 2, "the tally says how often");
+  assert.equal(rule.violations.length, 1, "identical sentences collapse to one");
+  assert.match(rule.violations[0], /declared literal/, "the sentence says what the answer got wrong");
 });
 
 test("the baseline arm reports nothing it has no vocabulary for", () => {
@@ -248,6 +331,12 @@ test("the stored corpus still contains the entries the page is built to explain"
   const entries = storedEntries();
   const arms = new Set(entries.map((e) => e.arm || "sedum"));
   assert.ok(arms.has("sedum") && arms.has("baseline"), `arms seen: ${[...arms]}`);
+
+  // An arm the page has never heard of would be rendered as though it had a
+  // package. Fail here rather than draw a number the arm cannot have.
+  for (const arm of arms) {
+    assert.ok(ARMS[arm], `stored results carry arm "${arm}", which stats.js does not know about`);
+  }
 
   const outcomes = new Set();
   for (const e of entries) for (const r of e.runs || []) if (r.behavior) outcomes.add(r.behavior.outcome);
