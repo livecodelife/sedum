@@ -33,6 +33,134 @@ HARNESS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SEDUM_REPO="${SEDUM_REPO:-$(cd "$HARNESS_DIR/../.." && pwd)}"
 SEDUM_BIN="${SEDUM_BIN:-}"
 
+# ------------------------------------------------------------- attribution
+
+# Naming the action whose region wrote the line that killed a phase.
+#
+# A `failed` sample already records the phase and the tail of its log. That is
+# where a build died and what the compiler said, and it is not who wrote the
+# line - which the ownership marker has said all along. Reading five identical
+# `build` deaths as three distinct defects took a hand trace across every failed
+# sample's stored invocations, and the file, the line and the mapping were all
+# in the result the whole time (prov-2026-27c10ac4).
+#
+# The lookup is text and nothing here parses the generated language, so a target
+# for a new stack inherits attribution without writing any: a compiler names a
+# file and a line, and the marker pair enclosing that line names the action.
+
+# ENCLOSING_AWK finds the ownership marker enclosing one line of one file.
+#
+# A stack rather than a scan backwards, because regions may nest and the
+# innermost one is the one that wrote the line. The marker's comment prefix is
+# whatever the package declared - #, // and -- all appear across targets - so
+# the prefix is not matched: what is matched is the "sedum:" keyword and whether
+# a "/" immediately precedes it, which is what tells a closing marker from an
+# opening one.
+#
+# Anchor declarations share the "sedum:" namespace and are not ownership
+# markers, so "anchor" is skipped exactly as internal/inject skips it.
+ENCLOSING_AWK='
+{
+  n++
+  if (n == want) {
+    if (depth > 0) printf "%s\t%s\n", stack[depth], attrs[depth]
+    exit
+  }
+  t = $0
+  sub(/^[ \t]+/, "", t)
+  i = index(t, "sedum:")
+  if (i == 0) next
+  pre  = substr(t, 1, i - 1)
+  rest = substr(t, i + 6)
+  sp = index(rest, " ")
+  if (sp > 0) { label = substr(rest, 1, sp - 1); json = substr(rest, sp + 1) }
+  else        { label = rest;                    json = "" }
+  sub(/[ \t\r]+$/, "", label)
+  if (label == "" || label == "anchor" || label ~ /^anchor:/) next
+  # "// /sedum:x" closes; "//sedum:x" opens, because a prefix that is nothing
+  # but slashes is a comment prefix rather than the closing keyword.
+  is_close = (pre != "" && substr(pre, length(pre), 1) == "/" && pre !~ /^\/+$/)
+  if (is_close) {
+    if (depth > 0 && stack[depth] == label) depth--
+    next
+  }
+  depth++
+  stack[depth] = label
+  attrs[depth] = json
+}'
+
+# attribute_failure <log> <app> - every attribution the log's file:line
+# references yield, as a JSON array.
+#
+# Computed here rather than by the caller because teardown deletes the project,
+# and a lookup that ran after it would have nothing to read.
+attribute_failure() {
+  local log="$1" app="$2" out="[]"
+  [ -f "$log" ] && [ -d "$app" ] || { printf '%s' "$out"; return 0; }
+
+  local ref file line rel seen="" hit label json action variant
+
+  while IFS= read -r ref; do
+    line="${ref##*:}"
+    file="${ref%:*}"
+    file="${file#./}"
+
+    # Resolve against the project. A reference that is not a file in it is not
+    # a line this run wrote - a host:port, a version string, a path in the
+    # toolchain - and is dropped rather than reported as unattributed, which is
+    # reserved for a line the project really holds and no marker encloses.
+    if [ -f "$app/$file" ]; then
+      rel="$file"
+    elif [ "${file#"$app/"}" != "$file" ] && [ -f "$file" ]; then
+      rel="${file#"$app/"}"
+    else
+      continue
+    fi
+
+    # One finding per file and line however often the compiler repeats it.
+    case " $seen " in *" $rel:$line "*) continue ;; esac
+    seen="$seen $rel:$line"
+
+    hit=$(awk -v want="$line" "$ENCLOSING_AWK" "$app/$rel" 2>/dev/null)
+
+    action=""; variant=""; json=""
+    if [ -n "$hit" ]; then
+      label="${hit%%$'\t'*}"
+      json="${hit#*$'\t'}"
+      [ "$json" = "$hit" ] && json=""
+      action="${label%%:*}"
+      case "$label" in *:*) variant="${label#*:}" ;; esac
+    fi
+    # A marker whose attributes will not parse still names its action. The
+    # label is on the line for exactly this reason, so the attribution survives
+    # a JSON object some other writer corrupted.
+    if [ -n "$json" ] && ! jq -e . >/dev/null 2>&1 <<<"$json"; then json=""; fi
+    [ -n "$json" ] || json=null
+
+    out=$(jq -c --arg f "$rel" --argjson l "$line" --arg a "$action" --arg v "$variant" \
+               --argjson attrs "$json" \
+      '. + [{file:$f, line:$l,
+             action:  (if $a == "" then null else $a end),
+             variant: (if $v == "" then null else $v end),
+             record:  (if $attrs == null then null else $attrs.record end),
+             kwargs:  (if $attrs == null then null else $attrs.kwargs end)}]' <<<"$out")
+  done < <(grep -oE '[A-Za-z0-9_./+-]+\.[A-Za-z0-9]+:[0-9]+' "$log" 2>/dev/null)
+
+  printf '%s' "$out"
+}
+
+# The lookup on its own, so it can be proved without a behaviour run:
+#
+#   ./behave.sh --attribute <log> <project-dir>
+#
+# Placed before target resolution because it scaffolds nothing and tears nothing
+# down - it reads two paths and prints JSON.
+if [ "${1:-}" = "--attribute" ]; then
+  attribute_failure "${2:-}" "${3:-}"
+  echo
+  exit 0
+fi
+
 TARGET="${1:-}"
 [ -n "$TARGET" ] || { echo "usage: behave.sh <target> [--model <id>] [--keep]" >&2; exit 2; }
 shift
@@ -93,6 +221,10 @@ FAILED_PHASE=""
 # The tail of the log of whichever phase died, kept so the reason survives the
 # project being deleted (prov-2026-93829987).
 FAILED_DETAIL=""
+# Which action's region wrote each line that log points at. Empty for a run
+# that did not fail, and empty for one whose log named no file this project
+# holds (prov-2026-27c10ac4).
+ATTRIBUTION_JSON="[]"
 STUB_PID=""
 APP_PID=""
 
@@ -127,6 +259,9 @@ phase() {
     # caller can read afterwards were different things until now, and the
     # difference cost three hand reconstructions in one session.
     FAILED_DETAIL=$(tail -25 "$LOGS/$name.log")
+    # Here, and not in the caller: the project still exists at this point and
+    # the EXIT trap that deletes it has not run.
+    ATTRIBUTION_JSON=$(attribute_failure "$LOGS/$name.log" "$APP")
     echo "    ✗ $name failed (exit $status)" >&3
     sed 's/^/      /' <<<"$FAILED_DETAIL" >&3
   fi
@@ -269,11 +404,13 @@ cleanup() {
         --arg at "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
         --argjson phases "$PHASES_JSON" --argjson checks "$CHECKS_JSON" \
         --argjson passed "$passed" --argjson total "$total" \
+        --argjson attribution "$ATTRIBUTION_JSON" \
     '{run:$run, target:$target, selection:$model, at:$at, outcome:$outcome,
       failed_phase:(if $failed=="" then null else $failed end),
       detail:(if $detail=="" then null else $detail end),
       checks_passed:$passed, checks_total:$total,
-      phases:$phases, checks:$checks}' > "$RESULTS"
+      phases:$phases, checks:$checks,
+      attribution:(if $attribution==[] then null else $attribution end)}' > "$RESULTS"
 
   # The generated sources are the evidence for a failed check, so they are kept
   # beside the results rather than deleted with the project.
