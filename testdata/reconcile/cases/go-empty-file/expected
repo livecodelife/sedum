@@ -1,0 +1,9 @@
+package handlers
+
+// sedum:anchor:imports
+
+// sedum:anchor:handlers
+
+func init() {
+	// sedum:anchor:wiring
+}

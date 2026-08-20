@@ -1,44 +1,131 @@
 {
-  "comment_prefix": "#",
   "cases": [
-    { "name": "already-complete", "outcome": "unchanged",
-      "why": "Every marker is present and the skeleton equals the template. Today's behaviour, and it must stay byte-for-byte identical." },
-
-    { "name": "empty-file", "outcome": "apply",
-      "why": "A zero-byte authorized file halts today, and both diagnoses the error offers are false. An empty file has nothing to destroy, which is the reason Phase 3 is create-if-absent at all." },
-
-    { "name": "rails-new-routes", "outcome": "apply",
+    {
+      "name": "already-complete",
+      "outcome": "unchanged",
+      "why": "Every marker is present and the skeleton equals the template. Today's behaviour, and it must stay byte-for-byte identical.",
+      "comment_prefix": "#",
+      "language": "ruby"
+    },
+    {
+      "name": "empty-file",
+      "outcome": "apply",
+      "why": "A zero-byte authorized file halts today, and both diagnoses the error offers are false. An empty file has nothing to destroy, which is the reason Phase 3 is create-if-absent at all.",
+      "comment_prefix": "#",
+      "language": "ruby"
+    },
+    {
+      "name": "rails-new-routes",
+      "outcome": "apply",
       "source": "config/routes.rb from `rails _7.2.3_ new --api`",
-      "why": "The motivating case. The expected output is byte-identical to what prov-2026-ee1b3e46 plants by hand in a Ruby target script, which is the thing this record exists to stop needing." },
-
-    { "name": "rails-generate-bare", "outcome": "apply",
+      "why": "The motivating case. The expected output is byte-identical to what prov-2026-ee1b3e46 plants by hand in a Ruby target script, which is the thing this record exists to stop needing.",
+      "comment_prefix": "#",
+      "language": "ruby"
+    },
+    {
+      "name": "rails-generate-bare",
+      "outcome": "apply",
       "source": "`rails generate controller Todos`, rendered from railties' own controller.rb.tt",
-      "why": "The whole template body lands and the result equals the rendered template. Note the file's bare `end` matches the class's closing line and not the rescue block's `  end`: indentation is compared, and normalising it would place this wrongly rather than fail." },
-
-    { "name": "rails-generate-actions", "outcome": "halt",
+      "why": "The whole template body lands and the result equals the rendered template. Note the file's bare `end` matches the class's closing line and not the rescue block's `  end`: indentation is compared, and normalising it would place this wrongly rather than fail.",
+      "comment_prefix": "#",
+      "language": "ruby"
+    },
+    {
+      "name": "rails-generate-actions",
+      "outcome": "halt",
       "diagnostic": "replace at file line 2, replace at file line 5",
       "source": "`rails generate controller Todos index show`",
-      "why": "The hand-written def index and def show are exactly what createControllerMethod injects into the actions region. Whether they should become owned regions is a question Sedum cannot answer, so it must not guess." },
-
-    { "name": "private-empty", "outcome": "apply",
-      "why": "The file's own private keyword is reused rather than duplicated: the rescue block and the actions anchor go above it, the private anchor below. 'Insert it into any file that does not already have one' falls out of the diff instead of being a rule." },
-
-    { "name": "private-with-method", "outcome": "halt",
+      "why": "The hand-written def index and def show are exactly what createControllerMethod injects into the actions region. Whether they should become owned regions is a question Sedum cannot answer, so it must not guess.",
+      "comment_prefix": "#",
+      "language": "ruby"
+    },
+    {
+      "name": "private-empty",
+      "outcome": "apply",
+      "why": "The file's own private keyword is reused rather than duplicated: the rescue block and the actions anchor go above it, the private anchor below. 'Insert it into any file that does not already have one' falls out of the diff instead of being a rule.",
+      "comment_prefix": "#",
+      "language": "ruby"
+    },
+    {
+      "name": "private-with-method",
+      "outcome": "halt",
       "diagnostic": "replace at file line 4",
-      "why": "Refused because of def set_todo, not because of private. The distinction matters: a file may carry the template's structure, but not body content the template has no counterpart for." },
-
-    { "name": "evolution-anchor-and-code", "outcome": "apply",
-      "why": "A file an earlier run generated, whose template has since gained a private section and an anchor. Both are inserted below the existing injected region, so the method already there stays public. This is the case that has no answer at all today." },
-
-    { "name": "evolution-bare-anchor", "outcome": "apply",
-      "why": "The same, where the template gained only an anchor. It lands in position rather than at the end of the class, which is what fails if the skeleton is aligned without its markers." },
-
-    { "name": "edited-boilerplate", "outcome": "halt",
+      "why": "Refused because of def set_todo, not because of private. The distinction matters: a file may carry the template's structure, but not body content the template has no counterpart for.",
+      "comment_prefix": "#",
+      "language": "ruby"
+    },
+    {
+      "name": "evolution-anchor-and-code",
+      "outcome": "apply",
+      "why": "A file an earlier run generated, whose template has since gained a private section and an anchor. Both are inserted below the existing injected region, so the method already there stays public. This is the case that has no answer at all today.",
+      "comment_prefix": "#",
+      "language": "ruby"
+    },
+    {
+      "name": "evolution-bare-anchor",
+      "outcome": "apply",
+      "why": "The same, where the template gained only an anchor. It lands in position rather than at the end of the class, which is what fails if the skeleton is aligned without its markers.",
+      "comment_prefix": "#",
+      "language": "ruby"
+    },
+    {
+      "name": "edited-boilerplate",
+      "outcome": "halt",
       "diagnostic": "replace at file line 1",
-      "why": "Someone changed the superclass of a generated file. The template is no longer a description of it, and reconciling would overwrite a decision a person made." },
-
-    { "name": "default-template", "outcome": "halt",
+      "why": "Someone changed the superclass of a generated file. The template is no longer a description of it, and reconciling would overwrite a decision a person made.",
+      "comment_prefix": "#",
+      "language": "ruby"
+    },
+    {
+      "name": "default-template",
+      "outcome": "halt",
       "diagnostic": "replace at file line 1",
-      "why": "A _default template is one marker and nothing else, so it shares no structure with any real file. The low-structure case refuses itself rather than needing a rule against it." }
+      "why": "A _default template is one marker and nothing else, so it shares no structure with any real file. The low-structure case refuses itself rather than needing a rule against it.",
+      "comment_prefix": "#",
+      "language": "ruby"
+    },
+    {
+      "name": "go-already-complete",
+      "comment_prefix": "//",
+      "language": "go",
+      "outcome": "unchanged",
+      "why": "The same no-op as its Ruby twin, under a different prefix. If a prefix ever leaked into the comparison as a constant, this is what would catch it."
+    },
+    {
+      "name": "go-empty-file",
+      "comment_prefix": "//",
+      "language": "go",
+      "outcome": "apply",
+      "why": "A zero-byte Go file takes its whole template, including the func init() body the template's newest anchor sits inside."
+    },
+    {
+      "name": "go-evolution",
+      "comment_prefix": "//",
+      "language": "go",
+      "outcome": "apply",
+      "why": "A generated Go file whose template gained an anchor wrapped in `func init() { }`. The Go analogue of the private-block case: the anchor arrives with code, and the code comes with it. Braces repeat far more than Ruby's `end` does, which is why this case exists rather than being assumed from the Ruby one."
+    },
+    {
+      "name": "go-edited-boilerplate",
+      "comment_prefix": "//",
+      "language": "go",
+      "outcome": "halt",
+      "diagnostic": "replace at file line 1",
+      "why": "Someone changed the package clause of a generated file. Halting is not a Ruby behaviour."
+    },
+    {
+      "name": "cairn-evolution",
+      "comment_prefix": ";;",
+      "language": "cairn",
+      "outcome": "apply",
+      "why": "A two-character prefix that is neither # nor //, in a language nobody has heard of, from the fixture package this repository keeps precisely so that no target can be assumed. The expected output is the template verbatim, because the existing file is the old template and the new one only adds."
+    },
+    {
+      "name": "cairn-empty-file",
+      "comment_prefix": ";;",
+      "language": "cairn",
+      "outcome": "apply",
+      "why": "The empty case under the exotic prefix."
+    }
   ]
 }

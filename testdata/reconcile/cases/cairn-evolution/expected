@@ -1,0 +1,9 @@
+unit Payment
+  handle payments
+
+  ;; sedum:anchor:steps
+
+  teardown
+    ;; sedum:anchor:cleanup
+
+end
