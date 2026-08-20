@@ -152,6 +152,15 @@ intent: |
   carries one - regions carry a record and kwargs, and there is no file-level
   marker to hang a digest on. Adding one for this is not worth it.
 
+  **Adoption is proved in one language only.** The adoption cases need a file
+  some other tool wrote, and Rails is the only stack in this repository with a
+  generator that produces one - `rails new` and `rails generate`. Evolution, the
+  empty file and the halts are covered across three comment prefixes, because
+  Sedum generates their inputs itself. Constructing a plausible Go controller by
+  hand would be evidence about the author's expectations rather than about the
+  mechanism, so it was not done. A real adoption case in a second language is
+  wanted whenever an artifact exists to take it from.
+
   **A comment-only template addition never propagates.** A template that gains
   `//go:build integration` and nothing structural with it has no insertion for
   that comment to belong to. Known, accepted, and written down so it is not
@@ -203,6 +212,10 @@ constraints:
     A halt is per run, not per file. A file that cannot be reconciled stops the
     run rather than being skipped, because a skipped file fails later in Phase 7
     with a worse message than Phase 3 can give.
+  - >-
+    Fixtures record what Phase 3 must do to a file, never what a prototype did.
+    Where the two disagree the fixture governs. Every input is real: generated
+    by Sedum, or by the target stack's own generator.
   - >-
     No durable artifact changes shape. Markers and recordings are untouched, and
     a repository whose files already carry their markers behaves exactly as it
