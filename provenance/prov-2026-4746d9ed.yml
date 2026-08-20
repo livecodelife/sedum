@@ -1,0 +1,137 @@
+id: prov-2026-4746d9ed
+title: Sedum is installable and versioned, so a caller can pin it
+status: draft
+created_at: "2026-08-20"
+author: calebcowen@gmail.com
+intent: |
+  Sedum is invoked as an external binary by everything built above it. Tendril's
+  `[bin]` block names `sedum` on PATH and constrains it with a `sedum_version`
+  range; `tend doctor` checks presence and version before doing anything else.
+  None of that works today: there are no tags, no release artifacts, no way to
+  obtain the binary but `go build` in a checkout, and the one command that
+  answers "which one do I have" answers it about a binary nobody can install.
+
+  This makes the binary obtainable and the version pinnable. It adds no surface
+  to the six [[prov-2026-b5465dfa]] counts and does not touch the pipeline.
+
+  ## The module path names an account that does not exist
+
+  `go.mod` says `github.com/calebcowen/sedum`. The repository is
+  `github.com/livecodelife/sedum`; the other path 404s. For `go build` in a
+  checkout this is invisible, which is why it survived - the module path is only
+  resolved as a URL when someone fetches it, and nobody has.
+
+  `go install <path>/cmd/sedum@v0.1.0` resolves that path as a URL and then
+  checks that the `module` line in the go.mod it fetched matches what was asked
+  for. So there is no arrangement under which the current path is installable:
+  fetching `calebcowen` 404s, and fetching `livecodelife` returns a module
+  declaring itself to be something else. The path becomes the remote, which is
+  also the path LineSpec already uses and the one a reader of either repository
+  would predict.
+
+  The rewrite is every import line in the tree. That is mechanical and total,
+  and it is why this record's `affected_scope` is nearly the whole repository -
+  an honest allowlist for a rename, rather than a narrow one that would block
+  the commit it exists to authorize.
+
+  ## The version stays a constant, and CI is what stops it drifting
+
+  [[prov-2026-b5465dfa]] put `Version` in `internal/recording` as a `const`
+  rather than a build-time stamp, with the reason stated at the declaration: a
+  version injected by `-ldflags` is absent from `go build` and `go run`, which
+  is exactly when someone is developing against it.
+
+  Releasing is the moment that decision comes under pressure, because the
+  obvious release-engineering move is `-X ...Version={{.Version}}` and it would
+  quietly reverse it. It is not taken. The tag and the constant are kept honest
+  in the other direction: the release workflow reads the constant out of the
+  source and refuses to publish a tag that disagrees with it. A mismatch fails
+  the release rather than producing a `v0.2.0` binary that reports `0.1.0`, and
+  the recording it writes keeps carrying the same string the binary reports,
+  which is the property b5465dfa was protecting.
+
+  First tag is `v0.1.0`, matching the constant already in the tree. Nothing is
+  renumbered to look more finished than it is; `<1.0.0` is what the six surfaces
+  have earned while [[prov-2026-59535684]] still lists open gaps against them.
+
+  ## Three ways in, for three people
+
+  `go install` for someone who has Go. Signed-by-checksum archives for a CI job
+  or a container build. A `curl | sh` installer for a person on a laptop who
+  wants the binary and has no opinion about Go, which is the audience an
+  open-source release is for and the one served worst by the other two.
+
+  The installer is not a seventh integration surface. It writes a binary to a
+  directory and exits; it is not read or written by anything built above Sedum,
+  and no format passes through it. It resolves OS and architecture, downloads
+  the archive named by the release, verifies it against the published
+  `checksums.txt`, and installs. Verification is not optional in it - an
+  installer piped into a shell that skips the checksum it publishes is offering
+  a guarantee it does not keep.
+
+  ## An unlicensed repository is not open source
+
+  `TOOL_BOUNDARIES.md` states the distribution intent as "Sedum open source" and
+  the repository carries no license, which means the default applies and nobody
+  may use it. Third-party harnesses are the stated reason the six surfaces are
+  formats rather than an API, and a third party cannot build against a
+  repository it has no license to use. MIT, matching LineSpec.
+
+  ## Nothing publishes untested
+
+  There is a Pages workflow and no test workflow, so `go test ./...` has never
+  run anywhere but a developer's machine. A tag that produced binaries without
+  that gate would publish whatever happened to be on `main`. Tests run on push
+  and pull request, and again as a precondition of the release job.
+constraints:
+  - >-
+    The module path equals the repository URL. A module whose path does not
+    resolve to the repository serving it is not installable by any means, and
+    no packaging works around it.
+  - >-
+    The version remains a compile-time constant in internal/recording, never a
+    -ldflags stamp. prov-2026-b5465dfa's reason is unchanged by releasing: a
+    version absent from `go build` and `go run` is absent exactly when someone
+    is developing against it.
+  - >-
+    A release whose tag disagrees with that constant does not publish. The
+    binary's answer and the recording's sedum_version field cannot be allowed
+    to drift from the tag a caller pins.
+  - >-
+    The installer verifies the downloaded archive against the published
+    checksums before installing, and fails if it cannot. An installer run by
+    piping a URL into a shell does not skip its own integrity check.
+  - >-
+    Tests pass before anything is published. The release job depends on the
+    test job rather than running beside it.
+  - >-
+    No integration surface is added. This record touches distribution and
+    identity only; the six surfaces of prov-2026-b5465dfa are unchanged, and
+    nothing here creates a runtime API or a linking path.
+affected_scope:
+  - go.mod
+  - go.sum
+  - cmd/**
+  - internal/**
+  - evals/**
+  - conformance/**
+  - docs/**
+  - LICENSE
+  - install.sh
+  - .goreleaser.yml
+  - .github/workflows/ci.yml
+  - .github/workflows/release.yml
+forbidden_scope: []
+type: blueprint
+supersedes: ""
+superseded_by: ""
+related:
+  - prov-2026-b5465dfa
+  - prov-2026-59535684
+sealed_at_sha: ""
+associated_specs: []
+associated_traces: []
+monitors: []
+tags:
+  - sedum
+  - distribution
