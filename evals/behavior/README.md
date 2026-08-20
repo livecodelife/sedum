@@ -87,6 +87,52 @@ why went with the temporary project, which cost three hand reconstructions in
 one session — and a reconstruction is not the sample that failed. Use `--keep`
 when the tail is not enough.
 
+## Attribution
+
+A `failed` run also carries **which action wrote the line that killed it**
+(`prov-2026-27c10ac4`). The dead phase's log names files and lines; the
+ownership marker enclosing a line names the action, the variant, the kwargs it
+was rendered from and the record. The result file's `attribution` array is one
+entry per distinct file and line:
+
+```json
+{ "file": "db/groceries.go", "line": 48,
+  "action": "createQuery", "variant": "insert",
+  "record": "PR-014", "kwargs": {"table": "groceries"} }
+```
+
+It exists because a coarse run put five of ten Chi samples in `build`, which
+read as five identical deaths and was three distinct defects — and telling them
+apart took a hand trace across every failed sample's stored invocations, while
+the file, the line and the mapping were in the result the whole time.
+
+Four things about it:
+
+- **It is computed while the project still exists**, in the phase that captured
+  the log. Teardown deletes the tree, and a lookup that ran after it would have
+  nothing to read.
+- **The lookup is text.** Nothing parses the generated language, and the comment
+  prefix is not matched — only the `sedum:` keyword and whether a `/` precedes
+  it. A target for a new stack inherits attribution without writing any. Run it
+  alone with `./behave.sh --attribute <log> <project-dir>`.
+- **A line no marker encloses is unattributed, not guessed at.** The compiler
+  often names the file template's own text — the first of two declarations is
+  the template's line, not the injected one — and reaching for the nearest
+  marker would blame an action that did not write it. A reference the project
+  does not hold at all (a `host:port`, a version string, a toolchain path) is
+  dropped rather than reported.
+- **Nothing is fed back to the model.** `TOOL_BOUNDARIES.md` 2–3 puts building
+  and grading above Sedum rather than inside it. This adds a column to a
+  measurement; a selection made before it and one made after are the same
+  selection.
+
+The report counts actions per sample, not per line: a build naming one action on
+three lines is one sample dying in that action. Three samples dying in one
+action and three dying in three are the different findings.
+
+An entry drawn before this existed carries no attribution and reads as absent
+rather than as a build no action was responsible for.
+
 ## The stub model
 
 `stub_model.py` is an OpenAI-compatible endpoint that always returns the same
