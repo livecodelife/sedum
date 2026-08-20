@@ -1,6 +1,6 @@
 id: prov-2026-4c49ca46
 title: Phase 3 reconciles an existing file with its template, or halts
-status: draft
+status: open
 created_at: "2026-08-19"
 author: calebcowen@gmail.com
 intent: |
