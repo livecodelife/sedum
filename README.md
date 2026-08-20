@@ -73,6 +73,51 @@ it by hand, and replay it forever.
 
 ---
 
+## Installing
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/livecodelife/sedum/main/install.sh | sh
+```
+
+Resolves your platform, downloads the release archive, **verifies it against the
+release's published `checksums.txt`**, and installs into `$HOME/.local/bin`. Set
+`SEDUM_INSTALL_DIR` to install elsewhere and `SEDUM_VERSION` to pin a version
+rather than take the latest.
+
+With Go:
+
+```sh
+go install github.com/livecodelife/sedum/cmd/sedum@latest
+```
+
+Or download an archive from [Releases](https://github.com/livecodelife/sedum/releases)
+and check it against `checksums.txt` yourself. Builds are published for
+linux and darwin on amd64 and arm64; they are static, with no runtime dependency.
+
+### Pinning a version
+
+`sedum --version` emits a bare semver and nothing else, so a caller checking a
+version floor does not have to strip a prefix:
+
+```sh
+sedum --version
+```
+
+```
+0.1.0
+```
+
+It is the same string a recording carries in `sedum_version`, so the binary's
+answer and the artifact's cannot disagree. A release whose tag does not match
+that value does not publish — CI checks the tag against the constant in
+`internal/recording/version.go` and fails rather than stamping over it.
+
+Sedum is pre-1.0. The six surfaces a tool built on top of it depends on are
+listed in [TOOL_BOUNDARIES.md](TOOL_BOUNDARIES.md); until 1.0, pin a minor range
+(`>=0.1.0,<0.2.0`) rather than assuming they are frozen.
+
+---
+
 ## Building and running
 
 Requires Go 1.25 or newer.

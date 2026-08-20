@@ -7,7 +7,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/calebcowen/sedum/internal/transform"
+	"github.com/livecodelife/sedum/internal/transform"
 )
 
 // The YAML shapes of a generator package's two declaration files, and the

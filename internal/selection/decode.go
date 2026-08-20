@@ -7,7 +7,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/calebcowen/sedum/internal/recording"
+	"github.com/livecodelife/sedum/internal/recording"
 )
 
 // Decoding the model's response.

@@ -9,9 +9,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/calebcowen/sedum/internal/genpkg"
-	"github.com/calebcowen/sedum/internal/record"
-	"github.com/calebcowen/sedum/internal/runlog"
+	"github.com/livecodelife/sedum/internal/genpkg"
+	"github.com/livecodelife/sedum/internal/record"
+	"github.com/livecodelife/sedum/internal/runlog"
 )
 
 // Phases 2 and 3 are where a path stops being a string and becomes a file on

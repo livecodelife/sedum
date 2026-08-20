@@ -5,14 +5,14 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/calebcowen/sedum/internal/expand"
-	"github.com/calebcowen/sedum/internal/genpkg"
-	"github.com/calebcowen/sedum/internal/inject"
-	"github.com/calebcowen/sedum/internal/record"
-	"github.com/calebcowen/sedum/internal/recording"
-	"github.com/calebcowen/sedum/internal/resolve"
-	"github.com/calebcowen/sedum/internal/runlog"
-	"github.com/calebcowen/sedum/internal/selection"
+	"github.com/livecodelife/sedum/internal/expand"
+	"github.com/livecodelife/sedum/internal/genpkg"
+	"github.com/livecodelife/sedum/internal/inject"
+	"github.com/livecodelife/sedum/internal/record"
+	"github.com/livecodelife/sedum/internal/recording"
+	"github.com/livecodelife/sedum/internal/resolve"
+	"github.com/livecodelife/sedum/internal/runlog"
+	"github.com/livecodelife/sedum/internal/selection"
 )
 
 // ReplayConfig is everything a replay needs.

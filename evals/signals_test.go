@@ -10,12 +10,12 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/calebcowen/sedum/internal/expand"
-	"github.com/calebcowen/sedum/internal/genpkg"
-	"github.com/calebcowen/sedum/internal/inject"
-	"github.com/calebcowen/sedum/internal/pipeline"
-	"github.com/calebcowen/sedum/internal/recording"
-	resolvepkg "github.com/calebcowen/sedum/internal/resolve"
+	"github.com/livecodelife/sedum/internal/expand"
+	"github.com/livecodelife/sedum/internal/genpkg"
+	"github.com/livecodelife/sedum/internal/inject"
+	"github.com/livecodelife/sedum/internal/pipeline"
+	"github.com/livecodelife/sedum/internal/recording"
+	resolvepkg "github.com/livecodelife/sedum/internal/resolve"
 )
 
 // railsSet loads the package set the todo-rails cases run against, so the

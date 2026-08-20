@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"sort"
 
-	"github.com/calebcowen/sedum/internal/recording"
+	"github.com/livecodelife/sedum/internal/recording"
 )
 
 // Binding scoring: what the model bound, against what the record says is

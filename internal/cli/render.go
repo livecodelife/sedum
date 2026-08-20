@@ -10,8 +10,8 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/calebcowen/sedum/internal/genpkg"
-	"github.com/calebcowen/sedum/internal/render"
+	"github.com/livecodelife/sedum/internal/genpkg"
+	"github.com/livecodelife/sedum/internal/render"
 )
 
 // renderResult is what one invocation's target rendering answers.

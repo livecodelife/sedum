@@ -17,7 +17,7 @@ package record
 import (
 	"errors"
 	"fmt"
-	"github.com/calebcowen/sedum/internal/pathpat"
+	"github.com/livecodelife/sedum/internal/pathpat"
 	"os"
 	"path"
 	"path/filepath"

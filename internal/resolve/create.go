@@ -7,8 +7,8 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/calebcowen/sedum/internal/render"
-	"github.com/calebcowen/sedum/internal/runlog"
+	"github.com/livecodelife/sedum/internal/render"
+	"github.com/livecodelife/sedum/internal/runlog"
 )
 
 // Options controls Phase 3.

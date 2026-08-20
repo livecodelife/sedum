@@ -21,11 +21,11 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/calebcowen/sedum/internal/genpkg"
-	"github.com/calebcowen/sedum/internal/inject"
-	"github.com/calebcowen/sedum/internal/recording"
-	"github.com/calebcowen/sedum/internal/render"
-	"github.com/calebcowen/sedum/internal/resolve"
+	"github.com/livecodelife/sedum/internal/genpkg"
+	"github.com/livecodelife/sedum/internal/inject"
+	"github.com/livecodelife/sedum/internal/recording"
+	"github.com/livecodelife/sedum/internal/render"
+	"github.com/livecodelife/sedum/internal/resolve"
 )
 
 // Expand resolves one record's invocations against the files that record

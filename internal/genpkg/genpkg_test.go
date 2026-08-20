@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/calebcowen/sedum/internal/transform"
+	"github.com/livecodelife/sedum/internal/transform"
 )
 
 // Load-time validation is where a generator package's mistakes are supposed to

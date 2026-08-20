@@ -5,7 +5,7 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/calebcowen/sedum/internal/genpkg"
+	"github.com/livecodelife/sedum/internal/genpkg"
 )
 
 // Anchors: where in a file an action's output belongs.

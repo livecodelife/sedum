@@ -1,0 +1,65 @@
+# Runs the suite on every push and pull request.
+#
+# Before prov-2026-4746d9ed there was no such workflow, so `go test ./...` had
+# never run anywhere but a developer's machine, and a tag would have published
+# whatever happened to be on main.
+
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Vet
+        run: go vet ./...
+
+      - name: Test
+        run: go test ./...
+
+      # Every target the release publishes is cross-compiled from one runner,
+      # so a build tag that only breaks on darwin/arm64 should break here and
+      # not during a release.
+      - name: Cross-compile every released target
+        env:
+          CGO_ENABLED: "0"
+        run: |
+          for target in linux/amd64 linux/arm64 darwin/amd64 darwin/arm64; do
+            echo "building $target"
+            GOOS=${target%/*} GOARCH=${target#*/} go build -trimpath -o /dev/null ./cmd/sedum
+          done
+
+  packaging:
+    name: Packaging
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate the release configuration
+        uses: goreleaser/goreleaser-action@v6
+        with:
+          version: "~> v2"
+          args: check
+
+      # The installer is piped into a shell by strangers. A syntax error in it
+      # is a broken install for everyone until someone notices.
+      - name: Check the installer parses as POSIX sh
+        run: |
+          sh -n install.sh
+          command -v shellcheck >/dev/null && shellcheck -s sh install.sh || true

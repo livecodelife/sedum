@@ -10,11 +10,11 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/calebcowen/sedum/internal/catalog"
-	"github.com/calebcowen/sedum/internal/expand"
-	"github.com/calebcowen/sedum/internal/genpkg"
-	"github.com/calebcowen/sedum/internal/recording"
-	"github.com/calebcowen/sedum/internal/resolve"
+	"github.com/livecodelife/sedum/internal/catalog"
+	"github.com/livecodelife/sedum/internal/expand"
+	"github.com/livecodelife/sedum/internal/genpkg"
+	"github.com/livecodelife/sedum/internal/recording"
+	"github.com/livecodelife/sedum/internal/resolve"
 )
 
 // Phase 4 is the only non-deterministic step in Sedum, and Phase 5 is what

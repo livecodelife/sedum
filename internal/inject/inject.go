@@ -19,8 +19,8 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/calebcowen/sedum/internal/genpkg"
-	"github.com/calebcowen/sedum/internal/runlog"
+	"github.com/livecodelife/sedum/internal/genpkg"
+	"github.com/livecodelife/sedum/internal/runlog"
 )
 
 // Invocation is one action resolved to the point where only writing is left:

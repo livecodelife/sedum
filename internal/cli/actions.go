@@ -8,8 +8,8 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/calebcowen/sedum/internal/catalog"
-	"github.com/calebcowen/sedum/internal/genpkg"
+	"github.com/livecodelife/sedum/internal/catalog"
+	"github.com/livecodelife/sedum/internal/genpkg"
 )
 
 func newActionsCommand() *cobra.Command {

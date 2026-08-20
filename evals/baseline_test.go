@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/calebcowen/sedum/internal/record"
+	"github.com/livecodelife/sedum/internal/record"
 )
 
 func todoRecord() *record.Record {

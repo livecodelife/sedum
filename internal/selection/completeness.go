@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/calebcowen/sedum/internal/expand"
+	"github.com/livecodelife/sedum/internal/expand"
 )
 
 // completeness is the one failure class Phase 5 is structurally blind to.

@@ -6,11 +6,11 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/calebcowen/sedum/internal/genpkg"
-	"github.com/calebcowen/sedum/internal/inject"
-	"github.com/calebcowen/sedum/internal/record"
-	"github.com/calebcowen/sedum/internal/recording"
-	"github.com/calebcowen/sedum/internal/resolve"
+	"github.com/livecodelife/sedum/internal/genpkg"
+	"github.com/livecodelife/sedum/internal/inject"
+	"github.com/livecodelife/sedum/internal/record"
+	"github.com/livecodelife/sedum/internal/recording"
+	"github.com/livecodelife/sedum/internal/resolve"
 )
 
 // The claim M5 exists to make is that one invocation lands correctly in two

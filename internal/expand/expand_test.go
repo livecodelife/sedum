@@ -7,9 +7,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/calebcowen/sedum/internal/genpkg"
-	"github.com/calebcowen/sedum/internal/recording"
-	"github.com/calebcowen/sedum/internal/resolve"
+	"github.com/livecodelife/sedum/internal/genpkg"
+	"github.com/livecodelife/sedum/internal/recording"
+	"github.com/livecodelife/sedum/internal/resolve"
 )
 
 // Phase 6 is the last deterministic step before anything is written. Its job is

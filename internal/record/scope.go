@@ -1,7 +1,7 @@
 package record
 
 import (
-	"github.com/calebcowen/sedum/internal/pathpat"
+	"github.com/livecodelife/sedum/internal/pathpat"
 )
 
 // Scope entries are patterns or paths, and telling them apart is what decides

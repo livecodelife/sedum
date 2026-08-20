@@ -1,4 +1,4 @@
-module github.com/calebcowen/sedum
+module github.com/livecodelife/sedum
 
 go 1.25.7
 

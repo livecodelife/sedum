@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/calebcowen/sedum/internal/genpkg"
-	"github.com/calebcowen/sedum/internal/inject"
+	"github.com/livecodelife/sedum/internal/genpkg"
+	"github.com/livecodelife/sedum/internal/inject"
 )
 
 // Reconciling an existing file with its file template (prov-2026-4c49ca46).

@@ -11,7 +11,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/calebcowen/sedum/internal/recording"
+	"github.com/livecodelife/sedum/internal/recording"
 )
 
 // An Entry is one run, recorded as it happened.

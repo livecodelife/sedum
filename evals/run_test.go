@@ -14,9 +14,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/calebcowen/sedum/internal/genpkg"
-	"github.com/calebcowen/sedum/internal/recording"
-	"github.com/calebcowen/sedum/internal/selection"
+	"github.com/livecodelife/sedum/internal/genpkg"
+	"github.com/livecodelife/sedum/internal/recording"
+	"github.com/livecodelife/sedum/internal/selection"
 )
 
 // The harness's own arithmetic is deterministic and is tested as such. Only the

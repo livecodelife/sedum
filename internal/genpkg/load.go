@@ -26,8 +26,8 @@ import (
 
 	"gopkg.in/yaml.v3"
 
-	"github.com/calebcowen/sedum/internal/pathpat"
-	"github.com/calebcowen/sedum/internal/transform"
+	"github.com/livecodelife/sedum/internal/pathpat"
+	"github.com/livecodelife/sedum/internal/transform"
 )
 
 const (

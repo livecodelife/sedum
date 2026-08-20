@@ -20,7 +20,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/calebcowen/sedum/internal/genpkg"
+	"github.com/livecodelife/sedum/internal/genpkg"
 )
 
 // Kwarg is one argument's declared schema, restated here rather than reused

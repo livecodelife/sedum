@@ -11,7 +11,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/calebcowen/sedum/internal/recording"
+	"github.com/livecodelife/sedum/internal/recording"
 )
 
 const (

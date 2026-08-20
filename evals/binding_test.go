@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/calebcowen/sedum/internal/recording"
+	"github.com/livecodelife/sedum/internal/recording"
 )
 
 // addColumnBinding is the expectation the rails fixture carries, authored from

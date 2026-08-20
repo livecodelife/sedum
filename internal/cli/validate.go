@@ -8,7 +8,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/calebcowen/sedum/internal/genpkg"
+	"github.com/livecodelife/sedum/internal/genpkg"
 )
 
 func newValidateCommand() *cobra.Command {

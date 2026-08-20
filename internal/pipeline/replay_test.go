@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/calebcowen/sedum/internal/recording"
+	"github.com/livecodelife/sedum/internal/recording"
 )
 
 // Replay enters at Phase 3 with resolution already decided, skips Phase 4

@@ -8,11 +8,11 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/calebcowen/sedum/internal/catalog"
-	"github.com/calebcowen/sedum/internal/expand"
-	"github.com/calebcowen/sedum/internal/genpkg"
-	"github.com/calebcowen/sedum/internal/recording"
-	"github.com/calebcowen/sedum/internal/resolve"
+	"github.com/livecodelife/sedum/internal/catalog"
+	"github.com/livecodelife/sedum/internal/expand"
+	"github.com/livecodelife/sedum/internal/genpkg"
+	"github.com/livecodelife/sedum/internal/recording"
+	"github.com/livecodelife/sedum/internal/resolve"
 )
 
 // Phase 5: deterministic validation of the model's output.

@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/calebcowen/sedum/internal/pathpat"
+	"github.com/livecodelife/sedum/internal/pathpat"
 )
 
 // test_paths is a declaration Sedum validates and does not act on

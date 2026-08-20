@@ -28,7 +28,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/calebcowen/sedum/internal/selection"
+	"github.com/livecodelife/sedum/internal/selection"
 )
 
 var (

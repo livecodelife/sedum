@@ -18,11 +18,11 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/calebcowen/sedum/internal/catalog"
-	"github.com/calebcowen/sedum/internal/expand"
-	"github.com/calebcowen/sedum/internal/recording"
-	"github.com/calebcowen/sedum/internal/resolve"
-	"github.com/calebcowen/sedum/internal/runlog"
+	"github.com/livecodelife/sedum/internal/catalog"
+	"github.com/livecodelife/sedum/internal/expand"
+	"github.com/livecodelife/sedum/internal/recording"
+	"github.com/livecodelife/sedum/internal/resolve"
+	"github.com/livecodelife/sedum/internal/runlog"
 )
 
 // Roles in a model conversation.

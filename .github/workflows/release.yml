@@ -1,0 +1,86 @@
+# Publishes a release when a v* tag is pushed.
+#
+# Sedum's version is a compile-time constant in internal/recording, not a value
+# stamped in by -ldflags — prov-2026-b5465dfa's reason is that a version injected
+# at link time is absent from `go build` and `go run`, which is exactly when
+# someone is developing against it.
+#
+# That leaves nothing about the build to make the tag and the constant agree, so
+# the `version` job below is what does. It reads the constant out of the source
+# and refuses to publish a tag that disagrees, rather than overwriting the
+# constant to match (prov-2026-4746d9ed).
+
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  version:
+    name: Tag matches the version constant
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Compare the tag to internal/recording/version.go
+        run: |
+          set -eu
+          constant=$(sed -n 's/^const Version = "\(.*\)"$/\1/p' internal/recording/version.go)
+          tag="${GITHUB_REF_NAME#v}"
+
+          if [ -z "$constant" ]; then
+            echo "could not read Version from internal/recording/version.go" >&2
+            exit 1
+          fi
+
+          if [ "$constant" != "$tag" ]; then
+            echo "tag ${GITHUB_REF_NAME} does not match Version = \"${constant}\"." >&2
+            echo "" >&2
+            echo "The binary reports the constant and a recording carries it in" >&2
+            echo "sedum_version, so publishing this tag would ship a ${tag} release" >&2
+            echo "whose binary answers ${constant}. Update the constant and re-tag." >&2
+            exit 1
+          fi
+
+          echo "tag ${GITHUB_REF_NAME} matches Version = \"${constant}\""
+
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - run: go test ./...
+
+  release:
+    name: Publish
+    # Both are preconditions, not neighbours: nothing is published until the
+    # suite passes and the tag is the one the binary will report.
+    needs: [version, test]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - uses: goreleaser/goreleaser-action@v6
+        with:
+          version: "~> v2"
+          args: release --clean
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

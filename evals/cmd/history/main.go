@@ -20,7 +20,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/calebcowen/sedum/evals"
+	"github.com/livecodelife/sedum/evals"
 )
 
 func main() {

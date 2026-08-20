@@ -7,8 +7,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/calebcowen/sedum/internal/catalog"
-	"github.com/calebcowen/sedum/internal/genpkg"
+	"github.com/livecodelife/sedum/internal/catalog"
+	"github.com/livecodelife/sedum/internal/genpkg"
 )
 
 // sedum actions is the authoring feedback loop for exposure and catalog

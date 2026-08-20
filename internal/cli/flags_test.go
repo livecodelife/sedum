@@ -11,7 +11,7 @@ import (
 	"github.com/spf13/pflag"
 	"regexp"
 
-	"github.com/calebcowen/sedum/internal/recording"
+	"github.com/livecodelife/sedum/internal/recording"
 )
 
 // The flag surface is contract, not convenience: PRD.md's CLI tables are

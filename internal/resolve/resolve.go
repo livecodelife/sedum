@@ -20,9 +20,9 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/calebcowen/sedum/internal/filetmpl"
-	"github.com/calebcowen/sedum/internal/genpkg"
-	"github.com/calebcowen/sedum/internal/record"
+	"github.com/livecodelife/sedum/internal/filetmpl"
+	"github.com/livecodelife/sedum/internal/genpkg"
+	"github.com/livecodelife/sedum/internal/record"
 )
 
 // defaultTemplate is the stem of the fallback file template. The one that

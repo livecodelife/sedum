@@ -9,7 +9,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/calebcowen/sedum/internal/selection"
+	"github.com/livecodelife/sedum/internal/selection"
 )
 
 // The pipeline's own job is ordering: each phase's output is the next phase's

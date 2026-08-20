@@ -10,9 +10,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/calebcowen/sedum/internal/pipeline"
-	"github.com/calebcowen/sedum/internal/recording"
-	"github.com/calebcowen/sedum/internal/selection"
+	"github.com/livecodelife/sedum/internal/pipeline"
+	"github.com/livecodelife/sedum/internal/recording"
+	"github.com/livecodelife/sedum/internal/selection"
 )
 
 // Sample is one run of one case against one model.

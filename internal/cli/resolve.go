@@ -9,9 +9,9 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/calebcowen/sedum/internal/pipeline"
-	"github.com/calebcowen/sedum/internal/resolve"
-	"github.com/calebcowen/sedum/internal/runlog"
+	"github.com/livecodelife/sedum/internal/pipeline"
+	"github.com/livecodelife/sedum/internal/resolve"
+	"github.com/livecodelife/sedum/internal/runlog"
 )
 
 func newResolveCommand() *cobra.Command {

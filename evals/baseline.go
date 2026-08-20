@@ -8,8 +8,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/calebcowen/sedum/internal/record"
-	"github.com/calebcowen/sedum/internal/selection"
+	"github.com/livecodelife/sedum/internal/record"
+	"github.com/livecodelife/sedum/internal/selection"
 )
 
 // baselineSystem is what the model is told it is doing.

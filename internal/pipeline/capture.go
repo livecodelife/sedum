@@ -1,8 +1,8 @@
 package pipeline
 
 import (
-	"github.com/calebcowen/sedum/internal/recording"
-	"github.com/calebcowen/sedum/internal/resolve"
+	"github.com/livecodelife/sedum/internal/recording"
+	"github.com/livecodelife/sedum/internal/resolve"
 )
 
 // Capture turns what a run resolved and decided into a recording.

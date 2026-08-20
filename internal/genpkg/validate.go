@@ -9,9 +9,9 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/calebcowen/sedum/internal/filetmpl"
-	"github.com/calebcowen/sedum/internal/pathpat"
-	"github.com/calebcowen/sedum/internal/render"
+	"github.com/livecodelife/sedum/internal/filetmpl"
+	"github.com/livecodelife/sedum/internal/pathpat"
+	"github.com/livecodelife/sedum/internal/render"
 )
 
 // The load-time checks. Each one reports every instance it finds rather than

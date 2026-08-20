@@ -5,7 +5,7 @@ package main
 import (
 	"os"
 
-	"github.com/calebcowen/sedum/internal/cli"
+	"github.com/livecodelife/sedum/internal/cli"
 )
 
 func main() {

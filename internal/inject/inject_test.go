@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/calebcowen/sedum/internal/genpkg"
+	"github.com/livecodelife/sedum/internal/genpkg"
 )
 
 // Phase 7 is where a rendered template stops being text and becomes a change to

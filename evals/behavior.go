@@ -12,7 +12,7 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/calebcowen/sedum/internal/recording"
+	"github.com/livecodelife/sedum/internal/recording"
 )
 
 // Applying a selection and seeing whether the result works.

@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/calebcowen/sedum/internal/genpkg"
+	"github.com/livecodelife/sedum/internal/genpkg"
 )
 
 // The catalog is the model's entire option set, and it is also what sedum

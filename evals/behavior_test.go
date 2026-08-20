@@ -10,7 +10,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/calebcowen/sedum/internal/recording"
+	"github.com/livecodelife/sedum/internal/recording"
 )
 
 // Behaviour is the only measurement here that runs somebody else's code, so

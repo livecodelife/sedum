@@ -11,11 +11,11 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/calebcowen/sedum/internal/inject"
-	"github.com/calebcowen/sedum/internal/pipeline"
-	"github.com/calebcowen/sedum/internal/recording"
-	"github.com/calebcowen/sedum/internal/runlog"
-	"github.com/calebcowen/sedum/internal/selection"
+	"github.com/livecodelife/sedum/internal/inject"
+	"github.com/livecodelife/sedum/internal/pipeline"
+	"github.com/livecodelife/sedum/internal/recording"
+	"github.com/livecodelife/sedum/internal/runlog"
+	"github.com/livecodelife/sedum/internal/selection"
 )
 
 func newGrowCommand() *cobra.Command {
