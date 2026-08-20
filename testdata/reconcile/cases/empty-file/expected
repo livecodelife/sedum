@@ -1,0 +1,9 @@
+class UserController < ApplicationController
+  # sedum:anchor:class_body_top
+
+  # sedum:anchor:class_body
+
+  private
+
+  # sedum:anchor:private_body
+end

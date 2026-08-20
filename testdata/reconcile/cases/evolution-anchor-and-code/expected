@@ -1,0 +1,14 @@
+class UserController < ApplicationController
+  # sedum:anchor:class_body_top
+
+  # sedum:anchor:class_body
+  # sedum:createControllerMethod:index {"tier":"owned","kwargs":{"controller":"users"}}
+  def index
+    @users = User.all
+  end
+  # /sedum:createControllerMethod:index
+
+  private
+
+  # sedum:anchor:private_body
+end

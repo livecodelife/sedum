@@ -227,17 +227,29 @@ related:
   - prov-2026-b5465dfa
 sealed_at_sha: ""
 associated_specs:
-  # Doc specs follow prov-2026-59535684's shape: the proof asserts the claims
-  # landed rather than that the files exist, so a rewording that drops one of
-  # these statements fails here. Both greps fail today, deliberately - they are
-  # the acceptance criteria, and they pass when the record is completable.
+  # The fixtures, not the prose. An earlier revision of this record proved
+  # itself with greps against PRD.md and TOOL_BOUNDARIES.md, which is the wrong
+  # artifact to depend on: those documents are reworded often and by records
+  # that have nothing to do with this one, so such a spec fails for reasons
+  # that are not about Phase 3.
+  #
+  # What does not drift is what Phase 3 must do to a given file. Every case in
+  # the corpus is a real input - a rails new scaffold, output rendered from
+  # railties' own generator template - paired with the exact bytes required
+  # back, or the diagnostic the halt must carry.
   #
   # The code spec is added when internal/resolve's test file for this exists,
-  # before implementation begins.
-  - path: PRD.md
-    run_command: grep -q "or halts" {{path}}
-  - path: TOOL_BOUNDARIES.md
-    run_command: grep -q "adopt" {{path}}
+  # before implementation begins. It reads this corpus rather than restating
+  # it, on the same reasoning as prov-2026-c6580f1e.
+  - path: testdata/reconcile/cases.json
+    run_command: >-
+      python3 -c "import json,os,sys; d=json.load(open(sys.argv[1]));
+      b=os.path.dirname(sys.argv[1])+'/cases';
+      [(_ for _ in ()).throw(SystemExit('bad case: '+c['name'])) for c in d['cases']
+      if not (os.path.isfile(b+'/'+c['name']+'/existing')
+      and os.path.isfile(b+'/'+c['name']+'/template') and c.get('why')
+      and (c.get('diagnostic') if c['outcome']=='halt'
+      else os.path.isfile(b+'/'+c['name']+'/expected')))]"
 associated_traces: []
 monitors: []
 tags:
