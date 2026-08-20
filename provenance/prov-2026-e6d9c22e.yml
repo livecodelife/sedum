@@ -1,0 +1,64 @@
+id: prov-2026-e6d9c22e
+title: The README describes the pipeline that exists
+status: draft
+created_at: "2026-08-20"
+author: calebcowen@gmail.com
+intent: |
+  Bring the README's account of what is built into line with what is built.
+
+  The Status section still said model invocation had not landed, listed Phases 4
+  and 5 as not built, `sedum actions` as stubbed, and `sedum grow` as working
+  only through `--stop-after files`. A standalone paragraph headed "Injection has
+  no command yet" described `--execute` as designed and unlanded. M7 shipped all
+  of it, and the CLI Surface section below already documented `--record` and
+  `--execute` in full - so the document contradicted itself, and the half a
+  reader meets first was the wrong half.
+
+  Phase 3's section described the create-if-absent rule that
+  [[prov-2026-4c49ca46]] replaced with reconciliation. That is not staleness of
+  emphasis but a false statement about behavior: a reader is told an existing
+  file is verified for markers and the run halts otherwise, when what happens is
+  that the template's additions are applied and the run halts only on content
+  the template cannot account for.
+
+  Four things had never been written down at all: `test_paths`
+  ([[prov-2026-3f01a02d]]), the conformance corpus ([[prov-2026-c6580f1e]]),
+  kwarg-targeted actions and anchor-based applicability
+  ([[prov-2026-14c832bf]]), and the duplicate-path check's move to Phase 4's
+  entry ([[prov-2026-dc227be7]]).
+
+  No new record is opened for those five decisions and none is reopened. They
+  are implemented and their reasoning is theirs; this record covers only the
+  document that describes them, which is why its affected_scope is one file.
+
+  One thing is stated in Status that the older text did not say: a model's
+  selection is the part of a run that is not reproducible by construction. Five
+  runs against a real record during this work varied at temperature zero -
+  dropping invocations, adding a defensible extra, and binding a literal kwarg
+  in a form the package did not intend. That is the case recordings exist for,
+  and a reader deciding whether to point this at a project should meet it in
+  Status rather than discover it.
+constraints:
+  - >-
+    Every command and flag the README shows must run as written against the
+    current binary. An example that errors is worse than no example.
+  - >-
+    No statement about a phase's behavior may describe a rule a later record
+    replaced.
+  - >-
+    Documenting an implemented decision does not reopen its record. This record
+    covers the document, not the decisions.
+affected_scope:
+  - README.md
+forbidden_scope: []
+type: blueprint
+supersedes: ""
+superseded_by: ""
+related: []
+sealed_at_sha: ""
+associated_specs:
+  - path: README.md
+    run_command: "sh -c '! grep -qiE \"no command yet|has not landed|create-if-absent|Stubbed|Not built\" \"$1\"' _"
+associated_traces: []
+monitors: []
+tags: [documentation]
