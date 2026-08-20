@@ -650,7 +650,7 @@ The reason travels with the rule, because a constraint recorded without its just
 
 ### The supported surface
 
-Five things, three of them file formats and two of them commands. Counting an addition rather than folding it into an existing row is deliberate: a surface that grows silently is one nobody audits.
+Six things: three file formats, two commands, and the corpus that makes one of the formats checkable. Counting an addition rather than folding it into an existing row is deliberate: a surface that grows silently is one nobody audits.
 
 | Surface | Direction | Who else authors it |
 |---|---|---|
@@ -659,6 +659,7 @@ Five things, three of them file formats and two of them commands. Counting an ad
 | **Recording** (JSON) | **written** and read | Sedum can write them too |
 | **`sedum grow --execute`** | invoked | — |
 | **`sedum render`** | invoked | — |
+| **`conformance/`** | read | Sedum's own tests read it too |
 
 Everything else — Sedum's packages, its internal vocabulary, the run log's shape, the `--stop-after` phase names — is internal and may change.
 
@@ -691,6 +692,16 @@ A tool built on Sedum sits **above** it, not after it. It calls Sedum; Sedum nev
 There is no callback, no hook, and no plugin point anywhere in the pipeline. Adding one would invert the direction and make Sedum's guarantees depend on code it does not control — every phase after model invocation is deterministic precisely because nothing foreign runs inside it.
 
 This is also what keeps Sedum independently runnable. Committing a recording as a standard service scaffold and replaying it needs no harness, no container, and no model server, and nothing in this section may make one a precondition.
+
+### The conformance corpus
+
+The rules below are prose, and prose constraining a durable on-disk format with more than one writer is the kind of constraint that gets discovered rather than followed. `conformance/markers/cases.json` states the checkable ones as data: golden marker lines, their expected parse results, and the expected **bytes** after emitting, re-emitting, and replacing.
+
+The marker is the only format in this table that a foreign tool writes into files Sedum will later re-read and rewrite with no validation gate in between. A misread `sedum.yaml` fails on the reader's side; a malformed recording is refused terminally at ingestion. A malformed marker corrupts state silently, and the first breakage looks like a bug in Sedum.
+
+Three properties make it worth being a surface rather than a test fixture. It is at the repository root rather than under `testdata/`, because `testdata/` is a Go convention that reads as one project's internal business and a stranger has no reason to look in it. It is language-neutral, because the audience is a writer who is not using Go — a corpus only a Go implementation can consume checks the one implementation that does not need checking. And **Sedum's own tests read it** rather than carrying a parallel copy, because a corpus that can go stale without failing a test will, and a stale corpus is worse than none: the party checking against it cannot tell.
+
+Every case cites the record that decided the behavior it pins, and a case is added when a decision is made rather than to raise coverage. Two of the rules below are file-level and cannot be expressed as a parse-and-emit golden; the corpus says so out loud rather than letting its existence imply they are covered.
 
 ### What a foreign writer may not do
 

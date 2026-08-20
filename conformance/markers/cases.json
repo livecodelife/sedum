@@ -1,0 +1,222 @@
+{
+  "format": "sedum.marker",
+  "corpus_version": 1,
+  "description": "Golden cases for Sedum's ownership marker format. Every case cites the record that decided the behavior it pins.",
+  "cases": [
+    {
+      "id": "parse/baseline-attribute-object",
+      "kind": "parse",
+      "decision": "prov-2026-72775ae5",
+      "why": "The attributes are a JSON object rather than positional fields, so that a field added later is an addition instead of a migration across every repository already carrying markers. Everything else in this corpus is a variation on this shape.",
+      "comment_prefix": "#",
+      "input": "# sedum:createControllerMethod:index {\"tier\":\"owned\",\"record\":\"PR-014\",\"kwargs\":{\"collection\":\"users\",\"controller\":\"users\"}}",
+      "parsed": {
+        "recognized": true,
+        "action": "createControllerMethod",
+        "variant": "index",
+        "tier": "owned",
+        "record": "PR-014",
+        "writer": "sedum",
+        "kwargs": {"collection": "users", "controller": "users"},
+        "extra": {}
+      }
+    },
+    {
+      "id": "parse/unknown-keys-are-retained-not-merely-tolerated",
+      "kind": "parse",
+      "decision": "prov-2026-72775ae5",
+      "why": "Ignoring a key on read and dropping it on write are different promises and only the first comes free. A reader that discards what it does not model reads correctly and destroys another writer's state on the next rewrite. Note also that a key the format models never appears among the retained ones, or it would be written twice.",
+      "comment_prefix": "#",
+      "input": "# sedum:createControllerMethod:index {\"tier\":\"owned\",\"record\":\"PR-9\",\"kwargs\":{\"controller\":\"users\"},\"harness_attempts\":3,\"verified_by\":\"spec/users.linespec\"}",
+      "parsed": {
+        "recognized": true,
+        "action": "createControllerMethod",
+        "variant": "index",
+        "tier": "owned",
+        "record": "PR-9",
+        "writer": "sedum",
+        "kwargs": {"controller": "users"},
+        "extra": {"harness_attempts": 3, "verified_by": "spec/users.linespec"}
+      }
+    },
+    {
+      "id": "round-trip/unknown-keys-survive-and-re-emission-is-stable",
+      "kind": "round_trip",
+      "decision": "prov-2026-72775ae5",
+      "why": "The whole promise, at byte level. Re-emitting must also be idempotent: parsing the output and emitting it again yields the same bytes, or a rerun churns the file without changing what the marker says.",
+      "comment_prefix": "#",
+      "input": "# sedum:createControllerMethod:index {\"tier\":\"owned\",\"record\":\"PR-9\",\"kwargs\":{\"controller\":\"users\"},\"harness_attempts\":3,\"verified_by\":\"spec/users.linespec\"}",
+      "parsed": {
+        "recognized": true,
+        "action": "createControllerMethod",
+        "variant": "index",
+        "tier": "owned",
+        "record": "PR-9",
+        "writer": "sedum",
+        "kwargs": {"controller": "users"},
+        "extra": {"harness_attempts": 3, "verified_by": "spec/users.linespec"}
+      },
+      "output": "# sedum:createControllerMethod:index {\"tier\":\"owned\",\"record\":\"PR-9\",\"kwargs\":{\"controller\":\"users\"},\"harness_attempts\":3,\"verified_by\":\"spec/users.linespec\"}"
+    },
+    {
+      "id": "round-trip/declared-keys-in-order-then-carried-keys-sorted",
+      "kind": "round_trip",
+      "decision": "prov-2026-72775ae5",
+      "why": "Modelled keys keep the order the format declares them; keys the reader did not model are appended in sorted order. Merging everything into one map and re-encoding would sort all of them and reshuffle the attribute object on every marker already on disk - semantically harmless and permanently destructive to a greppable audit trail. Note that a carried value is re-emitted verbatim: alpha's inner keys stay in the order they were read.",
+      "comment_prefix": "#",
+      "input": "# sedum:createControllerMethod:index {\"tier\":\"owned\",\"zeta\":1,\"alpha\":{\"b\":2,\"a\":1}}",
+      "parsed": {
+        "recognized": true,
+        "action": "createControllerMethod",
+        "variant": "index",
+        "tier": "owned",
+        "record": "",
+        "writer": "sedum",
+        "kwargs": {},
+        "extra": {"zeta": 1, "alpha": {"b": 2, "a": 1}}
+      },
+      "output": "# sedum:createControllerMethod:index {\"tier\":\"owned\",\"alpha\":{\"b\":2,\"a\":1},\"zeta\":1}"
+    },
+    {
+      "id": "round-trip/an-absent-writer-means-sedum-and-is-written-back-absent",
+      "kind": "round_trip",
+      "decision": "prov-2026-72775ae5",
+      "why": "writer names the tool that last wrote the region, so a demoted tier is attributable. It is omitted when that tool is Sedum, which keeps a marker Sedum writes byte-identical to one written before the key existed - so introducing the key rewrote nothing and no marker on disk needed migrating.",
+      "comment_prefix": "#",
+      "input": "# sedum:addImport {\"tier\":\"owned\"}",
+      "parsed": {
+        "recognized": true,
+        "action": "addImport",
+        "variant": "",
+        "tier": "owned",
+        "record": "",
+        "writer": "sedum",
+        "kwargs": {},
+        "extra": {}
+      },
+      "output": "# sedum:addImport {\"tier\":\"owned\"}"
+    },
+    {
+      "id": "emit/a-foreign-writer-names-itself",
+      "kind": "emit",
+      "decision": "prov-2026-72775ae5",
+      "why": "The other half of the writer key. A region reading seeded gives no way to tell whether a package author declared it or another tool demoted it; the writer is what makes the demotion attributable. It sits between record and kwargs.",
+      "comment_prefix": "#",
+      "marker": {
+        "action": "createControllerMethod",
+        "variant": "index",
+        "tier": "seeded",
+        "record": "prov-2026-4f2a",
+        "writer": "tendril",
+        "kwargs": {"controller": "users"},
+        "extra": {}
+      },
+      "output": "# sedum:createControllerMethod:index {\"tier\":\"seeded\",\"record\":\"prov-2026-4f2a\",\"writer\":\"tendril\",\"kwargs\":{\"controller\":\"users\"}}"
+    },
+    {
+      "id": "emit/a-carried-key-may-not-shadow-a-declared-one",
+      "kind": "emit",
+      "decision": "prov-2026-72775ae5",
+      "why": "This cannot arise from a marker the reader parsed - only from one a caller builds, which is to say only from a foreign writer, which is this corpus's audience. A carried key naming tier or kwargs is dropped rather than written a second time, and the modelled value is what survives. A carried key that shadows nothing is kept.",
+      "comment_prefix": "#",
+      "marker": {
+        "action": "createControllerMethod",
+        "variant": "",
+        "tier": "owned",
+        "record": "",
+        "writer": "",
+        "kwargs": {},
+        "extra": {"tier": "seeded", "kept": true, "kwargs": {"controller": "impostor"}}
+      },
+      "output": "# sedum:createControllerMethod {\"tier\":\"owned\",\"kept\":true}"
+    },
+    {
+      "id": "emit/kwargs-keys-are-sorted-and-carried-values-are-verbatim",
+      "kind": "emit",
+      "decision": "prov-2026-72775ae5",
+      "why": "The two halves of the object are encoded on different terms, and a writer that treats them alike produces churn. kwargs is modelled, so its keys are emitted in sorted order whatever order they were supplied in. A carried value is not modelled and is copied through byte for byte, whitespace compacted and key order untouched.",
+      "comment_prefix": "#",
+      "marker": {
+        "action": "createModel",
+        "variant": "",
+        "tier": "owned",
+        "record": "",
+        "writer": "",
+        "kwargs": {"table": "users", "name": "user", "module": "admin"},
+        "extra": {"lens": {"z": 1, "a": 2}}
+      },
+      "output": "# sedum:createModel {\"tier\":\"owned\",\"kwargs\":{\"module\":\"admin\",\"name\":\"user\",\"table\":\"users\"},\"lens\":{\"z\":1,\"a\":2}}"
+    },
+    {
+      "id": "emit/the-attribute-object-is-not-html-escaped",
+      "kind": "emit",
+      "decision": "prov-2026-b6fa093c",
+      "why": "A marker is read by people and by grep, so it should say what the region was rendered from. Escaping &, < and > is meant for JSON embedded in a web page and is wrong here: a Go generic bound or a C++ template argument would be recorded as a run of escapes. The escaped form round-trips correctly, so nothing breaks - which is exactly why a writer defaulting to it would never notice.",
+      "comment_prefix": "//",
+      "marker": {
+        "action": "createHandler",
+        "variant": "",
+        "tier": "owned",
+        "record": "",
+        "writer": "",
+        "kwargs": {"bound": "List<User>", "receiver": "&t.ID"},
+        "extra": {}
+      },
+      "output": "// sedum:createHandler {\"tier\":\"owned\",\"kwargs\":{\"bound\":\"List<User>\",\"receiver\":\"&t.ID\"}}"
+    },
+    {
+      "id": "replace/a-replacement-carries-the-previous-markers-unknown-keys",
+      "kind": "replace",
+      "decision": "prov-2026-72775ae5",
+      "why": "The correction that made preservation real. A rewrite builds a fresh marker from what is being written and renders it over the region, so retaining unknown keys on read is only half the promise - without carrying them onto the marker being written, every annotation another tool left is read correctly and then written away on the very next rerun. Nothing else comes from the old marker: tier, record, writer and kwargs describe the region as it is now.",
+      "comment_prefix": "#",
+      "existing": "# sedum:createControllerMethod:index {\"tier\":\"owned\",\"record\":\"PR-014\",\"kwargs\":{\"controller\":\"users\"},\"harness_attempts\":2,\"verified_by\":\"spec/users.linespec\"}",
+      "marker": {
+        "action": "createControllerMethod",
+        "variant": "index",
+        "tier": "owned",
+        "record": "PR-092",
+        "writer": "",
+        "kwargs": {"controller": "users"},
+        "extra": {}
+      },
+      "output": "# sedum:createControllerMethod:index {\"tier\":\"owned\",\"record\":\"PR-092\",\"kwargs\":{\"controller\":\"users\"},\"harness_attempts\":2,\"verified_by\":\"spec/users.linespec\"}"
+    },
+    {
+      "id": "error/an-unreadable-attribute-object-is-corruption",
+      "kind": "error",
+      "decision": "prov-2026-72775ae5",
+      "why": "Leniency is about version skew, not about corruption, and the opposite reading is the natural one for anyone who has just been told the object is an extension point. An object that is not JSON at all is a broken marker rather than a marker from the future, because the object's encoding is the committed shape. The failure must name the marker it could not read.",
+      "comment_prefix": "#",
+      "input": "# sedum:createControllerMethod:index {\"tier\":",
+      "error": true,
+      "error_names": "createControllerMethod:index"
+    },
+    {
+      "id": "parse/an-anchor-declaration-is-not-an-ownership-marker",
+      "kind": "parse",
+      "decision": "prov-2026-42f5eedd",
+      "why": "Anchor declarations and ownership markers share the sedum: namespace, so a reader scanning for regions has to tell them apart. An anchor read as an ownership marker makes the first region after it appear to close an action named anchor. The consequence is that anchor is not available as an action name.",
+      "comment_prefix": "#",
+      "input": "# sedum:anchor:class_body",
+      "parsed": {"recognized": false}
+    },
+    {
+      "id": "emit/the-closing-line-carries-the-same-label-and-no-attributes",
+      "kind": "close",
+      "decision": "prov-2026-b6fa093c",
+      "why": "A region is delimited by an opening marker and a closing one carrying the same action:variant label. The close line carries no attribute object - the state lives on the open line, so annotating a region never means touching two places.",
+      "comment_prefix": "#",
+      "marker": {
+        "action": "createControllerMethod",
+        "variant": "index",
+        "tier": "owned",
+        "record": "",
+        "writer": "",
+        "kwargs": {},
+        "extra": {}
+      },
+      "output": "# /sedum:createControllerMethod:index"
+    }
+  ]
+}

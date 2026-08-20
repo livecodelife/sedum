@@ -121,8 +121,13 @@ that party is not experiencing it. The same party authors these formats and is
 their most privileged consumer, so the rule that we eat the same food is the
 only thing standing between the surface and quiet insufficiency.
 
-Five surfaces, counted as five rather than folded into four, because a surface
-that grows silently is one nobody audits.
+Six surfaces, counted as six rather than folded into fewer, because a surface
+that grows silently is one nobody audits. `sedum render` was added under
+`prov-2026-b5465dfa`; `conformance/` under `prov-2026-c6580f1e`, which is the
+answer to the objection this section's own rule invites — if nobody may link
+Sedum to borrow its implementation of a format, checkability is the whole of
+what a stranger gets, and leaving it as prose is a gap in the surface rather
+than in the documentation.
 
 | Surface | Read/write | Who else authors it |
 |---|---|---|
@@ -131,6 +136,7 @@ that grows silently is one nobody audits.
 | **Recording** (JSON) | harness **writes**, Sedum reads | Sedum can write them too |
 | **`sedum grow --execute`** | harness invokes | — |
 | **`sedum render`** | harness invokes | — |
+| **`conformance/`** | harness reads | Sedum's own tests read it too |
 
 **"What exists?"** — grep the markers. ODQ §13's world-state scan is a filesystem
 walk requiring nothing from Sedum's process.
@@ -281,6 +287,15 @@ choice is not recoverable from disk. Still open.
 At minimum: do not remove or relocate a template-planted marker; do not reorder
 regions within a file; preserve unknown marker keys in both directions. Unwritten,
 these become discovered constraints, and the first breakage looks like a Sedum bug.
+
+**Written, and the checkable ones mechanized** (`prov-2026-59535684` for the
+prose, `prov-2026-c6580f1e` for the corpus). `conformance/markers/cases.json`
+pins the key-preservation rule at byte level in both directions, plus the
+carry-forward through the replacement path, declared-then-sorted emission, the
+shadowing rejection, and corruption-versus-skew. The two file-level rules —
+relocating a planted marker, reordering regions — are not expressible as a
+parse-and-emit golden and stay prose; the corpus's README names them as
+unmechanized rather than letting the corpus's existence imply otherwise.
 
 ---
 

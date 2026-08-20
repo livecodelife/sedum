@@ -198,121 +198,16 @@ func TestParserIsLenient(t *testing.T) {
 	}
 }
 
-// Ignoring an unknown key on read and dropping it on write are different
-// promises, and only the first one comes free. The marker is a public format:
-// another tool annotates a region with its own state and needs that state to
-// still be there after Sedum rewrites the region (prov-2026-72775ae5).
-func TestUnrecognisedAttributesSurviveTheRoundTrip(t *testing.T) {
-	const line = `# sedum:createControllerMethod:index ` +
-		`{"tier":"owned","record":"PR-9","kwargs":{"controller":"users"},` +
-		`"harness_attempts":3,"verified_by":"spec/users.linespec"}`
-
-	parsed, ok, err := parseOpen("#", line)
-	if err != nil {
-		t.Fatalf("parseOpen: %v", err)
-	}
-	if !ok {
-		t.Fatalf("line was not recognized as a marker: %s", line)
-	}
-
-	if got := string(parsed.Extra["harness_attempts"]); got != "3" {
-		t.Errorf("harness_attempts retained as %q, want 3", got)
-	}
-	if got := string(parsed.Extra["verified_by"]); got != `"spec/users.linespec"` {
-		t.Errorf("verified_by retained as %q, want the spec path it was written with", got)
-	}
-
-	// A key Sedum models is bound to its field and never lands in Extra,
-	// where it would be written a second time.
-	for _, declared := range []string{"tier", "record", "kwargs", "writer"} {
-		if _, carried := parsed.Extra[declared]; carried {
-			t.Errorf("declared key %q was also carried as an unrecognised one", declared)
-		}
-	}
-
-	written, err := parsed.Open("#")
-	if err != nil {
-		t.Fatalf("Open: %v", err)
-	}
-	for _, want := range []string{`"harness_attempts":3`, `"verified_by":"spec/users.linespec"`} {
-		if !strings.Contains(written, want) {
-			t.Errorf("rewritten marker dropped %s:\n%s", want, written)
-		}
-	}
-
-	// The second trip has to be stable too, or a rerun would churn the file
-	// without changing what the marker says.
-	again, ok, err := parseOpen("#", written)
-	if err != nil || !ok {
-		t.Fatalf("parseOpen on the rewritten marker = %v, %v", ok, err)
-	}
-	stable, err := again.Open("#")
-	if err != nil {
-		t.Fatalf("Open: %v", err)
-	}
-	if stable != written {
-		t.Errorf("rewriting a marker twice is not stable:\n%s\n%s", written, stable)
-	}
-}
-
-// Sedum does not know what a carried key means, which is the point of it. It is
-// written back exactly as it was read rather than re-encoded, and the keys
-// Sedum does model keep the order they have always been written in, so that
-// introducing preservation rewrites no marker that has none.
-func TestCarriedAttributesAreWrittenVerbatimAndLast(t *testing.T) {
-	parsed, _, err := parseOpen("#", `# sedum:createControllerMethod:index `+
-		`{"tier":"owned","zeta":1,"alpha":{"b":2,"a":1}}`)
-	if err != nil {
-		t.Fatalf("parseOpen: %v", err)
-	}
-
-	written, err := parsed.Open("#")
-	if err != nil {
-		t.Fatalf("Open: %v", err)
-	}
-
-	const want = `# sedum:createControllerMethod:index {"tier":"owned","alpha":{"b":2,"a":1},"zeta":1}`
-	if written != want {
-		t.Errorf("marker written as\n  %s\nwant\n  %s", written, want)
-	}
-}
-
-// A carried key may not shadow one Sedum models. It cannot arise from a marker
-// Sedum parsed, but Marker is an ordinary struct any caller may build, and an
-// attribute object naming tier twice is worse than one naming it once.
-func TestCarriedAttributesCannotShadowDeclaredOnes(t *testing.T) {
-	m := Marker{
-		Action: "createControllerMethod",
-		Tier:   TierOwned,
-		Extra: map[string]json.RawMessage{
-			"tier":   json.RawMessage(`"seeded"`),
-			"kept":   json.RawMessage(`true`),
-			"kwargs": json.RawMessage(`{"controller":"impostor"}`),
-		},
-	}
-
-	written, err := m.Open("#")
-	if err != nil {
-		t.Fatalf("Open: %v", err)
-	}
-	if strings.Count(written, `"tier"`) != 1 {
-		t.Errorf("tier appears more than once in the attribute object:\n%s", written)
-	}
-	if strings.Contains(written, "impostor") {
-		t.Errorf("a carried kwargs key overwrote the modelled one:\n%s", written)
-	}
-	if !strings.Contains(written, `"kept":true`) {
-		t.Errorf("a carried key that shadows nothing was dropped:\n%s", written)
-	}
-
-	parsed, _, err := parseOpen("#", written)
-	if err != nil {
-		t.Fatalf("parseOpen: %v", err)
-	}
-	if parsed.Tier != TierOwned {
-		t.Errorf("tier = %q, want the modelled value rather than the shadowing one", parsed.Tier)
-	}
-}
+// The four cases that used to be spelled out here as Go literals now live in
+// conformance/markers/cases.json and are driven by conformance_test.go
+// (prov-2026-c6580f1e): unknown-key retention through the round trip, declared
+// order then sorted carried keys, the shadowing rejection, and an unreadable
+// attribute object being corruption rather than version skew.
+//
+// They moved because they are the format's public rules and had no mechanical
+// statement a stranger could check. Keeping a copy here would defeat that: a
+// corpus maintained beside the tests it duplicates goes stale within a release,
+// and the party checking against it is the one least able to notice.
 
 // The writer names the tool that last wrote a region, so that a demoted tier is
 // attributable: seeded alone cannot say whether a package author declared it or
@@ -382,19 +277,6 @@ func TestWriterAndCarriedAttributesAreNotPartOfIdentity(t *testing.T) {
 	}
 	if a != b {
 		t.Errorf("annotating a region changed its identity:\n%+v\n%+v", a, b)
-	}
-}
-
-// Leniency is about version skew, not about corruption. An attribute object
-// that is not JSON at all is a broken marker rather than a marker from the
-// future, because the object's encoding is the committed shape.
-func TestUnreadableAttributesAreAnError(t *testing.T) {
-	_, _, err := parseOpen("#", `# sedum:createControllerMethod:index {"tier":`)
-	if err == nil {
-		t.Fatal("a marker carrying unreadable attributes was accepted")
-	}
-	if !strings.Contains(err.Error(), "createControllerMethod:index") {
-		t.Errorf("error does not name the marker it could not read: %v", err)
 	}
 }
 
