@@ -98,7 +98,9 @@ Specs as **generator-package regression fixtures** is the most interesting use. 
 
 **Additive change to a Sedum-generated file** is nearly free: Phase 3 becomes create-if-absent, verify-markers-if-present. A record saying "add destroy" resolves to `createControllerMethod(name: destroy)` injected at the existing marker. This likely covers most real update traffic.
 
-**Additive change to a file Sedum didn't create** has no markers. Hard-error, and offer an `adopt` path that inserts markers only where the file's skeleton still literally matches a file template. Anything fuzzier needs structure inference, which means a parser, which is the thing avoided everywhere else.
+**Additive change to a file Sedum didn't create** has no markers. ~~Hard-error, and offer an `adopt` path that inserts markers only where the file's skeleton still literally matches a file template.~~ **Settled in `prov-2026-4c49ca46`, and larger than this proposed.** Phase 3 reconciles any existing file with its template: where every difference is something the template adds, the template is applied; otherwise the run halts. The bound proposed here — markers only, and only on a literal skeleton match — was too narrow in both directions. A file template is the boilerplate its author wants every time, so a rule that plants an anchor and refuses the keyword it depends on produces a broken file; and a literal match refuses a scaffolded file whose divergence is entirely in comments. Structure inference is still avoided: the comparison is over lines, and the only knowledge involved is the package's declared `comment_prefix`.
+
+Where `adopt` lives is no longer open. The automatable half is Phase 3's; the rest is a handoff.
 
 ### Changes inside the parameter space
 

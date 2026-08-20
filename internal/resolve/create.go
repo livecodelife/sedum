@@ -6,10 +6,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
-	"strconv"
-	"strings"
 
-	"github.com/calebcowen/sedum/internal/genpkg"
 	"github.com/calebcowen/sedum/internal/render"
 	"github.com/calebcowen/sedum/internal/runlog"
 )
@@ -101,14 +98,14 @@ func createOne(res Resolution, opts Options, log *runlog.Log) (File, error) {
 			"authorized path %s is a directory in the output tree; Sedum cannot create a file there", res.Path)
 
 	case err == nil:
-		// Create-if-absent. Re-rendering would destroy whatever has been
-		// injected into the file since it was generated, which is what makes
-		// stopping and resuming a run an ordinary workflow.
+		// The file is never re-rendered over. Whatever has been injected into
+		// it since it was generated survives, which is what makes stopping and
+		// resuming a run an ordinary workflow. What may happen is that the
+		// lines its template adds are written in (prov-2026-4c49ca46).
 		file.Existed = true
-		if err := checkMarkers(res, full, rendered); err != nil {
+		if err := reconcileExisting(res, full, rendered, opts, log); err != nil {
 			return File{}, err
 		}
-		log.Info("file already exists, left as it is", "path", res.Path, "package", res.Package.Name)
 		return file, nil
 
 	case !errors.Is(err, fs.ErrNotExist):
@@ -183,31 +180,47 @@ func Render(res Resolution, variables map[string]string) (string, error) {
 	return out, nil
 }
 
-// checkMarkers verifies that a file which already exists carries the markers
-// its template plants. Injection points exist because a file template created
-// them, so a file missing them is one no action can be applied to.
-func checkMarkers(res Resolution, full, rendered string) error {
+// reconcileExisting brings a file that is already on disk up to its template,
+// or halts.
+//
+// A path with no matching template is left alone. There is nothing to reconcile
+// against, and a package that ships no boilerplate for an extension is a
+// supported shape rather than a problem - the same reasoning that makes an
+// unmatched path create an empty file rather than an error.
+func reconcileExisting(res Resolution, full, rendered string, opts Options, log *runlog.Log) error {
+	if res.Template == "" || rendered == "" {
+		log.Info("file already exists and its package ships no template for this path, so it is left as it is",
+			"path", res.Path, "package", res.Package.Name)
+		return nil
+	}
+
 	data, err := os.ReadFile(full)
 	if err != nil {
 		return fmt.Errorf("read %s: %w", res.Path, err)
 	}
 
-	missing := genpkg.MissingMarkers(res.Package.CommentPrefix, rendered, string(data))
-	if len(missing) == 0 {
+	result, err := reconcile(res.Package.CommentPrefix, res.Path, res.Template, string(data), rendered)
+	if err != nil {
+		return err
+	}
+	if result.Inserted == 0 {
+		log.Info("file already exists and carries everything its template declares, left as it is",
+			"path", res.Path, "package", res.Package.Name, "template", res.Template)
 		return nil
 	}
-	return fmt.Errorf(
-		"file %s exists but does not carry %s planted by its file template %s; either something other than Sedum wrote it, or the template changed shape after it was generated",
-		res.Path, markerList(missing), res.Template)
-}
 
-func markerList(names []string) string {
-	quoted := make([]string, 0, len(names))
-	for _, n := range names {
-		quoted = append(quoted, strconv.Quote(n))
+	// Reported rather than done quietly. Applying a template can add lines a
+	// team did not write, and a team adopting Sedum into a repository has to be
+	// able to read what it did to their files (prov-2026-4c49ca46).
+	log.Info("file already exists; wrote in the lines its template adds",
+		"path", res.Path, "package", res.Package.Name, "template", res.Template,
+		"lines", result.Inserted)
+
+	if opts.DryRun {
+		return nil
 	}
-	if len(names) == 1 {
-		return "marker " + quoted[0]
+	if err := os.WriteFile(full, []byte(result.Content), 0o644); err != nil {
+		return fmt.Errorf("write %s: %w", res.Path, err)
 	}
-	return "markers " + strings.Join(quoted, ", ")
+	return nil
 }

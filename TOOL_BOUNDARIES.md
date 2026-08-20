@@ -446,7 +446,14 @@ demonstrates it must, not before (`prov-2026-b5465dfa`).
 **Whether the duplicate-path check applies under `--execute`** (§6.2 ⚠︎). In
 M7's scope, in `prov-2026-dc227be7`.
 
-**Where `adopt` lives** (ODQ §3).
+~~**Where `adopt` lives** (ODQ §3).~~ **Dissolved, not answered**
+(`prov-2026-4c49ca46`). The question assumed a command, and asked whether
+marker-writing over source Sedum did not generate belongs to Sedum or to the
+tool above it. The automatable part turns out not to be a command at all: it is
+what Phase 3 does when an authorized path already exists, which is reconcile the
+file with its template or halt. What is left after a halt is a person or a
+caller deciding what to do with content Sedum declined to guess at, and that is
+a handoff rather than a capability, so nothing needs to own it.
 
 **Whether `unmanaged` entries should carry a reason** — not for the human/agent
 distinction, which rarely matters, but a harness deciding whether to queue a path

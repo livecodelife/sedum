@@ -250,8 +250,11 @@ func TestResolveDoesNotConsultTheWorkingDirectory(t *testing.T) {
 	}
 }
 
-// grow keeps the check, because it has an --output flag to aim it with.
-func TestGrowStillReportsAFileMissingItsMarkers(t *testing.T) {
+// grow keeps the check, because it has an --output flag to aim it with. What it
+// reports changed with prov-2026-4c49ca46: a file lacking its markers is now
+// reconciled where the template accounts for it, and this one is not - the
+// class it declares is not the class the template does.
+func TestGrowStillReportsAFileItCannotReconcile(t *testing.T) {
 	dir := t.TempDir()
 	if err := os.MkdirAll(filepath.Join(dir, "app", "controllers"), 0o755); err != nil {
 		t.Fatal(err)
@@ -268,5 +271,5 @@ func TestGrowStillReportsAFileMissingItsMarkers(t *testing.T) {
 		"--log", filepath.Join(t.TempDir(), "run.log"),
 		"--stop-after", "files")
 
-	wantErr(t, err, "users_controller.rb", "class_body")
+	wantErr(t, err, "users_controller.rb", "class SomethingElse", "no counterpart")
 }

@@ -392,7 +392,11 @@ func TestExistingFilesAreNotReRendered(t *testing.T) {
 // A file that exists but lacks its template's markers was written by something
 // other than Sedum, or its template changed shape after it was generated.
 // Either way the injections aimed at it will not land.
-func TestExistingFileMissingItsMarkersHalts(t *testing.T) {
+// A file that lacks the markers its template plants used to halt the run. It
+// now takes them, provided the template accounts for everything else the file
+// contains - which here it does, because the file is the template's own shape
+// without its injection points (prov-2026-4c49ca46).
+func TestExistingFileGainsWhatItsTemplateAdds(t *testing.T) {
 	set := loadPackages(t, generators())
 	out := t.TempDir()
 
@@ -408,9 +412,53 @@ func TestExistingFileMissingItsMarkersHalts(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Packages: %v", err)
 	}
+	if _, err := Create(resolutions, Options{Output: out}); err != nil {
+		t.Fatalf("Create: %v", err)
+	}
+
+	got, err := os.ReadFile(full)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(got), "sedum:anchor:class_body") {
+		t.Errorf("the file did not gain the marker its template plants:\n%s", got)
+	}
+	// What the file already had is untouched. Nothing is ever removed.
+	if !strings.Contains(string(got), "class User") {
+		t.Errorf("reconciling changed a line the file already had:\n%s", got)
+	}
+}
+
+// The halt survives, for a file carrying something the template has no
+// counterpart for. What Sedum will not do is decide what that content was for.
+func TestExistingFileTheTemplateCannotAccountForHalts(t *testing.T) {
+	set := loadPackages(t, generators())
+	out := t.TempDir()
+
+	full := filepath.Join(out, "app/models/user.rb")
+	if err := os.MkdirAll(filepath.Dir(full), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(full, []byte("class User\n  def slug\n  end\nend\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	resolutions, _, err := Paths(set, records(t, "app/models/user.rb"), nil)
+	if err != nil {
+		t.Fatalf("Packages: %v", err)
+	}
 	_, err = Create(resolutions, Options{Output: out})
 
-	wantErr(t, err, "app/models/user.rb", "app/models/{name}.rb", "class_body")
+	wantErr(t, err, "app/models/user.rb", "app/models/{name}.rb", "def slug", "no counterpart")
+
+	// A halt writes nothing, so a file the run refuses is the file it found.
+	got, err := os.ReadFile(full)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(got) != "class User\n  def slug\n  end\nend\n" {
+		t.Errorf("a refused file was modified anyway:\n%s", got)
+	}
 }
 
 // A dry run reports every decision and writes nothing, which is what makes

@@ -33,7 +33,7 @@
     {
       "name": "rails-generate-actions",
       "outcome": "halt",
-      "diagnostic": "replace at file line 2, replace at file line 5",
+      "diagnostic": "line 2, \"def index\", has no counterpart",
       "source": "`rails generate controller Todos index show`",
       "why": "The hand-written def index and def show are exactly what createControllerMethod injects into the actions region. Whether they should become owned regions is a question Sedum cannot answer, so it must not guess.",
       "comment_prefix": "#",
@@ -49,7 +49,7 @@
     {
       "name": "private-with-method",
       "outcome": "halt",
-      "diagnostic": "replace at file line 4",
+      "diagnostic": "line 4, \"def set_todo\", has no counterpart",
       "why": "Refused because of def set_todo, not because of private. The distinction matters: a file may carry the template's structure, but not body content the template has no counterpart for.",
       "comment_prefix": "#",
       "language": "ruby"
@@ -71,7 +71,7 @@
     {
       "name": "edited-boilerplate",
       "outcome": "halt",
-      "diagnostic": "replace at file line 1",
+      "diagnostic": "line 1, \"class UserController < BaseController\", has no counterpart",
       "why": "Someone changed the superclass of a generated file. The template is no longer a description of it, and reconciling would overwrite a decision a person made.",
       "comment_prefix": "#",
       "language": "ruby"
@@ -79,7 +79,7 @@
     {
       "name": "default-template",
       "outcome": "halt",
-      "diagnostic": "replace at file line 1",
+      "diagnostic": "line 1, \"Rails.application.routes.draw do\", has no counterpart",
       "why": "A _default template is one marker and nothing else, so it shares no structure with any real file. The low-structure case refuses itself rather than needing a rule against it.",
       "comment_prefix": "#",
       "language": "ruby"
@@ -110,7 +110,7 @@
       "comment_prefix": "//",
       "language": "go",
       "outcome": "halt",
-      "diagnostic": "replace at file line 1",
+      "diagnostic": "line 1, \"package handler\", has no counterpart",
       "why": "Someone changed the package clause of a generated file. Halting is not a Ruby behaviour."
     },
     {

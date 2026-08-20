@@ -223,6 +223,10 @@ constraints:
 affected_scope:
   - internal/resolve/**
   - internal/genpkg/**
+  # Two tests assert the semantics this record replaces. The resolve one is a
+  # file that halted for lacking a marker and now takes it; the cli one still
+  # halts and says something different. Both are inside M3's and M6's scope.
+  - internal/cli/resolve_test.go
   - PRD.md
   - TOOL_BOUNDARIES.md
   - OPEN_QUESTIONS.md
@@ -254,6 +258,9 @@ associated_specs:
   # The code spec is added when internal/resolve's test file for this exists,
   # before implementation begins. It reads this corpus rather than restating
   # it, on the same reasoning as prov-2026-c6580f1e.
+  # The code spec, reading the corpus rather than restating it.
+  - path: internal/resolve/reconcile_test.go
+    run_command: go test -count=1 ./$(dirname {{path}})
   - path: testdata/reconcile/cases.json
     run_command: >-
       python3 -c "import json,os,sys; d=json.load(open(sys.argv[1]));

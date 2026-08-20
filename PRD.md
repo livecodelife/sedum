@@ -435,9 +435,26 @@ The unmanaged check runs *before* extension resolution, not after, because the p
 
 For each authorized path: match it against its package's `files/` tree, bind captured segments, render the matched template, and write the file. Fall back to `_default`, then to an empty file with a log line.
 
-**Phase 3 is create-if-absent.** If a path already exists, Sedum does not re-render its template over it — doing so would destroy any injected regions the file already carries. It verifies that the markers the matched template declares are present and moves on. A file that exists but lacks its template's markers is a hard error: something other than Sedum wrote it, or a template changed shape after the file was generated.
+**A file that already exists is reconciled with its template, or the run halts.** Sedum never re-renders a template over an existing file — that would destroy whatever has been injected into it. What it does is compare the two and write in whatever the template adds.
 
-This makes reruns safe, which matters because stopping and resuming a run is a normal workflow rather than an edge case.
+The file is decomposed first: its **skeleton** is the file with every marked region removed, so what is compared is the boilerplate rather than the boilerplate plus what has been injected into it. The skeleton is aligned against the rendered template on **structural** lines — a line is structural unless it is blank or begins with the package's declared `comment_prefix`, and a marker is structural because it is the thing being planted. That declaration is the only knowledge involved; nothing here parses a line.
+
+**If every difference is something the template adds, the template is applied. Otherwise the run halts**, naming the file and the first line the template has no counterpart for. Formally the condition is that the file's structural lines are a subsequence of the template's: if each appears in the template in order, the template contains everything the file does and the difference is what it adds.
+
+This covers four situations that used to be one error:
+
+- A file carrying everything its template declares is left exactly as it is.
+- An **empty** file takes its whole template. It has nothing to destroy, which is the reason this phase is create-if-absent to begin with.
+- A file **another tool wrote** takes the template where the template accounts for it — a scaffolded routes file gains its anchor; a controller carrying hand-written actions does not, because whether those should become owned regions is not Sedum's to decide.
+- A file an **earlier run generated** takes what its template has gained since. Without this a package author's anchor vocabulary is frozen after first use.
+
+The unit is the template, not the marker. A file template is the boilerplate its author wants every time, so planting an anchor while refusing the keyword it depends on would produce a file worse than either applying the template or refusing it.
+
+Two properties follow from applying only insertions. Whitespace between two lines the file and the template share is the same whitespace, so the template's arrangement of it governs; where the file has anything else there — a comment its author wrote — that is theirs, and what the template adds goes after it rather than over it. And an edit script that only inserts cannot tell a template that grew from a file that lost a line, so a line deleted from a file's boilerplate is restored. That is the intended reading: the operation brings a file's skeleton back to its template, and it is what enforces the rule against removing a planted marker.
+
+**What was written into each existing file is reported.** Applying a template can add lines a team did not write, and a team adopting Sedum into a repository has to be able to read what it did rather than discover it.
+
+This makes reruns safe, which matters because stopping and resuming a run is a normal workflow rather than an edge case. A second run over a reconciled file changes nothing.
 
 **Nothing is created that a provenance record did not authorize.** There is no sibling expansion and no inference of companion files. If a C++ record names `src/user_controller.cpp` but omits `include/user_controller.hpp`, the header is not created, and the injection targeting it fails loudly in Phase 7.
 
