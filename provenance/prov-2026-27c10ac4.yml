@@ -1,6 +1,6 @@
 id: prov-2026-27c10ac4
 title: Attribute a dead build phase to the action whose region the compiler named
-status: draft
+status: open
 created_at: "2026-08-19"
 author: calebcowen@gmail.com
 intent: |
@@ -99,7 +99,19 @@ superseded_by: ""
 related:
   - prov-2026-0cc65e62
 sealed_at_sha: ""
-associated_specs: []
+associated_specs:
+  # Attribution is a text lookup over markers the harness already writes, so it
+  # is deterministic and provable without a model: a captured log tail and a
+  # rendered tree with known markers exercise the enclosing-pair search, the
+  # unattributed case, and the several-lines-several-actions count.
+  - path: evals/behavior_test.go
+    run_command: go test -count=1 ./$(dirname {{path}})
+  # Where the schema rule is proved: an entry drawn before this field reads as
+  # absent rather than as none.
+  - path: evals/results_test.go
+    run_command: go test -count=1 ./$(dirname {{path}})
+  - path: evals/behavior/README.md
+    run_command: test -f {{path}}
 associated_traces: []
 monitors: []
 tags: []
