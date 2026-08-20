@@ -18,6 +18,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"sort"
+	"strings"
 
 	"github.com/calebcowen/sedum/internal/genpkg"
 )
@@ -106,6 +107,27 @@ type Action struct {
 	// path is the package's - it binds arguments so the package's own pattern
 	// lands somewhere the record authorized (prov-2026-1bbb8e2e).
 	InjectsInto []string `json:"injects_into,omitempty"`
+
+	// Anchor names the injection point each of those targets writes into, in
+	// the same order, exactly as the package author declared it.
+	//
+	// It is here because injects_into conflates two things: which file an
+	// action targets, and what naming convention identifies that file. For a
+	// structure-creating action the two coincide and the pattern says
+	// everything. For a file-agnostic action the file is genuinely a
+	// parameter, and a package may declare its target to be a kwarg -
+	// injects_into: "{{file}}" - rather than write one action per file group
+	// (prov-2026-14c832bf).
+	//
+	// A bare pattern renders to whatever it is handed, so it discriminates
+	// nothing. What restores the discrimination is that an action is
+	// applicable to a file whose template plants the marker it is anchored to,
+	// which is the rule Phase 5 checks and the one a caller doing its own
+	// selection applies to the same end.
+	//
+	// Every entry carries it, not only the free-target ones. The catalog is
+	// the contract; which consumer is shown what is that consumer's rendering.
+	Anchor []string `json:"anchor,omitempty"`
 
 	// Requires names values this action's template renders on every
 	// invocation, beyond whatever the kwarg schema declares required. It is
@@ -204,7 +226,7 @@ func entry(pkg *genpkg.Package, action *genpkg.Action, opts Options) Action {
 		_, out.HasDefault = action.Templates[genpkg.DefaultVariant]
 	}
 
-	out.InjectsInto = targets(pkg, action)
+	out.InjectsInto, out.Anchor = targets(pkg, action)
 	out.Requires, out.VariantRequires = requirements(pkg, action)
 
 	if opts.IncludeUnexposed && !action.Exposed {
@@ -214,27 +236,88 @@ func entry(pkg *genpkg.Package, action *genpkg.Action, opts Options) Action {
 	return out
 }
 
-// targets collects the patterns an action's invocation will render.
+// targets collects the patterns an action's invocation will render, and the
+// anchor each one writes into.
+//
+// The two are returned together and stay index-aligned, because separately
+// derived lists a consumer is expected to zip are a defect waiting for a
+// composite whose children differ. Load requires both fields on every
+// non-composite action, so a child contributes to both lists or to neither.
 //
 // A composite has none of its own and takes its children's, in execution order,
 // because that is what makes one selection visibly touch two files. A child a
 // package does not define cannot reach here - load rejects the package - so the
 // lookup is a filter rather than a check restated.
-func targets(pkg *genpkg.Package, action *genpkg.Action) []string {
+func targets(pkg *genpkg.Package, action *genpkg.Action) (patterns, anchors []string) {
 	if action.Kind() != genpkg.Composite {
 		if action.InjectsInto == "" {
-			return nil
+			return nil, nil
 		}
-		return []string{action.InjectsInto}
+		return []string{action.InjectsInto}, []string{action.Anchor}
 	}
 
-	var out []string
 	for _, name := range action.Composes {
 		child, ok := pkg.Actions[name]
 		if !ok || child.InjectsInto == "" {
 			continue
 		}
-		out = append(out, child.InjectsInto)
+		patterns = append(patterns, child.InjectsInto)
+		anchors = append(anchors, child.Anchor)
+	}
+	return patterns, anchors
+}
+
+// FreeTarget reports whether the pattern at index i is a bare kwarg reference -
+// an action whose target is a parameter rather than a convention.
+//
+// The test is that the whole pattern is one placeholder with no literal text
+// around it. A pattern with any fixed segment still constrains where it can
+// land; one without constrains nothing.
+func (a Action) FreeTarget(i int) bool {
+	if i >= len(a.InjectsInto) {
+		return false
+	}
+	p := a.InjectsInto[i]
+	return strings.HasPrefix(p, "{{") && strings.HasSuffix(p, "}}") &&
+		!strings.Contains(p[2:], "{{")
+}
+
+// ForPrompt renders the catalog as the model receives it.
+//
+// One difference from the contract: a bare injects_into is dropped, because to
+// the model it is noise - a pattern that matches anything says nothing about
+// which file to bind, and showing it invites the inversion the pattern exists
+// to prevent. What the model reads instead is the anchor, against the injection
+// points the file list already names.
+//
+// It is emphatically not a schema change, and the distinction is the rule for
+// every addition after this one. The JSON is the contract, and a caller doing
+// its own selection needs the bare pattern kept: a present-but-bare target is
+// how it tells a parameterized target apart from an action with no target
+// pattern at all, and deleting it would delete the only signal separating them
+// (prov-2026-14c832bf). What any single consumer is shown is that consumer's
+// rendering, and a prompt-side omission must never be implemented as a field
+// removed from the JSON.
+func ForPrompt(c Catalog) Catalog {
+	out := Catalog{Actions: make([]Action, len(c.Actions))}
+	for i, action := range c.Actions {
+		if len(action.InjectsInto) == 0 {
+			out.Actions[i] = action
+			continue
+		}
+
+		kept := make([]string, 0, len(action.InjectsInto))
+		for j, pattern := range action.InjectsInto {
+			if action.FreeTarget(j) {
+				continue
+			}
+			kept = append(kept, pattern)
+		}
+		if len(kept) == 0 {
+			kept = nil
+		}
+		action.InjectsInto = kept
+		out.Actions[i] = action
 	}
 	return out
 }

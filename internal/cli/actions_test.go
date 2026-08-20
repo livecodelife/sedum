@@ -59,7 +59,10 @@ func TestActionsHidesUnexposedUnlessAsked(t *testing.T) {
 	if strings.Contains(plain, "\naddHandlerFunc") || strings.Contains(plain, "[unexposed]") {
 		t.Errorf("an unexposed action reached the default catalog as its own entry:\n%s", plain)
 	}
-	if !strings.Contains(plain, "2 action(s), 2 exposed") {
+	// Three exposed: the composite, the pattern-targeted addImport, and the
+	// free-target addImportTo the fixture carries so that both target forms
+	// have a worked example (prov-2026-14c832bf).
+	if !strings.Contains(plain, "3 action(s), 3 exposed") {
 		t.Errorf("the default catalog should hold only the exposed actions:\n%s", plain)
 	}
 
@@ -70,7 +73,7 @@ func TestActionsHidesUnexposedUnlessAsked(t *testing.T) {
 	if !strings.Contains(all, "addHandlerFunc") || !strings.Contains(all, "[unexposed]") {
 		t.Errorf("--all should include hidden actions, marked:\n%s", all)
 	}
-	if !strings.Contains(all, "2 exposed to the model") {
+	if !strings.Contains(all, "3 exposed to the model") {
 		t.Errorf("--all should still say how many the model would see:\n%s", all)
 	}
 }

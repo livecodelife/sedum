@@ -34,3 +34,19 @@ actions:
       path: { type: string, required: true }
     injects_into: "internal/handlers/{{resource|snake}}.go"
     anchor: imports
+
+  # The other target form. An action's target may be a kwarg rather than a
+  # convention, which is what lets one file-agnostic action serve every file
+  # group instead of one action per group (prov-2026-14c832bf).
+  #
+  # Both forms are here deliberately. addImport above encodes its target as a
+  # path pattern and can only ever reach a handler; this one is aimed by its
+  # caller and is applicable to any file whose template plants an "imports"
+  # marker. Nothing in sedum.yaml gates the choice - a package that wants only
+  # convention-driven layout simply declares no action shaped like this.
+  addImportTo:
+    kwargs:
+      file: { type: string, required: true, description: "The file to import into. It must be one of the authorized files, and it must carry an imports injection point." }
+      path: { type: string, required: true, description: "The import path, without quotes." }
+    injects_into: "{{file}}"
+    anchor: imports

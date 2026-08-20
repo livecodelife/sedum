@@ -278,6 +278,9 @@ affected_scope:
   - internal/catalog/**
   - internal/selection/**
   - internal/cli/actions.go
+  # The fixture package gains a free-target action, so the catalog this test
+  # counts gains an entry. Both are inside M6's scope.
+  - internal/cli/actions_test.go
   - testdata/**
   - PRD.md
 forbidden_scope: []

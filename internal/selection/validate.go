@@ -3,6 +3,7 @@ package selection
 import (
 	"fmt"
 	"math"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -54,6 +55,16 @@ const (
 	RuleMissingDerivedKwarg = "missing_derived_kwarg"
 	// RuleVariant names a discriminator bound to a value with no template.
 	RuleVariant = "variant"
+	// RuleAnchorUnplanted names an invocation aimed at a file whose template
+	// plants no marker for the action's anchor.
+	//
+	// It is an error rather than a warning, and that is strictly a softening:
+	// Phase 7 already hard-errors on this exact case, so checking it here is
+	// the same failure, earlier, and re-promptable. It exists because a
+	// free-target action can be aimed anywhere, and applicability that used to
+	// be implied by a path pattern has to be stated by the anchor instead
+	// (prov-2026-14c832bf).
+	RuleAnchorUnplanted = "anchor_unplanted"
 	// RuleUnauthorizedPath names an invocation whose rendered target is not a
 	// path the record authorizes.
 	RuleUnauthorizedPath = "unauthorized_path"
@@ -128,7 +139,14 @@ func validateOne(cat catalog.Catalog, packages []*genpkg.Package, files []resolv
 		return violations
 	}
 
-	return checkTargets(packages, files, inv, index)
+	if violations := checkTargets(packages, files, inv, index); len(violations) > 0 {
+		return violations
+	}
+
+	// Applicability is checked last, because it presupposes a rendered path
+	// that is authorized. An action aimed at a path outside the record should
+	// hear about the record, not about what that file's template plants.
+	return checkAnchors(packages, files, inv, index)
 }
 
 // resolveEntry finds the catalog entry an invocation names.
@@ -421,6 +439,147 @@ func checkTargets(packages []*genpkg.Package, files []resolve.File, inv recordin
 		}}
 	}
 	return nil
+}
+
+// checkAnchors rejects an invocation aimed at a file that has nowhere to put it.
+//
+// An action's anchor declares the kind of region it needs, and a file template
+// declares which regions the files it creates carry. The action is applicable
+// to a file whose template plants its marker, and to no other. That used to be
+// approximated by the target pattern - addBeforeFilter could not be aimed at a
+// migration because the path would not render to one - and an action whose
+// target is a kwarg has no such guard. This is the replacement, and it is
+// better than what it replaces: it states the precondition rather than
+// approximating it by directory, and it catches a path that matches the pattern
+// but whose file carries no such region (prov-2026-14c832bf).
+//
+// Planted markers come from what Phase 3 actually rendered, through the same
+// computation the completeness pass uses (prov-2026-6d87dc11). Nothing is
+// inferred from what a package's declarations say a file ought to contain.
+func checkAnchors(packages []*genpkg.Package, files []resolve.File, inv recording.Invocation, index int) []Violation {
+	entry, err := anchoredTargets(packages, files, inv)
+	if err != nil {
+		// checkTargets has already passed, so this cannot be a caller's
+		// fault. Reporting it as a violation would blame the model for a
+		// defect in a later phase.
+		return nil
+	}
+
+	// Only files this run rendered can be spoken about. A path with no
+	// matching template, an unmanaged one, or one no phase produced content
+	// for is a path Sedum has observed nothing about, and claiming an anchor
+	// is missing from it would be an assertion about a file rather than a
+	// reading of one. Phase 7 remains the backstop for those.
+	observed := map[string]bool{}
+	for _, f := range files {
+		if !f.Unmanaged && f.Package != nil && f.Rendered != "" {
+			observed[f.Path] = true
+		}
+	}
+
+	planted := map[string][]string{}
+	for _, a := range expand.Planted(files) {
+		planted[a.Path] = append(planted[a.Path], a.Marker)
+	}
+
+	var out []Violation
+	for _, t := range entry {
+		if t.anchor == "" || !observed[t.path] || slices.Contains(planted[t.path], t.anchor) {
+			continue
+		}
+
+		// The two cases have different fixes, so the diagnostic distinguishes
+		// them - the same distinction the unmanaged check draws between
+		// declared unmanaged and never created. A file whose template plants
+		// nothing at all is a legitimate shape: a _default template or an
+		// extension fallback is boilerplate for paths no action targets.
+		detail := fmt.Sprintf("%s injects at anchor %q, but %s carries no injection point named %q",
+			t.action, t.anchor, t.path, t.anchor)
+		if len(planted[t.path]) == 0 {
+			detail += "; its file template plants no injection points at all, so no action can write into it"
+		} else {
+			detail += fmt.Sprintf("; it carries %s", strings.Join(planted[t.path], ", "))
+		}
+
+		out = append(out, Violation{
+			Index:  index,
+			Action: inv.Action,
+			Rule:   RuleAnchorUnplanted,
+			Detail: detail,
+		})
+	}
+	return out
+}
+
+// anchoredTarget pairs one rendered path with the anchor the action writing
+// into it declares.
+type anchoredTarget struct {
+	action string
+	path   string
+	anchor string
+}
+
+// anchoredTargets zips the paths an invocation renders with the anchors that
+// wrote them.
+//
+// The two lists come from different places - expand renders the paths, the
+// package declares the anchors - and they are aligned by the one thing that
+// orders both: a composite's children in execution order, a plain action being
+// the single-element case. A length mismatch is not diagnosed here, because it
+// would mean expand and this walk disagree about what a composite composes,
+// which is a defect rather than a selection fault.
+func anchoredTargets(packages []*genpkg.Package, files []resolve.File, inv recording.Invocation) ([]anchoredTarget, error) {
+	paths, err := expand.Targets(packages, files, inv)
+	if err != nil {
+		return nil, err
+	}
+
+	pkg, action, err := lookupAction(packages, inv.Action)
+	if err != nil {
+		return nil, err
+	}
+
+	children := []*genpkg.Action{action}
+	if action.Kind() == genpkg.Composite {
+		children = nil
+		for _, name := range action.Composes {
+			child, ok := pkg.Actions[name]
+			if !ok || child.InjectsInto == "" {
+				continue
+			}
+			children = append(children, child)
+		}
+	}
+	if len(children) != len(paths) {
+		return nil, fmt.Errorf("action %s rendered %d paths for %d children", inv.Action, len(paths), len(children))
+	}
+
+	out := make([]anchoredTarget, 0, len(children))
+	for i, child := range children {
+		anchor, ok := child.MarkerAnchor()
+		if !ok {
+			// start_of_file, end_of_file and the match anchors name no
+			// region a file can be observed to be missing.
+			anchor = ""
+		}
+		out = append(out, anchoredTarget{action: child.Name, path: paths[i], anchor: anchor})
+	}
+	return out, nil
+}
+
+// lookupAction finds the one package declaring an action.
+//
+// It restates expand's lookup rather than reaching for it, because expand
+// exports the rendering and not the resolution. The rule it applies is the one
+// load already guarantees: an action name is unique across the packages a
+// record's files resolved to, or nothing says which one is meant.
+func lookupAction(packages []*genpkg.Package, name string) (*genpkg.Package, *genpkg.Action, error) {
+	for _, pkg := range packages {
+		if action, ok := pkg.Actions[name]; ok {
+			return pkg, action, nil
+		}
+	}
+	return nil, nil, fmt.Errorf("no action named %q is declared by the packages this record resolved to", name)
 }
 
 // typeOf maps a decoded JSON value onto the closed kwarg type set.

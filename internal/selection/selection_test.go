@@ -155,6 +155,60 @@ transforms:
 	}
 }
 
+// freeGenerators adds a package whose action's target is a kwarg rather than a
+// convention, plus three templates that differ in what they plant: one carrying
+// the anchor that action needs, one carrying a different anchor, and a fallback
+// carrying none. Those are the three answers Phase 5's applicability check has
+// to tell apart (prov-2026-14c832bf).
+//
+// It is a separate package rather than an action added to rails, so that
+// planting a new anchor cannot change what the completeness pass reports about
+// the fixtures every other test in this file is built on.
+func freeGenerators() map[string]string {
+	files := generators()
+	files["free/sedum.yaml"] = `name: free
+extensions: [".ts"]
+comment_prefix: "//"
+`
+	files["free/files/src/{name}.ts"] = "// sedum:anchor:imports\n"
+	files["free/files/config/{name}.ts"] = "// sedum:anchor:settings\n"
+	files["free/files/_default.ts"] = "// generated\n"
+	files["free/actions/actions.yaml"] = `actions:
+  addImport:
+    kwargs:
+      file: { type: string, required: true }
+      symbol: { type: string, required: true }
+    injects_into: "{{file}}"
+    anchor: imports
+
+  setOption:
+    kwargs:
+      file: { type: string, required: true }
+      key: { type: string, required: true }
+    injects_into: "{{file}}"
+    anchor: settings
+`
+	files["free/actions/addImport.ts"] = "import { {{symbol}} }\n"
+	files["free/actions/setOption.ts"] = "// {{key}}\n"
+	return files
+}
+
+// rendered builds the Phase 3 output for a path, carrying what the file was
+// created with. created leaves that empty, which is the right default for the
+// tests that predate it - a file whose content this run did not produce is one
+// Sedum has observed nothing about.
+func rendered(t *testing.T, set *genpkg.Set, path, pkgName, content string) resolve.File {
+	t.Helper()
+	pkg, ok := set.Lookup(pkgName)
+	if !ok {
+		t.Fatalf("package %q did not load", pkgName)
+	}
+	return resolve.File{
+		Resolution: resolve.Resolution{RecordID: "PR-014", Path: path, Package: pkg},
+		Rendered:   content,
+	}
+}
+
 func loadSet(t *testing.T, files map[string]string) *genpkg.Set {
 	t.Helper()
 
@@ -1321,5 +1375,119 @@ func TestValidateAcceptsACorrectInvocation(t *testing.T) {
 		{Action: "createControllerMethod", Kwargs: map[string]any{"controller": "users", "name": "index", "collection": "users"}},
 	}); len(violations) > 0 {
 		t.Errorf("a correct invocation was rejected: %v", violations)
+	}
+}
+
+// An action's anchor declares the region kind it needs, and a file template
+// declares which regions the files it creates carry. Applicability is the
+// relation between them, checked per invocation now that a target can be
+// aimed rather than derived (prov-2026-14c832bf).
+func TestAnActionAimedAtAFileThatCarriesADifferentAnchorIsRejected(t *testing.T) {
+	set := loadSet(t, freeGenerators())
+	req := Request{
+		RecordID: "PR-014",
+		Intent:   "Import the settings helper.",
+		Files: []resolve.File{
+			rendered(t, set, "config/app.ts", "free", "// sedum:anchor:settings\n"),
+		},
+	}
+
+	wantViolation(t, req,
+		`{"invocations":[{"action":"addImport","kwargs":{"file":"config/app.ts","symbol":"Helper"}}]}`,
+		RuleAnchorUnplanted, "config/app.ts", "imports", "settings")
+}
+
+// The two cases have different fixes, so the diagnostic distinguishes them. A
+// file whose template plants nothing is a legitimate shape - a fallback
+// template is boilerplate for paths no action targets - and telling an author
+// it is missing one anchor would send them looking for the wrong thing.
+func TestAFileThatPlantsNoAnchorsAtAllSaysSo(t *testing.T) {
+	set := loadSet(t, freeGenerators())
+	req := Request{
+		RecordID: "PR-014",
+		Intent:   "Import the settings helper.",
+		Files: []resolve.File{
+			rendered(t, set, "notes.ts", "free", "// generated\n"),
+		},
+	}
+
+	wantViolation(t, req,
+		`{"invocations":[{"action":"addImport","kwargs":{"file":"notes.ts","symbol":"Helper"}}]}`,
+		RuleAnchorUnplanted, "no injection points at all")
+}
+
+func TestAnActionAimedAtAFileCarryingItsAnchorIsAccepted(t *testing.T) {
+	set := loadSet(t, freeGenerators())
+	req := Request{
+		RecordID: "PR-014",
+		Intent:   "Import the settings helper.",
+		Files: []resolve.File{
+			rendered(t, set, "src/app.ts", "free", "// sedum:anchor:imports\n"),
+		},
+	}
+
+	invocations, _, err := selectWith(t, req, 0,
+		`{"invocations":[{"action":"addImport","kwargs":{"file":"src/app.ts","symbol":"Helper"}}]}`)
+	if err != nil {
+		t.Fatalf("a free-target action aimed at a file carrying its anchor was rejected: %v", err)
+	}
+	if len(invocations) != 1 {
+		t.Fatalf("got %d invocations, want 1", len(invocations))
+	}
+}
+
+// Only files this run rendered can be spoken about. A path Sedum produced no
+// content for is one it has observed nothing about, and asserting an anchor is
+// missing from it would be a claim rather than a reading. Phase 7 stays the
+// backstop there, which is where this case landed before the check existed.
+func TestAFileThisRunDidNotRenderIsNotJudged(t *testing.T) {
+	set := loadSet(t, freeGenerators())
+	req := Request{
+		RecordID: "PR-014",
+		Intent:   "Import the settings helper.",
+		Files:    created(t, set, "src/app.ts@free"),
+	}
+
+	if _, _, err := selectWith(t, req, 0,
+		`{"invocations":[{"action":"addImport","kwargs":{"file":"src/app.ts","symbol":"Helper"}}]}`); err != nil {
+		t.Fatalf("a file with no rendered content was judged anyway: %v", err)
+	}
+}
+
+// A free-target action's pattern says nothing about which file to aim it at, so
+// the file list has to. Without this the model is told an anchor and given no
+// way to find a file that carries one.
+func TestThePromptNamesEachFilesInjectionPoints(t *testing.T) {
+	set := loadSet(t, freeGenerators())
+	req := Request{
+		RecordID: "PR-014",
+		Intent:   "Import the settings helper.",
+		Files: []resolve.File{
+			rendered(t, set, "src/app.ts", "free", "// sedum:anchor:imports\n"),
+			rendered(t, set, "notes.ts", "free", "// generated\n"),
+		},
+	}
+
+	packages := expand.Packages(req.Files)
+	messages, err := Prompt(req, catalog.Build(packages, catalog.Options{}))
+	if err != nil {
+		t.Fatalf("Prompt: %v", err)
+	}
+	user := messages[len(messages)-1].Content
+
+	if !strings.Contains(user, "src/app.ts (package free; injection points: imports)") {
+		t.Errorf("the file list does not name the anchors a file carries:\n%s", user)
+	}
+	// A file carrying none is still listed, and says nothing it does not know.
+	if !strings.Contains(user, "notes.ts (package free)") {
+		t.Errorf("a file carrying no anchors was described as if it did:\n%s", user)
+	}
+
+	// The bare pattern is suppressed for the model and the anchor is not.
+	if strings.Contains(user, `"{{file}}"`) {
+		t.Errorf("the prompt shows a bare target pattern:\n%s", user)
+	}
+	if !strings.Contains(user, `"anchor"`) {
+		t.Errorf("the prompt does not carry the anchor:\n%s", user)
 	}
 }

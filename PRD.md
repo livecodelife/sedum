@@ -171,6 +171,8 @@ File templates plant the markers that action anchors target. This closes the loo
 
 At load time, Sedum checks each action's marker-based anchor against the markers present in its package's file templates. Because template selection is path-dependent, this cannot be a complete verification — but an action referencing a marker that appears in no template in its package is almost certainly a typo. This produces a warning.
 
+That is the coarsest form of a question Phase 5 asks precisely. Load time knows only the package, so it can ask whether *any* template plants the marker; once an invocation names a target the same question narrows to that file, and the answer is an error rather than a warning. The load-time check is not superseded by it — a package with a mistyped anchor should not have to reach a run to find out.
+
 ---
 
 ## Action Definitions
@@ -199,6 +201,31 @@ actions:
 ```
 
 `kwargs` is the schema the model is held to. Types come from a closed set — `string`, `int`, `bool`, `list` — sufficient for argument binding and nothing more.
+
+### Targets: a convention or an argument
+
+`injects_into` answers two questions at once — *which file does this action write to*, and *what naming convention identifies that file*. For a structure-creating action the two coincide: `createControllerMethod` only ever means a controller, and the pattern is exactly right.
+
+For a file-agnostic action they come apart, and the pattern is a cost. An `addImport` whose template is target-independent still needs one definition per file group — `addModelImport`, `addControllerImport`, `addSerializerImport` — identical in kwargs and template body, differing only in a path. The authoring duplication is the visible cost; the real one is catalog quality, because Phase 4 is handed near-identical entries whose only discriminator is a name encoding a fact the model has to infer. It scales multiplicatively: file-agnostic actions times file groups.
+
+So an action may declare its target to be a kwarg:
+
+```yaml
+addImport:
+  kwargs:
+    file:   { type: string, required: true }
+    symbol: { type: string, required: true }
+  injects_into: "{{file}}"
+  anchor: imports
+```
+
+Both forms coexist, and no `sedum.yaml` key gates the choice. A package that wants a purely convention-driven layout declares no action shaped like this; a switch protecting an author from an action that author writes themselves would be configuration with no adversary.
+
+**What the pattern implicitly guarded, the anchor states.** A path pattern restricted applicability as a side effect: `addBeforeFilter` could not be aimed at a migration, because the path would not render to one. A free target removes that, and what replaces it is stronger. An action's `anchor` already declares the region kind it needs, and a file template declares which regions the files it creates carry, so **an action is applicable to a file whose matched template plants its marker, and to no other.** That states the precondition rather than approximating it by directory, and it catches the case a pattern cannot: a path that matches the pattern but whose file carries no such region.
+
+It reframes an action's applicability as anchor vocabulary rather than path shape, which is a more honest description of what these actions are. They operate on a region kind, not on a directory.
+
+**`affected_scope` is still the safety boundary, and the path pattern never was.** A free target changes nothing about Phase 5's authorized-path rule.
 
 ### Descriptions
 
@@ -422,7 +449,11 @@ One call per provenance record. The prompt contains the record's `intent`, its `
 
 Variant lists are included deliberately. Without them there is an invisible cliff: `name: index` gets a full implementation while `name: search` falls to `_default`, and the model has no way to know it fell off. Exposing the list lets it prefer covered values where intent maps cleanly, and take the fallback knowingly where it does not. Whether a `_default` exists is carried alongside, because *knowingly* is not available to a model that cannot see whether there is a fallback to take.
 
-`injects_into` patterns are included for a harder reason. Without them the catalog names a kwarg and the file list names a path, and nothing connects the two, so a model asked to bind `controller` binds the path it was shown. Recovering the kwarg from a rendered path would require inverting `snake` and `plural`, which is precisely what nothing in this system does. With the pattern present the reasoning runs forwards: match its literal segments against an authorized file and bind what is left. The model still never chooses a path — it binds arguments such that the package's own pattern lands on a file the record authorized.
+`injects_into` patterns are included for a harder reason. Without them the catalog names a kwarg and the file list names a path, and nothing connects the two, so a model asked to bind `controller` binds the path it was shown. Recovering the kwarg from a rendered path would require inverting `snake` and `plural`, which is precisely what nothing in this system does. With the pattern present the reasoning runs forwards: match its literal segments against an authorized file and bind what is left. For a pattern-targeted action the model still never chooses a path — it binds arguments such that the package's own pattern lands on a file the record authorized. An action that declares its target to be a kwarg has no pattern to invert and is outside that rule rather than an exception to it.
+
+**Each entry carries its `anchor`, and the file list carries the injection points each created file plants.** This is the same move one layer over: there, the model matched a pattern against the authorized paths and bound what was left; here it matches an anchor against the markers those paths carry and names the file that has one. Forward and mechanical in both cases, and in neither does Sedum contribute target knowledge — the markers are the package author's strings, passed through exactly as the pattern and the kwarg names already are. The planted set is read from what Phase 3 actually rendered, through the same computation the completeness pass uses.
+
+**The prompt suppresses a bare `injects_into`; the JSON keeps it.** `["{{file}}"]` tells the model nothing it can act on and invites the inversion the pattern exists to prevent. It is not noise to a caller reading `sedum actions --json`, though: a present-but-bare pattern is how that caller tells *this action's target is a parameter* apart from *this action has no target pattern*, and dropping it deletes the only signal separating them. So the catalog is the contract and the prompt is a view of it — which was already true, and this is the first change to make it explicit. It sets the rule for later ones: **additions to the catalog are additive to the JSON, and what any single consumer is shown is that consumer's rendering. A prompt-side omission is never implemented as a schema change.**
 
 The response is **structured output, not tool calls** — a JSON array of `{action, kwargs}` objects, wrapped as `{"invocations": [...]}` so that the document's root is an object. This keeps the mechanism working with models that lack tool-calling support, which is most of the open-weight range worth evaluating.
 
@@ -439,6 +470,9 @@ Deterministic checks, each producing a specific re-promptable error:
 - Every kwarg value matches its declared type
 - Discriminator value is a declared variant, or `_default` exists
 - Rendered `injects_into` path was created in Phase 3
+- The target file's matched template plants the marker the action is anchored to
+
+The last check is applicability, and it cannot tighten anything: Phase 7 already hard-errors on that exact case, so checking it here is the same failure, earlier, and re-promptable. Its diagnostic distinguishes a file whose template plants no injection points at all from one that plants some but not this one — the two have different fixes, and a `_default` template or an empty-file fallback makes the first case legitimate. It speaks only about files this run rendered: a path Sedum produced no content for is one it has observed nothing about, and Phase 7 remains the backstop there.
 
 The third check is the one that keeps the phase boundary honest. Without it Phase 5 accepts an invocation Phase 6 then halts on, with the retry loop already skipped because nothing was wrong with the *selection* — and a phase that accepts what a later phase rejects makes the loop that could have fixed it unreachable.
 

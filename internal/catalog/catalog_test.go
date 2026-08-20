@@ -77,6 +77,24 @@ comment_prefix: "//"
 `,
 		"chi/actions/addHandlerFunc.go": "func {{resource|pascal}}{{verb|pascal}}() {}\n",
 		"chi/actions/addRoute.go":       "// route {{resource}}\n",
+
+		// A package whose action takes its target as an argument rather than
+		// as a convention. It is the shape a file-agnostic action has to have
+		// if it is not to be written once per file group (prov-2026-14c832bf).
+		"free/sedum.yaml": `name: free
+extensions: [".ts"]
+comment_prefix: "//"
+`,
+		"free/files/src/{name}.ts": "// sedum:anchor:imports\n",
+		"free/actions/actions.yaml": `actions:
+  addImport:
+    kwargs:
+      file: { type: string, required: true }
+      symbol: { type: string, required: true }
+    injects_into: "{{file}}"
+    anchor: imports
+`,
+		"free/actions/addImport.ts": "import { {{symbol}} }\n",
 	}
 }
 
@@ -421,5 +439,72 @@ func TestDescriptionsReachTheEncodedCatalog(t *testing.T) {
 	// the model would have to read as meaningful.
 	if strings.Contains(string(raw), `"description": ""`) {
 		t.Errorf("an absent description was encoded as empty rather than omitted:\n%s", raw)
+	}
+}
+
+// An action's target may be a kwarg rather than a convention, and the entry has
+// to carry the anchor because with a bare pattern nothing else says which files
+// the action can be aimed at (prov-2026-14c832bf).
+func TestEntryCarriesTheAnchorItsTargetsWriteInto(t *testing.T) {
+	c := Build(loadPackages(t, generators(), "rails", "chi", "free"), Options{})
+
+	if got := find(t, c, "addBeforeFilter").Anchor; !slices.Equal(got, []string{"class_body"}) {
+		t.Errorf("anchor is %v, want [class_body]", got)
+	}
+
+	// Every entry carries it, not only the free-target ones. The catalog is
+	// the contract; suppressing what one consumer does not need is that
+	// consumer's rendering.
+	free := find(t, c, "addImport")
+	if !slices.Equal(free.Anchor, []string{"imports"}) {
+		t.Errorf("a free-target action's anchor is %v, want [imports]", free.Anchor)
+	}
+
+	// Aligned with injects_into, in execution order, so a consumer zipping
+	// them cannot pair a child's path with a sibling's anchor.
+	composite := find(t, c, "createHandler")
+	if len(composite.Anchor) != len(composite.InjectsInto) {
+		t.Fatalf("the composite carries %d patterns and %d anchors", len(composite.InjectsInto), len(composite.Anchor))
+	}
+	if !slices.Equal(composite.Anchor, []string{"handlers", "end_of_file"}) {
+		t.Errorf("composite anchors are %v, want the children's in execution order", composite.Anchor)
+	}
+}
+
+// The JSON keeps a bare injects_into and the prompt does not. That split is a
+// constraint rather than a detail: a present-but-bare pattern is how a caller
+// doing its own selection tells a parameterized target apart from an action
+// with no target pattern, and it is the only signal that separates them.
+func TestABareTargetSurvivesInTheContractAndIsSuppressedForTheModel(t *testing.T) {
+	c := Build(loadPackages(t, generators(), "rails", "chi", "free"), Options{})
+
+	if got := find(t, c, "addImport").InjectsInto; !slices.Equal(got, []string{"{{file}}"}) {
+		t.Errorf("the contract's injects_into is %v, want the bare pattern kept", got)
+	}
+
+	payload, err := c.JSON()
+	if err != nil {
+		t.Fatalf("JSON: %v", err)
+	}
+	if !strings.Contains(string(payload), `"{{file}}"`) {
+		t.Errorf("the bare pattern is absent from the encoded contract:\n%s", payload)
+	}
+
+	prompt := ForPrompt(c)
+	if got := find(t, prompt, "addImport").InjectsInto; len(got) != 0 {
+		t.Errorf("the prompt still shows the bare pattern as %v", got)
+	}
+	// Suppression is per pattern, not per entry: a pattern that constrains
+	// anything is still worth showing.
+	if got := find(t, prompt, "addBeforeFilter").InjectsInto; len(got) != 1 {
+		t.Errorf("a convention-targeted pattern was suppressed too: %v", got)
+	}
+	if got := find(t, prompt, "addImport").Anchor; !slices.Equal(got, []string{"imports"}) {
+		t.Errorf("the prompt dropped the anchor as well as the pattern: %v", got)
+	}
+
+	// Rendering for the prompt does not mutate the catalog it renders.
+	if got := find(t, c, "addImport").InjectsInto; !slices.Equal(got, []string{"{{file}}"}) {
+		t.Errorf("ForPrompt mutated its input: %v", got)
 	}
 }

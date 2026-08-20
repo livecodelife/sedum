@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/calebcowen/sedum/internal/catalog"
+	"github.com/calebcowen/sedum/internal/expand"
 	"github.com/calebcowen/sedum/internal/resolve"
 )
 
@@ -57,6 +58,11 @@ Rules:
   the argument to the part left over - not to the file's path, and not to the
   whole filename. If no binding can make an action's pattern reach a listed
   file, that action does not apply to this change.
+- An action with no injects_into pattern takes its target as an ordinary
+  argument, and its anchor says which injection point it needs. Bind that
+  argument to a file listed below whose injection points include that anchor.
+  An action whose anchor a file does not carry does not apply to that file, no
+  matter what else fits.
 - An action may be selected more than once with different arguments.
 
 Respond with JSON and nothing else - no prose, no explanation, no fields beyond
@@ -73,7 +79,7 @@ If no action in the catalog applies to the change, return {"invocations": []}.`
 // deciding what the change means - which is the one judgment this whole design
 // keeps out of the tool.
 func Prompt(req Request, cat catalog.Catalog) ([]Message, error) {
-	payload, err := cat.JSON()
+	payload, err := catalog.ForPrompt(cat).JSON()
 	if err != nil {
 		return nil, fmt.Errorf("record %s: building the action catalog: %w", req.RecordID, err)
 	}
@@ -129,12 +135,31 @@ func Prompt(req Request, cat catalog.Catalog) ([]Message, error) {
 // ones a package declared it does not write. Both are sorted, so that one
 // record's prompt is the same text every time it is built.
 func partition(files []resolve.File) (writable, unmanaged []string) {
+	// The injection points a file carries, read from what Phase 3 rendered.
+	// An action whose target is an argument rather than a convention has no
+	// pattern to match against a filename, so the anchor is what tells the
+	// model which of these files it can be aimed at - and the model has no
+	// way to know which files carry which anchors unless the list says so
+	// (prov-2026-14c832bf).
+	//
+	// It is the same reading the completeness pass and Phase 5's applicability
+	// check are built on, so the prompt cannot describe a file differently
+	// from the rule that will judge what the model does with it.
+	anchors := map[string][]string{}
+	for _, a := range expand.Planted(files) {
+		anchors[a.Path] = append(anchors[a.Path], a.Marker)
+	}
+
 	for _, f := range files {
 		if f.Unmanaged {
 			unmanaged = append(unmanaged, fmt.Sprintf("%s (declared unmanaged by %s)", f.Path, f.UnmanagedBy))
 			continue
 		}
-		writable = append(writable, fmt.Sprintf("%s (package %s)", f.Path, f.Package.Name))
+		line := fmt.Sprintf("%s (package %s", f.Path, f.Package.Name)
+		if planted := anchors[f.Path]; len(planted) > 0 {
+			line += "; injection points: " + strings.Join(planted, ", ")
+		}
+		writable = append(writable, line+")")
 	}
 	sort.Strings(writable)
 	sort.Strings(unmanaged)
