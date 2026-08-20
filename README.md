@@ -19,49 +19,57 @@ published at **<https://livecodelife.github.io/sedum/>**, read directly from
 
 ## Status
 
-Sedum is under active development. The **deterministic half of the pipeline has
-landed**: package loading and validation, transforms and template rendering,
-record ingestion, path resolution, file creation, action rendering, and anchored
-injection with ownership markers. Model invocation has not.
+Sedum is under active development. **The whole pipeline has landed**, model
+invocation included: package loading and validation, transforms and template
+rendering, record ingestion, path resolution, file creation and reconciliation,
+model invocation with validation and re-prompting, composite expansion, and
+anchored injection with ownership markers.
 
-The ordering is deliberate. The half that does not involve a model must be
-provably correct before one is introduced, so that any later failure is
-unambiguously a selection failure rather than a rendering failure.
+The deterministic half was built first, deliberately. The part that does not
+involve a model had to be provably correct before one was introduced, so that a
+failure now is unambiguously a selection failure rather than a rendering
+failure. That property is what the harness under `evals/` measures.
 
 | Phase | State |
 |---|---|
 | 0 — Load and validate generator packages | Working |
 | 1 — Ingest provenance records | Working |
 | 2 — Resolve paths to packages and templates | Working, including unmanaged paths |
-| 3 — Create files from templates | Working |
-| 4–5 — Model invocation and validation | Not built |
+| 3 — Create files from templates | Working, including reconciling a file that already exists |
+| 4 — Model invocation | Working |
+| 5 — Validate the model's output | Working, including re-prompting to the retry limit |
 | 6 — Expand and resolve | Working, including composite expansion |
 | 7 — Inject | Working |
 
 | Command | State |
 |---|---|
+| `sedum grow` | Working, end to end and at every stop point |
 | `sedum validate` | Working |
 | `sedum resolve` | Working |
-| `sedum grow` | Working through `--stop-after resolution` and `--stop-after files`. Without a stop point it refuses before touching disk, naming the milestone it is waiting on. |
-| `sedum actions` | Stubbed |
+| `sedum actions` | Working |
+| `sedum render` | Working |
 
-So today Sedum will scaffold the files a record authorizes, with their
-boilerplate rendered and their anchors planted. Phases 6 and 7 will then render
-actions and inject them into those anchors, replacing owned regions in place on
-every rerun — but **they have no command-line entry point yet**. The designed
-entry is `--execute`, which replays a hand-written or recorded invocation list
-with no model involved; until it lands, injection is reachable only from Go.
+Recording and replay are live: `--record` captures what a run resolved and what
+the model decided, and `--execute` replays that with no model involved. A
+recording is plain JSON and hand-editing one is a supported workflow rather than
+a trick — see [Recorded Executions](#recorded-executions).
 
-One other limit is worth knowing before pointing this at a real project: a path
-named by two provenance records is still rejected in Phase 1. Records that share
-a file generate correctly one at a time with `--only`, and their regions coexist
-and survive each other's reruns — the restriction is on the whole-directory run,
-not on the outcome.
+Two limits are worth knowing before pointing this at a real project.
 
-Flag parsing and flag-interdependence checks are live for every command, so an
-unusable flag combination is rejected today even where the underlying phase is
-not built. An unimplemented command fails loudly rather than exiting zero on a
-run that did nothing.
+A path named by two provenance records is rejected, now at Phase 4's entry
+rather than at ingestion. Phase 4 makes one model call per record, so two
+records naming one file would mean two independent calls deciding one file's
+contents. Under `--execute` there is no model call, so the check does not apply
+and a recording may legitimately cover a shared file. Records that share a file
+generate correctly one at a time with `--only`, and their regions coexist and
+survive each other's reruns.
+
+And a model's selection is the one part of a run that is not reproducible by
+construction. Temperature is pinned to zero, but the open-weight range this is
+built for still varies between runs — dropping an invocation, adding a
+defensible extra, or binding a kwarg in a form the package did not intend. That
+is the failure mode recordings exist for: capture once, review the JSON, correct
+it by hand, and replay it forever.
 
 ---
 
@@ -133,18 +141,47 @@ boilerplate rendered and its anchors planted, then stop.
              --output ./build --stop-after files
 ```
 
-Rerunning is safe and is the ordinary way to resume: Phase 3 is
-create-if-absent, so a second run reports every path as already present and
-rewrites nothing.
+Rerunning is safe and is the ordinary way to resume: a path that already
+carries everything its template declares is left exactly as it is, and one that
+does not is reconciled to it. Injected regions are never overwritten by Phase 3.
 
 Add `--dry-run` to decide everything and write nothing, or `-v` to mirror the run
 log to stdout.
 
-**Injection has no command yet.** Phases 6 and 7 work — they render actions and
-write them into the anchors Phase 3 planted, replacing owned regions in place on
-rerun — but the command-line entry point for driving them from an invocation list
-is `--execute`, which has not landed. Until then `--stop-after files` is as far as
-a run goes.
+**Run the whole thing** — the same command without a stop point, which invokes a
+model. The endpoint and credentials come from the environment
+(`OPENAI_BASE_URL`, `OPENAI_API_KEY`), so a local server and a hosted API are
+the same code path.
+
+```sh
+./sedum grow --generators ./generators --records ./provenance \
+             --model qwen2.5-coder-14b-instruct --record ./scaffold.json
+```
+
+**Replay it with no model at all** — deterministic, free, and the way to
+re-generate a reviewed scaffold:
+
+```sh
+./sedum grow --generators ./generators --execute ./scaffold.json --output ./build
+```
+
+**See what the model will be shown** — the exposed actions of a package with
+their kwarg schemas and variant lists, in the form Phase 4 hands over. The
+authoring loop for catalog quality:
+
+```sh
+./sedum actions --generators ./testdata/generators --package rails
+./sedum actions --generators ./testdata/generators --package rails --all --json
+```
+
+**Ask where an invocation would land** — an action's target rendered against
+kwargs, by the package's own transform engine, so the answer agrees with what a
+run would do instead of approximating it:
+
+```sh
+./sedum render --generators ./testdata/generators --package rails \
+               --action createControllerMethod --kwargs '{"controller":"person"}'
+```
 
 **Inspect the command surface** — every command, its flags, and its documented behavior:
 
@@ -243,6 +280,32 @@ This exists so a record can describe the whole change. Moving a Rails service to
 
 An unclaimed extension nobody disowned is still a hard error. Silence is not a declaration.
 
+### Test paths
+
+A package may also declare which of its paths hold tests:
+
+```yaml
+test_paths:
+  - "**/*_test.go"
+  - spec/
+```
+
+Same grammar as `unmanaged` and a record's scope entries. Patterns rather than a
+directory, because Go puts `user_test.go` beside `user.go` — same extension,
+same package, same directory, and nothing directory-shaped can separate them.
+
+**Sedum validates this and does not read it.** That is the whole of the field
+and it is deliberate. The consumers are a caller partitioning a record's regions
+into assertions and logic, and Sedum's own possible future two-pass generation;
+neither is implemented, and an invalid entry is still rejected at load.
+
+It lives in `sedum.yaml` rather than in a caller's own configuration because
+`sedum.yaml` is decoded strictly. A package declaring a key Sedum has not
+modelled does not load at all — not "loads and is ignored", but rejected with
+every action in it unavailable. So a tool told to read `sedum.yaml` directly
+cannot ask a package author to declare anything Sedum has not declared first,
+whoever ends up doing the reading.
+
 ---
 
 ## File Templates
@@ -327,6 +390,25 @@ actions:
 `discriminator` names the kwarg whose value selects a template. `variants` enumerates the values that have dedicated templates. Both are declared explicitly rather than inferred from directory structure, so that specializing on a second argument later cannot create an undocumented precedence rule, and so a misspelled variant filename fails at load rather than silently falling through to `_default`.
 
 `injects_into` is a path pattern rendered against the bound kwargs. It must resolve to exactly one file.
+
+**An action may declare its target to be a kwarg instead.** `injects_into: "{{file}}"` with a `file` kwarg makes the target a parameter the caller aims, rather than a convention the action encodes:
+
+```yaml
+  addImportTo:
+    kwargs:
+      file: { type: string, required: true, description: "The file to import into. It must be one of the authorized files, and it must carry an imports injection point." }
+      path: { type: string, required: true, description: "The import path, without quotes." }
+    injects_into: "{{file}}"
+    anchor: imports
+```
+
+Both forms are legitimate and the choice is the author's. For a structure-creating action the target is implied by the action's identity — `createControllerMethod` only ever means a controller, and the pattern is exactly right. For a file-agnostic action the file is genuinely a parameter, and encoding it in the action definition forces one action per file group: `addImport` becomes `addModelImport`, `addControllerImport`, `addSerializerImport`, with identical kwargs and identical template bodies differing only in a path.
+
+The authoring duplication is the visible cost. The real cost is catalog quality — Phase 4 would hand the model a set of near-identical entries whose only discriminator is a name encoding a fact it has to infer, which is the worst possible shape for selection accuracy.
+
+What does not change is that the model binds arguments and never inverts a path. A pattern-targeted action's kwargs are bound, never derived from a file name.
+
+**Applicability comes from the anchor.** A pattern-targeted action can only reach the files its pattern describes, so where it applies is implied. A free-target action can be aimed anywhere, so the anchor states it instead: an invocation aimed at a file that does not carry the action's injection point is a Phase 5 error, re-promptable, rather than a Phase 7 crash. The prompt lists each authorized file with the anchors it carries, built from the same reading as the check, so the catalog cannot describe a file differently from the rule that will judge what the model does with it.
 
 ### Action template layout
 
@@ -498,17 +580,25 @@ Then match the path against that package's `files/` tree and bind the captured s
 
 For each resolved path: render the matched template against its captures and write the file. Fall back to the package's `_default` for that path's extension, then to an empty file with a log line.
 
-Phase 3 is the only phase in this half of the pipeline that touches the output tree.
+Phase 3 and Phase 7 are the only phases that touch the output tree.
 
-**Phase 3 is create-if-absent.** If a path already exists, Sedum does not re-render its template over it — doing so would destroy any injected regions the file already carries. It verifies that the markers the matched template declares are present and moves on. A file that exists but lacks its template's markers is a hard error: something other than Sedum wrote it, or a template changed shape after the file was generated.
+**A path that already exists is reconciled with its template, or the run halts.** Sedum never re-renders a template over a file, which would destroy any injected regions it carries. Instead it applies whatever the template *adds* and leaves everything else alone. A file that already carries everything its template declares is untouched.
 
-This makes reruns safe, which matters because stopping and resuming a run is a normal workflow rather than an edge case.
+The rule is one sentence: the file's structural lines must be a subsequence of the template's. If every structural line of the file appears in the template, in order, then the template contains everything the file does and the difference is only what the template adds — so adding it is safe. If one does not, the file carries content the template does not account for, and what to do with that is a judgment about someone's code rather than Sedum's to make, so the run halts naming the line.
+
+Marked regions are removed before the comparison, so what is compared is the boilerplate rather than the boilerplate plus whatever has been injected into it since. A line is structural unless it is blank or begins with the package's declared `comment_prefix` — that prefix is the only language knowledge involved, and the package supplies it.
+
+This replaced a stricter rule that verified an existing file carried its template's markers and halted otherwise. That refused three situations it could have handled: an empty file, a file another tool generated, and a file whose template has grown since it was written. Adopting Sedum into a repository that already has files is the ordinary case, not the exception.
+
+Reruns are safe, which matters because stopping and resuming a run is a normal workflow rather than an edge case. The reconciliation cases are golden fixtures under `testdata/reconcile/`.
 
 **Nothing is created that a provenance record did not authorize.** There is no sibling expansion and no inference of companion files. If a C++ record names `src/user_controller.cpp` but omits `include/user_controller.hpp`, the header is not created, and the injection targeting it fails loudly in Phase 7.
 
 This is a governance position. `forbidden_scope` means Sedum does not touch what it was not authorized to touch; conjuring convenient files would violate that regardless of how obvious the convention seemed. Completeness of `affected_scope` is the record author's responsibility.
 
 ### Phase 4 — Model invocation
+
+A path named by two records is rejected here, at the phase's entry. One model call per record means two records naming one file would be two independent calls deciding one file's contents. The check lives here rather than at ingestion because replay has no model call and so no such conflict — under `--execute` a recording may legitimately cover a shared file.
 
 One call per provenance record. The prompt contains the record's `intent`, its `constraints`, the paths created for it in Phase 3, and the action catalog — the **union of exposed actions across every package the record's paths resolved to**, with their kwarg schemas and variant lists.
 
@@ -526,6 +616,7 @@ Deterministic checks, each producing a specific re-promptable error:
 - Every kwarg value matches its declared type
 - Discriminator value is a declared variant, or `_default` exists
 - Rendered `injects_into` path was created in Phase 3
+- The target file carries the anchor the action injects into
 
 On failure, re-prompt with the specific violations appended, up to a configured retry limit. This loop costs one model call — no compilation, no service startup, no test execution.
 
@@ -773,6 +864,26 @@ Sedum tolerates other writers in the files it generates. The limits are stated h
 - **Preserve unknown marker attributes in both directions.** The same promise Sedum makes, and it is symmetric — a writer that drops keys it does not recognise destroys every other writer's state, Sedum's included.
 - **Do not edit an `owned` region and expect the edit to survive.** Demote it to `seeded` if it has stopped being Sedum's to overwrite; that is what the tier is for and what `writer` makes attributable.
 
+### The conformance corpus
+
+`conformance/` holds golden cases for the formats Sedum shares with other tools,
+so a tool Sedum's authors did not write can check that it complies rather than
+discovering the rules one breakage at a time. Sedum's own test suite reads the
+same corpus, which is what keeps it honest.
+
+Today it covers one format, the ownership marker, and that is a deliberate
+scope. A tool above Sedum reads `sedum.yaml` and `actions.yaml`, so a misreading
+is its own problem and fails on its own side. It writes recordings, and replay
+validates those terminally at ingestion, so a malformed one is refused before
+anything is written. The marker is the only format a foreign tool writes into
+files that Sedum will later re-read and rewrite with no validation gate in
+between — a writer that gets it wrong corrupts state silently, and the first
+breakage looks like a bug in Sedum.
+
+Cases live in `conformance/markers/cases.json`, each citing the provenance
+record that decided the behavior and what goes wrong for an implementation that
+gets it wrong. See `conformance/README.md`.
+
 ---
 
 ## CLI Surface
@@ -838,7 +949,7 @@ sedum grow --generators ./generators --records ./provenance --execute ./scaffold
 
 **`--stop-after invocations` and `--stop-after expansion` require `--record`.** Without it the model's output is discarded and there is nothing to resume from, having already paid for the call. Sedum rejects the combination rather than running it.
 
-Resuming after `resolution` or `files` is an ordinary rerun, because Phase 3 is create-if-absent and Phases 0–2 are pure. Nothing needs to be preserved between the stop and the resume.
+Resuming after `resolution` or `files` is an ordinary rerun, because Phases 0–2 are pure and Phase 3 leaves an already-reconciled file untouched. Nothing needs to be preserved between the stop and the resume.
 
 With `--execute`, a `--stop-after` value naming a phase that replay does not run is an error. Only `expansion` is meaningful, and `--execute --dry-run` covers most of what it offers.
 
@@ -925,7 +1036,10 @@ internal/cli/         Command surface: flags, interdependence checks, config str
 internal/pipeline/    Phase ordering and stop points.
 internal/genpkg/      Package loading and every Phase 0 check.
 internal/record/      Provenance record ingestion and the authorized path set.
-internal/resolve/     Path-to-package resolution, template matching, file creation.
+internal/resolve/     Path-to-package resolution, template matching, file creation and reconciliation.
+internal/selection/   Phase 4: the model client, the prompt, and Phase 5's validation.
+internal/catalog/     The action catalog a record's packages present to the model.
+internal/pathpat/     The scope and unmanaged pattern grammar.
 internal/expand/      Phase 6: composite expansion, injects_into rendering, variant selection, transforms.
 internal/inject/      Phase 7: the marker format, anchor location, region replacement.
 internal/recording/   The recording schema, and reading and writing it.
@@ -934,9 +1048,14 @@ internal/filetmpl/    File template patterns, matching, and specificity ranking.
 internal/render/      Template rendering with transform pipes.
 internal/runlog/      Run log.
 testdata/generators/  Worked example packages: rails, chi, cairn.
+testdata/reconcile/   Golden cases for Phase 3 reconciliation.
+conformance/          Golden cases for the formats Sedum shares with other tools.
+evals/                The harness measuring what models select, and its results.
+docs/                 The published results site.
 provenance/           Provenance records governing Sedum's own development.
 PRD.md                Product requirements, including the milestone plan.
 OPEN_QUESTIONS.md     Design directions explored but deliberately out of scope.
+TOOL_BOUNDARIES.md    What belongs in Sedum and what belongs in a tool above it.
 ```
 
 Sedum's own development is governed by the provenance records in `provenance/`.
