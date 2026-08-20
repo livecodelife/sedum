@@ -407,3 +407,86 @@ func TestTheFixtureDigestCoversPackagesRecordsAndTarget(t *testing.T) {
 		t.Error("swapping the behaviour target did not move the digest")
 	}
 }
+
+// Attribution is stored per sample rather than only as a tally, on the same
+// rule the behaviour run itself follows: a rate cannot be re-scored against a
+// question sharpened after the run, and which action wrote which line is
+// exactly the question that gets sharpened (prov-2026-27c10ac4).
+func TestAttributionSurvivesStorage(t *testing.T) {
+	e := entryFor(t, Sample{
+		Counts: map[string]int{"addColumn": 1},
+		Behavior: &BehaviorRun{
+			Outcome: "failed", FailedPhase: "build",
+			Detail: "db/groceries.go:48:15: in.quantity undefined",
+			Attribution: []Attribution{{
+				File: "db/groceries.go", Line: 48,
+				Action: "createQuery", Variant: "insert",
+				Record: "PR-014",
+				Kwargs: map[string]any{"table": "groceries"},
+			}},
+		},
+	})
+
+	dir := t.TempDir()
+	if err := Append(dir, e); err != nil {
+		t.Fatal(err)
+	}
+	back, err := ReadEntries(dir, e.Case)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(back) != 1 || len(back[0].Runs) != 1 {
+		t.Fatalf("read back %d entries", len(back))
+	}
+
+	b := back[0].Runs[0].Behavior
+	if b == nil {
+		t.Fatal("the behaviour run did not survive storage")
+	}
+	if len(b.Attribution) != 1 {
+		t.Fatalf("attribution did not survive storage: %+v", b.Attribution)
+	}
+	a := b.Attribution[0]
+	if a.Label() != "createQuery:insert" || a.File != "db/groceries.go" || a.Line != 48 {
+		t.Errorf("attribution came back as %+v", a)
+	}
+	if a.Record != "PR-014" || a.Kwargs["table"] != "groceries" {
+		t.Errorf("the region's record and kwargs did not survive: %+v", a)
+	}
+}
+
+// An entry written before attribution existed carries none, and reads as absent
+// rather than as a build no action was responsible for. A dash is not a zero.
+func TestAnEntryWrittenBeforeAttributionReadsAsAbsent(t *testing.T) {
+	old := Entry{
+		Schema: EntrySchema, Commit: "0000000", Clean: true,
+		At: time.Now().UTC(), Case: "fixture", Samples: 1, Valid: 1, WallMS: 60_000,
+		Runs: []SampleRun{{
+			Outcome: "valid", MS: 12_000,
+			Behavior: &BehaviorRun{Outcome: "failed", FailedPhase: "build",
+				Detail: "db/todos.go:61:24: undefined: models"},
+		}},
+	}
+
+	dir := t.TempDir()
+	if err := Append(dir, old); err != nil {
+		t.Fatal(err)
+	}
+	back, err := ReadEntries(dir, "fixture")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if b := back[0].Runs[0].Behavior; b.Attribution != nil {
+		t.Errorf("an absent attribution read back as %+v rather than as absent", b.Attribution)
+	}
+
+	// And the stored bytes carry no attribution key at all, so a reader that
+	// has never seen the field is unaffected by its existence.
+	raw, err := os.ReadFile(filepath.Join(dir, "fixture.jsonl"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(raw), "attribution") {
+		t.Errorf("an entry that carries no attribution wrote the key anyway:\n%s", raw)
+	}
+}

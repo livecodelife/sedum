@@ -75,6 +75,20 @@ type BehaviorRun struct {
 	// twenty failing in one are different problems.
 	Failed []string `json:"failed,omitempty"`
 
+	// Attribution names the action whose region wrote each line the failed
+	// phase's log points at.
+	//
+	// Absent rather than empty for a run that did not fail, for one whose log
+	// named no file the project holds, and for every entry drawn before this
+	// field existed - a dash is not a zero, and a reader must not take an old
+	// entry for a build no action was responsible for.
+	//
+	// It is a list because a build naming several files and lines is several
+	// findings: five identical-looking `build` deaths were three distinct
+	// defects, and the difference was invisible until the lines were attributed
+	// (prov-2026-27c10ac4).
+	Attribution []Attribution `json:"attribution,omitempty"`
+
 	Elapsed time.Duration `json:"elapsed"`
 
 	// Err is set when the harness could not be run at all - a missing target, a
@@ -87,6 +101,45 @@ type BehaviorRun struct {
 // the target asserts.
 func (b BehaviorRun) Working() bool { return b.Err == nil && b.Outcome == "ok" }
 
+// Attribution is one line a failed phase named, and the region that wrote it.
+//
+// Nothing here parses the generated language. The compiler names a file and a
+// line, the marker pair enclosing that line names the action, and a target for
+// a new stack inherits both without writing any lookup of its own.
+type Attribution struct {
+	// File is relative to the generated project, and Line is what the phase's
+	// log named.
+	File string `json:"file"`
+	Line int    `json:"line"`
+
+	// Action and Variant name the region enclosing that line, and are empty
+	// when no marker encloses it.
+	//
+	// Unattributed rather than guessed at. The compiler often names the file
+	// template's own text - the first of two declarations is the template's
+	// line, not the injected one - and an attribution that reached for the
+	// nearest marker would name an action that did not write it.
+	Action  string `json:"action,omitempty"`
+	Variant string `json:"variant,omitempty"`
+
+	// Record is the provenance record that last parameterized the region, and
+	// Kwargs is what it was rendered from. Both come off the marker, which is
+	// why attribution needs no state the harness has to maintain.
+	Record string         `json:"record,omitempty"`
+	Kwargs map[string]any `json:"kwargs,omitempty"`
+}
+
+// Attributed reports whether a marker enclosed this line.
+func (a Attribution) Attributed() bool { return a.Action != "" }
+
+// Label is the action:variant pair, as the marker carries it.
+func (a Attribution) Label() string {
+	if a.Variant == "" {
+		return a.Action
+	}
+	return a.Action + ":" + a.Variant
+}
+
 // harnessResult is behave.sh's results file, read at the fields this needs.
 type harnessResult struct {
 	Outcome      string `json:"outcome"`
@@ -98,6 +151,7 @@ type harnessResult struct {
 		Check string `json:"check"`
 		Pass  bool   `json:"pass"`
 	} `json:"checks"`
+	Attribution []Attribution `json:"attribution"`
 }
 
 // RunBehavior applies one sample's invocations to a freshly scaffolded
@@ -254,6 +308,7 @@ func runHarness(ctx context.Context, target string, arm []string, variables map[
 		Detail:      parsed.Detail,
 		Checks:      parsed.ChecksTotal,
 		Passed:      parsed.ChecksPassed,
+		Attribution: parsed.Attribution,
 		Elapsed:     time.Since(started),
 	}
 	for _, c := range parsed.Checks {
@@ -376,6 +431,24 @@ type BehaviorTally struct {
 	// and only a per-assertion count tells them apart.
 	Failures map[string]int
 
+	// Actions counts the samples each action was named in, keyed by
+	// action:variant, and Unattributed counts samples whose dead phase named a
+	// line no marker enclosed.
+	//
+	// Per sample rather than per line. A build that names one action on three
+	// lines is one sample dying in that action, and counting the lines would
+	// report it as three - which is the confusion this exists to end, because
+	// three samples dying in one action and three dying in three are the
+	// different findings (prov-2026-27c10ac4).
+	//
+	// AttributedSamples is the denominator: samples that carried any
+	// attribution at all. It is not Broke, because an entry drawn before this
+	// field existed carries none and reads as absent rather than as a build no
+	// action was responsible for.
+	Actions           map[string]int
+	Unattributed      int
+	AttributedSamples int
+
 	// Elapsed is what behaviour added to the run.
 	Elapsed time.Duration
 }
@@ -388,11 +461,47 @@ func (b BehaviorTally) Rate() float64 {
 	return float64(b.Working) / float64(b.Measured)
 }
 
+// attribute folds one sample's attributions into the tally, counting each
+// action once however many of the sample's lines it wrote.
+func (t *BehaviorTally) attribute(found []Attribution) {
+	if len(found) == 0 {
+		// Absent, not none. Nothing is incremented, so a run of entries drawn
+		// before attribution existed leaves every count at zero and the report
+		// says nothing rather than saying no action was responsible.
+		return
+	}
+	t.AttributedSamples++
+
+	// Distinct within the sample, on the rule Details already follows: one
+	// finding repeated inside one observation is one finding.
+	seen := map[string]bool{}
+	var unattributed bool
+	for _, a := range found {
+		if !a.Attributed() {
+			unattributed = true
+			continue
+		}
+		if seen[a.Label()] {
+			continue
+		}
+		seen[a.Label()] = true
+		t.Actions[a.Label()]++
+	}
+	if unattributed {
+		t.Unattributed++
+	}
+}
+
 // Behavior tallies what applying this measurement's selections produced. The
 // second return is false when behaviour was not measured at all, which a report
 // has to tell from "measured and nothing worked".
 func (m Measurement) Behavior() (BehaviorTally, bool) {
-	t := BehaviorTally{Phases: map[string]int{}, Failures: map[string]int{}, Details: map[string]int{}}
+	t := BehaviorTally{
+		Phases:   map[string]int{},
+		Failures: map[string]int{},
+		Details:  map[string]int{},
+		Actions:  map[string]int{},
+	}
 
 	var any bool
 	for _, s := range m.Samples {
@@ -428,6 +537,7 @@ func (m Measurement) Behavior() (BehaviorTally, bool) {
 			if d := strings.TrimSpace(b.Detail); d != "" {
 				t.Details[d]++
 			}
+			t.attribute(b.Attribution)
 		}
 	}
 	return t, any

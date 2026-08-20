@@ -198,6 +198,27 @@ func behavior(out io.Writer, m Measurement) {
 				fmt.Fprintf(out, "        %s\n", line)
 			}
 		}
+		// Who wrote the line, which is the question the reason above leaves
+		// open. Five identical-looking `build` deaths were three distinct
+		// defects, and separating them took a hand trace across every failed
+		// sample's invocations - the mapping was on the markers the whole time
+		// (prov-2026-27c10ac4).
+		//
+		// Printed only when some sample carried attribution. An entry drawn
+		// before this existed carries none, and a "0 attributed" line under it
+		// would read as a build no action was responsible for.
+		if t.AttributedSamples > 0 {
+			fmt.Fprintf(out, "      attributed to (of %d sample(s) with a named line):\n", t.AttributedSamples)
+			for _, a := range byCount(t.Actions) {
+				fmt.Fprintf(out, "        %-32s %d\n", a.name, a.n)
+			}
+			if t.Unattributed > 0 {
+				// Never folded into an action. The compiler often names the
+				// file template's own text, and a count that reached for the
+				// nearest marker would blame an action that did not write it.
+				fmt.Fprintf(out, "        %-32s %d\n", "(no enclosing region)", t.Unattributed)
+			}
+		}
 	}
 	if t.Errored > 0 {
 		fmt.Fprintf(out, "    excluded: %d sample(s) the harness could not run at all\n", t.Errored)

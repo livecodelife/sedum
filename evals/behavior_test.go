@@ -4,6 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"os"
+	"os/exec"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -247,4 +249,247 @@ func TestABehaviourRunThatPassesItsDeadlineFailsTheSample(t *testing.T) {
 		t.Errorf("detail does not say it was the deadline: %q", run.Detail)
 	}
 	t.Logf("failed after %s in phase %q", elapsed, run.FailedPhase)
+}
+
+// ---------------------------------------------------------------- attribution
+
+// A `failed` sample says which phase died and what the compiler said. It did
+// not say who wrote the line, and the ownership marker has said all along -
+// reading five identical-looking `build` deaths as three distinct defects took
+// a hand trace across every failed sample's invocations (prov-2026-27c10ac4).
+//
+// The lookup itself is behave.sh's, because attribution has to be computed
+// while the generated project still exists. It is exercised here through the
+// script's --attribute form, against a tree written by this test rather than by
+// a run, so the marker cases are chosen rather than whatever a build happened
+// to produce.
+
+// attributeFixture writes a project and a phase log, and returns what the
+// harness attributes.
+func attributeFixture(t *testing.T, files map[string]string, log string) []Attribution {
+	t.Helper()
+
+	dir := t.TempDir()
+	app := filepath.Join(dir, "app")
+	for rel, body := range files {
+		full := filepath.Join(app, filepath.FromSlash(rel))
+		if err := os.MkdirAll(filepath.Dir(full), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(full, []byte(body), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	logPath := filepath.Join(dir, "build.log")
+	if err := os.WriteFile(logPath, []byte(log), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	out, err := exec.Command("bash", harnessScript, "--attribute", logPath, app).CombinedOutput()
+	if err != nil {
+		t.Fatalf("attribute failed: %v\n%s", err, out)
+	}
+	var got []Attribution
+	if err := json.Unmarshal(out, &got); err != nil {
+		t.Fatalf("attribution is not JSON: %v\n%s", err, out)
+	}
+	return got
+}
+
+const goRegions = `package db
+
+type Grocery struct {
+	ID       int
+	Quantity int
+}
+
+func helper() error {
+	return nil
+}
+
+// sedum:createQuery:insert {"tier":"owned","record":"PR-014","kwargs":{"table":"groceries"}}
+func Insert(in Grocery) error {
+	return use(in.quantity)
+}
+// /sedum:createQuery:insert
+`
+
+// The line the compiler named is looked up in the file it named, and the marker
+// pair enclosing it says which action, which variant and which kwargs produced
+// it. Nothing parses Go: the lookup is text over markers, which is what lets a
+// target for a new stack inherit attribution without writing any.
+func TestAFailedBuildNamesTheActionThatWroteTheLine(t *testing.T) {
+	got := attributeFixture(t,
+		map[string]string{"db/groceries.go": goRegions},
+		"# example.com/app/db\ndb/groceries.go:14:14: in.quantity undefined "+
+			"(type Grocery has no field or method quantity, but does have field Quantity)\n")
+
+	if len(got) != 1 {
+		t.Fatalf("attributed %d lines, want 1: %+v", len(got), got)
+	}
+	a := got[0]
+	if a.Action != "createQuery" || a.Variant != "insert" {
+		t.Errorf("attributed to %q, want createQuery:insert", a.Label())
+	}
+	if a.File != "db/groceries.go" || a.Line != 14 {
+		t.Errorf("attributed %s:%d, want db/groceries.go:14", a.File, a.Line)
+	}
+	if a.Record != "PR-014" {
+		t.Errorf("record %q, want PR-014", a.Record)
+	}
+	if a.Kwargs["table"] != "groceries" {
+		t.Errorf("kwargs %v do not carry what the region was rendered from", a.Kwargs)
+	}
+}
+
+// The compiler often names the file template's own text - the first of two
+// declarations is the template's line, not the injected one - so a line no
+// marker encloses is reported as unattributed rather than charged to whichever
+// region happens to be nearest.
+func TestALineNoMarkerEnclosesIsUnattributed(t *testing.T) {
+	got := attributeFixture(t,
+		map[string]string{"db/groceries.go": goRegions},
+		"db/groceries.go:9:6: helper redeclared in this block\n")
+
+	if len(got) != 1 {
+		t.Fatalf("attributed %d lines, want 1: %+v", len(got), got)
+	}
+	if got[0].Attributed() {
+		t.Errorf("a line outside every region was charged to %q", got[0].Label())
+	}
+}
+
+// A build naming several files and lines is several findings. Collapsing to the
+// first would report three distinct defects as one.
+func TestSeveralNamedLinesYieldSeveralAttributions(t *testing.T) {
+	got := attributeFixture(t, map[string]string{
+		"db/groceries.go": goRegions,
+		"db/todos.go": `package db
+
+// sedum:addStructField {"tier":"owned","record":"PR-002","kwargs":{"field":"title"}}
+type Todo struct {
+	ID int
+	ID string
+}
+// /sedum:addStructField
+`,
+	}, "db/groceries.go:14:14: in.quantity undefined\n"+
+		"db/todos.go:6:2: other declaration of ID\n"+
+		"db/groceries.go:14:14: in.quantity undefined\n")
+
+	if len(got) != 2 {
+		t.Fatalf("attributed %d lines, want 2 (the repeat is one finding): %+v", len(got), got)
+	}
+	labels := map[string]bool{}
+	for _, a := range got {
+		labels[a.Label()] = true
+	}
+	for _, want := range []string{"createQuery:insert", "addStructField"} {
+		if !labels[want] {
+			t.Errorf("no attribution to %s: %+v", want, got)
+		}
+	}
+}
+
+// The comment prefix is the package's and is never hardcoded, so the lookup
+// matches the keyword rather than the prefix. Anchor declarations share the
+// "sedum:" namespace and are not ownership markers.
+func TestAttributionIsIndifferentToTheCommentPrefixAndSkipsAnchors(t *testing.T) {
+	got := attributeFixture(t, map[string]string{
+		"app/models/todo.rb": `class Todo
+  # sedum:anchor:class_body
+  # sedum:addValidation {"tier":"owned","record":"PR-002","kwargs":{"attr":"title"}}
+  validates :title, presence: true
+  # /sedum:addValidation
+end
+`,
+	}, "app/models/todo.rb:4:in 'validates'\n")
+
+	if len(got) != 1 {
+		t.Fatalf("attributed %d lines, want 1: %+v", len(got), got)
+	}
+	if got[0].Action != "addValidation" {
+		t.Errorf("attributed to %q, want addValidation; an anchor is not an ownership marker", got[0].Action)
+	}
+}
+
+// A reference the project does not hold is not a line this run wrote. A
+// host:port and a version string both look like file:line, and reporting them
+// as unattributed would fill the finding with noise - unattributed is reserved
+// for a line the project really holds.
+func TestReferencesThatAreNotFilesInTheProjectAreDropped(t *testing.T) {
+	got := attributeFixture(t,
+		map[string]string{"db/groceries.go": goRegions},
+		"go: downloading github.com/lib/pq v1.10.9\nlistening on 127.0.0.1:8080\n"+
+			"/usr/local/go/src/net/http/server.go:3210:1: something\n")
+
+	if len(got) != 0 {
+		t.Errorf("attributed something outside the project: %+v", got)
+	}
+}
+
+// Counted per action across samples, and each action once per sample however
+// many of its lines the compiler named. Three samples dying in one action and
+// three dying in three are different findings, and only this tells them apart.
+func TestAttributionsAreCountedPerActionAcrossSamples(t *testing.T) {
+	oneAction := func() Sample {
+		return behaviorSample(&BehaviorRun{Outcome: "failed", FailedPhase: "build",
+			Attribution: []Attribution{
+				{File: "db/a.go", Line: 4, Action: "createQuery", Variant: "insert"},
+				{File: "db/b.go", Line: 9, Action: "createQuery", Variant: "insert"},
+			}})
+	}
+	m := Measurement{Samples: []Sample{
+		oneAction(), oneAction(), oneAction(),
+		behaviorSample(&BehaviorRun{Outcome: "failed", FailedPhase: "build",
+			Attribution: []Attribution{{File: "db/c.go", Line: 2, Action: "addStructField"}}}),
+		behaviorSample(&BehaviorRun{Outcome: "failed", FailedPhase: "build",
+			Attribution: []Attribution{{File: "db/d.go", Line: 7}}}),
+	}}
+	caseWithTarget(&m, "todo-chi")
+
+	got, _ := m.Behavior()
+	if got.Actions["createQuery:insert"] != 3 {
+		t.Errorf("createQuery:insert counted %d, want 3 samples (two lines in one sample is one sample)",
+			got.Actions["createQuery:insert"])
+	}
+	if got.Actions["addStructField"] != 1 {
+		t.Errorf("addStructField counted %d, want 1", got.Actions["addStructField"])
+	}
+	if got.Unattributed != 1 {
+		t.Errorf("unattributed %d, want 1", got.Unattributed)
+	}
+	if got.AttributedSamples != 5 {
+		t.Errorf("attributed samples %d, want 5", got.AttributedSamples)
+	}
+
+	var out strings.Builder
+	behavior(&out, m)
+	report := out.String()
+	for _, want := range []string{"attributed to", "createQuery:insert", "addStructField", "(no enclosing region)"} {
+		if !strings.Contains(report, want) {
+			t.Errorf("the behaviour table does not mention %q:\n%s", want, report)
+		}
+	}
+}
+
+// An entry drawn before attribution existed carries none, and a reader must not
+// take that for a build no action was responsible for. A dash is not a zero.
+func TestAnEntryWithoutAttributionSaysNothingRatherThanNone(t *testing.T) {
+	m := Measurement{Samples: []Sample{
+		behaviorSample(&BehaviorRun{Outcome: "failed", FailedPhase: "build",
+			Detail: "db/todos.go:61:24: undefined: models"}),
+	}}
+	caseWithTarget(&m, "todo-chi")
+
+	got, _ := m.Behavior()
+	if got.AttributedSamples != 0 || len(got.Actions) != 0 || got.Unattributed != 0 {
+		t.Errorf("an entry carrying no attribution was tallied: %+v", got)
+	}
+
+	var out strings.Builder
+	behavior(&out, m)
+	if strings.Contains(out.String(), "attributed to") {
+		t.Errorf("the report claimed an attribution the entry does not carry:\n%s", out.String())
+	}
 }
