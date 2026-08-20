@@ -1,6 +1,6 @@
 id: prov-2026-3f01a02d
 title: Packages declare which of their paths hold tests
-status: draft
+status: open
 created_at: "2026-08-14"
 author: calebcowen@gmail.com
 intent: |
@@ -132,7 +132,15 @@ related:
   - prov-2026-b5465dfa
   - prov-2026-59535684
 sealed_at_sha: ""
-associated_specs: []
+associated_specs:
+  # One spec, because there is one thing to prove and it is a narrow one: the
+  # key decodes, its patterns are checked in the grammar the package already
+  # uses, and nothing else in Sedum changes shape because of it. The last of
+  # those is the part worth a test - a declaration nothing acts on is only
+  # safe while nothing acts on it, and the assertion that the resolved package
+  # is otherwise identical is what would fail if that stopped being true.
+  - path: internal/genpkg/testpaths_test.go
+    run_command: go test -count=1 ./$(dirname {{path}})
 associated_traces: []
 monitors: []
 tags:
