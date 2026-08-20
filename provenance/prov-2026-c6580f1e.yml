@@ -1,6 +1,6 @@
 id: prov-2026-c6580f1e
 title: A conformance corpus makes the marker format checkable by a stranger
-status: draft
+status: open
 created_at: "2026-08-14"
 author: calebcowen@gmail.com
 intent: |
@@ -184,6 +184,17 @@ associated_specs:
   # once there is a path to point at.
   - path: internal/inject/marker_test.go
     run_command: go test -count=1 ./$(dirname {{path}})
+  # The corpus itself, asserted as an artifact rather than through the tests
+  # that read it. The test above would still pass if the corpus were deleted
+  # and its cases re-inlined as Go literals, which is the exact failure this
+  # record exists to prevent - so the published file is named here directly.
+  - path: conformance/markers/cases.json
+    run_command: python3 -c "import json,sys; d=json.load(open(sys.argv[1])); assert d['cases'], 'no cases'; assert all(c.get('decision') for c in d['cases']), 'a case cites no decision'"
+  # Where a stranger lands, and the half of the promise the corpus does not
+  # keep. A README that stopped naming the unmechanized rules would leave the
+  # remaining gap looking closed.
+  - path: conformance/README.md
+    run_command: grep -q "not mechanized here" {{path}}
 associated_traces: []
 monitors: []
 tags:
