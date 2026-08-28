@@ -1,6 +1,6 @@
 id: prov-2026-6d9ccb92
 title: An int kwarg is valid from a model and invalid from a recording
-status: draft
+status: open
 created_at: "2026-08-28"
 author: calebcowen@gmail.com
 intent: |
