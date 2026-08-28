@@ -1,0 +1,57 @@
+id: prov-2026-6d9ccb92
+title: An int kwarg is valid from a model and invalid from a recording
+status: draft
+created_at: "2026-08-28"
+author: calebcowen@gmail.com
+intent: |
+  `typeOf` recognised `float64` and not `json.Number`, so an int kwarg passed
+  validation when a model bound it and failed when a recording replayed it:
+
+      [kwarg_type] addCountElementsRule: kwarg "count" is declared int but was
+      bound to 1
+
+  A model response is decoded plainly, so a number arrives as `float64`. A
+  recording is decoded with `UseNumber` (prov-2026-88e36921), deliberately, so
+  that a kwarg written as 1000000 does not render as 1e+06 — and `json.Number`
+  is a named string type, so it matched neither `case string` nor `case
+  float64` and fell to the default. The bare "bound to 1", with no type named,
+  is `describe` hitting that same default.
+
+  prov-2026-6903db40 exported the validator precisely so replay and the model
+  path could not diverge. They diverged anyway, one layer below where it was
+  looking: identical validation over differently decoded values is not
+  identical validation. So the fix is in `typeOf` and `describe`, where the two
+  representations meet, rather than in either caller — normalising at the
+  decoder would give back the `1e+06` that `UseNumber` exists to prevent.
+
+  Found from outside: a recording of a run whose output was reviewed and correct
+  could not be executed, so a recording was not the reproducibility surface it
+  is meant to be.
+constraints:
+  - A number satisfies the same declared types whether it arrived as float64 or json.Number.
+  - An integral value satisfies int; a fractional one does not, on both representations.
+  - A diagnostic about a number names what it was, never a bare value.
+  - Recordings keep decoding with UseNumber; nothing normalises numbers at the decoder.
+  - A recording of a valid run replays.
+affected_scope:
+  - internal/selection/validate.go
+  - internal/selection/selection_test.go
+  - internal/recording/version.go
+forbidden_scope: []
+type: bug
+extends: prov-2026-dc227be7
+supersedes: ""
+superseded_by: ""
+related:
+  - prov-2026-6903db40
+  - prov-2026-88e36921
+sealed_at_sha: ""
+associated_specs:
+  - path: internal/selection/selection_test.go
+    run_command: go test -count=1 ./$(dirname {{path}})
+associated_traces: []
+monitors: []
+tags:
+  - sedum
+  - recording
+  - selection
