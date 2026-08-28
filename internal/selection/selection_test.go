@@ -1365,6 +1365,58 @@ func TestValidateRejectsAMissingRequiredKwarg(t *testing.T) {
 	}
 }
 
+// A number reaches the validator as float64 from a model and as json.Number
+// from a recording, and the verdict must not depend on which. It did:
+// recognising only float64 made every int kwarg valid when a model bound it and
+// invalid on replay, so a recording of a reviewed, correct run could not be
+// executed (prov-2026-6d9ccb92).
+//
+// Decoded through recording.Read rather than by handing Validate a json.Number
+// directly, because the decoder is half of what is being asserted.
+func TestValidateAcceptsAnIntKwargDecodedFromARecording(t *testing.T) {
+	set := loadSet(t, generators())
+	files := created(t, set, "app/controllers/users_controller.rb@rails")
+
+	read := func(t *testing.T, limit string) []recording.Invocation {
+		t.Helper()
+		rec, err := recording.Read(strings.NewReader(`{
+			"sedum_version": "` + recording.Version + `",
+			"packages": {"rails": {"extensions": [".rb"]}},
+			"records": [{
+				"record_id": "PR-001",
+				"phases": [{"name": "default", "invocations": [
+					{"action": "createControllerMethod", "kwargs": {
+						"controller": "users", "name": "index",
+						"collection": "users", "limit": ` + limit + `}}
+				]}]
+			}]
+		}`))
+		if err != nil {
+			t.Fatalf("reading the recording: %v", err)
+		}
+		return rec.Records[0].Phases[0].Invocations
+	}
+
+	if violations := Validate(files, read(t, "3")); len(violations) > 0 {
+		t.Errorf("an int kwarg from a recording was rejected: %v", violations)
+	}
+
+	// And the check still bites on replay: int means integral there too, or the
+	// fix would have bought agreement by accepting everything.
+	violations := Validate(files, read(t, "2.5"))
+	if len(violations) == 0 {
+		t.Fatal("a fractional value bound to an int kwarg was accepted")
+	}
+	if violations[0].Rule != RuleKwargType {
+		t.Errorf("rule = %v, want %v", violations[0].Rule, RuleKwargType)
+	}
+	// The diagnostic names what the value was. "bound to 2.5" alone is what a
+	// caller gets when a type falls through every case in describe.
+	if !strings.Contains(violations[0].Detail, "not an int") {
+		t.Errorf("detail = %q, want it to say what the value was", violations[0].Detail)
+	}
+}
+
 // A correct invocation passes, so the checks above are rejecting the fault
 // rather than rejecting everything.
 func TestValidateAcceptsACorrectInvocation(t *testing.T) {

@@ -1,6 +1,7 @@
 package selection
 
 import (
+	"encoding/json"
 	"fmt"
 	"math"
 	"slices"
@@ -598,8 +599,23 @@ func lookupAction(packages []*genpkg.Package, name string) (*genpkg.Package, *ge
 // which language it is in.
 func satisfies(declared, got string) bool { return genpkg.TypeSatisfiedBy(declared, got) }
 
+// A number reaches here as either float64 or json.Number depending on who
+// decoded it, and both must answer the same. The model's output is decoded
+// plainly, so a count arrives as float64; a recording and --kwargs are decoded
+// with UseNumber so that 1000000 does not render as 1e+06, and those arrive as
+// json.Number. Handling only float64 made every int kwarg valid when a model
+// bound it and invalid when a recording replayed it — so a recording of a
+// correct run could not be executed.
 func typeOf(value any) (string, bool) {
 	switch v := value.(type) {
+	case json.Number:
+		if _, err := strconv.ParseInt(v.String(), 10, 64); err == nil {
+			return "int", true
+		}
+		if _, err := strconv.ParseFloat(v.String(), 64); err == nil {
+			return "float", false
+		}
+		return "", false
 	case string:
 		return "string", true
 	case bool:
@@ -621,6 +637,11 @@ func typeOf(value any) (string, bool) {
 // "bound to \"3\"" when the mistake is a number sent as text.
 func describe(value any) string {
 	switch v := value.(type) {
+	case json.Number:
+		if _, err := strconv.ParseInt(v.String(), 10, 64); err == nil {
+			return fmt.Sprintf("the number %s", v.String())
+		}
+		return fmt.Sprintf("the fractional number %s, which is not an int", v.String())
 	case string:
 		return fmt.Sprintf("the string %s", strconv.Quote(v))
 	case bool:
