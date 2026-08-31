@@ -1,0 +1,64 @@
+id: prov-2026-d71d6f76
+title: An action declares which kwargs identify its region
+status: draft
+created_at: "2026-08-31"
+author: calebcowen@gmail.com
+intent: |
+  A region is identified by its action, its variant and its selecting kwargs,
+  and the selecting set is every kwarg the action declares required. That
+  conflates two things a required kwarg can be. Some name what a region
+  TARGETS: the symbol an import binds, the value a path pattern resolves. The
+  rest only parameterize what it CONTAINS — a regular expression, a selector, a
+  count. Both are required for one reason, that a model must state them, and
+  neither is thereby part of what the region IS.
+
+  Measured on a consumer: changing a required kwarg that only parameterizes
+  contents makes a rerun stack a second region beside the first instead of
+  replacing it, leaving one file holding two definitions of one function. So
+  the ordinary correction loop — fix the record, generate again — duplicates
+  unless the generated file is deleted first. Two more promises fail with it. A
+  seeded region is bypassed, because the tier is read only after an identity
+  matches. And the marker attributes another tool left are dropped, because
+  they are carried from the region being replaced and no region is.
+
+  So an action may declare the kwargs that identify its region. Undeclared,
+  every required kwarg selects exactly as before, which is what keeps an action
+  with no discriminator correct: two imports differ because `symbol` is
+  required.
+
+  Rejected: making the parameterizing kwargs optional instead. That reaches the
+  same identity by dropping the requirement that the model state them, and a
+  defaulted pattern is a rule that silently matches the default.
+constraints:
+  - "An action may declare which of its kwargs identify its region; where none is declared every required kwarg selects, and no existing package or generated codebase changes meaning."
+  - "A declared identity names only kwargs the action declares, and only required ones: an absent kwarg cannot identify anything."
+  - "A composite declares no identity, having no region of its own."
+  - "Two invocations resolving to one identity in one file in one run are rejected, rather than the second silently overwriting the first."
+  - "Every bound kwarg stays on the marker whether it selects or not, so the selection rule can change again without migrating generated codebases."
+  - "A region whose identity kwargs are unchanged is replaced in place, carrying its unmodelled marker attributes and honouring a seeded tier."
+affected_scope:
+  - internal/genpkg/schema.go
+  - internal/genpkg/validate.go
+  - internal/genpkg/diag.go
+  - internal/genpkg/genpkg_test.go
+  - internal/inject/inject.go
+  - internal/inject/inject_test.go
+  - PRD.md
+forbidden_scope: []
+type: blueprint
+supersedes: ""
+superseded_by: ""
+related:
+  - prov-2026-36c8a99c
+  - prov-2026-72775ae5
+  - prov-2026-b6fa093c
+sealed_at_sha: ""
+associated_specs:
+  - path: internal/inject/inject_test.go
+  - path: internal/genpkg/genpkg_test.go
+associated_traces: []
+monitors: []
+tags:
+  - sedum
+  - injection
+  - m4
