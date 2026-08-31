@@ -1,0 +1,46 @@
+id: prov-2026-6724bf25
+title: '0.2.0: an action may declare its region''s identity'
+status: draft
+created_at: "2026-08-31"
+author: calebcowen@gmail.com
+intent: |
+  0.1.1 to 0.2.0, for the identity field.
+
+  A minor bump rather than a patch, because it is a feature: a package can now
+  say which of its kwargs identify a region, and an author reading a version
+  needs to know whether the field is there before writing it. A patch would say
+  nothing changed that anyone could use.
+
+  Not a major bump, because nothing already written changes meaning. An action
+  declaring no identity selects on every required kwarg exactly as before, the
+  marker's shape is untouched, and no generated codebase needs migrating — the
+  marker has always carried every bound kwarg, which is what left this rule free
+  to be redefined at all. A package written for 0.1.1 loads and behaves the same
+  under 0.2.0; one written for 0.2.0 fails to load under 0.1.1, on the unknown
+  key, which is the direction a minor bump is allowed to break.
+
+  The constant is what the binary answers and what a recording carries in
+  sedum_version, and the release workflow refuses a tag that disagrees with it.
+  So the bump is the release: this record covers the constant, and the tag is
+  pushed from the commit that seals it.
+constraints:
+  - "The version constant is 0.2.0, and the published tag is the same string."
+  - "A generator package that declares no identity behaves under 0.2.0 exactly as it did under 0.1.1."
+  - "No marker, recording or generated file needs migrating."
+affected_scope:
+  - internal/recording/version.go
+forbidden_scope: []
+type: blueprint
+supersedes: ""
+superseded_by: ""
+related:
+  - prov-2026-d71d6f76
+  - prov-2026-b5465dfa
+sealed_at_sha: ""
+associated_specs:
+  - path: internal/recording/recording_test.go
+associated_traces: []
+monitors: []
+tags:
+  - sedum
+  - release
