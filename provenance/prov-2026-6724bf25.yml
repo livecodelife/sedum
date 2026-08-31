@@ -1,6 +1,6 @@
 id: prov-2026-6724bf25
 title: '0.2.0: an action may declare its region''s identity'
-status: open
+status: implemented
 created_at: "2026-08-31"
 author: calebcowen@gmail.com
 intent: |
@@ -36,7 +36,7 @@ superseded_by: ""
 related:
   - prov-2026-d71d6f76
   - prov-2026-b5465dfa
-sealed_at_sha: ""
+sealed_at_sha: 8c7366b5375d75fdaf75c8e18833ddf5de2797c9
 associated_specs:
   - path: internal/recording/recording_test.go
 associated_traces: []
