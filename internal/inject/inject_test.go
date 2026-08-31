@@ -97,6 +97,17 @@ transforms:
     identity: [controller, name]
     injects_into: "app/controllers/{{controller|snake}}_controller.rb"
     anchor: class_body
+
+  addSetting:
+    kwargs:
+      controller: { type: string, required: true }
+      name: { type: string, required: true }
+      mode: { type: string, required: true }
+    discriminator: mode
+    variants: [strict, lax]
+    identity: [controller, name]
+    injects_into: "app/controllers/{{controller|snake}}_controller.rb"
+    anchor: class_body
 `,
 		"rails/actions/addBeforeFilter.rb": "before_action :{{filter}}\n",
 		"rails/actions/createControllerMethod/index.rb": "def index\n" +
@@ -111,6 +122,8 @@ transforms:
 		"rails/actions/addInRegion.rb":                     "# in region\n",
 		"rails/actions/addUnplanted.rb":                    "# unplanted\n",
 		"rails/actions/addPolicy.rb":                       "policy :{{name}}, {{rule}}\n",
+		"rails/actions/addSetting/strict.rb":               "setting :{{name}}, strict: true\n",
+		"rails/actions/addSetting/lax.rb":                  "setting :{{name}}, strict: false\n",
 	}
 }
 
@@ -472,6 +485,40 @@ func TestDeclaredIdentityRetainsMarkerAttributesAcrossAContentChange(t *testing.
 
 	if got := read(t, root); !strings.Contains(got, `"verified_by":"spec/policies_spec.rb"`) {
 		t.Errorf("the annotation did not survive a change to a non-identity kwarg:\n%s", got)
+	}
+}
+
+// A discriminated action's variant chooses the template, not the region. Where
+// an action declares an identity the author has said what identifies a region,
+// so changing the variant refines the one that is there — otherwise flipping a
+// rule's severity, or a section rule's requirement, mints a second region
+// beside the first and both are emitted (prov-2026-d71d6f76).
+func TestDeclaredIdentitySpansVariants(t *testing.T) {
+	pkg := loadPackage(t)
+	root := output(t)
+
+	strict := invocation(t, pkg, "addSetting", "strict", "setting :audit, strict: true\n", "PR-001",
+		map[string]any{"controller": "users", "name": "audit", "mode": "strict"})
+	if _, err := Apply([]Invocation{strict}, Options{Output: root}); err != nil {
+		t.Fatalf("first Apply: %v", err)
+	}
+
+	lax := invocation(t, pkg, "addSetting", "lax", "setting :audit, strict: false\n", "PR-002",
+		map[string]any{"controller": "users", "name": "audit", "mode": "lax"})
+	results, err := Apply([]Invocation{lax}, Options{Output: root})
+	if err != nil {
+		t.Fatalf("second Apply: %v", err)
+	}
+	if len(results) != 1 || !results[0].Replaced {
+		t.Fatalf("results = %+v, want the region reported as replaced", results)
+	}
+
+	got := read(t, root)
+	if n := strings.Count(got, "setting :audit"); n != 1 {
+		t.Errorf("file declares setting :audit %d times, want 1:\n%s", n, got)
+	}
+	if !strings.Contains(got, "strict: false") {
+		t.Errorf("the file did not take the new variant:\n%s", got)
 	}
 }
 

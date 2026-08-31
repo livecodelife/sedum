@@ -33,6 +33,7 @@ constraints:
   - "An action may declare which of its kwargs identify its region; where none is declared every required kwarg selects, and no existing package or generated codebase changes meaning."
   - "A declared identity names only kwargs the action declares, and only required ones: an absent kwarg cannot identify anything."
   - "A composite declares no identity, having no region of its own."
+  - "Where an action declares an identity, its variant does not additionally identify the region: a variant chooses which template renders, and the author has already said what says which region is meant."
   - "Two invocations resolving to one identity in one file in one run are rejected, rather than the second silently overwriting the first."
   - "Every bound kwarg stays on the marker whether it selects or not, so the selection rule can change again without migrating generated codebases."
   - "A region whose identity kwargs are unchanged is replaced in place, carrying its unmodelled marker attributes and honouring a seeded tier."

@@ -112,9 +112,9 @@ func Apply(invocations []Invocation, opts Options) ([]Result, error) {
 	claimed := map[placement]string{}
 
 	for _, inv := range invocations {
-		if identity, err := IdentityOf(Marker{
+		if identity, err := identityFor(inv.Action, Marker{
 			Action: inv.Action.Name, Variant: inv.Variant, Kwargs: inv.Kwargs,
-		}, selectingKwargs(inv.Action)); err == nil {
+		}); err == nil {
 			where := placement{path: inv.Path, identity: identity}
 			if first, seen := claimed[where]; seen {
 				problems = append(problems, fmt.Errorf(
@@ -225,8 +225,7 @@ func applyOne(inv Invocation, content string) (string, Result, error) {
 		Kwargs:  inv.Kwargs,
 	}
 
-	selecting := selectingKwargs(inv.Action)
-	identity, err := IdentityOf(marker, selecting)
+	identity, err := identityFor(inv.Action, marker)
 	if err != nil {
 		return "", result, err
 	}
@@ -241,7 +240,7 @@ func applyOne(inv Invocation, content string) (string, Result, error) {
 	// being the same thing, never from a lifecycle field Sedum would have to
 	// reimplement a provenance graph to read.
 	for _, region := range regions {
-		existing, err := IdentityOf(region.Marker, selecting)
+		existing, err := identityFor(inv.Action, region.Marker)
 		if err != nil {
 			return "", result, fmt.Errorf("file %s: %w", inv.Path, err)
 		}
@@ -343,6 +342,22 @@ func skipRegionsAt(regions []Region, offset int) int {
 		}
 	}
 	return offset
+}
+
+// identityFor computes the identity of the region a marker describes, under the
+// action's own account of what identifies one.
+//
+// The variant takes part only where the action declares no identity. A variant
+// chooses which template renders, which is a statement about content and not
+// about which region is meant — so an author who has said what identifies a
+// region has already excluded it. Left in, flipping a discriminated value would
+// mint a second region beside the first and both would be emitted: a rule with
+// two severities, a section with two requirements (prov-2026-d71d6f76).
+func identityFor(action *genpkg.Action, m Marker) (Identity, error) {
+	if len(action.Identity) > 0 {
+		m.Variant = ""
+	}
+	return IdentityOf(m, selectingKwargs(action))
 }
 
 // selectingKwargs returns the kwarg names that take part in a region's
