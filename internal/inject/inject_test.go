@@ -88,6 +88,15 @@ transforms:
       controller: { type: string, required: true }
     injects_into: "app/controllers/{{controller|snake}}_controller.rb"
     anchor: class_body_bottom
+
+  addPolicy:
+    kwargs:
+      controller: { type: string, required: true }
+      name: { type: string, required: true }
+      rule: { type: string, required: true }
+    identity: [controller, name]
+    injects_into: "app/controllers/{{controller|snake}}_controller.rb"
+    anchor: class_body
 `,
 		"rails/actions/addBeforeFilter.rb": "before_action :{{filter}}\n",
 		"rails/actions/createControllerMethod/index.rb": "def index\n" +
@@ -101,6 +110,7 @@ transforms:
 		"rails/actions/addBeforeClass.rb":                  "# before\n",
 		"rails/actions/addInRegion.rb":                     "# in region\n",
 		"rails/actions/addUnplanted.rb":                    "# unplanted\n",
+		"rails/actions/addPolicy.rb":                       "policy :{{name}}, {{rule}}\n",
 	}
 }
 
@@ -343,6 +353,151 @@ func TestRerunIsByteIdentical(t *testing.T) {
 	}
 	if second := read(t, root); second != first {
 		t.Errorf("a rerun changed the file:\n%s\nwant:\n%s", second, first)
+	}
+}
+
+// ── Declared identity ───────────────────────────────────────────────────────
+//
+// A required kwarg is required because a model must state it, which says
+// nothing about whether it targets a region or fills one in. addPolicy declares
+// all three of its kwargs required and names two of them as its identity: a
+// policy is identified by the controller and the policy name, and `rule` is the
+// content (prov-2026-d71d6f76).
+
+// The case the field exists for: re-invoking with a different rule refines the
+// policy that is there. Under required-selects this appended a second policy
+// with the same name, and the file ended up asserting both.
+func TestDeclaredIdentityReplacesWhenContentKwargChanges(t *testing.T) {
+	pkg := loadPackage(t)
+	root := output(t)
+
+	first := invocation(t, pkg, "addPolicy", "", "policy :read, admin?\n", "PR-001",
+		map[string]any{"controller": "users", "name": "read", "rule": "admin?"})
+	if _, err := Apply([]Invocation{first}, Options{Output: root}); err != nil {
+		t.Fatalf("first Apply: %v", err)
+	}
+
+	refined := invocation(t, pkg, "addPolicy", "", "policy :read, owner?\n", "PR-002",
+		map[string]any{"controller": "users", "name": "read", "rule": "owner?"})
+	results, err := Apply([]Invocation{refined}, Options{Output: root})
+	if err != nil {
+		t.Fatalf("second Apply: %v", err)
+	}
+	if len(results) != 1 || !results[0].Replaced {
+		t.Fatalf("results = %+v, want the region reported as replaced", results)
+	}
+
+	got := read(t, root)
+	if n := strings.Count(got, "policy :read"); n != 1 {
+		t.Errorf("file declares policy :read %d times, want 1; the region was appended beside rather than replaced:\n%s", n, got)
+	}
+	if !strings.Contains(got, "owner?") || strings.Contains(got, "admin?") {
+		t.Errorf("the refined rule is not what the file carries:\n%s", got)
+	}
+}
+
+// Narrowing identity must not collapse regions that are genuinely different.
+// Two policies on one controller differ by name, and name is in the identity.
+func TestDeclaredIdentityStillDistinguishesRegions(t *testing.T) {
+	pkg := loadPackage(t)
+	root := output(t)
+
+	read1 := invocation(t, pkg, "addPolicy", "", "policy :read, admin?\n", "PR-001",
+		map[string]any{"controller": "users", "name": "read", "rule": "admin?"})
+	write1 := invocation(t, pkg, "addPolicy", "", "policy :write, owner?\n", "PR-001",
+		map[string]any{"controller": "users", "name": "write", "rule": "owner?"})
+
+	if _, err := Apply([]Invocation{read1, write1}, Options{Output: root}); err != nil {
+		t.Fatalf("Apply: %v", err)
+	}
+
+	got := read(t, root)
+	if !strings.Contains(got, "policy :read") || !strings.Contains(got, "policy :write") {
+		t.Errorf("two policies differing by their identity did not both land:\n%s", got)
+	}
+}
+
+// Two invocations resolving to one region in one run is an authoring fault, and
+// the outcome under last-write-wins is that one of the two silently does not
+// happen. It is rejected instead.
+func TestDuplicateIdentityInOneRunIsRejected(t *testing.T) {
+	pkg := loadPackage(t)
+	root := output(t)
+
+	one := invocation(t, pkg, "addPolicy", "", "policy :read, admin?\n", "PR-001",
+		map[string]any{"controller": "users", "name": "read", "rule": "admin?"})
+	two := invocation(t, pkg, "addPolicy", "", "policy :read, owner?\n", "PR-001",
+		map[string]any{"controller": "users", "name": "read", "rule": "owner?"})
+
+	_, err := Apply([]Invocation{one, two}, Options{Output: root})
+	if err == nil {
+		t.Fatalf("Apply accepted two invocations of one region in one run:\n%s", read(t, root))
+	}
+	for _, want := range []string{"addPolicy", "read"} {
+		if !strings.Contains(err.Error(), want) {
+			t.Errorf("error does not name %q, so it does not say which region collided: %v", want, err)
+		}
+	}
+}
+
+// A region matched by its declared identity is still replaced rather than
+// rewritten from scratch, so an annotation another tool left on it survives a
+// change to a kwarg that is not part of the identity (prov-2026-72775ae5).
+func TestDeclaredIdentityRetainsMarkerAttributesAcrossAContentChange(t *testing.T) {
+	pkg := loadPackage(t)
+	root := output(t)
+
+	first := invocation(t, pkg, "addPolicy", "", "policy :read, admin?\n", "PR-001",
+		map[string]any{"controller": "users", "name": "read", "rule": "admin?"})
+	if _, err := Apply([]Invocation{first}, Options{Output: root}); err != nil {
+		t.Fatalf("first Apply: %v", err)
+	}
+
+	// A tool above Sedum annotates the region it just wrote.
+	full := filepath.Join(root, filepath.FromSlash(controllerPath))
+	annotated := strings.Replace(read(t, root), `{"tier":"owned"`,
+		`{"tier":"owned","verified_by":"spec/policies_spec.rb"`, 1)
+	if annotated == read(t, root) {
+		t.Fatal("the fixture annotation did not apply; the marker is not shaped the way this test assumes")
+	}
+	if err := os.WriteFile(full, []byte(annotated), 0o644); err != nil {
+		t.Fatalf("annotate: %v", err)
+	}
+
+	refined := invocation(t, pkg, "addPolicy", "", "policy :read, owner?\n", "PR-002",
+		map[string]any{"controller": "users", "name": "read", "rule": "owner?"})
+	if _, err := Apply([]Invocation{refined}, Options{Output: root}); err != nil {
+		t.Fatalf("second Apply: %v", err)
+	}
+
+	if got := read(t, root); !strings.Contains(got, `"verified_by":"spec/policies_spec.rb"`) {
+		t.Errorf("the annotation did not survive a change to a non-identity kwarg:\n%s", got)
+	}
+}
+
+// An action declaring no identity keeps the rule every existing package was
+// authored against: every required kwarg selects. addImport-shaped actions
+// depend on it — with no discriminator, a required kwarg is the only thing
+// telling two of their regions apart.
+func TestUndeclaredIdentityStillSelectsOnEveryRequiredKwarg(t *testing.T) {
+	pkg := loadPackage(t)
+	root := output(t)
+
+	first := invocation(t, pkg, "addBeforeFilter", "", "before_action :authenticate\n", "PR-001",
+		map[string]any{"controller": "users", "filter": "authenticate"})
+	if _, err := Apply([]Invocation{first}, Options{Output: root}); err != nil {
+		t.Fatalf("first Apply: %v", err)
+	}
+
+	other := invocation(t, pkg, "addBeforeFilter", "", "before_action :authorize\n", "PR-002",
+		map[string]any{"controller": "users", "filter": "authorize"})
+	if _, err := Apply([]Invocation{other}, Options{Output: root}); err != nil {
+		t.Fatalf("second Apply: %v", err)
+	}
+
+	got := read(t, root)
+	if !strings.Contains(got, ":authenticate") || !strings.Contains(got, ":authorize") {
+		t.Errorf("a differing required kwarg no longer distinguishes two regions:\n%s", got)
 	}
 }
 

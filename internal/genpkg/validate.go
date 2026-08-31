@@ -63,6 +63,7 @@ func buildAction(name string, decl *actionDecl, pkg *Package, r *reporter) *Acti
 		AnchorEnd:     decl.AnchorEnd,
 		AnchorPattern: decl.AnchorPattern,
 		Composes:      decl.Composes,
+		Identity:      decl.Identity,
 		// exposed defaults to true: authoring an action is enough to make
 		// it usable, and hiding is the deliberate act.
 		Exposed: decl.Exposed == nil || *decl.Exposed,
@@ -127,6 +128,7 @@ func checkCompositeShape(a *Action, decl *actionDecl, r *reporter) {
 		"injects_into":   decl.InjectsInto != "",
 		"anchor":         decl.Anchor != "",
 		"discriminator":  decl.Discriminator != "",
+		"identity":       decl.Identity != nil,
 		"variants":       len(decl.Variants) > 0,
 		"anchor_pattern": decl.AnchorPattern != "",
 	} {
@@ -166,7 +168,44 @@ func checkSimpleShape(a *Action, r *reporter) {
 		}
 	}
 
+	checkIdentity(a, r)
+
 	checkAnchorFields(a, r)
+}
+
+// checkIdentity holds a declared identity to being a key: names the action
+// knows, and values an invocation always carries. Undeclared is the common case
+// and means every required kwarg selects (prov-2026-d71d6f76).
+func checkIdentity(a *Action, r *reporter) {
+	if a.Identity == nil {
+		return
+	}
+	// Declared and empty is not the same as undeclared. It says every
+	// invocation of this action is one region, which collapses the action's
+	// whole output onto its first invocation.
+	if len(a.Identity) == 0 {
+		r.errorf(actionsRel, RuleIdentityEmpty,
+			"action %s declares an empty identity; every invocation of it would resolve to one region, and each would replace the one before it. Omit identity to select on every required kwarg",
+			a.Name)
+		return
+	}
+	for _, name := range a.Identity {
+		kwarg, ok := a.Kwargs[name]
+		if !ok {
+			r.errorf(actionsRel, RuleIdentityUnknownKwarg,
+				"action %s declares identity kwarg %q, which is not one of its kwargs (%s)",
+				a.Name, name, strings.Join(sortedKeys(a.Kwargs), ", "))
+			continue
+		}
+		// An optional kwarg can be absent, and an absent value identifies
+		// nothing: two regions differing only in whether it was bound would
+		// read as one region.
+		if !kwarg.Required {
+			r.errorf(actionsRel, RuleIdentityOptionalKwarg,
+				"action %s declares identity kwarg %q, which is optional; a kwarg that can be unbound cannot say which region an invocation targets",
+				a.Name, name)
+		}
+	}
 }
 
 // checkAnchorFields enforces that each anchor kind carries exactly the

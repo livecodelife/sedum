@@ -101,7 +101,30 @@ func Apply(invocations []Invocation, opts Options) ([]Result, error) {
 		touched []string
 	)
 
+	// Two invocations resolving to one region in one run is an authoring
+	// fault, and under last-write-wins one of the two silently does not
+	// happen. Keyed by path as well as identity, because one identity in two
+	// files is two regions.
+	type placement struct {
+		path     string
+		identity Identity
+	}
+	claimed := map[placement]string{}
+
 	for _, inv := range invocations {
+		if identity, err := IdentityOf(Marker{
+			Action: inv.Action.Name, Variant: inv.Variant, Kwargs: inv.Kwargs,
+		}, selectingKwargs(inv.Action)); err == nil {
+			where := placement{path: inv.Path, identity: identity}
+			if first, seen := claimed[where]; seen {
+				problems = append(problems, fmt.Errorf(
+					"file %s: %s claims the region already claimed by record %s in this run; both resolve to identity %s, so one would silently replace the other",
+					inv.Path, inv.Action.Name, first, identity.Key))
+				continue
+			}
+			claimed[where] = inv.RecordID
+		}
+
 		content, ok := buffers[inv.Path]
 		if !ok {
 			loaded, err := readTarget(opts.Output, opts.Unwritten, inv)
@@ -323,8 +346,23 @@ func skipRegionsAt(regions []Region, offset int) int {
 }
 
 // selectingKwargs returns the kwarg names that take part in a region's
-// identity: the ones the action declares required.
+// identity: the ones the action declares as its identity, or every required
+// kwarg where it declares none.
+//
+// The fallback is what every package authored before identity existed was
+// written against, and it stays correct for an action with no discriminator and
+// no key: two imports differ because `symbol` is required. The declaration is
+// for the opposite case, an action whose required kwargs are mostly content —
+// a pattern, a count, a selector — where selecting on all of them means a
+// changed value mints a second region rather than refining the one that is
+// there (prov-2026-d71d6f76).
 func selectingKwargs(action *genpkg.Action) []string {
+	if len(action.Identity) > 0 {
+		out := append([]string(nil), action.Identity...)
+		sort.Strings(out)
+		return out
+	}
+
 	var out []string
 	for name, kwarg := range action.Kwargs {
 		if kwarg.Required {

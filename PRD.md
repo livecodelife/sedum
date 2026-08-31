@@ -600,7 +600,9 @@ The kwargs serialized on the opening marker make a region self-describing. A rea
 
 Nothing in this document reads them back. They are written for the same reason the tier field is: markers are durable artifacts, and changing their shape after generated codebases exist is expensive.
 
-Recording all of them, rather than the subset that currently selects a region, keeps open the question of which kwargs select and which merely parameterize. That rule lives in code and can be redefined without migrating generated codebases; the rule today is that an action's required kwargs select and its optional kwargs parameterize.
+Recording all of them, rather than the subset that selects a region, is what kept the question of which kwargs select and which merely parameterize open long enough to answer it. An action may declare an `identity`: the kwargs that decide which region an invocation *is*. Where it declares none, every required kwarg selects and every optional one parameterizes, which is what every package authored before the field existed was written against.
+
+The declaration exists because required and selecting are different properties that happened to coincide. A kwarg is required because the model must state it; it selects because it says which region is meant. For an action whose required kwargs name a target — the symbol an import binds — those are the same set. For one whose required kwargs are mostly content — a pattern, a selector, a count — they are not, and selecting on all of them means changing a value mints a second region beside the first instead of refining it. The seeded tier and retained marker attributes are both read only after a region matches, so they are lost with it (prov-2026-d71d6f76).
 
 ### The record attribute
 

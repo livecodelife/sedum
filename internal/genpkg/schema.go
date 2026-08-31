@@ -93,6 +93,7 @@ type actionDecl struct {
 	AnchorPattern string           `yaml:"anchor_pattern"`
 	Composes      []string         `yaml:"composes"`
 	Exposed       *bool            `yaml:"exposed"`
+	Identity      []string         `yaml:"identity"`
 }
 
 // Kwarg is one entry in an action's argument schema - the shape the model is
@@ -230,6 +231,19 @@ type Action struct {
 	AnchorPattern string
 	Composes      []string
 	Exposed       bool
+
+	// Identity names the kwargs that decide which region an invocation IS,
+	// as opposed to the ones that only parameterize what it contains. Empty
+	// means the author declared none, and then every required kwarg selects.
+	//
+	// The distinction is not cosmetic. A required kwarg is required because
+	// the model must state it, which says nothing about whether it targets a
+	// region or fills one in: a rule's pattern is required and is pure
+	// content. Under required-selects, changing one makes a rerun mint a
+	// second region beside the first rather than replacing it, and the seeded
+	// tier and retained marker attributes are both read only after a region
+	// matches (prov-2026-d71d6f76).
+	Identity []string
 
 	// Template is the path to a simple action's template, relative to the
 	// package directory. Empty for the other kinds.

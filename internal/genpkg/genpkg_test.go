@@ -322,6 +322,52 @@ func TestErrorRules(t *testing.T) {
 			rule:     RuleVariableCollides,
 			mentions: []string{"controller", "addBeforeFilter"},
 		},
+		// An identity naming a kwarg the action does not declare selects on a
+		// value that is never bound, so every region collapses onto one
+		// (prov-2026-d71d6f76).
+		{
+			name: "identity naming a kwarg the action does not declare",
+			files: mutated(map[string]*string{"rails/actions/actions.yaml": text(
+				"actions:\n  addBeforeFilter:\n    kwargs:\n      controller: { type: string, required: true }\n" +
+					"    identity: [controler]\n" +
+					"    injects_into: \"app/controllers/{{controller}}.rb\"\n    anchor: class_body\n")}),
+			rule:     RuleIdentityUnknownKwarg,
+			mentions: []string{"addBeforeFilter", "controler"},
+		},
+		// An optional kwarg can be absent, and an absent value identifies
+		// nothing: two regions differing only in whether it was bound would
+		// read as the same region.
+		{
+			name: "identity naming an optional kwarg",
+			files: mutated(map[string]*string{"rails/actions/actions.yaml": text(
+				"actions:\n  addBeforeFilter:\n    kwargs:\n      controller: { type: string, required: true }\n" +
+					"      only: { type: list, required: false }\n" +
+					"    identity: [only]\n" +
+					"    injects_into: \"app/controllers/{{controller}}.rb\"\n    anchor: class_body\n")}),
+			rule:     RuleIdentityOptionalKwarg,
+			mentions: []string{"addBeforeFilter", "only"},
+		},
+		// Declared and empty is not the same as undeclared: it says every
+		// invocation of the action is one region, which no author means.
+		{
+			name: "identity declared empty",
+			files: mutated(map[string]*string{"rails/actions/actions.yaml": text(
+				"actions:\n  addBeforeFilter:\n    kwargs:\n      controller: { type: string, required: true }\n" +
+					"    identity: []\n" +
+					"    injects_into: \"app/controllers/{{controller}}.rb\"\n    anchor: class_body\n")}),
+			rule:     RuleIdentityEmpty,
+			mentions: []string{"addBeforeFilter"},
+		},
+		// A composite has no region of its own; its children carry theirs.
+		{
+			name: "identity on a composite",
+			files: mutated(map[string]*string{"rails/actions/actions.yaml": text(
+				"actions:\n  addBeforeFilter:\n    kwargs:\n      controller: { type: string, required: true }\n" +
+					"    injects_into: \"app/controllers/{{controller}}.rb\"\n    anchor: class_body\n" +
+					"  scaffold:\n    composes: [addBeforeFilter]\n    identity: [controller]\n")}),
+			rule:     RuleCompositeMalformed,
+			mentions: []string{"scaffold", "identity"},
+		},
 		{
 			name:     "declared shape absent from disk",
 			files:    mutated(map[string]*string{"rails/actions/addBeforeFilter.rb": nil}),

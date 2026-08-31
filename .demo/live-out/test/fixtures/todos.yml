@@ -1,0 +1,14 @@
+# Read about fixtures at
+# https://api.rubyonrails.org/classes/ActiveRecord/FixtureSet.html
+#
+# One fixture, and the anchor sits inside it. Every attribute an action adds
+# lands in this block, so nothing carries a label and no fixture depends on the
+# order its attributes arrive in.
+one:
+  # sedum:anchor:fixture
+  # sedum:addFixtureAttribute {"tier":"owned","record":"eval-todo-rails","kwargs":{"name":"title","resource":"todo","value":"todo"}}
+  title: todo
+  # /sedum:addFixtureAttribute
+  # sedum:addFixtureAttribute {"tier":"owned","record":"eval-todo-rails","kwargs":{"name":"completed","resource":"todo","value":"false"}}
+  completed: false
+  # /sedum:addFixtureAttribute
