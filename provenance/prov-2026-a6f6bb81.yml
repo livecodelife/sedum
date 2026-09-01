@@ -1,0 +1,167 @@
+id: prov-2026-a6f6bb81
+title: 'A comment prefix is half a comment: block-comment targets need a suffix'
+status: draft
+created_at: "2026-09-01"
+author: calebcowen@gmail.com
+intent: |
+  A package declares one comment_prefix and Sedum builds every marker from it as
+  a line comment. That covers #, // and --, which is the set the code names, and
+  it silently excludes every target whose only comment form is delimited. This
+  adds an optional comment_suffix, so a marker can close.
+
+  ## What is actually unreachable today
+
+  An Angular template. There is no line comment in HTML, so a package targeting
+  .html has two options and both produce a broken file: declare `<!--` and every
+  marker Sedum writes is an unterminated comment that swallows the rest of the
+  file, or declare `//` and the marker renders as visible text on the page.
+
+  This surfaced pointing an erp-grid package at LINQ-ERP-v4, where the single
+  best-fit artifact in the repository is an Angular template - a list of
+  <app-grid-col> elements whose every attribute is a name, a label, a type, a
+  width or a max length. That is the shape this project's own check-rule package
+  is built for, expressed in the one syntax Sedum cannot mark. The .cs and .ts
+  halves of the same page generate byte-identically today; the template cannot
+  be reached at all.
+
+  It is not only HTML. CSS and SCSS blocks, Jinja and Twig, Vue and Svelte
+  templates, XML and XSLT, and older C are all delimited-only or
+  delimited-by-convention. Every one of them is a target a team could otherwise
+  write a package for.
+
+  ## Why a suffix rather than a comment style
+
+  The tempting generalization is a comment *style* - a named vocabulary of
+  languages, or a pair plus rules about nesting and escaping. Both are more than
+  the problem needs and both put language knowledge in the core, which is the
+  one thing this core does not have.
+
+  What a marker requires of a comment is exactly two things: text that opens it
+  and, sometimes, text that closes it. comment_suffix is that second thing and
+  nothing more. Sedum still does not know what language it is writing, still
+  does not parse, and still cannot tell an HTML comment from a CSS one.
+
+  ## Absent means byte-identical
+
+  The suffix is optional and an absent suffix must produce exactly the bytes
+  Sedum writes today. That is the same promise prov-2026-72775ae5 made for the
+  writer key - "so every marker already written reads correctly and no migration
+  is implied" - and it is load-bearing for the same reason: markers sit in
+  generated repositories long after the version that wrote them, and a release
+  that reshuffled every existing marker line would be a migration disguised as
+  an addition.
+
+  So this is additive in the sense TOOL_BOUNDARIES.md means: the marker format
+  gains an optional decoration, no existing package changes behavior, and no
+  generated file needs rewriting.
+
+  ## The prefix and the suffix are one concept, and the code should say so
+
+  Eight functions currently take commentPrefix string, threaded from
+  Package.CommentPrefix through genpkg, inject, expand and resolve. Adding a
+  second bare string parameter to each would be the smallest diff and the worst
+  outcome: two positional strings of the same type, at eight call sites, where
+  transposing them produces markers that write correctly and never parse.
+
+  A Comment value carrying Prefix and Suffix makes the pair unswappable and
+  names the concept once. That is a wider mechanical diff and a narrower surface
+  for a real defect.
+
+  ## What reading has to change, and the one place it does not
+
+  Writing appends the suffix. Reading has to strip it before the text means
+  anything, and there are three readers:
+
+  parseOpen cuts the label from the attribute JSON and unmarshals the remainder.
+  With a suffix the remainder is `{...} -->`, which is not JSON - so the suffix
+  comes off before the parse, not after.
+
+  findAnchorLineStart compares the rest of the trimmed line to the anchor name
+  for equality, deliberately, so class_body does not match class_body_top. With
+  a suffix the rest is `columns -->` and equality fails for every anchor.
+
+  MarkersIn needs no change, and the reason is worth recording rather than
+  discovering later: its pattern captures [A-Za-z0-9_.-]+, which cannot match
+  the space before a suffix, so the name is already bounded correctly. That is
+  luck rather than design, and a test pins it so a future widening of that
+  character class cannot quietly break suffix parsing.
+
+  Reconciliation is the one place that legitimately keeps looking at the prefix
+  alone. Its rule is that a line is structural unless it is blank or begins with
+  the comment prefix; a suffix says nothing about whether a line is boilerplate.
+
+  ## What is deliberately not done
+
+  No nesting rule. An HTML comment cannot contain --, and a marker carrying a
+  kwarg with two hyphens would produce an invalid comment. That is real and it
+  is not this record: it is a validation question about kwarg values per target
+  syntax, it needs a vocabulary Sedum does not have, and refusing to guess it is
+  consistent with the core knowing no language. A package author writing HTML
+  today owns that constraint the same way they own indentation.
+
+  No per-extension comment configuration. A package declaring both .cs and
+  .html would need two comment shapes, and one package one comment shape stays
+  the rule. The answer is two packages, which is already how a package targeting
+  two languages is expressed, and the extension-to-package map already enforces
+  it.
+constraints:
+  - >-
+    comment_suffix is optional. A package that does not declare one produces
+    byte-identical markers to those Sedum writes today, on both the opening and
+    closing line, so no existing package changes behavior and no generated file
+    needs rewriting.
+  - >-
+    The prefix and suffix travel together as one value, never as two positional
+    strings of the same type. Transposing them must not be expressible.
+  - >-
+    Every reader strips the suffix before interpreting what remains: the
+    attribute JSON on an opening marker, the label on a closing marker, and the
+    anchor name on a template-planted declaration.
+  - >-
+    Reconciliation continues to test structural lines against the prefix alone.
+    A suffix says nothing about whether a line is boilerplate.
+  - >-
+    Region identity is unchanged. Neither the prefix nor the suffix takes part
+    in IdentityOf, so a package adding a suffix cannot cause a region to be
+    duplicated or replaced differently than before.
+  - >-
+    A suffix declared without a prefix is rejected at load. A closing delimiter
+    with nothing to close is a package error, not a default.
+  - >-
+    MarkersIn's character class is pinned by a test. It bounds an anchor name
+    correctly today by accident, and a future widening must fail loudly rather
+    than silently break suffix parsing.
+  - >-
+    No comment-style vocabulary, no per-extension comment configuration, and no
+    nesting or escaping rules. The core learns no language.
+affected_scope:
+  - internal/genpkg/**
+  - internal/inject/**
+  - internal/expand/**
+  - internal/resolve/**
+  - internal/recording/version.go
+  - conformance/**
+  - testdata/**
+  - README.md
+forbidden_scope: []
+type: blueprint
+implements: prov-2026-d554bfc3
+supersedes: ""
+superseded_by: ""
+related:
+  - prov-2026-72775ae5
+  - prov-2026-36c8a99c
+sealed_at_sha: ""
+associated_specs:
+  - path: internal/inject/marker_test.go
+    run_command: go test -count=1 ./$(dirname {{path}})
+  - path: internal/inject/conformance_test.go
+    run_command: go test -count=1 ./$(dirname {{path}})
+  - path: internal/genpkg/anchors_test.go
+    run_command: go test -count=1 ./$(dirname {{path}})
+associated_traces: []
+monitors: []
+tags:
+  - sedum
+  - marker
+  - genpkg
