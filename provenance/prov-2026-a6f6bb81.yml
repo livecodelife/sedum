@@ -1,6 +1,6 @@
 id: prov-2026-a6f6bb81
 title: 'A comment prefix is half a comment: block-comment targets need a suffix'
-status: draft
+status: open
 created_at: "2026-09-01"
 author: calebcowen@gmail.com
 intent: |
