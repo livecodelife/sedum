@@ -34,7 +34,7 @@ func Planted(files []resolve.File) []Anchor {
 		if f.Unmanaged || f.Package == nil || f.Rendered == "" {
 			continue
 		}
-		for _, marker := range genpkg.MarkersIn(f.Package.CommentPrefix, f.Rendered) {
+		for _, marker := range genpkg.MarkersIn(f.Package.Comment(), f.Rendered) {
 			out = append(out, Anchor{Path: f.Path, Marker: marker})
 		}
 	}

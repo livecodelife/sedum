@@ -850,22 +850,33 @@ func indexOfLine(lines []string, want string) int {
 // the two have not drifted apart: what this package searches for is what that
 // one recognizes.
 func TestAnchorMarkerShapesAgree(t *testing.T) {
-	for _, prefix := range []string{"#", "//", ";;"} {
-		planted := anchorDecl(prefix, "class_body")
+	// The last three carry a closing delimiter, which is where the two sides
+	// could most easily disagree: genpkg bounds the name with a character
+	// class and this package strips the suffix off the tail
+	// (prov-2026-a6f6bb81).
+	for _, comment := range []genpkg.Comment{
+		{Prefix: "#"},
+		{Prefix: "//"},
+		{Prefix: ";;"},
+		{Prefix: "<!--", Suffix: "-->"},
+		{Prefix: "/*", Suffix: "*/"},
+		{Prefix: "{#", Suffix: "#}"},
+	} {
+		planted := anchorDecl(comment, "class_body")
 
-		found := genpkg.MarkersIn(prefix, planted)
+		found := genpkg.MarkersIn(comment, planted)
 		if len(found) != 1 || found[0] != "class_body" {
-			t.Errorf("prefix %q: genpkg does not recognize %q as planting an anchor; found %v",
-				prefix, planted, found)
+			t.Errorf("comment %+v: genpkg does not recognize %q as planting an anchor; found %v",
+				comment, planted, found)
 		}
 
-		offset, ok := findAnchorLineStart(prefix, "class_body", "x\n"+planted+"\ny\n")
+		offset, ok := findAnchorLineStart(comment, "class_body", "x\n"+planted+"\ny\n")
 		if !ok {
-			t.Errorf("prefix %q: %q was not located", prefix, planted)
+			t.Errorf("comment %+v: %q was not located", comment, planted)
 			continue
 		}
 		if offset != 2 {
-			t.Errorf("prefix %q: anchor located at %d, want 2", prefix, offset)
+			t.Errorf("comment %+v: anchor located at %d, want 2", comment, offset)
 		}
 	}
 }
@@ -879,11 +890,11 @@ func TestAnchorNamesAreNotPrefixes(t *testing.T) {
 		"  # sedum:anchor:class_body\n" +
 		"end\n"
 
-	top, ok := findAnchorLineStart("#", "class_body_top", content)
+	top, ok := findAnchorLineStart(lineComment("#"), "class_body_top", content)
 	if !ok {
 		t.Fatal("class_body_top was not located")
 	}
-	body, ok := findAnchorLineStart("#", "class_body", content)
+	body, ok := findAnchorLineStart(lineComment("#"), "class_body", content)
 	if !ok {
 		t.Fatal("class_body was not located")
 	}

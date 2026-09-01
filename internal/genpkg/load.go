@@ -150,6 +150,7 @@ func loadPackage(dir, dirName string) (*Package, Findings, error) {
 		Dir:           dir,
 		Extensions:    man.Extensions,
 		CommentPrefix: man.CommentPrefix,
+		CommentSuffix: man.CommentSuffix,
 		Transforms:    man.Transforms,
 		OpExceptions:  man.OpExceptions,
 		Unmanaged:     man.Unmanaged,
@@ -178,6 +179,14 @@ func loadPackage(dir, dirName string) (*Package, Findings, error) {
 		r.errorf(manifestFile, RuleNameMismatch,
 			"package declares name %q but its directory is named %q; the directory name is what --package and --lang refer to",
 			man.Name, dirName)
+	}
+	// A closing delimiter with nothing to open is a package error rather than a
+	// default. Sedum would otherwise write a marker that is a bare suffix,
+	// which no target reads as a comment (prov-2026-a6f6bb81).
+	if man.CommentSuffix != "" && man.CommentPrefix == "" {
+		r.errorf(manifestFile, RuleCommentSuffixOrphan,
+			"package declares comment_suffix %q but no comment_prefix; a closing delimiter has nothing to close",
+			man.CommentSuffix)
 	}
 	for _, ext := range man.Extensions {
 		if !strings.HasPrefix(ext, ".") {

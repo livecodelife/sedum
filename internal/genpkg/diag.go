@@ -35,6 +35,7 @@ const (
 	RuleActionsMalformed       = "actions_malformed"
 	RuleNameMismatch           = "package_name_mismatch"
 	RuleExtensionInvalid       = "extension_invalid"
+	RuleCommentSuffixOrphan    = "comment_suffix_without_prefix"
 	RuleKwargTypeUnknown       = "kwarg_type_unknown"
 	RuleKwargDefaultOnRequired = "kwarg_default_on_required"
 	RuleKwargDefaultType       = "kwarg_default_type"

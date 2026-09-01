@@ -45,20 +45,20 @@ type reconciled struct {
 //
 // Greedy leftmost matching is used and is complete: where a subsequence exists
 // at all, taking the earliest match for each line finds one.
-func reconcile(commentPrefix, path, template, existing, rendered string) (reconciled, error) {
+func reconcile(comment genpkg.Comment, path, template, existing, rendered string) (reconciled, error) {
 	file, trailing := splitLines(existing)
 	tmpl, _ := splitLines(rendered)
 
 	// The skeleton is the file with every marked region removed, so that what
 	// is compared is the boilerplate rather than the boilerplate plus whatever
 	// has been injected into it since.
-	skeleton, origin, owner, err := decompose(commentPrefix, file, existing)
+	skeleton, origin, owner, err := decompose(comment, file, existing)
 	if err != nil {
 		return reconciled{}, fmt.Errorf("file %s: %w", path, err)
 	}
 
-	fileAt := structural(skeleton, commentPrefix)
-	tmplAt := structural(tmpl, commentPrefix)
+	fileAt := structural(skeleton, comment)
+	tmplAt := structural(tmpl, comment)
 
 	matched, failed := align(pick(skeleton, fileAt), pick(tmpl, tmplAt))
 	if failed >= 0 {
@@ -193,8 +193,8 @@ func align(a, b []string) (matched []int, failed int) {
 //
 // A line owns the region that follows it, so an insertion computed against the
 // boilerplate can be placed after the region rather than inside it.
-func decompose(commentPrefix string, file []string, content string) (skeleton []string, origin, owner []int, err error) {
-	regions, err := inject.FindRegions(commentPrefix, content)
+func decompose(comment genpkg.Comment, file []string, content string) (skeleton []string, origin, owner []int, err error) {
+	regions, err := inject.FindRegions(comment, content)
 	if err != nil {
 		return nil, nil, nil, err
 	}
@@ -226,14 +226,19 @@ func decompose(commentPrefix string, file []string, content string) (skeleton []
 // structural returns the indices of lines that carry structure: not blank, and
 // not a plain comment. A marker is structural, because it is what is being
 // planted and a file that has one differs from a file that does not.
-func structural(lines []string, commentPrefix string) []int {
+//
+// Only the opening delimiter decides whether a line is a comment. A closing one
+// says nothing about whether a line is boilerplate, so reconciliation reads the
+// prefix alone here even though it needs the whole Comment to recognize a marker
+// (prov-2026-a6f6bb81).
+func structural(lines []string, comment genpkg.Comment) []int {
 	var out []int
 	for i, line := range lines {
 		trimmed := strings.TrimSpace(line)
 		if trimmed == "" {
 			continue
 		}
-		if strings.HasPrefix(trimmed, commentPrefix) && len(genpkg.MarkersIn(commentPrefix, line)) == 0 {
+		if strings.HasPrefix(trimmed, comment.Prefix) && len(genpkg.MarkersIn(comment, line)) == 0 {
 			continue
 		}
 		out = append(out, i)

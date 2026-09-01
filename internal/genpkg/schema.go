@@ -23,6 +23,7 @@ type manifest struct {
 	Name          string                       `yaml:"name"`
 	Extensions    []string                     `yaml:"extensions"`
 	CommentPrefix string                       `yaml:"comment_prefix"`
+	CommentSuffix string                       `yaml:"comment_suffix"`
 	Transforms    map[string][]string          `yaml:"transforms"`
 	OpExceptions  map[string]map[string]string `yaml:"op_exceptions"`
 	Unmanaged     []string                     `yaml:"unmanaged"`
@@ -291,6 +292,64 @@ func (a *Action) Requires(variant string) []string {
 	return a.TemplateRefs[DefaultVariant]
 }
 
+// Comment is how one package's target opens and closes a comment.
+//
+// It exists as a value rather than as two strings threaded side by side because
+// the pair is one concept and the two halves have the same type. Passed
+// positionally through genpkg, inject, expand and resolve, they could be
+// transposed at any call site, and a transposed pair writes markers that look
+// plausible and never parse. A Comment cannot be transposed
+// (prov-2026-a6f6bb81).
+//
+// Sedum still knows no language. Suffix is text that closes a comment and
+// nothing more: it carries no vocabulary of comment styles, no nesting rule and
+// no escaping rule, and Sedum cannot tell an HTML comment from a CSS one.
+type Comment struct {
+	// Prefix opens a comment: #, // and -- all appear across targets.
+	Prefix string
+	// Suffix closes one, and is empty for every target whose comments run to
+	// end of line. Empty is the overwhelmingly common case and is what keeps
+	// this addition from rewriting markers already on disk.
+	Suffix string
+}
+
+// Delimited reports whether the target needs its comments closed.
+func (c Comment) Delimited() bool { return c.Suffix != "" }
+
+// Wrap renders body as one comment line: the prefix, the body, and the suffix
+// where there is one.
+//
+// It is the single place the shape of a comment line is decided, so a marker, a
+// closing marker and a template-planted anchor declaration cannot drift apart
+// in how they space their delimiters.
+func (c Comment) Wrap(body string) string {
+	line := c.Prefix + " " + body
+	if c.Suffix == "" {
+		return line
+	}
+	return line + " " + c.Suffix
+}
+
+// Unwrap removes the suffix from the tail of a line's already-prefix-stripped
+// text, reporting the text that carries meaning.
+//
+// Every reader needs this before it interprets what it has: the attribute JSON
+// on an opening marker is not JSON with " -->" still on the end, and an anchor
+// name is compared for equality rather than as a prefix, so "columns -->" does
+// not match "columns".
+//
+// A line that does not carry the suffix is returned as it came. Sedum does not
+// reject it: a package author may have written the marker by hand, and a
+// missing closing delimiter is the target language's complaint to make, not
+// Sedum's.
+func (c Comment) Unwrap(text string) string {
+	trimmed := strings.TrimSpace(text)
+	if c.Suffix == "" {
+		return trimmed
+	}
+	return strings.TrimSpace(strings.TrimSuffix(trimmed, c.Suffix))
+}
+
 // Package is a loaded generator package: a team's conventions for one target
 // stack.
 type Package struct {
@@ -299,6 +358,11 @@ type Package struct {
 	Dir           string
 	Extensions    []string
 	CommentPrefix string
+	// CommentSuffix closes a comment in targets that have no line-comment
+	// form. Empty for every target that does, which is most of them, and an
+	// empty suffix produces exactly the marker bytes Sedum wrote before the
+	// field existed (prov-2026-a6f6bb81).
+	CommentSuffix string
 	// Transforms are the named pipelines the package declares over the
 	// built-in operation set.
 	Transforms   map[string][]string
@@ -359,6 +423,15 @@ type Package struct {
 	// fileContents is: Phase 6 renders these, loading has already read them,
 	// and re-reading would reopen the window between validation and use.
 	actionContents map[string]string
+}
+
+// Comment returns how this package's target delimits a comment.
+//
+// Every caller that writes or reads a marker takes this rather than either
+// field, so the prefix and the suffix cannot be separated on the way to the one
+// place that decides what a comment line looks like.
+func (p *Package) Comment() Comment {
+	return Comment{Prefix: p.CommentPrefix, Suffix: p.CommentSuffix}
 }
 
 // FileTemplate returns the contents of the file template with the given

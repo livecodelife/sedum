@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"sort"
 	"strings"
+
+	"github.com/livecodelife/sedum/internal/genpkg"
 )
 
 // The ownership marker: the only place idempotency state lives, and a public
@@ -164,12 +166,12 @@ func (m Marker) Label() string {
 // or a C++ template argument would fare worse. The escaped form round-trips
 // correctly, so nothing breaks - but a marker is read by people and by grep,
 // and it should say what the region was rendered from.
-func (m Marker) Open(commentPrefix string) (string, error) {
+func (m Marker) Open(comment genpkg.Comment) (string, error) {
 	encoded, err := m.encodeAttrs()
 	if err != nil {
 		return "", err
 	}
-	return commentPrefix + " " + openKeyword + m.Label() + " " + encoded, nil
+	return comment.Wrap(openKeyword + m.Label() + " " + encoded), nil
 }
 
 // encodeAttrs renders the attribute object: the keys attrs declares, in the
@@ -255,8 +257,8 @@ func encodeJSON(value any) (string, error) {
 }
 
 // Close renders the closing marker line, without a trailing newline.
-func (m Marker) Close(commentPrefix string) string {
-	return commentPrefix + " " + closeKeyword + m.Label()
+func (m Marker) Close(comment genpkg.Comment) string {
+	return comment.Wrap(closeKeyword + m.Label())
 }
 
 func (m Marker) tierOrDefault() Tier {
@@ -289,11 +291,16 @@ func (m Marker) writerIfNamed() string {
 // object is an error, because that is corruption rather than version skew: the
 // object's encoding is the committed shape, and a newer version adding a field
 // still produces JSON an older one can read.
-func parseOpen(commentPrefix, line string) (Marker, bool, error) {
-	rest, ok := trimMarkerPrefix(commentPrefix, line, openKeyword)
+func parseOpen(comment genpkg.Comment, line string) (Marker, bool, error) {
+	rest, ok := trimMarkerPrefix(comment, line, openKeyword)
 	if !ok {
 		return Marker{}, false, nil
 	}
+
+	// The closing delimiter comes off before the split, not after: the
+	// attribute object is the tail of the line, and `{"tier":"owned"} -->` is
+	// not readable as JSON.
+	rest = comment.Unwrap(rest)
 
 	label, encoded, _ := strings.Cut(rest, " ")
 	action, variant := splitLabel(strings.TrimSpace(label))
@@ -348,23 +355,26 @@ func parseOpen(commentPrefix, line string) (Marker, bool, error) {
 }
 
 // parseClose reads a closing marker's label from one line.
-func parseClose(commentPrefix, line string) (string, bool) {
-	rest, ok := trimMarkerPrefix(commentPrefix, line, closeKeyword)
+func parseClose(comment genpkg.Comment, line string) (string, bool) {
+	rest, ok := trimMarkerPrefix(comment, line, closeKeyword)
 	if !ok {
 		return "", false
 	}
-	return strings.TrimSpace(rest), true
+	return comment.Unwrap(rest), true
 }
 
 // trimMarkerPrefix matches "<comment_prefix> <keyword>" at the start of a
 // line's trimmed text and returns what follows.
 //
-// The comment prefix is the package's declared one and is never hardcoded and
-// never inferred from a file extension: #, // and -- all appear across targets.
-func trimMarkerPrefix(commentPrefix, line, keyword string) (string, bool) {
+// The comment delimiters are the package's declared ones and are never
+// hardcoded and never inferred from a file extension: #, // and -- all appear
+// across targets, and some targets close their comments. Only the opening
+// delimiter is matched here; stripping the closing one is the caller's, because
+// what remains means different things to parseOpen and parseClose.
+func trimMarkerPrefix(comment genpkg.Comment, line, keyword string) (string, bool) {
 	trimmed := strings.TrimSpace(line)
 
-	after, ok := strings.CutPrefix(trimmed, commentPrefix)
+	after, ok := strings.CutPrefix(trimmed, comment.Prefix)
 	if !ok {
 		return "", false
 	}
@@ -454,7 +464,7 @@ type Region struct {
 // A region whose opening marker is never closed is an error: its extent is
 // unknown, so replacing it would either destroy the rest of the file or append
 // beside it, and both are worse than halting.
-func FindRegions(commentPrefix, content string) ([]Region, error) {
+func FindRegions(comment genpkg.Comment, content string) ([]Region, error) {
 	var (
 		out  []Region
 		open *Region
@@ -471,14 +481,14 @@ func FindRegions(commentPrefix, content string) ([]Region, error) {
 		line := content[offset:lineEnd]
 
 		if open == nil {
-			marker, ok, err := parseOpen(commentPrefix, line)
+			marker, ok, err := parseOpen(comment, line)
 			if err != nil {
 				return nil, err
 			}
 			if ok {
 				open = &Region{Marker: marker, Start: offset}
 			}
-		} else if label, ok := parseClose(commentPrefix, line); ok {
+		} else if label, ok := parseClose(comment, line); ok {
 			if label != open.Marker.Label() {
 				return nil, fmt.Errorf(
 					"region opened by marker %q is closed by marker %q; a region's markers must name the same action and variant",

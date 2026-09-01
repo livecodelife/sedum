@@ -230,7 +230,7 @@ func applyOne(inv Invocation, content string) (string, Result, error) {
 		return "", result, err
 	}
 
-	regions, err := FindRegions(inv.Package.CommentPrefix, content)
+	regions, err := FindRegions(inv.Package.Comment(), content)
 	if err != nil {
 		return "", result, fmt.Errorf("file %s: %w", inv.Path, err)
 	}
@@ -303,7 +303,7 @@ func applyOne(inv Invocation, content string) (string, Result, error) {
 // sit inside a struct with a top-level declaration starting at column zero, and
 // re-indenting would double-indent the first (prov-2026-df491217).
 func renderRegion(inv Invocation, marker Marker, indent string) (string, error) {
-	open, err := marker.Open(inv.Package.CommentPrefix)
+	open, err := marker.Open(inv.Package.Comment())
 	if err != nil {
 		return "", err
 	}
@@ -322,7 +322,7 @@ func renderRegion(inv Invocation, marker Marker, indent string) (string, error) 
 		b.WriteString("\n")
 	}
 	b.WriteString(indent)
-	b.WriteString(marker.Close(inv.Package.CommentPrefix))
+	b.WriteString(marker.Close(inv.Package.Comment()))
 	b.WriteString("\n")
 	return b.String(), nil
 }

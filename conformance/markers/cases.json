@@ -1,6 +1,6 @@
 {
   "format": "sedum.marker",
-  "corpus_version": 1,
+  "corpus_version": 2,
   "description": "Golden cases for Sedum's ownership marker format. Every case cites the record that decided the behavior it pins.",
   "cases": [
     {
@@ -17,7 +17,10 @@
         "tier": "owned",
         "record": "PR-014",
         "writer": "sedum",
-        "kwargs": {"collection": "users", "controller": "users"},
+        "kwargs": {
+          "collection": "users",
+          "controller": "users"
+        },
         "extra": {}
       }
     },
@@ -35,8 +38,13 @@
         "tier": "owned",
         "record": "PR-9",
         "writer": "sedum",
-        "kwargs": {"controller": "users"},
-        "extra": {"harness_attempts": 3, "verified_by": "spec/users.linespec"}
+        "kwargs": {
+          "controller": "users"
+        },
+        "extra": {
+          "harness_attempts": 3,
+          "verified_by": "spec/users.linespec"
+        }
       }
     },
     {
@@ -53,8 +61,13 @@
         "tier": "owned",
         "record": "PR-9",
         "writer": "sedum",
-        "kwargs": {"controller": "users"},
-        "extra": {"harness_attempts": 3, "verified_by": "spec/users.linespec"}
+        "kwargs": {
+          "controller": "users"
+        },
+        "extra": {
+          "harness_attempts": 3,
+          "verified_by": "spec/users.linespec"
+        }
       },
       "output": "# sedum:createControllerMethod:index {\"tier\":\"owned\",\"record\":\"PR-9\",\"kwargs\":{\"controller\":\"users\"},\"harness_attempts\":3,\"verified_by\":\"spec/users.linespec\"}"
     },
@@ -73,7 +86,13 @@
         "record": "",
         "writer": "sedum",
         "kwargs": {},
-        "extra": {"zeta": 1, "alpha": {"b": 2, "a": 1}}
+        "extra": {
+          "zeta": 1,
+          "alpha": {
+            "b": 2,
+            "a": 1
+          }
+        }
       },
       "output": "# sedum:createControllerMethod:index {\"tier\":\"owned\",\"alpha\":{\"b\":2,\"a\":1},\"zeta\":1}"
     },
@@ -108,7 +127,9 @@
         "tier": "seeded",
         "record": "prov-2026-4f2a",
         "writer": "tendril",
-        "kwargs": {"controller": "users"},
+        "kwargs": {
+          "controller": "users"
+        },
         "extra": {}
       },
       "output": "# sedum:createControllerMethod:index {\"tier\":\"seeded\",\"record\":\"prov-2026-4f2a\",\"writer\":\"tendril\",\"kwargs\":{\"controller\":\"users\"}}"
@@ -126,7 +147,13 @@
         "record": "",
         "writer": "",
         "kwargs": {},
-        "extra": {"tier": "seeded", "kept": true, "kwargs": {"controller": "impostor"}}
+        "extra": {
+          "tier": "seeded",
+          "kept": true,
+          "kwargs": {
+            "controller": "impostor"
+          }
+        }
       },
       "output": "# sedum:createControllerMethod {\"tier\":\"owned\",\"kept\":true}"
     },
@@ -142,8 +169,17 @@
         "tier": "owned",
         "record": "",
         "writer": "",
-        "kwargs": {"table": "users", "name": "user", "module": "admin"},
-        "extra": {"lens": {"z": 1, "a": 2}}
+        "kwargs": {
+          "table": "users",
+          "name": "user",
+          "module": "admin"
+        },
+        "extra": {
+          "lens": {
+            "z": 1,
+            "a": 2
+          }
+        }
       },
       "output": "# sedum:createModel {\"tier\":\"owned\",\"kwargs\":{\"module\":\"admin\",\"name\":\"user\",\"table\":\"users\"},\"lens\":{\"z\":1,\"a\":2}}"
     },
@@ -159,7 +195,10 @@
         "tier": "owned",
         "record": "",
         "writer": "",
-        "kwargs": {"bound": "List<User>", "receiver": "&t.ID"},
+        "kwargs": {
+          "bound": "List<User>",
+          "receiver": "&t.ID"
+        },
         "extra": {}
       },
       "output": "// sedum:createHandler {\"tier\":\"owned\",\"kwargs\":{\"bound\":\"List<User>\",\"receiver\":\"&t.ID\"}}"
@@ -177,7 +216,9 @@
         "tier": "owned",
         "record": "PR-092",
         "writer": "",
-        "kwargs": {"controller": "users"},
+        "kwargs": {
+          "controller": "users"
+        },
         "extra": {}
       },
       "output": "# sedum:createControllerMethod:index {\"tier\":\"owned\",\"record\":\"PR-092\",\"kwargs\":{\"controller\":\"users\"},\"harness_attempts\":2,\"verified_by\":\"spec/users.linespec\"}"
@@ -199,7 +240,9 @@
       "why": "Anchor declarations and ownership markers share the sedum: namespace, so a reader scanning for regions has to tell them apart. An anchor read as an ownership marker makes the first region after it appear to close an action named anchor. The consequence is that anchor is not available as an action name.",
       "comment_prefix": "#",
       "input": "# sedum:anchor:class_body",
-      "parsed": {"recognized": false}
+      "parsed": {
+        "recognized": false
+      }
     },
     {
       "id": "emit/the-closing-line-carries-the-same-label-and-no-attributes",
@@ -217,6 +260,116 @@
         "extra": {}
       },
       "output": "# /sedum:createControllerMethod:index"
+    },
+    {
+      "id": "emit/a-delimited-comment-closes-the-opening-marker",
+      "kind": "emit",
+      "decision": "prov-2026-a6f6bb81",
+      "why": "A target whose only comment form is delimited needs its markers closed. An implementation that writes the prefix and stops leaves an unterminated comment that swallows the rest of the file. The suffix is separated from the attribute object by a single space, the same way the prefix is separated from the keyword.",
+      "comment_prefix": "<!--",
+      "comment_suffix": "-->",
+      "marker": {
+        "action": "addTextColumn",
+        "variant": "required",
+        "tier": "owned",
+        "record": "ERP-1",
+        "writer": "",
+        "kwargs": {
+          "column": "commodity_code"
+        },
+        "extra": {}
+      },
+      "output": "<!-- sedum:addTextColumn:required {\"tier\":\"owned\",\"record\":\"ERP-1\",\"kwargs\":{\"column\":\"commodity_code\"}} -->"
+    },
+    {
+      "id": "emit/a-delimited-closing-line-closes-its-comment-too",
+      "kind": "close",
+      "decision": "prov-2026-a6f6bb81",
+      "why": "The closing line carries no attribute object but is still a comment, so it still needs closing. An implementation that suffixes only the opening line leaves every region's second marker unterminated.",
+      "comment_prefix": "<!--",
+      "comment_suffix": "-->",
+      "marker": {
+        "action": "addTextColumn",
+        "variant": "required",
+        "tier": "owned",
+        "record": "",
+        "writer": "",
+        "kwargs": {},
+        "extra": {}
+      },
+      "output": "<!-- /sedum:addTextColumn:required -->"
+    },
+    {
+      "id": "round_trip/the-suffix-comes-off-before-the-attributes-are-read",
+      "kind": "round_trip",
+      "decision": "prov-2026-a6f6bb81",
+      "why": "The attribute object is the tail of the opening line, so a reader that strips the prefix and parses the remainder as JSON fails on a delimited target: the remainder ends with the closing delimiter. The suffix comes off first. This is the single most likely place for an implementation to diverge.",
+      "comment_prefix": "<!--",
+      "comment_suffix": "-->",
+      "input": "<!-- sedum:addSelectColumn {\"tier\":\"owned\",\"record\":\"ERP-2\",\"kwargs\":{\"column\":\"inactive_flag\"}} -->",
+      "parsed": {
+        "recognized": true,
+        "action": "addSelectColumn",
+        "variant": "",
+        "tier": "owned",
+        "record": "ERP-2",
+        "writer": "sedum",
+        "kwargs": {
+          "column": "inactive_flag"
+        },
+        "extra": {}
+      },
+      "output": "<!-- sedum:addSelectColumn {\"tier\":\"owned\",\"record\":\"ERP-2\",\"kwargs\":{\"column\":\"inactive_flag\"}} -->"
+    },
+    {
+      "id": "parse/an-unclosed-delimited-marker-is-still-a-marker",
+      "kind": "parse",
+      "decision": "prov-2026-a6f6bb81",
+      "why": "Sedum does not police the target's syntax. A package author may have hand-written the marker, and a missing closing delimiter is the target language's complaint to make. Rejecting it would turn one template's typo into an aborted run rather than a file the author's own toolchain reports.",
+      "comment_prefix": "<!--",
+      "comment_suffix": "-->",
+      "input": "<!-- sedum:addTextColumn {\"tier\":\"owned\"}",
+      "parsed": {
+        "recognized": true,
+        "action": "addTextColumn",
+        "variant": "",
+        "tier": "owned",
+        "record": "",
+        "writer": "sedum",
+        "kwargs": {},
+        "extra": {}
+      }
+    },
+    {
+      "id": "parse/a-delimited-anchor-declaration-is-not-a-marker",
+      "kind": "parse",
+      "decision": "prov-2026-a6f6bb81",
+      "why": "Anchor declarations share the sedum: namespace with ownership markers in every target, delimited ones included. An implementation reading one as a marker for an action named anchor sees the next region as closing it.",
+      "comment_prefix": "<!--",
+      "comment_suffix": "-->",
+      "input": "<!-- sedum:anchor:columns -->",
+      "parsed": {
+        "recognized": false
+      }
+    },
+    {
+      "id": "emit/an-absent-suffix-changes-no-bytes",
+      "kind": "emit",
+      "decision": "prov-2026-a6f6bb81",
+      "why": "comment_suffix is optional, and a package that declares none must get exactly the bytes written before the field existed - no trailing space, no empty delimiter. Markers sit in generated repositories long after the version that wrote them, so a release that reshuffled them would be a migration disguised as an addition.",
+      "comment_prefix": "//",
+      "marker": {
+        "action": "addColumn",
+        "variant": "",
+        "tier": "owned",
+        "record": "ERP-3",
+        "writer": "",
+        "kwargs": {
+          "column": "comments"
+        },
+        "extra": {}
+      },
+      "output": "// sedum:addColumn {\"tier\":\"owned\",\"record\":\"ERP-3\",\"kwargs\":{\"column\":\"comments\"}}"
     }
   ]
 }

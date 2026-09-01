@@ -6,6 +6,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/livecodelife/sedum/internal/genpkg"
 )
 
 // The fixtures under testdata/reconcile are the specification, and this reads
@@ -21,10 +23,19 @@ const corpusDir = "../../testdata/reconcile"
 type corpusCase struct {
 	Name          string `json:"name"`
 	CommentPrefix string `json:"comment_prefix"`
+	CommentSuffix string `json:"comment_suffix"`
 	Language      string `json:"language"`
 	Outcome       string `json:"outcome"`
 	Diagnostic    string `json:"diagnostic"`
 	Why           string `json:"why"`
+}
+
+// comment is the case's declared delimiters. A case naming no suffix gets the
+// zero value, which is every case in the corpus today: reconciliation reads the
+// prefix alone to decide whether a line is boilerplate, and a suffix says
+// nothing about that (prov-2026-a6f6bb81).
+func (c corpusCase) comment() genpkg.Comment {
+	return genpkg.Comment{Prefix: c.CommentPrefix, Suffix: c.CommentSuffix}
 }
 
 func loadCorpus(t *testing.T) []corpusCase {
@@ -62,7 +73,7 @@ func TestReconciliationCorpus(t *testing.T) {
 			}
 
 			existing := read(t, tc.Name, "template")
-			got, err := reconcile(tc.CommentPrefix, tc.Name, "the template",
+			got, err := reconcile(tc.comment(), tc.Name, "the template",
 				read(t, tc.Name, "existing"), existing)
 
 			if tc.Outcome == "halt" {

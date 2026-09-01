@@ -59,6 +59,22 @@ extensions: [.rb, .erb]
 comment_prefix: "#"
 ```
 
+A target whose comments do not run to end of line declares how they close:
+
+```yaml
+# generators/web/sedum.yaml
+name: web
+extensions: [.html]
+comment_prefix: "<!--"
+comment_suffix: "-->"
+```
+
+`comment_suffix` is optional and defaults to none. An absent suffix produces exactly the marker bytes Sedum wrote before the field existed — no trailing space and no empty delimiter — so adding it rewrites nothing already generated. A suffix declared without a prefix is rejected at load, because a closing delimiter with nothing to close is a package error rather than a default.
+
+One package declares one comment shape. A project generating both C# and Angular templates writes two packages, which is already how a project targeting two languages is expressed.
+
+A suffix is text that closes a comment and nothing more. There is no vocabulary of comment styles, no nesting rule, and no escaping rule — a target that forbids a sequence inside its comments, as HTML forbids `--`, leaves that constraint to the package author.
+
 ### Package resolution
 
 Sedum builds an extension-to-package map when the generators directory loads. Every path in a provenance record's `affected_scope` resolves to a package by its extension.
@@ -437,7 +453,7 @@ For each authorized path: match it against its package's `files/` tree, bind cap
 
 **A file that already exists is reconciled with its template, or the run halts.** Sedum never re-renders a template over an existing file — that would destroy whatever has been injected into it. What it does is compare the two and write in whatever the template adds.
 
-The file is decomposed first: its **skeleton** is the file with every marked region removed, so what is compared is the boilerplate rather than the boilerplate plus what has been injected into it. The skeleton is aligned against the rendered template on **structural** lines — a line is structural unless it is blank or begins with the package's declared `comment_prefix`, and a marker is structural because it is the thing being planted. That declaration is the only knowledge involved; nothing here parses a line.
+The file is decomposed first: its **skeleton** is the file with every marked region removed, so what is compared is the boilerplate rather than the boilerplate plus what has been injected into it. The skeleton is aligned against the rendered template on **structural** lines — a line is structural unless it is blank or begins with the package's declared `comment_prefix`, and a marker is structural because it is the thing being planted. Only the opening delimiter takes part: a closing one says nothing about whether a line is boilerplate. That declaration is the only knowledge involved; nothing here parses a line.
 
 **If every difference is something the template adds, the template is applied. Otherwise the run halts**, naming the file and the first line the template has no counterpart for. Formally the condition is that the file's structural lines are a subsequence of the template's: if each appears in the template in order, the template contains everything the file does and the difference is what it adds.
 
@@ -535,7 +551,7 @@ Anchors are a small closed vocabulary, declared per action, evaluated at the tex
 `end_of_file`
 `after_match` / `before_match` — a regex declared in the action definition
 
-Marker comments are the load-bearing case. Marker syntax uses the package's declared `comment_prefix`, since `#`, `//`, and `--` all appear across targets.
+Marker comments are the load-bearing case. Marker syntax uses the package's declared `comment_prefix`, since `#`, `//`, and `--` all appear across targets, plus its `comment_suffix` where the target closes its comments. A reader strips the closing delimiter before interpreting what remains: the attribute object is the tail of an opening marker, and it is not readable as JSON with `-->` still attached.
 
 ---
 

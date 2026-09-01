@@ -7,6 +7,8 @@ import (
 	"reflect"
 	"strings"
 	"testing"
+
+	"github.com/livecodelife/sedum/internal/genpkg"
 )
 
 // Sedum's own tests read the published conformance corpus rather than carrying
@@ -37,6 +39,7 @@ type corpusCase struct {
 	Decision      string        `json:"decision"`
 	Why           string        `json:"why"`
 	CommentPrefix string        `json:"comment_prefix"`
+	CommentSuffix string        `json:"comment_suffix"`
 	Input         string        `json:"input"`
 	Existing      string        `json:"existing"`
 	Marker        *corpusMarker `json:"marker"`
@@ -44,6 +47,14 @@ type corpusCase struct {
 	Output        string        `json:"output"`
 	Error         bool          `json:"error"`
 	ErrorNames    string        `json:"error_names"`
+}
+
+// comment is the case's declared delimiters. A case that names no suffix gets
+// the zero value, which is what proves the addition changed nothing: every case
+// written before comment_suffix existed still asserts the same bytes
+// (prov-2026-a6f6bb81).
+func (c corpusCase) comment() genpkg.Comment {
+	return genpkg.Comment{Prefix: c.CommentPrefix, Suffix: c.CommentSuffix}
 }
 
 type corpusMarker struct {
@@ -123,7 +134,7 @@ func TestMarkerConformanceCorpus(t *testing.T) {
 			case "replace":
 				checkReplace(t, tc)
 			case "close":
-				if got := tc.Marker.marker().Close(tc.CommentPrefix); got != tc.Output {
+				if got := tc.Marker.marker().Close(tc.comment()); got != tc.Output {
 					t.Errorf("Close =\n  %s\nwant\n  %s", got, tc.Output)
 				}
 			case "error":
@@ -137,7 +148,7 @@ func TestMarkerConformanceCorpus(t *testing.T) {
 
 func checkParse(t *testing.T, tc corpusCase) {
 	t.Helper()
-	got, ok, err := parseOpen(tc.CommentPrefix, tc.Input)
+	got, ok, err := parseOpen(tc.comment(), tc.Input)
 	if err != nil {
 		t.Fatalf("parseOpen: %v", err)
 	}
@@ -185,7 +196,7 @@ func checkParse(t *testing.T, tc corpusCase) {
 
 func checkEmit(t *testing.T, tc corpusCase, m Marker) {
 	t.Helper()
-	got, err := m.Open(tc.CommentPrefix)
+	got, err := m.Open(tc.comment())
 	if err != nil {
 		t.Fatalf("Open: %v", err)
 	}
@@ -196,7 +207,7 @@ func checkEmit(t *testing.T, tc corpusCase, m Marker) {
 
 func checkRoundTrip(t *testing.T, tc corpusCase) {
 	t.Helper()
-	parsed, ok, err := parseOpen(tc.CommentPrefix, tc.Input)
+	parsed, ok, err := parseOpen(tc.comment(), tc.Input)
 	if err != nil || !ok {
 		t.Fatalf("parseOpen = %v, %v", ok, err)
 	}
@@ -204,11 +215,11 @@ func checkRoundTrip(t *testing.T, tc corpusCase) {
 
 	// Re-emission is idempotent, or a rerun churns the file without changing
 	// what the marker says.
-	again, ok, err := parseOpen(tc.CommentPrefix, tc.Output)
+	again, ok, err := parseOpen(tc.comment(), tc.Output)
 	if err != nil || !ok {
 		t.Fatalf("parseOpen on the expected output = %v, %v", ok, err)
 	}
-	stable, err := again.Open(tc.CommentPrefix)
+	stable, err := again.Open(tc.comment())
 	if err != nil {
 		t.Fatalf("Open: %v", err)
 	}
@@ -222,7 +233,7 @@ func checkRoundTrip(t *testing.T, tc corpusCase) {
 // keys come from the marker already in the file.
 func checkReplace(t *testing.T, tc corpusCase) {
 	t.Helper()
-	existing, ok, err := parseOpen(tc.CommentPrefix, tc.Existing)
+	existing, ok, err := parseOpen(tc.comment(), tc.Existing)
 	if err != nil || !ok {
 		t.Fatalf("parseOpen on the existing marker = %v, %v", ok, err)
 	}
@@ -234,7 +245,7 @@ func checkReplace(t *testing.T, tc corpusCase) {
 
 func checkError(t *testing.T, tc corpusCase) {
 	t.Helper()
-	_, _, err := parseOpen(tc.CommentPrefix, tc.Input)
+	_, _, err := parseOpen(tc.comment(), tc.Input)
 	if err == nil {
 		t.Fatal("a marker the corpus says is unreadable was accepted")
 	}

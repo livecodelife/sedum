@@ -28,8 +28,18 @@ import (
 // repeated here rather than shared because locating the line is this package's
 // business and recognizing the name is that one's; markerShapesAgree in the
 // tests asserts the two have not drifted apart.
-func anchorDecl(commentPrefix, name string) string {
-	return commentPrefix + " sedum:anchor:" + name
+func anchorDecl(comment genpkg.Comment, name string) string {
+	return comment.Wrap("sedum:anchor:" + name)
+}
+
+// anchorDeclOpen is everything a declaration carries before the anchor name.
+//
+// Only the opening delimiter takes part. A declaration is located by matching
+// what precedes the name, and anchorDecl(comment, "") would put a closing
+// delimiter exactly where the name belongs and match nothing
+// (prov-2026-a6f6bb81).
+func anchorDeclOpen(comment genpkg.Comment) string {
+	return comment.Prefix + " sedum:anchor:"
 }
 
 // site is where injected content goes, as a byte offset into the file.
@@ -71,7 +81,7 @@ func locate(pkg *genpkg.Package, action *genpkg.Action, content string) (site, e
 
 	default:
 		// Every other value names a marker a file template planted.
-		start, ok := findAnchorLineStart(pkg.CommentPrefix, action.Anchor, content)
+		start, ok := findAnchorLineStart(pkg.Comment(), action.Anchor, content)
 		if !ok {
 			return site{}, fmt.Errorf("marker %q is not in the file", action.Anchor)
 		}
@@ -102,11 +112,11 @@ func locateRegion(pkg *genpkg.Package, action *genpkg.Action, content string) (s
 			"action %s is anchored to a region without naming both anchor_start and anchor_end", action.Name)
 	}
 
-	start, ok := findAnchorLineStart(pkg.CommentPrefix, action.AnchorStart, content)
+	start, ok := findAnchorLineStart(pkg.Comment(), action.AnchorStart, content)
 	if !ok {
 		return site{}, fmt.Errorf("marker %q, which opens the region, is not in the file", action.AnchorStart)
 	}
-	end, ok := findAnchorLineStart(pkg.CommentPrefix, action.AnchorEnd, content[start:])
+	end, ok := findAnchorLineStart(pkg.Comment(), action.AnchorEnd, content[start:])
 	if !ok {
 		return site{}, fmt.Errorf(
 			"marker %q, which closes the region opened by %q, is not in the file after it",
@@ -166,14 +176,18 @@ func locateMatch(action *genpkg.Action, content string) (site, error) {
 // indent it to suit the file it plants it in, and the name is compared for
 // equality rather than as a prefix so that "class_body" does not match
 // "class_body_top".
-func findAnchorLineStart(commentPrefix, name, content string) (int, bool) {
-	decl := anchorDecl(commentPrefix, "")
+//
+// That equality is why the closing delimiter has to come off first. With one
+// declared, the text after the keyword is "class_body -->", which equals no
+// anchor name at all.
+func findAnchorLineStart(comment genpkg.Comment, name, content string) (int, bool) {
+	decl := anchorDeclOpen(comment)
 
 	for offset := 0; offset < len(content); {
 		end := lineTextEnd(content, offset)
 		trimmed := strings.TrimSpace(content[offset:end])
 
-		if rest, ok := strings.CutPrefix(trimmed, decl); ok && rest == name {
+		if rest, ok := strings.CutPrefix(trimmed, decl); ok && comment.Unwrap(rest) == name {
 			return offset, true
 		}
 		if end == len(content) {

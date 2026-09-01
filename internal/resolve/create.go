@@ -199,7 +199,7 @@ func reconcileExisting(res Resolution, full, rendered string, opts Options, log 
 		return fmt.Errorf("read %s: %w", res.Path, err)
 	}
 
-	result, err := reconcile(res.Package.CommentPrefix, res.Path, res.Template, string(data), rendered)
+	result, err := reconcile(res.Package.Comment(), res.Path, res.Template, string(data), rendered)
 	if err != nil {
 		return err
 	}

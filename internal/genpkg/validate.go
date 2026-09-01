@@ -48,7 +48,7 @@ func buildAction(name string, decl *actionDecl, pkg *Package, r *reporter) *Acti
 	if name == ReservedActionName {
 		r.errorf(actionsRel, RuleActionNameReserved,
 			"action %q takes the one name that is reserved: %q is how a file template declares an anchor point, so an action of that name writes markers Sedum cannot tell from injection sites and duplicates its output on every run",
-			name, markerDecl(pkg.CommentPrefix, "<name>"))
+			name, markerDecl(pkg.Comment(), "<name>"))
 	}
 
 	a := &Action{
@@ -539,7 +539,7 @@ func checkTemplates(pkg *Package, fileTemplates map[string]string, actionTemplat
 // error there would block legitimate packages, whereas a marker referenced by
 // nothing at all is almost certainly a typo.
 func checkMarkerAnchors(pkg *Package, fileTemplates []string, r *reporter) {
-	planted := plantedMarkers(pkg.CommentPrefix, fileTemplates)
+	planted := plantedMarkers(pkg.Comment(), fileTemplates)
 
 	for _, name := range sortedKeys(pkg.Actions) {
 		marker, ok := pkg.Actions[name].MarkerAnchor()
@@ -580,7 +580,7 @@ func checkMarkersFilled(pkg *Package, fileTemplates []string, r *reporter) {
 		}
 	}
 
-	planted := plantedMarkers(pkg.CommentPrefix, fileTemplates)
+	planted := plantedMarkers(pkg.Comment(), fileTemplates)
 	for _, marker := range sortedKeys(planted) {
 		if targeted[marker] {
 			continue

@@ -142,7 +142,7 @@ affected_scope:
   - internal/recording/version.go
   - conformance/**
   - testdata/**
-  - README.md
+  - PRD.md
 forbidden_scope: []
 type: blueprint
 implements: prov-2026-d554bfc3

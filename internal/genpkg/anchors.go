@@ -67,10 +67,22 @@ func (a *Action) TargetedMarkers() []string {
 }
 
 // markerDecl is the text a file template plants to create an anchor point. The
-// prefix is the package's declared comment_prefix, since #, // and -- all
-// appear across targets.
-func markerDecl(commentPrefix, name string) string {
-	return commentPrefix + " sedum:anchor:" + name
+// delimiters are the package's declared ones, since #, // and -- all appear
+// across targets and some targets close their comments.
+func markerDecl(comment Comment, name string) string {
+	return comment.Wrap("sedum:anchor:" + name)
+}
+
+// markerDeclOpen is everything a planted declaration carries before the anchor
+// name: the comment's opening delimiter and the keyword.
+//
+// It is separate from markerDecl because the two uses pull in opposite
+// directions. Writing a declaration, or naming its shape in a diagnostic, wants
+// the whole line including any closing delimiter. Searching for one wants only
+// what comes before the name - markerDecl(comment, "") would put the closing
+// delimiter immediately where the name belongs, and match nothing.
+func markerDeclOpen(comment Comment) string {
+	return comment.Prefix + " sedum:anchor:"
 }
 
 // MarkersIn returns the marker names planted in one piece of template text,
@@ -80,10 +92,15 @@ func markerDecl(commentPrefix, name string) string {
 // checked for the markers its template plants rather than re-rendered over. The
 // marker's shape is declared here and nowhere else, so that a change to it
 // cannot leave the writer and the reader disagreeing.
-func MarkersIn(commentPrefix, content string) []string {
-	// The prefix is author-supplied, so it is escaped rather than
+// The trailing character class is what bounds the name, and it is why a closing
+// delimiter needs no handling here: it cannot match a space, so " -->" ends the
+// capture rather than joining it. That is convenient rather than designed, and
+// TestMarkerNameClassBoundsTheSuffix pins it so that widening the class cannot
+// quietly start swallowing a suffix into an anchor name.
+func MarkersIn(comment Comment, content string) []string {
+	// The delimiter is author-supplied, so it is escaped rather than
 	// interpolated into a pattern.
-	re := regexp.MustCompile(regexp.QuoteMeta(markerDecl(commentPrefix, "")) + `([A-Za-z0-9_.-]+)`)
+	re := regexp.MustCompile(regexp.QuoteMeta(markerDeclOpen(comment)) + `([A-Za-z0-9_.-]+)`)
 
 	var out []string
 	seen := map[string]bool{}
@@ -103,14 +120,14 @@ func MarkersIn(commentPrefix, content string) []string {
 // its template declares was written by something other than Sedum, or its
 // template changed shape after it was generated; either way the injections
 // aimed at it have nowhere to land.
-func MissingMarkers(commentPrefix, template, content string) []string {
+func MissingMarkers(comment Comment, template, content string) []string {
 	present := map[string]bool{}
-	for _, name := range MarkersIn(commentPrefix, content) {
+	for _, name := range MarkersIn(comment, content) {
 		present[name] = true
 	}
 
 	var out []string
-	for _, name := range MarkersIn(commentPrefix, template) {
+	for _, name := range MarkersIn(comment, template) {
 		if !present[name] {
 			out = append(out, name)
 		}
@@ -120,10 +137,10 @@ func MissingMarkers(commentPrefix, template, content string) []string {
 
 // plantedMarkers returns every marker name planted across the package's file
 // template contents.
-func plantedMarkers(commentPrefix string, contents []string) map[string]bool {
+func plantedMarkers(comment Comment, contents []string) map[string]bool {
 	out := map[string]bool{}
 	for _, c := range contents {
-		for _, name := range MarkersIn(commentPrefix, c) {
+		for _, name := range MarkersIn(comment, c) {
 			out[name] = true
 		}
 	}

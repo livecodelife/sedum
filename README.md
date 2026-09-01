@@ -104,7 +104,7 @@ sedum --version
 ```
 
 ```
-0.1.0
+0.3.0
 ```
 
 It is the same string a recording carries in `sedum_version`, so the binary's
@@ -114,7 +114,7 @@ that value does not publish — CI checks the tag against the constant in
 
 Sedum is pre-1.0. The six surfaces a tool built on top of it depends on are
 listed in [TOOL_BOUNDARIES.md](TOOL_BOUNDARIES.md); until 1.0, pin a minor range
-(`>=0.1.0,<0.2.0`) rather than assuming they are frozen.
+(`>=0.3.0,<0.4.0`) rather than assuming they are frozen.
 
 ---
 
@@ -289,6 +289,34 @@ name: rails
 extensions: [.rb, .erb]
 comment_prefix: "#"
 ```
+
+A target whose comments do not run to end of line declares how they close, and
+markers close with them:
+
+```yaml
+# generators/web/sedum.yaml
+name: web
+extensions: [.html]
+comment_prefix: "<!--"
+comment_suffix: "-->"
+```
+
+`comment_suffix` is optional and defaults to none, which is what every target
+with a line comment wants. Omitting it produces exactly the marker bytes Sedum
+wrote before the field existed, so adding it rewrites nothing already generated.
+Declaring a suffix without a prefix is rejected at load: a closing delimiter with
+nothing to close is a package error, not a default.
+
+One package still declares one comment shape. A project generating both C# and
+Angular templates writes two packages — the extension-to-package map is what
+keeps them apart — and that is already how a project targeting two languages is
+expressed.
+
+Sedum still knows no language here. A suffix is text that closes a comment, and
+nothing more: there is no vocabulary of comment styles, no nesting rule, and no
+escaping rule. A target that forbids a sequence inside its comments — HTML
+forbids `--` — leaves that constraint to the package author, the same way
+indentation is theirs.
 
 ### Package resolution
 
@@ -689,7 +717,7 @@ Anchors are a small closed vocabulary, declared per action, evaluated at the tex
 `end_of_file`
 `after_match` / `before_match` — a regex declared in the action definition
 
-Marker comments are the load-bearing case. Marker syntax uses the package's declared `comment_prefix`, since `#`, `//`, and `--` all appear across targets.
+Marker comments are the load-bearing case. Marker syntax uses the package's declared `comment_prefix`, since `#`, `//`, and `--` all appear across targets, plus its `comment_suffix` where the target closes its comments. Every reader strips the closing delimiter before interpreting what remains — the attribute object on an opening marker is not readable as JSON with `-->` still attached to it.
 
 ### Placement
 

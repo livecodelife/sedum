@@ -4,7 +4,18 @@ import (
 	"encoding/json"
 	"strings"
 	"testing"
+
+	"github.com/livecodelife/sedum/internal/genpkg"
 )
+
+// lineComment is the delimiters of a target whose comments run to end of line,
+// which is every target these tests were written against. Naming it keeps the
+// suffix cases below visibly distinct from the overwhelming majority that has
+// none, and every case using it asserts the bytes Sedum wrote before
+// comment_suffix existed (prov-2026-a6f6bb81).
+func lineComment(prefix string) genpkg.Comment {
+	return genpkg.Comment{Prefix: prefix}
+}
 
 // The marker is the one durable artifact this milestone writes. It sits in a
 // generated codebase long after the version that wrote it is gone, so the cases
@@ -21,7 +32,7 @@ func TestMarkerRoundTrips(t *testing.T) {
 		Kwargs:  map[string]any{"controller": "users", "collection": "users"},
 	}
 
-	open, err := want.Open("#")
+	open, err := want.Open(lineComment("#"))
 	if err != nil {
 		t.Fatalf("Open: %v", err)
 	}
@@ -32,7 +43,7 @@ func TestMarkerRoundTrips(t *testing.T) {
 		t.Errorf("opening marker does not lead with a greppable action:variant label:\n%s", open)
 	}
 
-	got, ok, err := parseOpen("#", open)
+	got, ok, err := parseOpen(lineComment("#"), open)
 	if err != nil {
 		t.Fatalf("parseOpen: %v", err)
 	}
@@ -53,7 +64,7 @@ func TestMarkerRoundTrips(t *testing.T) {
 		t.Errorf("kwargs round-trip = %v, want the two it was rendered from", got.Kwargs)
 	}
 
-	if close := want.Close("#"); close != "# /sedum:createControllerMethod:index" {
+	if close := want.Close(lineComment("#")); close != "# /sedum:createControllerMethod:index" {
 		t.Errorf("closing marker = %q, want it to name the same action and variant", close)
 	}
 }
@@ -67,7 +78,7 @@ func TestKwargsAreRecordedUnescaped(t *testing.T) {
 		"bound":        "map[string]Handler<T>",
 	}}
 
-	open, err := m.Open("//")
+	open, err := m.Open(lineComment("//"))
 	if err != nil {
 		t.Fatalf("Open: %v", err)
 	}
@@ -87,7 +98,7 @@ func TestKwargsAreRecordedUnescaped(t *testing.T) {
 	if strings.Contains(open, "\n") {
 		t.Errorf("marker spans more than one line:\n%s", open)
 	}
-	parsed, ok, err := parseOpen("//", open)
+	parsed, ok, err := parseOpen(lineComment("//"), open)
 	if err != nil || !ok {
 		t.Fatalf("parseOpen = %v, %v", ok, err)
 	}
@@ -101,18 +112,18 @@ func TestKwargsAreRecordedUnescaped(t *testing.T) {
 func TestMarkerWithoutVariant(t *testing.T) {
 	m := Marker{Action: "addBeforeFilter", Kwargs: map[string]any{"filter": "authenticate"}}
 
-	open, err := m.Open("#")
+	open, err := m.Open(lineComment("#"))
 	if err != nil {
 		t.Fatalf("Open: %v", err)
 	}
 	if !strings.HasPrefix(open, "# sedum:addBeforeFilter {") {
 		t.Errorf("opening marker = %q, want no empty variant on the label", open)
 	}
-	if got := m.Close("#"); got != "# /sedum:addBeforeFilter" {
+	if got := m.Close(lineComment("#")); got != "# /sedum:addBeforeFilter" {
 		t.Errorf("closing marker = %q, want no empty variant on the label", got)
 	}
 
-	parsed, ok, err := parseOpen("#", open)
+	parsed, ok, err := parseOpen(lineComment("#"), open)
 	if err != nil || !ok {
 		t.Fatalf("parseOpen(%q) = %v, %v", open, ok, err)
 	}
@@ -127,7 +138,7 @@ func TestMarkerUsesDeclaredCommentPrefix(t *testing.T) {
 	for _, prefix := range []string{"#", "//", "--", ";;"} {
 		m := Marker{Action: "addStep", Kwargs: map[string]any{"step": "build"}}
 
-		open, err := m.Open(prefix)
+		open, err := m.Open(lineComment(prefix))
 		if err != nil {
 			t.Fatalf("Open(%q): %v", prefix, err)
 		}
@@ -137,7 +148,7 @@ func TestMarkerUsesDeclaredCommentPrefix(t *testing.T) {
 
 		// A marker written with one prefix is not a marker to a package
 		// that declares another.
-		if _, ok, _ := parseOpen("@@", open); ok {
+		if _, ok, _ := parseOpen(lineComment("@@"), open); ok {
 			t.Errorf("prefix %q: marker was recognized under an unrelated comment prefix", prefix)
 		}
 	}
@@ -181,7 +192,7 @@ func TestParserIsLenient(t *testing.T) {
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			got, ok, err := parseOpen("#", tc.line)
+			got, ok, err := parseOpen(lineComment("#"), tc.line)
 			if err != nil {
 				t.Fatalf("parseOpen: %v", err)
 			}
@@ -215,7 +226,7 @@ func TestParserIsLenient(t *testing.T) {
 // every marker written before the field existed reads correctly and none of
 // them is rewritten by its introduction.
 func TestWriterDefaultsToSedumAndIsOmittedWhenItIs(t *testing.T) {
-	written, err := Marker{Action: "createControllerMethod", Tier: TierOwned}.Open("#")
+	written, err := Marker{Action: "createControllerMethod", Tier: TierOwned}.Open(lineComment("#"))
 	if err != nil {
 		t.Fatalf("Open: %v", err)
 	}
@@ -223,7 +234,7 @@ func TestWriterDefaultsToSedumAndIsOmittedWhenItIs(t *testing.T) {
 		t.Errorf("Sedum wrote a writer key rather than omitting it:\n%s", written)
 	}
 
-	parsed, _, err := parseOpen("#", written)
+	parsed, _, err := parseOpen(lineComment("#"), written)
 	if err != nil {
 		t.Fatalf("parseOpen: %v", err)
 	}
@@ -233,7 +244,7 @@ func TestWriterDefaultsToSedumAndIsOmittedWhenItIs(t *testing.T) {
 
 	// A marker read and written back unchanged stays unchanged, which is what
 	// makes the default safe to fill in on read.
-	again, err := parsed.Open("#")
+	again, err := parsed.Open(lineComment("#"))
 	if err != nil {
 		t.Fatalf("Open: %v", err)
 	}
@@ -241,7 +252,7 @@ func TestWriterDefaultsToSedumAndIsOmittedWhenItIs(t *testing.T) {
 		t.Errorf("filling in the default writer changed the marker:\n%s\n%s", written, again)
 	}
 
-	foreign, _, err := parseOpen("#", `# sedum:createControllerMethod:index {"tier":"seeded","writer":"harness"}`)
+	foreign, _, err := parseOpen(lineComment("#"), `# sedum:createControllerMethod:index {"tier":"seeded","writer":"harness"}`)
 	if err != nil {
 		t.Fatalf("parseOpen: %v", err)
 	}
@@ -289,7 +300,7 @@ func TestNonMarkerLines(t *testing.T) {
 		"# sedum is a generator",
 		"",
 	} {
-		if _, ok, err := parseOpen("#", line); ok || err != nil {
+		if _, ok, err := parseOpen(lineComment("#"), line); ok || err != nil {
 			t.Errorf("parseOpen(%q) = %v, %v; want not-a-marker and no error", line, ok, err)
 		}
 	}
@@ -368,11 +379,11 @@ func TestIdentityNormalizesValueShapes(t *testing.T) {
 		"filter": "authenticate", "only": []string{"index", "show"},
 	}}
 
-	open, err := authored.Open("#")
+	open, err := authored.Open(lineComment("#"))
 	if err != nil {
 		t.Fatalf("Open: %v", err)
 	}
-	parsed, ok, err := parseOpen("#", open)
+	parsed, ok, err := parseOpen(lineComment("#"), open)
 	if err != nil || !ok {
 		t.Fatalf("parseOpen = %v, %v", ok, err)
 	}
@@ -403,7 +414,7 @@ func TestFindRegions(t *testing.T) {
 		"# /sedum:createControllerMethod:show\n" +
 		"end\n"
 
-	regions, err := FindRegions("#", content)
+	regions, err := FindRegions(lineComment("#"), content)
 	if err != nil {
 		t.Fatalf("FindRegions: %v", err)
 	}
@@ -438,7 +449,7 @@ func TestFindRegions(t *testing.T) {
 func TestUnterminatedRegionIsAnError(t *testing.T) {
 	content := `# sedum:createControllerMethod:index {"tier":"owned"}` + "\ndef index\nend\n"
 
-	if _, err := FindRegions("#", content); err == nil {
+	if _, err := FindRegions(lineComment("#"), content); err == nil {
 		t.Fatal("an unterminated region was accepted")
 	}
 }
@@ -447,7 +458,7 @@ func TestMismatchedClosingMarkerIsAnError(t *testing.T) {
 	content := `# sedum:createControllerMethod:index {}` + "\ndef index\nend\n" +
 		"# /sedum:createControllerMethod:show\n"
 
-	_, err := FindRegions("#", content)
+	_, err := FindRegions(lineComment("#"), content)
 	if err == nil {
 		t.Fatal("a region closed by a marker naming a different variant was accepted")
 	}
@@ -467,7 +478,7 @@ func TestAnchorDeclarationsAreNotOwnershipMarkers(t *testing.T) {
 		"# sedum:anchor:class_body",
 		"  # sedum:anchor:class_body_top",
 	} {
-		if _, ok, err := parseOpen("#", line); ok || err != nil {
+		if _, ok, err := parseOpen(lineComment("#"), line); ok || err != nil {
 			t.Errorf("parseOpen(%q) = %v, %v; want an anchor declaration to be read as not-a-marker",
 				line, ok, err)
 		}

@@ -29,6 +29,7 @@ in Sedum.
 | `decision` | The provenance record that decided this behavior. |
 | `why` | What goes wrong for an implementation that gets it wrong. |
 | `comment_prefix` | The package's declared comment prefix. Never inferred from a file extension. |
+| `comment_suffix` | The package's declared closing delimiter, for a target whose comments do not run to end of line. **Optional, and absent in most cases.** Absent means the marker carries no closing delimiter and no trailing space — byte-identical to what Sedum wrote before the field existed. When present it is separated from what precedes it by one space, on the opening line and the closing line alike, and a reader must strip it before interpreting what remains: the attribute object on an opening marker is not readable as JSON with the delimiter still attached. |
 
 and, depending on `kind`:
 
