@@ -83,9 +83,9 @@ related: []
 sealed_at_sha: ""
 associated_specs:
   - path: internal/transform/transform_test.go
-    run_command: go test ./internal/transform
+    run_command: go test ./$(dirname {{path}})
   - path: internal/render/render_test.go
-    run_command: go test ./internal/render
+    run_command: go test ./$(dirname {{path}})
 associated_traces: []
 monitors: []
 tags:
