@@ -1,0 +1,79 @@
+id: prov-2026-1cdeb03b
+title: A list renders through join, and never as Go slice syntax
+status: draft
+created_at: "2026-09-02"
+author: calebcowen@gmail.com
+intent: |
+  `list` is one of the five kwarg types. A package declaring one loads, a model
+  binding one validates, and then it renders as `[a b c]` — Go's slice syntax,
+  written into somebody's source file with no error. The type has been
+  half-implemented since it was declared.
+
+  ## The rendering, and why a bare reference must fail
+
+  Two changes, and the second matters more than the first. `join:<sep>` renders
+  a list as its members joined by a literal separator. And a reference that
+  reaches the template still holding a list becomes an error, so `{{words}}`
+  names the mistake instead of emitting `[a b c]`.
+
+  The refusal already exists for the pipeline path: `scalar` turns a list into
+  "a transform takes a single value, but this one is a list". A transform-less
+  reference never reaches it, because it translates straight to
+  `index . "words"` and text/template formats whatever it finds. Routing that
+  case through the same extraction is what closes the gap, and it is why this is
+  one change rather than two: shipping `join` alone would leave the silent
+  path silent, and the silent path is the one that reaches a source file.
+
+  ## An empty list is now a mistake
+
+  `isEmpty` deliberately does not count `[]` as empty, on the recorded grounds
+  that a list "has no usable rendering either way". That premise is what this
+  change removes. Joined, `[]` renders as the empty string, and the empty string
+  is a plausible-looking value in every place a joined list is going: an empty
+  alternation matches everything, an empty selector list matches nothing. So
+  `join` over an empty list is an error.
+
+  The alternative was to let it render empty and leave the check to whoever
+  declares the kwarg. Rejected because there is nothing to check with: emptiness
+  is not refusable at validation without reversing `isEmpty`, which is a
+  property other actions depend on.
+
+  ## What this is for
+
+  A kwarg carrying a list is a kwarg a model cannot mis-punctuate. Measured on
+  bench's check-rule package, every kwarg that became a declared variant is
+  bound correctly by a 4B model, and every kwarg still carrying free text is
+  bound wrongly by every model tried: alternatives dropped from an alternation,
+  separators and anchors invented, a boundary written where it can never match.
+  A list is the same move as a variant applied to a value that has no fixed set.
+constraints:
+  - "`join` is a parameterized built-in, taking the separator as its literal argument, and is available in every package without declaration."
+  - "`join` over a list renders each member as text and joins them with the separator, in the order bound."
+  - "`join` over a value that is not a list is an error naming what it received."
+  - "`join` over an empty list is an error rather than the empty string."
+  - "A reference whose value is still a list when it reaches the template is an error, whether or not any transform was applied, and the diagnostic names the list."
+  - "No rendering path emits Go's slice formatting into output."
+  - "Every existing template, transform and pipeline behaves exactly as it did; the conformance suite proves it."
+affected_scope:
+  - internal/transform/transform.go
+  - internal/transform/ops.go
+  - internal/transform/transform_test.go
+  - internal/render/render.go
+  - internal/render/render_test.go
+forbidden_scope: []
+type: blueprint
+supersedes: ""
+superseded_by: ""
+related: []
+sealed_at_sha: ""
+associated_specs:
+  - path: internal/transform/transform_test.go
+    run_command: go test ./internal/transform
+  - path: internal/render/render_test.go
+    run_command: go test ./internal/render
+associated_traces: []
+monitors: []
+tags:
+  - transform
+  - render
+  - kwargs
