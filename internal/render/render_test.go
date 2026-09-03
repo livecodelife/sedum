@@ -199,3 +199,75 @@ func TestRenderIsDeterministic(t *testing.T) {
 		t.Errorf("render = %q, want %q", first, want)
 	}
 }
+
+// A list reaches a template only through join. Before this was so, a
+// transform-less reference translated straight to index . "name" and Go's
+// template engine formatted the slice, writing [a b c] into a source file with
+// no error anywhere (prov-2026-1cdeb03b).
+func TestABareListReferenceIsRefused(t *testing.T) {
+	tmpl, err := Compile(engine(t), "const words = {{words}};")
+	if err != nil {
+		t.Fatalf("Compile: %v", err)
+	}
+
+	out, err := tmpl.Render(map[string]any{"words": []any{"a", "b", "c"}})
+	if err == nil {
+		t.Fatalf("rendering a bare list = %q with nil error, want a refusal", out)
+	}
+	if !strings.Contains(err.Error(), "list") {
+		t.Errorf("rendering a bare list = %q, want it to name the kind of value", err)
+	}
+	// The Go formatting is the thing this exists to prevent, so its absence is
+	// asserted rather than inferred from the error.
+	if strings.Contains(out, "[a b c]") {
+		t.Errorf("rendering a bare list emitted Go's slice syntax: %q", out)
+	}
+}
+
+// The same refusal reaches a transform that is not join, so no path renders a
+// list by accident.
+func TestATransformedListIsRefused(t *testing.T) {
+	tmpl, err := Compile(engine(t), "const words = {{words|pascal}};")
+	if err != nil {
+		t.Fatalf("Compile: %v", err)
+	}
+	if out, err := tmpl.Render(map[string]any{"words": []any{"a", "b"}}); err == nil {
+		t.Fatalf("rendering a transformed list = %q with nil error, want a refusal", out)
+	}
+}
+
+// join in a template is the whole point: it is what a package declaring a list
+// kwarg writes. An array literal is the shape that reaches a target language,
+// which is why the separator carries the quoting.
+func TestJoinRendersAListInATemplate(t *testing.T) {
+	got := render(t, "const words = ['{{words|join:','}}'];", map[string]any{
+		"words": []any{"simply", "easily", "just"},
+	})
+	if want := "const words = ['simply','easily','just'];"; got != want {
+		t.Errorf("render = %q, want %q", got, want)
+	}
+}
+
+// A pipe cannot be a separator, because the pipe is what separates transforms.
+// The grammar splits the expression body before an argument is read, so
+// {{words|join:|}} reads as a second transform with no name.
+//
+// This is a real limit and it is asserted rather than left to be discovered:
+// a package wanting alternation joins on something else and lets the target
+// language build the alternation, which is also where escaping belongs.
+func TestAPipeCannotBeAJoinSeparator(t *testing.T) {
+	if _, err := Compile(engine(t), "{{words|join:|}}"); err == nil {
+		t.Fatal("compiling a pipe separator = nil error, want the grammar to refuse it")
+	}
+}
+
+// A joined list composes with the operations that follow it, because after the
+// join it is text like any other.
+func TestAJoinedListComposesWithLaterTransforms(t *testing.T) {
+	got := render(t, "{{words|join:_|upper}}", map[string]any{
+		"words": []any{"user", "url"},
+	})
+	if want := "USER_URL"; got != want {
+		t.Errorf("render = %q, want %q", got, want)
+	}
+}

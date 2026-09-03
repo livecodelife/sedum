@@ -92,7 +92,14 @@ func TestEveryOperationIsCovered(t *testing.T) {
 		if Parameterized(op) {
 			ref = op + ":x"
 		}
-		if _, err := e.Apply(ParseRef(ref), "user"); err != nil {
+		// Every operation takes a single value except join, which is the one
+		// whose input is a list. Feeding it a string would fail here for the
+		// right reason and tell nobody anything.
+		var in any = "user"
+		if op == "join" {
+			in = []any{"user", "url"}
+		}
+		if _, err := e.Apply(ParseRef(ref), in); err != nil {
 			t.Errorf("built-in %s is declared but not implemented: %v", op, err)
 		}
 	}
@@ -384,5 +391,80 @@ func TestNonScalarValuesAreRefused(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "list") {
 		t.Errorf("Apply over a list = %q, want it to name the kind of value", err)
+	}
+}
+
+// join is the only operation whose input is a list, which is what makes it the
+// only way a list kwarg reaches a file at all (prov-2026-1cdeb03b).
+func TestJoinRendersAList(t *testing.T) {
+	e := newEngine(t, Config{})
+
+	cases := []struct {
+		ref  string
+		in   any
+		want string
+	}{
+		// The separator is opaque text, exactly as prefix's and suffix's
+		// arguments are. An alternation and a selector list are the two this
+		// was built for.
+		{"join:|", []any{"simply", "easily", "just"}, "simply|easily|just"},
+		{"join:,", []any{"strong", "b"}, "strong,b"},
+
+		// A member is rendered the way any other value is, so a list of
+		// numbers is a list of numbers rather than a refusal.
+		{"join:|", []any{1, 2}, "1|2"},
+
+		// One member is a list, not a scalar: it joins to itself rather than
+		// being a special case.
+		{"join:|", []any{"note"}, "note"},
+
+		// Order is the order bound. A joined list is data, and reordering it
+		// would change what an alternation prefers.
+		{"join:|", []any{"b", "a"}, "b|a"},
+
+		// A typed slice arrives from a hand-written fixture rather than from
+		// JSON, and means the same thing.
+		{"join:|", []string{"a", "b"}, "a|b"},
+	}
+	for _, c := range cases {
+		out, err := e.Apply(ParseRef(c.ref), c.in)
+		if err != nil {
+			t.Errorf("apply %s to %#v: %v", c.ref, c.in, err)
+			continue
+		}
+		if out != c.want {
+			t.Errorf("%s(%#v) = %q, want %q", c.ref, c.in, out, c.want)
+		}
+	}
+}
+
+// join over a scalar is an authoring mistake — the kwarg it was written for is
+// not a list — and naming it beats returning the value untouched, which would
+// look like it worked.
+func TestJoinRefusesAScalar(t *testing.T) {
+	e := newEngine(t, Config{})
+
+	_, err := e.Apply(ParseRef("join:|"), "simply")
+	if err == nil {
+		t.Fatal("join over a string = nil error, want a refusal")
+	}
+	if !strings.Contains(err.Error(), "list") {
+		t.Errorf("join over a string = %q, want it to say a list is what join takes", err)
+	}
+}
+
+// An empty list joins to the empty string, and the empty string is a plausible
+// value everywhere a joined list is going: an empty alternation matches
+// everything and an empty selector list matches nothing. Neither is a defect
+// anything downstream would report, so it is reported here.
+func TestJoinRefusesAnEmptyList(t *testing.T) {
+	e := newEngine(t, Config{})
+
+	_, err := e.Apply(ParseRef("join:|"), []any{})
+	if err == nil {
+		t.Fatal("join over an empty list = nil error, want a refusal")
+	}
+	if !strings.Contains(err.Error(), "empty") {
+		t.Errorf("join over an empty list = %q, want it to name the emptiness", err)
 	}
 }

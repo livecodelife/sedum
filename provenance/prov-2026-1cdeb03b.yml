@@ -38,6 +38,18 @@ intent: |
   is not refusable at validation without reversing `isEmpty`, which is a
   property other actions depend on.
 
+  ## The separator cannot be a pipe
+
+  The pipe separates transforms, and the grammar splits an expression body
+  before an argument is read, so `{{words|join:|}}` reads as a second transform
+  with no name. An alternation therefore cannot be joined directly.
+
+  This is left as it stands rather than made quote-aware, because the shape it
+  forces is the better one: a package joins into an array literal and lets the
+  target language build the alternation, which is also the only place each
+  member can be escaped. Widening the argument grammar would change how
+  `prefix` and `suffix` read their own arguments, for a separator nothing needs.
+
   ## What this is for
 
   A kwarg carrying a list is a kwarg a model cannot mis-punctuate. Measured on
@@ -53,7 +65,8 @@ constraints:
   - "`join` over an empty list is an error rather than the empty string."
   - "A reference whose value is still a list when it reaches the template is an error, whether or not any transform was applied, and the diagnostic names the list."
   - "No rendering path emits Go's slice formatting into output."
-  - "Every existing template, transform and pipeline behaves exactly as it did; the conformance suite proves it."
+  - "A pipe is not usable as a separator, and the grammar refuses one at compile rather than rendering something unintended."
+  - "Every existing template, transform and pipeline behaves exactly as it did."
 affected_scope:
   - internal/transform/transform.go
   - internal/transform/ops.go

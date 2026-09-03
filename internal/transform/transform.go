@@ -37,11 +37,12 @@ var Operations = []string{
 	"upper", "lower",
 	"plural", "singular",
 	"prefix", "suffix",
+	"join",
 }
 
 // parameterized operations take a string literal after a colon: prefix:@,
 // suffix:_path.
-var parameterized = map[string]bool{"prefix": true, "suffix": true}
+var parameterized = map[string]bool{"prefix": true, "suffix": true, "join": true}
 
 // Parameterized reports whether an operation takes a literal argument.
 func Parameterized(op string) bool { return parameterized[op] }

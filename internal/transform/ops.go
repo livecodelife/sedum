@@ -1,6 +1,9 @@
 package transform
 
 import (
+	"errors"
+	"fmt"
+	"reflect"
 	"strings"
 	"unicode"
 
@@ -26,6 +29,13 @@ func (e *Engine) operate(r Ref, v any) (string, error) {
 		if val, ok := v.(Value); ok && val.Singular != "" {
 			return val.Singular, nil
 		}
+	}
+
+	// join is the only operation whose input is a list, so it reads the value
+	// before the flattening below refuses one. It is also the only way a list
+	// reaches a file at all: every other path refuses it.
+	if r.Name == "join" {
+		return joinList(r.Arg, v)
 	}
 
 	s, err := scalar(v)
@@ -100,4 +110,56 @@ func capitalize(word string) string {
 	}
 	runes[0] = unicode.ToUpper(runes[0])
 	return string(runes)
+}
+
+// joinList renders every member of a list and joins them with a literal
+// separator.
+//
+// A member is rendered by the same extraction every other value goes through,
+// so a list of numbers is a list of numbers and a nested list is refused where
+// it sits rather than formatted.
+//
+// The order is the order bound. A joined list is data — reordering an
+// alternation changes which alternative a regular expression prefers — so
+// nothing here sorts.
+func joinList(sep string, v any) (string, error) {
+	rv := reflect.ValueOf(v)
+	switch rv.Kind() {
+	case reflect.Slice, reflect.Array:
+	default:
+		// The mistake is in the package rather than the binding: join was
+		// written against a kwarg that is not a list.
+		return "", fmt.Errorf("join takes a list, but this value is %s", describeKind(rv))
+	}
+
+	// An empty list joins to the empty string, and the empty string looks like
+	// a value in every place a joined list is going: an empty alternation
+	// matches everything, an empty selector list matches nothing. Nothing
+	// downstream reports either, so it is reported here.
+	if rv.Len() == 0 {
+		return "", errors.New("join received an empty list, and an empty list has nothing to join")
+	}
+
+	parts := make([]string, 0, rv.Len())
+	for i := 0; i < rv.Len(); i++ {
+		part, err := scalar(rv.Index(i).Interface())
+		if err != nil {
+			return "", fmt.Errorf("join member %d: %w", i, err)
+		}
+		parts = append(parts, part)
+	}
+	return strings.Join(parts, sep), nil
+}
+
+// describeKind names what arrived, so the diagnostic tells a package author
+// what they wrote join against.
+func describeKind(rv reflect.Value) string {
+	switch rv.Kind() {
+	case reflect.Invalid:
+		return "empty"
+	case reflect.String:
+		return "a single value"
+	default:
+		return "a " + rv.Kind().String()
+	}
 }

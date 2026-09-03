@@ -20,6 +20,7 @@ package render
 import (
 	"errors"
 	"fmt"
+	"reflect"
 	"regexp"
 	"sort"
 	"strconv"
@@ -120,7 +121,11 @@ func parseExpr(body string) (Expr, error) {
 // Template is a compiled template, ready to render as often as needed.
 type Template struct {
 	values []string
-	tmpl   *template.Template
+	// bare names the values referenced with no transform at all. Those are
+	// the ones Go's template engine would format itself, so they are the ones
+	// Render has to screen (prov-2026-1cdeb03b).
+	bare []string
+	tmpl *template.Template
 }
 
 // Compile parses a template and resolves every transform it references against
@@ -148,7 +153,7 @@ func Compile(engine *transform.Engine, src string) (*Template, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &Template{values: values, tmpl: tmpl}, nil
+	return &Template{values: values, bare: bareValues(exprs), tmpl: tmpl}, nil
 }
 
 // Values returns the names this template references, sorted and deduplicated.
@@ -167,6 +172,17 @@ func (t *Template) Render(values map[string]any) (string, error) {
 		// a template into a one-line diagnosis.
 		return "", fmt.Errorf("template references %s, which nothing bound; the bound values are %s",
 			quoteAll(missing), quoteAll(sortedKeys(values)))
+	}
+
+	// A list reaches a file only through join. Every other path refuses one —
+	// except a bare reference, which text/template would format as [a b c] and
+	// write into source with no error anywhere. So it is refused here, before
+	// anything executes.
+	for _, name := range t.bare {
+		if isList(values[name]) {
+			return "", fmt.Errorf("%q is bound to a list, and a list renders only through join; write {{%s|join:<separator>}}",
+				name, name)
+		}
 	}
 
 	var out strings.Builder
@@ -244,4 +260,39 @@ func sortedKeys[V any](m map[string]V) []string {
 	}
 	sort.Strings(out)
 	return out
+}
+
+// bareValues collects the names referenced with no transform applied.
+//
+// A name referenced both ways counts as bare: the bare occurrence is the one
+// that would render Go's formatting, and it does not stop being a problem
+// because the same value is joined properly somewhere else in the file.
+func bareValues(exprs []Expr) []string {
+	var (
+		seen = map[string]bool{}
+		out  []string
+	)
+	for _, expr := range exprs {
+		if len(expr.Transforms) > 0 || seen[expr.Value] {
+			continue
+		}
+		seen[expr.Value] = true
+		out = append(out, expr.Value)
+	}
+	sort.Strings(out)
+	return out
+}
+
+// isList reports whether a bound value is a list. A string is a slice of bytes
+// to reflect and is not one of these.
+func isList(v any) bool {
+	switch v.(type) {
+	case nil, string, transform.Value:
+		return false
+	}
+	switch reflect.ValueOf(v).Kind() {
+	case reflect.Slice, reflect.Array:
+		return true
+	}
+	return false
 }
