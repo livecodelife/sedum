@@ -374,7 +374,11 @@ Templates and path patterns reference transforms with pipe syntax: `{{collection
 
 Shipped in Sedum's core, always available, pure `string -> string`:
 
-`pascal`, `camel`, `snake`, `kebab`, `upper`, `lower`, `plural`, `singular`, `prefix:X`, `suffix:X`
+`pascal`, `camel`, `snake`, `kebab`, `upper`, `lower`, `plural`, `singular`, `prefix:X`, `suffix:X`, `join:X`
+
+`join:X` is the one exception to `string -> string`: it takes a **list** and renders its members joined by the separator `X`, which is the only way a `list` kwarg reaches a file. A value still holding a list when it reaches the template is an error — including a bare `{{words}}`, which would otherwise emit Go's own slice formatting. `join` over an empty list is an error too, since the empty string is a plausible-looking value everywhere a joined list is going.
+
+The separator cannot be a pipe, because the pipe separates transforms. Join into an array literal and let the target language build an alternation, which is also the only place each member can be escaped: `['{{words|join:','}}']`.
 
 Operation arguments are string literals only. Dynamic arguments (`prefix:{{other_arg}}`) are not supported — supporting them starts the construction of an expression language.
 

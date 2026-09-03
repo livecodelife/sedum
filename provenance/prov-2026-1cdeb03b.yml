@@ -73,6 +73,8 @@ affected_scope:
   - internal/transform/transform_test.go
   - internal/render/render.go
   - internal/render/render_test.go
+  - PRD.md
+  - internal/recording/version.go
 forbidden_scope: []
 type: blueprint
 supersedes: ""
