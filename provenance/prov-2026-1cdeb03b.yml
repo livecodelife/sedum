@@ -1,6 +1,6 @@
 id: prov-2026-1cdeb03b
 title: A list renders through join, and never as Go slice syntax
-status: draft
+status: open
 created_at: "2026-09-02"
 author: calebcowen@gmail.com
 intent: |
