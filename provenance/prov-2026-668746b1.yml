@@ -1,0 +1,72 @@
+id: prov-2026-668746b1
+title: 'Zero-setup default: bundle goinfer-serve and a fine-tuned model in the release archive'
+status: draft
+created_at: "2026-09-29"
+author: calebcowen@gmail.com
+intent: |
+  `sedum grow` with neither --model nor --local-model set defaults to a
+  goinfer-serve binary and a gguf bundled in the release archive, rather than
+  erroring. CI fetches both at release-build time - goinfer-serve per
+  platform from its own releases, the gguf from a release asset in this repo
+  - and goreleaser packages them into every platform archive alongside the
+  sedum binary. install.sh copies them into the install directory next to
+  sedum; Sedum finds them at runtime as siblings of its own executable path.
+
+  Bundled into the default archive, not a separate one: someone who installs
+  Sedum the ordinary way gets a working default model with no flag, no
+  endpoint, and no network access at run time - the whole point of this
+  record.
+
+  --model and --local-model still take priority and behave exactly as
+  before ([[prov-2026-a1ccdd65]]). This only changes what happens when
+  neither is given.
+constraints:
+  - >-
+    Bundled asset paths are resolved from os.Executable()'s own directory,
+    never hardcoded to an install location. `go install`, which does not
+    carry these files, gets a clear "no bundled model found, pass --model or
+    --local-model" rather than a wrong path.
+  - >-
+    goinfer-serve's version is pinned in the fetch script and its release
+    checksum verified before use, matching install.sh's own reason for
+    verifying what it downloads.
+  - >-
+    The model asset's sha256 is pinned in the fetch script and verified
+    before it is trusted, for the same reason.
+  - >-
+    A CI fetch failure - a moved asset, a checksum mismatch - fails the
+    release build. An archive with a missing or wrong bundled model is never
+    published rather than silently shipped.
+  - >-
+    No credential or endpoint is introduced. The bundled server is
+    loopback-only, exactly like the explicit --local-model path.
+affected_scope:
+  - .goreleaser.yml
+  - hack/fetch-release-assets.sh
+  - internal/selection/bundled.go
+  - internal/selection/bundled_test.go
+  - internal/cli/config.go
+  - internal/cli/grow.go
+  - install.sh
+  - README.md
+forbidden_scope:
+  - internal/genpkg/**
+  - internal/inject/**
+  - internal/record/**
+type: blueprint
+implements: prov-2026-d554bfc3
+supersedes: ""
+superseded_by: ""
+related:
+  - prov-2026-a1ccdd65
+  - prov-2026-4746d9ed
+  - prov-2026-2f131ba6
+sealed_at_sha: ""
+associated_specs: []
+associated_traces: []
+monitors: []
+tags:
+  - sedum
+  - llm
+  - local-model
+  - release
