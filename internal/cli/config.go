@@ -27,6 +27,12 @@ type GrowConfig struct {
 	Model      string
 	LogPath    string
 	Verbose    bool
+
+	// FullCatalog disables the authorized-path filter on Phase 4's prompt,
+	// reproducing every version before it: the model sees every exposed
+	// action across the record's packages, whether or not any authorized
+	// path could ever match it.
+	FullCatalog bool
 }
 
 // Replaying reports whether this run replays a recording instead of invoking a
@@ -83,6 +89,9 @@ func (c *GrowConfig) IgnoredFlags() []string {
 	}
 	if c.Retries != defaultRetries {
 		ignored = append(ignored, "--retries (replay validation is terminal, never re-prompted)")
+	}
+	if c.FullCatalog {
+		ignored = append(ignored, "--full-catalog (replay invokes no model, so nothing builds a prompt)")
 	}
 	return ignored
 }

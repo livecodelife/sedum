@@ -76,6 +76,11 @@ type Config struct {
 
 	// Log is the run log. A nil log discards.
 	Log *runlog.Log
+
+	// FullCatalog disables Phase 4's authorized-path filter, embedding every
+	// exposed action in the prompt whether or not any authorized path could
+	// ever match it - the prompt every version before this one sent.
+	FullCatalog bool
 }
 
 // Result is what a run decided and what it did.
@@ -332,7 +337,7 @@ func selectAll(ctx context.Context, cfg Config, records *record.Set, files []res
 			Intent:      rec.Intent,
 			Constraints: rec.Constraints,
 			Files:       mine,
-		}, selection.Options{Retries: cfg.Retries, Variables: variables, Log: log})
+		}, selection.Options{Retries: cfg.Retries, Variables: variables, Log: log, FullCatalog: cfg.FullCatalog})
 		if err != nil {
 			return nil, err
 		}

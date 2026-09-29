@@ -104,7 +104,7 @@ sedum --version
 ```
 
 ```
-0.3.0
+0.5.0
 ```
 
 It is the same string a recording carries in `sedum_version`, so the binary's
@@ -114,7 +114,7 @@ that value does not publish — CI checks the tag against the constant in
 
 Sedum is pre-1.0. The six surfaces a tool built on top of it depends on are
 listed in [TOOL_BOUNDARIES.md](TOOL_BOUNDARIES.md); until 1.0, pin a minor range
-(`>=0.3.0,<0.4.0`) rather than assuming they are frozen.
+(`>=0.5.0,<0.6.0`) rather than assuming they are frozen.
 
 ---
 
@@ -679,6 +679,8 @@ A path named by two records is rejected here, at the phase's entry. One model ca
 
 One call per provenance record. The prompt contains the record's `intent`, its `constraints`, the paths created for it in Phase 3, and the action catalog — the **union of exposed actions across every package the record's paths resolved to**, with their kwarg schemas and variant lists.
 
+That union is narrowed before it is embedded: an action is dropped when no binding of its kwargs could render `injects_into` onto one of the record's authorized paths (conservatively — a placeholder stands for any value, so only fixed, literal text has to fail to match). Phase 5 still validates against the full catalog either way, so this changes what the model is shown and never what is checked. If narrowing leaves nothing to offer, the run fails before the call rather than sending an empty catalog. `--full-catalog` turns the narrowing off.
+
 Variant lists are included deliberately. Without them there is an invisible cliff: `name: index` gets a full implementation while `name: search` falls to `_default`, and the model has no way to know it fell off. Exposing the list lets it prefer covered values where intent maps cleanly, and take the fallback knowingly where it does not.
 
 The response is **structured output, not tool calls** — a JSON array of `{action, kwargs}` objects. This keeps the mechanism working with models that lack tool-calling support, which is most of the open-weight range worth evaluating.
@@ -990,6 +992,7 @@ sedum grow --generators ./generators --records ./provenance --output ./build
 | `--model <name>` | Model identifier. Endpoint and credentials come from environment. Ignored with `--execute`. |
 | `--log <path>` | Run log location. Defaults to `.sedum/run.log`. |
 | `-v, --verbose` | Mirror the run log to stdout. |
+| `--full-catalog` | Show the model every exposed action, including ones no authorized path can reach. Ignored with `--execute`. |
 
 `--record` and `--dry-run` compose. Together they capture a recording without writing any generated files — the model runs, its output is validated and saved, and nothing is created. Without `--dry-run`, the run records and executes in the same pass.
 
@@ -1085,7 +1088,7 @@ sedum actions --generators ./generators --package rails
 
 There is no plan artifact. The execution sequence is a consequence of the record and the configuration, not a decision any component makes.
 
-The run log records package resolution, file template matches and captures, the model's raw response, validation failures and retries, composite expansions, resolved paths, selected variants, transform resolutions, and anchor matches. It is diagnostic output, cleared per run. Nothing depends on it — idempotency state lives in the ownership markers, in the generated files.
+The run log records package resolution, file template matches and captures, the model's raw response, validation failures and retries, composite expansions, resolved paths, selected variants, transform resolutions, and anchor matches. It also records which actions Phase 4 removed from a record's prompt before the call — the record, the action, and why — so a package author can see why an action never reached the model without reading the prompt itself. It is diagnostic output, cleared per run. Nothing depends on it — idempotency state lives in the ownership markers, in the generated files.
 
 ---
 

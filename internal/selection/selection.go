@@ -102,6 +102,13 @@ type Options struct {
 
 	// Log is the run log. A nil log discards.
 	Log *runlog.Log
+
+	// FullCatalog turns off the authorized-path filter and embeds every
+	// exposed action in the prompt, exactly as every version before this one
+	// did. It exists so that today's prompt can still be reproduced - for a
+	// side-by-side comparison, or for the eval harness measuring the filter's
+	// effect - and it changes nothing about validation either way.
+	FullCatalog bool
 }
 
 // Answer is what one record's selection produced, and what it cost.
@@ -213,7 +220,27 @@ func Select(ctx context.Context, client Client, req Request, opts Options) (Answ
 		log = runlog.Discard()
 	}
 
-	prompt, err := Prompt(req, cat)
+	// What the model is shown may be narrower than what validation holds it
+	// to. Filtering only decides what reaches the prompt; an invocation that
+	// somehow named a filtered-out action is still checked against cat, the
+	// full catalog, exactly as if nothing here had run.
+	promptCat := cat
+	if !opts.FullCatalog {
+		var removed []catalog.Removal
+		promptCat, removed = catalog.FilterForRecord(cat, authorizedPaths(req.Files))
+		for _, r := range removed {
+			log.Info("action removed from prompt", "record", req.RecordID,
+				"action", r.Action, "package", r.Package, "reason", r.Reason)
+		}
+		if len(promptCat.Actions) == 0 {
+			return Answer{}, fmt.Errorf(
+				"record %s: filtering the catalog to this record's authorized paths (%s) leaves no action to offer the model; "+
+					"every exposed action's injects_into can only resolve outside them",
+				req.RecordID, quoteList(authorizedPaths(req.Files)))
+		}
+	}
+
+	prompt, err := Prompt(req, promptCat)
 	if err != nil {
 		return Answer{}, err
 	}

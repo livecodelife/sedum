@@ -15,6 +15,7 @@ import (
 	"github.com/livecodelife/sedum/internal/genpkg"
 	"github.com/livecodelife/sedum/internal/recording"
 	"github.com/livecodelife/sedum/internal/resolve"
+	"github.com/livecodelife/sedum/internal/runlog"
 )
 
 // Phase 4 is the only non-deterministic step in Sedum, and Phase 5 is what
@@ -680,10 +681,18 @@ func TestActionResolvingToAnUnauthorizedPathIsRejected(t *testing.T) {
 // them from affected_scope fails here rather than halfway through Phase 7.
 func TestCompositeIsCheckedAgainstEveryChildsTarget(t *testing.T) {
 	set := loadSet(t, generators())
+
+	// declareConstant's own file is authorized, just not the one this
+	// invocation names - so the composite is still reachable (the filtered
+	// catalog offers it) and the specific path the model bound is still
+	// unauthorized. Authorizing none of Shared/*.crn would instead make
+	// provisionStep filtered out before any model call, which is Phase 4's
+	// concern and not this test's.
 	partial := Request{
 		RecordID: "PR-020",
 		Intent:   "Provision a step.",
-		Files:    created(t, set, "Units/billing-runs/Manifest.crn@cairn"),
+		Files: created(t, set,
+			"Units/billing-runs/Manifest.crn@cairn", "Shared/other-thing.crn@cairn"),
 	}
 
 	wantViolation(t, partial,
@@ -697,6 +706,132 @@ func TestCompositeIsCheckedAgainstEveryChildsTarget(t *testing.T) {
 	if _, _, err := selectWith(t, whole, 0,
 		`{"invocations":[{"action":"provisionStep","kwargs":{"unit":"billing-run","step":"charge","name":"retry-limit"}}]}`); err != nil {
 		t.Errorf("a composite whose children are both authorized was rejected: %v", err)
+	}
+}
+
+// The measured failure this filter exists to close: railsRequest authorizes
+// only app/controllers/users_controller.rb, so an action whose injects_into
+// can only resolve under app/models/ can never be legally invoked here. It
+// must not reach the model at all.
+func TestPromptOmitsAnActionNoAuthorizedPathCanReach(t *testing.T) {
+	req := railsRequest(t)
+
+	_, client, err := selectWith(t, req, 0, validResponse)
+	if err != nil {
+		t.Fatalf("Select: %v", err)
+	}
+
+	prompt := client.seen[0][len(client.seen[0])-1].Content
+	if strings.Contains(prompt, "createModelClass") {
+		t.Errorf("an action no authorized path can reach was shown to the model:\n%s", prompt)
+	}
+	// The action the record can actually use must still be there.
+	if !strings.Contains(prompt, "createControllerMethod") {
+		t.Errorf("an action an authorized path can reach was filtered out:\n%s", prompt)
+	}
+}
+
+// Filtering narrows what is offered, never what is checked. A model that
+// named a filtered-out action anyway - the same as if it had somehow seen
+// today's unfiltered catalog - is rejected exactly as it always was.
+func TestAFilteredOutActionIsStillRejectedAsUnauthorizedPath(t *testing.T) {
+	req := railsRequest(t)
+
+	// createModelClass is not in the prompt (the test above), and it is still
+	// caught by validation, which runs against the full catalog regardless.
+	wantViolation(t, req,
+		`{"invocations":[{"action":"createModelClass","kwargs":{"name":"user"}}]}`,
+		"unauthorized_path", "app/models/user.rb")
+}
+
+// A record whose authorized paths match no action's target at all has
+// nothing legal to send. Sedum says so, naming the record and what it
+// authorized, before paying for a model call.
+func TestNoActionsLeftToOfferFailsBeforeAnyModelCall(t *testing.T) {
+	set := loadSet(t, generators())
+	req := Request{
+		RecordID: "PR-014",
+		Intent:   "Do something no action's target reaches.",
+		// A rails file whose path matches no rails action's injects_into
+		// pattern - every rails action targets app/controllers/ or
+		// app/models/.
+		Files: created(t, set, "app/other/thing.rb@rails"),
+	}
+
+	client := &stub{responses: []string{validResponse}}
+	_, err := Select(context.Background(), client, req, Options{Retries: 0})
+	if err == nil {
+		t.Fatal("expected filtering to leave nothing to offer the model")
+	}
+	for _, want := range []string{"PR-014", "app/other/thing.rb"} {
+		if !strings.Contains(err.Error(), want) {
+			t.Errorf("error does not mention %q:\n%s", want, err)
+		}
+	}
+	if len(client.seen) != 0 {
+		t.Errorf("the model was called %d time(s), want 0 - there was nothing legal to ask it", len(client.seen))
+	}
+}
+
+// --full-catalog reproduces today's prompt byte for byte, so a comparison
+// against the unfiltered behavior stays possible.
+func TestFullCatalogFlagReproducesTheUnfilteredPrompt(t *testing.T) {
+	req := railsRequest(t)
+
+	filtered := &stub{responses: []string{validResponse}}
+	if _, err := Select(context.Background(), filtered, req, Options{Retries: 0}); err != nil {
+		t.Fatalf("filtered Select: %v", err)
+	}
+
+	full := &stub{responses: []string{validResponse}}
+	if _, err := Select(context.Background(), full, req, Options{Retries: 0, FullCatalog: true}); err != nil {
+		t.Fatalf("--full-catalog Select: %v", err)
+	}
+
+	filteredPrompt := filtered.seen[0][len(filtered.seen[0])-1].Content
+	fullPrompt := full.seen[0][len(full.seen[0])-1].Content
+
+	if filteredPrompt == fullPrompt {
+		t.Fatal("the filtered and unfiltered prompts are identical; the fixture does not exercise the filter")
+	}
+
+	packages := expand.Packages(req.Files)
+	want, err := Prompt(req, catalog.Build(packages, catalog.Options{}))
+	if err != nil {
+		t.Fatalf("Prompt: %v", err)
+	}
+	if fullPrompt != want[len(want)-1].Content {
+		t.Errorf("--full-catalog did not reproduce the unfiltered prompt byte for byte:\ngot:\n%s\nwant:\n%s",
+			fullPrompt, want[len(want)-1].Content)
+	}
+}
+
+// Every removed action is named in the run log, so an author can see why an
+// action never reached the model without reading the prompt.
+func TestRemovedActionsAreLogged(t *testing.T) {
+	req := railsRequest(t)
+
+	path := filepath.Join(t.TempDir(), "run.log")
+	log, err := runlog.New(path, false)
+	if err != nil {
+		t.Fatalf("runlog.New: %v", err)
+	}
+
+	client := &stub{responses: []string{validResponse}}
+	if _, err := Select(context.Background(), client, req, Options{Retries: 0, Log: log}); err != nil {
+		t.Fatalf("Select: %v", err)
+	}
+	log.Close()
+
+	content, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("reading the run log: %v", err)
+	}
+	got := string(content)
+	for _, want := range []string{"createModelClass", req.RecordID, "action removed from prompt"} {
+		if !strings.Contains(got, want) {
+			t.Errorf("run log does not mention %q:\n%s", want, got)
+		}
 	}
 }
 

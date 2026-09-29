@@ -549,3 +549,58 @@ func readFile(t *testing.T, path string) string {
 	}
 	return string(data)
 }
+
+// Config.FullCatalog reaches selection.Options, the same field it names. By
+// default the prompt is filtered to what the record authorized; the flag
+// turns that off, end to end from the command's configuration.
+func TestFullCatalogConfigReachesThePrompt(t *testing.T) {
+	generators := writeTree(t, map[string]string{
+		"rails/sedum.yaml": `name: rails
+extensions: [".rb"]
+comment_prefix: "#"
+`,
+		"rails/files/app/models/{name}.rb":      "class {{name}}\n  # sedum:anchor:class_body\nend\n",
+		"rails/files/app/controllers/{name}.rb": "class {{name}}Controller\n  # sedum:anchor:class_body\nend\n",
+		"rails/actions/actions.yaml": `actions:
+  addField:
+    kwargs:
+      model: { type: string, required: true }
+      field: { type: string, required: true }
+    injects_into: "app/models/{{model}}.rb"
+    anchor: class_body
+
+  addRoute:
+    kwargs:
+      controller: { type: string, required: true }
+      path: { type: string, required: true }
+    injects_into: "app/controllers/{{controller}}.rb"
+    anchor: class_body
+`,
+		"rails/actions/addField.rb": "attribute :{{field}}\n",
+		"rails/actions/addRoute.rb": "route {{path}}\n",
+	})
+	records := recordsDir(t, map[string]string{
+		"prov-2026-dddddddd": "  - app/models/user.rb\n",
+	})
+
+	filtered := &stub{}
+	cfg := Config{Generators: generators, Records: records, Output: t.TempDir(), Client: filtered}
+	if _, err := Run(context.Background(), cfg); err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+	filteredPrompt := filtered.prompts[0][len(filtered.prompts[0])-1].Content
+	if strings.Contains(filteredPrompt, "addRoute") {
+		t.Errorf("addRoute reached the prompt though no authorized path can reach it:\n%s", filteredPrompt)
+	}
+
+	full := &stub{}
+	cfg.Client = full
+	cfg.FullCatalog = true
+	if _, err := Run(context.Background(), cfg); err != nil {
+		t.Fatalf("Run with --full-catalog: %v", err)
+	}
+	fullPrompt := full.prompts[0][len(full.prompts[0])-1].Content
+	if !strings.Contains(fullPrompt, "addRoute") {
+		t.Errorf("cfg.FullCatalog did not reach the prompt:\n%s", fullPrompt)
+	}
+}

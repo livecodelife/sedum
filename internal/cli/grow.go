@@ -56,6 +56,8 @@ Nothing is created that a provenance record did not authorize.`,
 	f.StringVar(&cfg.Model, "model", "", "Model identifier. Endpoint and credentials come from environment. Ignored with --execute.")
 	f.StringVar(&cfg.LogPath, "log", defaultLogPath, "Run log location.")
 	f.BoolVarP(&cfg.Verbose, "verbose", "v", false, "Mirror the run log to stdout.")
+	f.BoolVar(&cfg.FullCatalog, "full-catalog", false,
+		"Show the model every exposed action, including ones no authorized path can reach. Ignored with --execute.")
 
 	mustMarkRequired(cmd, "generators")
 
@@ -128,6 +130,7 @@ func runGrow(ctx context.Context, out, errOut io.Writer, cfg GrowConfig) error {
 		Retries:        cfg.Retries,
 		Variables:      variables,
 		Log:            log,
+		FullCatalog:    cfg.FullCatalog,
 	})
 	if err != nil {
 		return err

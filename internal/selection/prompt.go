@@ -165,3 +165,18 @@ func partition(files []resolve.File) (writable, unmanaged []string) {
 	sort.Strings(unmanaged)
 	return writable, unmanaged
 }
+
+// authorizedPaths is the raw paths partition's writable half describes,
+// undecorated - what catalog.FilterForRecord matches an injects_into pattern
+// against. An unmanaged path is never in it: no action may reach one
+// regardless of what its pattern could render.
+func authorizedPaths(files []resolve.File) []string {
+	var out []string
+	for _, f := range files {
+		if !f.Unmanaged {
+			out = append(out, f.Path)
+		}
+	}
+	sort.Strings(out)
+	return out
+}

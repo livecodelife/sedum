@@ -81,6 +81,7 @@ func TestGrowFlagSurface(t *testing.T) {
 		{"model", "", "string", ""},
 		{"log", "", "string", ".sedum/run.log"},
 		{"verbose", "v", "bool", "false"},
+		{"full-catalog", "", "bool", "false"},
 	})
 }
 

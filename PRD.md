@@ -484,6 +484,8 @@ This is a governance position. `forbidden_scope` means Sedum does not touch what
 
 One call per provenance record. The prompt contains the record's `intent`, its `constraints`, the paths created for it in Phase 3, and the action catalog — the **union of exposed actions across every package the record's paths resolved to**, with their kwarg schemas, authored descriptions, variant lists, per-variant derived requirements, and `injects_into` patterns.
 
+That union is then narrowed to what the record could legally use before it is embedded: an action is removed when no binding of its kwargs could render `injects_into` onto one of the record's authorized paths. The match is conservative in one direction only — every `{{...}}` expression, transformed or bare, stands for any value, so only an action's fixed, literal text has to fail to appear in any authorized path before it is removed. Nothing has been bound yet, so nothing is removed on the strength of a guess about what will be. A free-target action (`injects_into: "{{file}}"`) has no fixed text and is never removed by this rule; a composite is removed only if at least one child's pattern is unreachable, since every child's rendered target has to be authorized for the composite to validate at all. If filtering leaves nothing to offer, Sedum fails before the call, naming the record and its authorized paths, rather than sending an empty catalog. Every removal is written to the run log. **Phase 5 validates against the full catalog regardless** — this narrows what is shown, never what is checked — and `--full-catalog` turns the narrowing off, reproducing the unfiltered prompt.
+
 Variant lists are included deliberately. Without them there is an invisible cliff: `name: index` gets a full implementation while `name: search` falls to `_default`, and the model has no way to know it fell off. Exposing the list lets it prefer covered values where intent maps cleanly, and take the fallback knowingly where it does not. Whether a `_default` exists is carried alongside, because *knowingly* is not available to a model that cannot see whether there is a fallback to take.
 
 `injects_into` patterns are included for a harder reason. Without them the catalog names a kwarg and the file list names a path, and nothing connects the two, so a model asked to bind `controller` binds the path it was shown. Recovering the kwarg from a rendered path would require inverting `snake` and `plural`, which is precisely what nothing in this system does. With the pattern present the reasoning runs forwards: match its literal segments against an authorized file and bind what is left. For a pattern-targeted action the model still never chooses a path — it binds arguments such that the package's own pattern lands on a file the record authorized. An action that declares its target to be a kwarg has no pattern to invert and is outside that rule rather than an exception to it.
@@ -813,6 +815,7 @@ sedum grow --generators ./generators --records ./provenance --output ./build
 | `--model <name>` | Model identifier. Endpoint and credentials come from environment. Ignored with `--execute`. |
 | `--log <path>` | Run log location. Defaults to `.sedum/run.log`. |
 | `-v, --verbose` | Mirror the run log to stdout. |
+| `--full-catalog` | Show the model every exposed action, including ones no authorized path can reach. Ignored with `--execute`. |
 
 `--record` and `--dry-run` compose. Together they capture a recording without writing any generated files — the model runs, its output is validated and saved, and nothing is created. Without `--dry-run`, the run records and executes in the same pass.
 
@@ -940,7 +943,7 @@ A caller that depends on a command depends on a version of it. Under the linking
 
 There is no plan artifact. The execution sequence is a consequence of the record and the configuration, not a decision any component makes.
 
-The run log records package resolution, file template matches and captures, the model's raw response, validation failures and retries, composite expansions, resolved paths, selected variants, transform resolutions, and anchor matches. It is diagnostic output, cleared per run. Nothing depends on it — idempotency state lives in the ownership markers, in the generated files.
+The run log records package resolution, file template matches and captures, the model's raw response, validation failures and retries, composite expansions, resolved paths, selected variants, transform resolutions, and anchor matches. It also records which actions Phase 4 removed from a record's prompt before the call — the record, the action, and why — so a package author can see why an action never reached the model without reading the prompt itself. It is diagnostic output, cleared per run. Nothing depends on it — idempotency state lives in the ownership markers, in the generated files.
 
 ---
 
