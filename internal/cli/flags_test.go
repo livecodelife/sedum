@@ -221,8 +221,9 @@ func TestLegalFlagCombinations(t *testing.T) {
 		reachesThePipeline = "read generators directory"
 		// A run that will reach Phase 4 builds its model client before any
 		// phase runs, so this fragment proves the flags were accepted and the
-		// run got as far as needing a model.
-		reachesTheModel = "--model is required"
+		// run got as far as needing a model - falling back to a bundled
+		// default this test binary was never built to carry.
+		reachesTheModel = "no bundled model found"
 		// A replay builds no model client, so it gets as far as reading the
 		// recording. Failing to open a file these cases name but do not create
 		// is what proves the flags were accepted.

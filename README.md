@@ -203,11 +203,24 @@ the same code path.
              --model qwen2.5-coder-14b-instruct --record ./scaffold.json
 ```
 
-**Run it against a local gguf with nothing already running** — `--local-model`
-starts `goinfer-serve` for the run and stops it when the run ends, instead of
-reading `OPENAI_BASE_URL`/`OPENAI_API_KEY`. `goinfer-serve` must already be on
-`PATH` or named with `--local-model-server`; neither the binary nor any model
-weights are fetched by Sedum.
+**Run it with no flags at all** — installed via `install.sh` or an official
+release archive, `sedum` carries a bundled `goinfer-serve` and a fine-tuned
+default model as its own siblings. With neither `--model` nor `--local-model`
+given, it starts that bundled server against that bundled model and stops it
+when the run ends — no endpoint, no key, no network access at run time.
+`go install` and a from-source build carry neither file, so this only applies
+to an install from a release archive.
+
+```sh
+./sedum grow --generators ./generators --records ./provenance \
+             --record ./scaffold.json
+```
+
+**Run it against your own local gguf** — `--local-model` starts
+`goinfer-serve` for the run and stops it when the run ends, the same as the
+bundled default, but against a model you name instead. `goinfer-serve` must
+already be on `PATH` or named with `--local-model-server`; neither the binary
+nor any model weights are fetched by Sedum for this flag.
 
 ```sh
 ./sedum grow --generators ./generators --records ./provenance \

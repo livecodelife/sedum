@@ -2,6 +2,7 @@ package cli
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -112,12 +113,32 @@ func runGrow(ctx context.Context, out, errOut io.Writer, cfg GrowConfig) error {
 	// first.
 	var client selection.Client
 	if stopAfter == 0 || stopAfter >= pipeline.PhaseSelect {
-		if cfg.LocalModel != "" {
-			local, err := selection.NewLocal(ctx, selection.LocalConfig{
+		var localCfg selection.LocalConfig
+		var useLocal bool
+
+		switch {
+		case cfg.LocalModel != "":
+			localCfg = selection.LocalConfig{
 				ModelPath:  cfg.LocalModel,
 				ServerPath: cfg.LocalModelServer,
 				Backend:    cfg.LocalModelBackend,
-			})
+			}
+			useLocal = true
+		case cfg.Model == "":
+			// Neither --model nor --local-model: the bundled default, if
+			// this build carries one, rather than an immediate error.
+			bundled, ok := selection.BundledLocalConfig()
+			if !ok {
+				return errors.New(
+					"no --model or --local-model given, and no bundled model found next to this binary; pass one of them")
+			}
+			bundled.Backend = cfg.LocalModelBackend
+			localCfg = bundled
+			useLocal = true
+		}
+
+		if useLocal {
+			local, err := selection.NewLocal(ctx, localCfg)
 			if err != nil {
 				return err
 			}

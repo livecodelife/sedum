@@ -47,8 +47,13 @@ affected_scope:
   - internal/selection/bundled_test.go
   - internal/cli/config.go
   - internal/cli/grow.go
+  - internal/cli/flags_test.go
+  - internal/cli/resolve_test.go
   - install.sh
+  - internal/cli/release_test.go
+  - .gitignore
   - README.md
+  - PRD.md
 forbidden_scope:
   - internal/genpkg/**
   - internal/inject/**

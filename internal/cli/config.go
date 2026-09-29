@@ -39,7 +39,8 @@ type GrowConfig struct {
 	LocalModelServer string
 
 	// LocalModelBackend is passed through as goinfer-serve's own -backend
-	// flag (cpu, metal, cuda, webgpu). Only meaningful with LocalModel set.
+	// flag (cpu, metal, cuda, webgpu). Applies to LocalModel when set, and
+	// to the bundled default model when neither LocalModel nor Model is.
 	LocalModelBackend string
 
 	// FullCatalog disables the authorized-path filter on Phase 4's prompt,
@@ -60,8 +61,8 @@ func (c *GrowConfig) Validate() error {
 		return errors.New("--records is required unless --execute names a recording to replay")
 	}
 
-	if c.LocalModel == "" && (c.LocalModelServer != "" || c.LocalModelBackend != "") {
-		return errors.New("--local-model-server and --local-model-backend require --local-model")
+	if c.LocalModel == "" && c.LocalModelServer != "" {
+		return errors.New("--local-model-server requires --local-model")
 	}
 
 	if c.StopAfter == "" {
@@ -107,6 +108,9 @@ func (c *GrowConfig) IgnoredFlags() []string {
 	}
 	if c.LocalModel != "" {
 		ignored = append(ignored, "--local-model (replay invokes no model)")
+	}
+	if c.LocalModel == "" && c.LocalModelBackend != "" {
+		ignored = append(ignored, "--local-model-backend (replay invokes no model)")
 	}
 	if c.Retries != defaultRetries {
 		ignored = append(ignored, "--retries (replay validation is terminal, never re-prompted)")

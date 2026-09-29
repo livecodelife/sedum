@@ -135,7 +135,7 @@ func TestInstallerVerifiesWhatItDownloads(t *testing.T) {
 
 	// A verification that runs after the binary is in place verifies nothing.
 	verify := strings.Index(sh, "\tverify ")
-	install := strings.Index(sh, "mv \"${dest}")
+	install := strings.Index(sh, `install_file "${tmp}/${BIN}"`)
 	if verify < 0 || install < 0 {
 		t.Fatal("install.sh no longer has the verify and install steps this test recognises")
 	}

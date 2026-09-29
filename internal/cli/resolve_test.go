@@ -182,7 +182,7 @@ func TestGrowRefusesBeforeWritingWhenItCannotReachAModel(t *testing.T) {
 		"--output", dir,
 		"--log", filepath.Join(t.TempDir(), "run.log"))
 
-	wantErr(t, err, "--model is required")
+	wantErr(t, err, "no --model or --local-model given, and no bundled model found")
 	if entries, _ := os.ReadDir(dir); len(entries) != 0 {
 		t.Errorf("a refused run wrote %d entries", len(entries))
 	}

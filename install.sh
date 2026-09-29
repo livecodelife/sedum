@@ -22,6 +22,14 @@ set -eu
 REPO="livecodelife/sedum"
 BIN="sedum"
 
+# Sedum's zero-flag default local model. Named to match
+# internal/selection/bundled.go's own constants - these are the two files
+# that make sedum grow with neither --model nor --local-model work without
+# an endpoint (prov-2026-668746b1). Required in the archive, not optional:
+# every release bundles both.
+GOINFER_BIN="goinfer-serve"
+MODEL_FILE="sedum-default-model.gguf"
+
 info()  { printf '%s\n' "$*" >&2; }
 warn()  { printf 'warning: %s\n' "$*" >&2; }
 fail()  { printf 'error: %s\n' "$*" >&2; exit 1; }
@@ -124,20 +132,33 @@ main() {
 	tar -xzf "${tmp}/${name}" -C "$tmp" ||
 		fail "could not extract ${name}"
 	[ -f "${tmp}/${BIN}" ] || fail "${name} did not contain a ${BIN} binary"
+	[ -f "${tmp}/${GOINFER_BIN}" ] || fail "${name} did not contain ${GOINFER_BIN}"
+	[ -f "${tmp}/${MODEL_FILE}" ] || fail "${name} did not contain ${MODEL_FILE}"
 
 	mkdir -p "$dest" || fail "could not create ${dest}"
-	# Staged next to the target and moved into place, so an interrupted install
-	# cannot leave a half-written binary where a working one used to be.
-	cp "${tmp}/${BIN}" "${dest}/.${BIN}.tmp" || fail "could not write to ${dest}"
-	chmod +x "${dest}/.${BIN}.tmp"
-	mv "${dest}/.${BIN}.tmp" "${dest}/${BIN}" || fail "could not install into ${dest}"
+
+	# Staged next to the target and moved into place, so an interrupted
+	# install cannot leave a half-written file where a working one used to
+	# be. goinfer-serve and the model live beside the binary that looks for
+	# them there (internal/selection/bundled.go), not in a separate
+	# directory an upgrade would have to know to clean up.
+	install_file() {
+		src=$1 dst=$2 exe=$3
+		cp "$src" "${dst}.tmp" || fail "could not write to ${dest}"
+		[ -z "$exe" ] || chmod +x "${dst}.tmp"
+		mv "${dst}.tmp" "$dst" || fail "could not install into ${dest}"
+	}
+
+	install_file "${tmp}/${BIN}" "${dest}/${BIN}" x
+	install_file "${tmp}/${GOINFER_BIN}" "${dest}/${GOINFER_BIN}" x
+	install_file "${tmp}/${MODEL_FILE}" "${dest}/${MODEL_FILE}" ""
 
 	installed=$("${dest}/${BIN}" --version 2>/dev/null || true)
 	if [ "$installed" != "$version" ]; then
 		warn "installed binary reports version '${installed}', expected '${version}'"
 	fi
 
-	info "Installed ${dest}/${BIN} (${installed:-$version})"
+	info "Installed ${dest}/${BIN} (${installed:-$version}), with a bundled local model"
 
 	case ":${PATH}:" in
 		*":${dest}:"*) ;;

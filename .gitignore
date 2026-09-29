@@ -4,3 +4,7 @@
 .linespec/scope-index.yml
 _site/
 dist/
+# Staged by hack/fetch-release-assets.sh - outside dist/ because goreleaser
+# requires dist/ empty before it runs, and this is populated by a before
+# hook that runs ahead of that check.
+/.release-assets/

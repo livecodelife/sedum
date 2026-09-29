@@ -815,7 +815,7 @@ sedum grow --generators ./generators --records ./provenance --output ./build
 | `--model <name>` | Model identifier. Endpoint and credentials come from environment. Ignored with `--execute`. Mutually exclusive with `--local-model`. |
 | `--local-model <path>` | Path to a gguf file to serve locally instead of `--model`. Starts a goinfer-serve subprocess for the run and stops it when the run ends. Ignored with `--execute`. Mutually exclusive with `--model`. |
 | `--local-model-server <path>` | Path to the `goinfer-serve` binary. Defaults to one found on `PATH`. Requires `--local-model`. |
-| `--local-model-backend <name>` | Compute backend passed to goinfer-serve's own `-backend` flag (`cpu`, `metal`, `cuda`, `webgpu`). Requires `--local-model`. |
+| `--local-model-backend <name>` | Compute backend passed to goinfer-serve's own `-backend` flag (`cpu`, `metal`, `cuda`, `webgpu`). Applies to `--local-model` when given, and to the bundled default model otherwise. Ignored with `--execute`. |
 | `--log <path>` | Run log location. Defaults to `.sedum/run.log`. |
 | `-v, --verbose` | Mirror the run log to stdout. |
 | `--full-catalog` | Show the model every exposed action, including ones no authorized path can reach. Ignored with `--execute`. |
@@ -825,6 +825,8 @@ sedum grow --generators ./generators --records ./provenance --output ./build
 `--execute` and `--dry-run` also compose, validating a recording against the generator packages and reporting what it would produce without writing.
 
 With `--execute`, `--records` becomes optional and enables scope validation when supplied. `--lang` is ignored, since package resolution is recorded per file.
+
+With neither `--model` nor `--local-model`, a run built from an official release archive (via `install.sh` or a downloaded archive) falls back to a `goinfer-serve` binary and a fine-tuned gguf bundled as siblings of the `sedum` binary itself, starting and stopping that server the same way `--local-model` does. `go install` and a from-source build carry neither file, so that fallback fails there with an error naming `--model`/`--local-model` rather than silently picking a wrong path.
 
 ```
 # generate and capture

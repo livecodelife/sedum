@@ -19,6 +19,11 @@ project_name: sedum
 before:
   hooks:
     - go mod tidy
+    # Stages goinfer-serve per platform and the bundled default model into
+    # .release-assets, verified against pinned checksums (prov-2026-668746b1).
+    # The archives.files entries below pick the matching platform binary up
+    # from there.
+    - ./hack/fetch-release-assets.sh
 
 builds:
   - id: sedum
@@ -55,6 +60,16 @@ archives:
       - src: conformance/**/*
         info:
           mode: 0644
+      # goinfer-serve and the bundled default model give a plain install with
+      # no --model/--local-model a working local backend out of the box
+      # (prov-2026-668746b1). Fetched by hack/fetch-release-assets.sh above,
+      # not built here - neither is Go, and the model is 2GB of weights.
+      - src: ".release-assets/{{ .Os }}_{{ .Arch }}/goinfer-serve"
+        dst: goinfer-serve
+        info:
+          mode: 0755
+      - src: .release-assets/sedum-default-model.gguf
+        dst: sedum-default-model.gguf
 
 # The installer verifies against this file, so it is not optional decoration.
 checksum:
