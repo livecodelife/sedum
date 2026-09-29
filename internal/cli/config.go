@@ -28,6 +28,20 @@ type GrowConfig struct {
 	LogPath    string
 	Verbose    bool
 
+	// LocalModel is a gguf file to serve locally instead of consulting
+	// --model against a hosted or already-running endpoint. Set, it starts
+	// LocalModelServer (or the goinfer-serve found on PATH) for the run's
+	// lifetime rather than reading OPENAI_BASE_URL/OPENAI_API_KEY.
+	LocalModel string
+
+	// LocalModelServer is the goinfer-serve binary. Empty resolves it from
+	// PATH. Only meaningful with LocalModel set.
+	LocalModelServer string
+
+	// LocalModelBackend is passed through as goinfer-serve's own -backend
+	// flag (cpu, metal, cuda, webgpu). Only meaningful with LocalModel set.
+	LocalModelBackend string
+
 	// FullCatalog disables the authorized-path filter on Phase 4's prompt,
 	// reproducing every version before it: the model sees every exposed
 	// action across the record's packages, whether or not any authorized
@@ -44,6 +58,10 @@ func (c *GrowConfig) Replaying() bool { return c.Execute != "" }
 func (c *GrowConfig) Validate() error {
 	if !c.Replaying() && c.Records == "" {
 		return errors.New("--records is required unless --execute names a recording to replay")
+	}
+
+	if c.LocalModel == "" && (c.LocalModelServer != "" || c.LocalModelBackend != "") {
+		return errors.New("--local-model-server and --local-model-backend require --local-model")
 	}
 
 	if c.StopAfter == "" {
@@ -86,6 +104,9 @@ func (c *GrowConfig) IgnoredFlags() []string {
 	}
 	if c.Model != "" {
 		ignored = append(ignored, "--model (replay invokes no model)")
+	}
+	if c.LocalModel != "" {
+		ignored = append(ignored, "--local-model (replay invokes no model)")
 	}
 	if c.Retries != defaultRetries {
 		ignored = append(ignored, "--retries (replay validation is terminal, never re-prompted)")

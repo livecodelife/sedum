@@ -54,6 +54,9 @@ Nothing is created that a provenance record did not authorize.`,
 	f.StringVar(&cfg.StopAfter, "stop-after", "", "Halt after the named phase. One of: "+stopPointNames()+".")
 	f.IntVar(&cfg.Retries, "retries", defaultRetries, "Model output validation retry limit. Ignored with --execute.")
 	f.StringVar(&cfg.Model, "model", "", "Model identifier. Endpoint and credentials come from environment. Ignored with --execute.")
+	f.StringVar(&cfg.LocalModel, "local-model", "", "Path to a gguf file to serve locally instead of --model. Starts and stops its own server for the run. Ignored with --execute.")
+	f.StringVar(&cfg.LocalModelServer, "local-model-server", "", "Path to the goinfer-serve binary. Defaults to one found on PATH. Requires --local-model.")
+	f.StringVar(&cfg.LocalModelBackend, "local-model-backend", "", "Compute backend passed to goinfer-serve's own -backend flag (cpu, metal, cuda, webgpu). Requires --local-model.")
 	f.StringVar(&cfg.LogPath, "log", defaultLogPath, "Run log location.")
 	f.BoolVarP(&cfg.Verbose, "verbose", "v", false, "Mirror the run log to stdout.")
 	f.BoolVar(&cfg.FullCatalog, "full-catalog", false,
@@ -63,6 +66,9 @@ Nothing is created that a provenance record did not authorize.`,
 
 	// A recording is either being written or being replayed, never both.
 	cmd.MarkFlagsMutuallyExclusive("record", "execute")
+
+	// A run consults exactly one model source.
+	cmd.MarkFlagsMutuallyExclusive("model", "local-model")
 
 	return cmd
 }
@@ -106,11 +112,27 @@ func runGrow(ctx context.Context, out, errOut io.Writer, cfg GrowConfig) error {
 	// first.
 	var client selection.Client
 	if stopAfter == 0 || stopAfter >= pipeline.PhaseSelect {
-		built, err := selection.NewOpenAI(cfg.Model)
-		if err != nil {
-			return err
+		if cfg.LocalModel != "" {
+			local, err := selection.NewLocal(ctx, selection.LocalConfig{
+				ModelPath:  cfg.LocalModel,
+				ServerPath: cfg.LocalModelServer,
+				Backend:    cfg.LocalModelBackend,
+			})
+			if err != nil {
+				return err
+			}
+			// The subprocess belongs to this run; nothing past runGrow needs
+			// it, so it stops here rather than outliving the pipeline result
+			// that already consumed its answers.
+			defer local.Close()
+			client = local
+		} else {
+			built, err := selection.NewOpenAI(cfg.Model)
+			if err != nil {
+				return err
+			}
+			client = built
 		}
-		client = built
 	}
 
 	variables, err := parseVars(cfg.Vars)

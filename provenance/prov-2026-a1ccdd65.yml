@@ -59,6 +59,7 @@ affected_scope:
   - internal/cli/flags_test.go
   - internal/cli/grow.go
   - README.md
+  - PRD.md
 forbidden_scope:
   - internal/genpkg/**
   - internal/inject/**

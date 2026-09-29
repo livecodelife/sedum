@@ -812,7 +812,10 @@ sedum grow --generators ./generators --records ./provenance --output ./build
 | `--dry-run` | Run every phase, write nothing. Reports the files that would be created and the injections that would be applied. |
 | `--stop-after <phase>` | Halt after the named phase. One of `resolution`, `files`, `invocations`, `expansion`. |
 | `--retries <n>` | Model output validation retry limit. Default 3. Ignored with `--execute`. |
-| `--model <name>` | Model identifier. Endpoint and credentials come from environment. Ignored with `--execute`. |
+| `--model <name>` | Model identifier. Endpoint and credentials come from environment. Ignored with `--execute`. Mutually exclusive with `--local-model`. |
+| `--local-model <path>` | Path to a gguf file to serve locally instead of `--model`. Starts a goinfer-serve subprocess for the run and stops it when the run ends. Ignored with `--execute`. Mutually exclusive with `--model`. |
+| `--local-model-server <path>` | Path to the `goinfer-serve` binary. Defaults to one found on `PATH`. Requires `--local-model`. |
+| `--local-model-backend <name>` | Compute backend passed to goinfer-serve's own `-backend` flag (`cpu`, `metal`, `cuda`, `webgpu`). Requires `--local-model`. |
 | `--log <path>` | Run log location. Defaults to `.sedum/run.log`. |
 | `-v, --verbose` | Mirror the run log to stdout. |
 | `--full-catalog` | Show the model every exposed action, including ones no authorized path can reach. Ignored with `--execute`. |

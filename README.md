@@ -203,6 +203,17 @@ the same code path.
              --model qwen2.5-coder-14b-instruct --record ./scaffold.json
 ```
 
+**Run it against a local gguf with nothing already running** — `--local-model`
+starts `goinfer-serve` for the run and stops it when the run ends, instead of
+reading `OPENAI_BASE_URL`/`OPENAI_API_KEY`. `goinfer-serve` must already be on
+`PATH` or named with `--local-model-server`; neither the binary nor any model
+weights are fetched by Sedum.
+
+```sh
+./sedum grow --generators ./generators --records ./provenance \
+             --local-model ./my-model.gguf --record ./scaffold.json
+```
+
 **Replay it with no model at all** — deterministic, free, and the way to
 re-generate a reviewed scaffold:
 
