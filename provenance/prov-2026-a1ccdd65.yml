@@ -1,0 +1,82 @@
+id: prov-2026-a1ccdd65
+title: Local goinfer-serve backend for Phase 4 selection
+status: draft
+created_at: "2026-09-29"
+author: calebcowen@gmail.com
+intent: |
+  A third way to obtain a selection.Client: spawn goinfer-serve against a
+  gguf file for the run's lifetime, and talk to it with the existing
+  OpenAI-compatible client, since goinfer-serve already answers
+  /v1/chat/completions in that shape. Sedum owns the subprocess: starts it on
+  a scratch loopback port before Phase 4's first call, stops it when the run
+  ends. No separate terminal running a server first.
+
+  goinfer over llama-server: llama-server's own chat template renders this
+  model's full extended-thinking block by default, and suppressing it needs
+  a chat_template_kwargs field the vendored go-openai client has no slot
+  for - risking a completion that is all reasoning and no content once the
+  model outruns the token budget (reproduced directly: 1900+ chars of
+  reasoning, zero chars of content, at 512 and 4096 max_tokens). goinfer's
+  own template never produces that failure for this model - <think></think>
+  comes back empty, inline in content, on every prompt tried - at the cost
+  of exposing no thinking toggle at all.
+
+  Not bundled here: the goinfer-serve binary and any model weights.
+  --local-model-server must resolve to a binary already on disk. Zero-setup
+  distribution is a later record.
+constraints:
+  - >-
+    The subprocess is owned by this client for exactly this run's lifetime:
+    started on a scratch loopback port before Phase 4's first call, stopped
+    when the client is closed. Nothing about it - binary path, port, model
+    path - reaches a provenance record or a recording; it is operational,
+    not a fact about the generated output.
+  - >-
+    goinfer-serve's leading <think>...</think> (empty or not) is stripped
+    from Completion.Content before it reaches the retry loop. Phase 5 parses
+    content as the model's answer and has no notion of a reasoning preamble;
+    that boundary is enforced here rather than pushed downstream.
+  - >-
+    --local-model-server is resolved from an explicit flag or PATH and never
+    downloaded or bundled by this record. A user who has not placed the
+    binary somewhere Sedum can find it gets a clear error naming the flag,
+    not a network fetch.
+  - >-
+    No generator package and no provenance record may name the local
+    server's binary path, port, or model path, matching the existing rule
+    for the hosted providers.
+  - >-
+    Selection stays the model's only job. This backend does not send
+    response_format, a grammar, or tool definitions.
+  - >-
+    No hosted row and no third-party endpoint is added by this record: a
+    subprocess that never leaves the machine is the whole reason this
+    exists.
+affected_scope:
+  - internal/selection/local.go
+  - internal/selection/local_test.go
+  - internal/cli/config.go
+  - internal/cli/flags_test.go
+  - internal/cli/grow.go
+  - README.md
+forbidden_scope:
+  - internal/genpkg/**
+  - internal/inject/**
+  - internal/record/**
+type: blueprint
+implements: prov-2026-d554bfc3
+supersedes: ""
+superseded_by: ""
+related:
+  - prov-2026-2f131ba6
+  - prov-2026-4bcabb2f
+  - prov-2026-98ab639c
+  - prov-2026-39b815a1
+sealed_at_sha: ""
+associated_specs: []
+associated_traces: []
+monitors: []
+tags:
+  - sedum
+  - llm
+  - local-model
