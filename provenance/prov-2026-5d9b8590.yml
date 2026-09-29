@@ -1,0 +1,144 @@
+id: prov-2026-5d9b8590
+title: Phase 4's catalog is filtered to what a record could legally authorize
+status: draft
+created_at: "2026-09-29"
+author: calebcowen@gmail.com
+intent: |
+  Measured across two consumer repos, the most common Phase 5 validation
+  failure is unauthorized_path - over half of all failures in one test set.
+  The shape is always the same: the catalog Phase 4 builds lists every exposed
+  action across every package a record's files resolved to, including an
+  action whose injects_into can never resolve to a path the record authorized
+  (typically a catalog-entry-style action on a record that only authorizes a
+  rule file). The model binds it anyway, Sedum rejects the output under
+  [[prov-2026-9dcf2658]]'s shared validator, and the run burns a retry paying
+  for a mistake the catalog invited.
+
+  This narrows what Phase 4 shows, not what Phase 5 checks. The prompt gains a
+  filter; validation is untouched.
+
+  ## The filter is over reachability, not over a specific binding
+
+  Nothing has bound a kwarg yet when the prompt is built, so the filter cannot
+  ask "does this invocation's path match" - only "could any invocation of this
+  action possibly land on an authorized path." An action's injects_into is
+  matched against the record's authorized, managed paths (the ones
+  [[prov-2026-1bbb8e2e]] already collects for the free-vs-pattern split in
+  ForPrompt) by treating every {{...}} expression as matching any run of
+  characters - a placeholder, transformed or bare, is never something a
+  segment value can be ruled out for - and requiring only the pattern's fixed,
+  literal text to appear in some authorized path. An action is removed only
+  when its fixed text cannot appear in *any* authorized path for *any*
+  placeholder value: a false removal (dropping something that might still be
+  legal) is much worse than a false keep (showing something that turns out not
+  to apply), so the match errs toward keeping.
+
+  A free-target action ({{file}} and the like, per [[prov-2026-14c832bf]]) is a
+  pattern with no fixed text at all, so it always matches and is never
+  filtered by this rule - applicability for those is anchor-based already, not
+  path-based.
+
+  A composite is removed only when at least one child's pattern can never
+  match. [[prov-2026-9dcf2658]]'s expand.Targets requires every child's
+  rendered target to be authorized for the invocation to validate at all, so
+  one structurally-unreachable child dooms the composite regardless of the
+  others - keeping it in the prompt would be showing the model a choice that
+  can never pass.
+
+  ## What stays exactly as it is
+
+  Phase 5 validation runs against the full, unfiltered catalog, built the same
+  way it is today. This is a prompt-rendering decision, in exactly the sense
+  [[prov-2026-14c832bf]] drew that line for the bare-pattern suppression: the
+  catalog is the contract, sedum actions --json is unaffected, and what the
+  model is shown is that consumer's rendering of it. A filtered-out action
+  that somehow reaches Sedum's input (a hand-edited recording, a future
+  caller) is rejected by unauthorized_path exactly as before.
+
+  If filtering leaves a record with nothing to offer, that is reported before
+  any model call, naming the record and its authorized paths - never an empty
+  catalog sent to the model.
+
+  A --full-catalog flag disables the filter, so today's prompt can still be
+  reproduced for comparison and so the eval harness can measure the
+  before/after difference on the same fixtures.
+
+  ## The prompt format is a versioned artifact
+
+  [[prov-2026-b5465dfa]] made internal/recording.Version the single constant
+  both the binary and a recording's sedum_version answer with, specifically so
+  a downstream tool keying training data or recordings off the prompt format
+  has one place to check whether it changed. Filtering changes what a record's
+  prompt contains for the same inputs, so the constant moves - 0.4.0 to 0.5.0
+  - in the same commit as the behavior, per that record's reasoning.
+
+  ## The retry path, checked rather than assumed
+
+  The task that motivated this also asked whether a Phase 5 rejection's retry
+  re-sends the same prompt unchanged or includes what was wrong. Reading
+  selection.Select: a rejected response stays in the conversation
+  (Role: RoleAssistant with the raw content) followed by rejection(violations)
+  as a RoleUser message naming the rule and the detail for every violation,
+  before the loop re-asks. This already holds and needs no change; it is
+  recorded here so the question is not re-asked, not implemented as a fix.
+constraints:
+  - Matching is conservative in one direction only. A placeholder segment -
+    {{name}} or {{name|pipe|pipe:arg}} alike - is treated as matching any
+    string, including one containing what would otherwise be literal
+    separators; only the pattern's fixed text is required to occur in an
+    authorized path. Never remove an action that might still be legal.
+  - A free-target action (its whole injects_into is one placeholder, per
+    prov-2026-14c832bf) is never removed by this filter. It carries no fixed
+    text to fail to match, and its applicability is anchor-based already.
+  - A composite is removed only when at least one child's pattern is
+    unreachable, because expand.Targets requires every child's rendered
+    target to be authorized for the invocation to validate at all.
+  - Phase 5 validation is unchanged. It runs against the full catalog built
+    the same way it is today, so an unauthorized_path violation is reported
+    exactly as before for anything that reaches it regardless of what the
+    prompt showed.
+  - If filtering leaves a record with no actions to offer, Sedum fails before
+    the model is called, naming the record and the paths it authorized. An
+    empty catalog is never sent to a model.
+  - Every removal is logged to the run log with the record id, the action,
+    and why - visible without reading the prompt.
+  - --full-catalog turns the filter off entirely, reproducing today's prompt
+    byte for byte, for comparison and for the eval harness.
+  - internal/recording.Version moves in the same commit as the behavior,
+    because it is the one constant a downstream tool checks to know the
+    prompt format changed (prov-2026-b5465dfa).
+  - Released through the repository's normal tag-and-goreleaser path so
+    consumers install it with install.sh rather than building locally.
+affected_scope:
+  - internal/catalog/catalog.go
+  - internal/catalog/catalog_test.go
+  - internal/catalog/filter.go
+  - internal/catalog/filter_test.go
+  - internal/selection/prompt.go
+  - internal/selection/selection.go
+  - internal/selection/selection_test.go
+  - internal/cli/grow.go
+  - internal/cli/config.go
+  - internal/pipeline/pipeline.go
+  - internal/pipeline/pipeline_test.go
+  - internal/recording/version.go
+  - README.md
+forbidden_scope: []
+type: blueprint
+implements: prov-2026-d554bfc3
+supersedes: ""
+superseded_by: ""
+related:
+  - prov-2026-1bbb8e2e
+  - prov-2026-14c832bf
+  - prov-2026-9dcf2658
+  - prov-2026-b5465dfa
+sealed_at_sha: ""
+associated_specs: []
+associated_traces: []
+monitors: []
+tags:
+  - sedum
+  - catalog
+  - selection
+  - prompt
