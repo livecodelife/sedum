@@ -1,0 +1,39 @@
+id: prov-2026-be853555
+title: 'Version 0.6.0: local goinfer-serve backend and zero-setup default'
+status: draft
+created_at: "2026-09-29"
+author: calebcowen@gmail.com
+intent: |
+  0.5.0 -> 0.6.0: minor, additive. --local-model, --local-model-server, and
+  --local-model-backend are new flags ([[prov-2026-a1ccdd65]]); sedum grow
+  with neither --model nor --local-model now falls back to a bundled default
+  instead of erroring, on a build that carries one ([[prov-2026-668746b1]]).
+  No existing invocation's behavior changes.
+constraints:
+  - >-
+    This record touches only the version constant. The tag-vs-constant check
+    in .github/workflows/release.yml, not a file change here, is what
+    actually gates and runs the release.
+  - >-
+    The tag is pushed only once this commit is on main, so CI builds the
+    commit the constant and the tag both name.
+affected_scope:
+  - internal/recording/version.go
+forbidden_scope: []
+type: blueprint
+implements: prov-2026-d554bfc3
+supersedes: ""
+superseded_by: ""
+related:
+  - prov-2026-a1ccdd65
+  - prov-2026-668746b1
+  - prov-2026-4746d9ed
+sealed_at_sha: ""
+associated_specs:
+  - path: internal/cli/release_test.go
+    run_command: go test -count=1 ./$(dirname {{path}})
+associated_traces: []
+monitors: []
+tags:
+  - sedum
+  - release
