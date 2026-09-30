@@ -231,7 +231,13 @@ related:
   - prov-2026-668746b1
   - prov-2026-a1ccdd65
 sealed_at_sha: ""
-associated_specs: []
+associated_specs:
+  - path: internal/catalog/schema_test.go
+    run_command: go test -count=1 ./$(dirname {{path}})
+  - path: internal/selection/response_format_test.go
+    run_command: go test -count=1 ./$(dirname {{path}})
+  - path: internal/cli/flags_test.go
+    run_command: go test -count=1 ./$(dirname {{path}})
 associated_traces: []
 monitors: []
 tags:

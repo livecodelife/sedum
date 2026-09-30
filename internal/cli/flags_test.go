@@ -85,6 +85,10 @@ func TestGrowFlagSurface(t *testing.T) {
 		{"log", "", "string", ".sedum/run.log"},
 		{"verbose", "v", "bool", "false"},
 		{"full-catalog", "", "bool", "false"},
+		// prov-2026-91c54941: opt-in, default off. Off, the request sedum
+		// sends is byte-for-byte what it is today (internal/selection's
+		// TestCompleteWithoutSchemaMatchesTodaysRequestByteForByte).
+		{"response-schema", "", "bool", "false"},
 	})
 }
 
