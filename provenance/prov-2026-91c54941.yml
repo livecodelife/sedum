@@ -1,0 +1,241 @@
+id: prov-2026-91c54941
+title: --response-schema compiles the catalog into a JSON Schema, kept opt-in because constraining it once collapsed selection
+status: draft
+created_at: "2026-09-30"
+author: calebcowen@gmail.com
+intent: |
+  Add --response-schema to sedum grow (default off): after the catalog is
+  filtered to a record's authorized paths (prov-2026-5d9b8590), compile what
+  survives into a JSON Schema for {"invocations": [...]} and send it as
+  structured output - response_format: {"type": "json_schema", "json_schema":
+  {name, schema}} - on the OpenAI-compatible request. The prompt text does not
+  change.
+
+  Why now: across two consumer repos, most binding failures Phase 5 catches
+  are ones the catalog already rules out on paper - missing_kwarg, kwarg_type,
+  unknown_kwarg, parse_error, and, combined with the catalog filter,
+  unauthorized_path. The catalog states these rules in prose today and the
+  model is free to ignore them. A schema lets an endpoint that supports
+  structured output stop the model from producing them at all, for endpoints
+  that choose to turn it on.
+
+  Shape of the schema. Each item of invocations is a oneOf over the reachable
+  actions: action as a const, kwargs as an object with
+  additionalProperties: false. Kwarg types map from the declared type
+  (string, list -> array of strings, int -> integer, bool -> boolean, and so
+  on). required is exactly what Phase 5 already treats as required for that
+  action - entry.Requires plus, per discriminator variant,
+  entry.VariantRequires[variant] - including a kwarg a template renders even
+  though its own declaration marks it optional (today's missing_derived_kwarg
+  rule, RuleMissingDerivedKwarg, checked by derivedRequirements in
+  internal/selection/validate.go around line 763). The schema and the
+  validator must read that requirement from one shared source, not from two
+  hand-maintained copies that can drift - derivedRequirements (or logic
+  extracted from it so it does not need a concrete recording.Invocation to
+  answer "what does variant X require") is the strongest candidate for that
+  source, since it already carries the discriminator/variant_requires
+  fallback-to-_default logic Phase 5 depends on. A discriminated action gets
+  one oneOf branch per declared variant: the discriminator as a const, and
+  that variant's variant_requires folded into required alongside the base
+  Requires. Optional kwargs stay optional properties and are never modeled as
+  nullable - Phase 5 rejects null for an absent optional kwarg
+  (prov-2026-9a554c93/prov-2026-9a491128 territory), so a schema that allowed
+  null would legalize an output shape the validator throws out. Generation is
+  deterministic: the same catalog and record produce byte-identical schema
+  bytes every time.
+
+  Language neutrality is load-bearing, the same way it is for Sedum's core
+  (prov-2026-d554bfc3): the schema is compiled only from what actions.yaml
+  already declares - action names, kwargs, their declared types, required
+  flags, discriminators, and variants. Nothing in this path may inspect what a
+  kwarg's bound value would mean in any target language; that stays entirely
+  downstream, in templates Sedum never asks the model to reason about.
+
+  Sending it is strictly opt-in, default off, behind --response-schema. Off,
+  the request is byte-for-byte what it is today - the flag changes nothing
+  about the default path. On, and the endpoint rejects response_format,
+  sedum grow fails clearly and names --response-schema; it must never
+  silently retry unconstrained, because a silent fallback would hide exactly
+  the information a caller who opted in needs.
+
+  Validation is unchanged. Phase 5 runs on every response exactly as it does
+  today, whether or not the endpoint honored the schema, is capable of
+  honoring it, or supports response_format at all - the schema constrains,
+  Phase 5 checks. Nothing about --response-schema relaxes or replaces a Phase
+  5 rule.
+
+  The generated schema, or its hash and the path it was written to, is logged
+  to run.log with the record id, so a run made with --response-schema can be
+  reproduced later.
+
+  Reconciling prov-2026-4bcabb2f. That record found that constraining the
+  invocation envelope with a json_schema made qwen2.5-coder-14b return
+  {"invocations": []} on every call for a record that should have produced
+  invocations - the same prompt that produced three correct invocations
+  unconstrained produced none constrained. The mechanism: grammar-constrained
+  decoding takes the shortest legal completion available at the array's first
+  token, and an empty array is legal there. That record's standing
+  constraints bind this one:
+    - "Any reintroduction of constrained decoding must be measured against
+      selection quality on a record that should produce invocations. Whether
+      the output parses is not the test - an empty array parses." This
+      record does not perform that measurement. It only makes the
+      constrained path available, opt-in, so the measurement can happen
+      against real endpoints without being blocking on this record's
+      completion. Constraints below make the measurement gate what ships
+      beyond opt-in.
+    - "A schema forcing at least one invocation is not an option." The
+      invocations array carries no minItems - {"invocations": []} stays a
+      legal completion under --response-schema exactly as it is without it.
+      This is not merely the letter of that finding kept true by omission:
+      the whole point of keeping the flag opt-in and default off is that the
+      collapse prov-2026-4bcabb2f measured stays confined to callers who
+      explicitly choose --response-schema, on endpoints they chose to point
+      it at, rather than becoming every user's default exposure to a risk
+      that was only measured against one model and one endpoint shape.
+    - "This is a transport concern. It must not reach the prompt's content,
+      the catalog, or the validation rules." The schema is compiled from the
+      catalog after Phase 4 already builds it; it does not change what the
+      catalog contains, what the prompt says, or what Phase 5 checks. It
+      adds a second consumer of the same catalog data, on the wire, next to
+      the prompt - not inside it.
+
+  A real unresolved question this record surfaces rather than answers: the
+  bundled zero-setup default is goinfer-serve (prov-2026-668746b1,
+  prov-2026-a1ccdd65), a second Client implementation (internal/selection/
+  local.go) alongside the OpenAI-compatible one (internal/selection/
+  client.go). Both build the same kind of chat-completion request today and
+  neither sends response_format. Whether goinfer-serve accepts
+  response_format at all, and whether it exhibits the same
+  shortest-legal-completion collapse LM Studio-style grammar-constrained
+  decoding did, is unverified and must be checked - by spec-author and
+  code-author, against a real goinfer-serve response, not assumed - before
+  --response-schema is documented as working against the bundled default.
+  If it does not, sedum grow must fail clearly on that combination rather
+  than silently degrade, per the same never-silently-fall-back rule that
+  applies to any other endpoint.
+
+  Testable, describing the proof surface for spec-author and code-author to
+  build (not built here): schema generation is snapshot-tested against
+  fixtures modelled on both real package shapes seen across the two consumer
+  repos - a check-rule style package (a rule action plus a catalog-entry
+  action, prose kwargs, a list kwarg) and a table style package (three
+  actions across two packages, a discriminator with two variants,
+  variant_requires, pipeline placeholders in injects_into). Every known-good
+  recording copied into fixtures from real accepted recordings must validate
+  against its record's generated schema - a schema that rejects a valid
+  binding is the worst possible bug this record can ship, so that test
+  matters more than any other. The schema itself rejects: an unknown action,
+  an action the catalog filter removed, an unknown kwarg, a missing required
+  kwarg, a missing variant-required kwarg, a wrong type (a string where a
+  list is declared), and an undeclared variant value. Without
+  --response-schema, the request sent is byte-for-byte what it is today. An
+  endpoint that rejects response_format produces a clear, --response-schema-
+  naming error, never a fallback.
+constraints:
+  - >-
+    Without --response-schema the request Sedum sends is byte-for-byte
+    identical to today's. The flag is opt-in and defaults to off.
+  - >-
+    The schema is compiled only from what actions.yaml already declares -
+    action names, kwargs, their declared types, required flags,
+    discriminators, and variants. Nothing in this path may inspect what a
+    kwarg's bound value would mean in any target language; Sedum's
+    language-agnostic core is not compromised for this feature.
+  - >-
+    Required kwargs in the generated schema - including a kwarg a template
+    renders even though its own declaration marks it optional, today's
+    missing_derived_kwarg rule - and Phase 5's own required-kwarg check must
+    read from one shared derivation, not from two independently maintained
+    copies of the requirement rules. internal/selection/validate.go's
+    derivedRequirements (around line 763) is the existing single source of
+    truth for this and is the strongest candidate for that shared logic,
+    reworked if needed so it can answer "what does declared variant X
+    require" without a concrete recording.Invocation to read a bound
+    discriminator value from.
+  - >-
+    A discriminated action gets one oneOf branch per declared variant: the
+    discriminator as a const, and that variant's variant_requires kwargs
+    folded into that branch's required alongside the action's base required
+    kwargs.
+  - >-
+    Optional kwargs stay optional properties. They are never modeled as
+    nullable - Phase 5 rejects a null value for an absent optional kwarg, so
+    a schema permitting null would legalize a model output the validator
+    throws out.
+  - >-
+    The invocations array carries no minItems and no other constraint that
+    would make {"invocations": []} illegal. Forcing at least one invocation
+    is not an option: a record whose intent needs no action is legitimate,
+    and prov-2026-4bcabb2f already found that this exact family of
+    constraint is what caused the model to stop selecting.
+  - >-
+    Schema generation is deterministic: the same catalog and the same record
+    produce byte-identical generated schema bytes on every run.
+  - >-
+    Any measurement of whether constraining the response collapses selection
+    quality - per prov-2026-4bcabb2f's standing requirement that
+    reintroduction be measured against selection on a record that should
+    produce invocations, not against whether output parses - is scoped to
+    real endpoints a user points --response-schema at once this record ships;
+    it is not performed by this record. This record's job is to make the
+    constrained path available and opt-in, and opt-in is exactly what keeps
+    prov-2026-4bcabb2f's collapse risk confined to callers who choose it
+    rather than becoming every run's default exposure.
+  - >-
+    If the endpoint rejects response_format, sedum grow fails with a clear
+    error naming --response-schema. It must never silently retry the request
+    unconstrained.
+  - >-
+    Phase 5 validation is unchanged and runs on every response exactly as it
+    does today, regardless of whether --response-schema was given or whether
+    the endpoint honored, partially honored, or ignored the schema. The
+    schema constrains the model; it is not a substitute for the check.
+  - >-
+    The prompt text does not change. This is a transport-and-catalog-
+    compilation concern, exactly as prov-2026-4bcabb2f scoped response_format
+    itself to be: it must not reach the prompt's content, the catalog's
+    contents, or the validation rules, and no generator package or
+    provenance record may influence it.
+  - >-
+    The generated schema, or its hash and the path it was written to, is
+    logged to run.log with the record id, so a run made with
+    --response-schema is reproducible from the log alone.
+  - >-
+    Whether the bundled goinfer-serve backend (internal/selection/local.go)
+    accepts response_format, and whether it exhibits the same
+    shortest-legal-completion collapse found against LM Studio-style
+    grammar-constrained decoding, is unverified as of this record and must be
+    checked against a real goinfer-serve response before --response-schema is
+    documented as supported against the bundled zero-setup default. If it
+    does not support it, or collapses the same way, sedum grow must fail
+    clearly on that combination rather than silently degrading.
+affected_scope:
+  - internal/catalog/**
+  - internal/selection/**
+  - internal/cli/grow.go
+  - internal/cli/flags_test.go
+  - testdata/**
+  - PRD.md
+forbidden_scope: []
+type: blueprint
+implements: prov-2026-d554bfc3
+supersedes: ""
+superseded_by: ""
+related:
+  - prov-2026-4bcabb2f
+  - prov-2026-f095e19f
+  - prov-2026-5d9b8590
+  - prov-2026-9a554c93
+  - prov-2026-9a491128
+  - prov-2026-668746b1
+  - prov-2026-a1ccdd65
+sealed_at_sha: ""
+associated_specs: []
+associated_traces: []
+monitors: []
+tags:
+  - sedum
+  - m6
+  - selection
+  - response-schema
