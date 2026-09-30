@@ -1,6 +1,6 @@
 id: prov-2026-91c54941
 title: --response-schema compiles the catalog into a JSON Schema, kept opt-in because constraining it once collapsed selection
-status: draft
+status: open
 created_at: "2026-09-30"
 author: calebcowen@gmail.com
 intent: |
