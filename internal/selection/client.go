@@ -109,6 +109,65 @@ func (o *OpenAI) Complete(ctx context.Context, messages []Message) (Completion, 
 	}, nil
 }
 
+// CompleteWithSchema behaves exactly like Complete, additively: the same
+// model, temperature, message wiring, and completion cap, plus a
+// response_format naming schema - {"type": "json_schema", "json_schema":
+// {"name": schemaName, "schema": schema}} - on the request, for
+// --response-schema (prov-2026-91c54941).
+//
+// It is a new method beside Complete rather than a parameter added to it, so
+// that Complete's own request cannot change shape by construction: every
+// caller that does not opt in keeps sending exactly what it always has, byte
+// for byte. Select decides per record whether to call this instead of
+// Complete; the boundary is not the Client interface, so that decision
+// reaches neither this file nor Complete's own request-building.
+//
+// An endpoint that rejects response_format fails here, clearly, naming
+// --response-schema and carrying the endpoint's own explanation - never
+// silently falling back to an unconstrained Complete, because that fallback
+// would hide exactly the information a caller who opted in needs.
+// prov-2026-4bcabb2f found that this same envelope, forced rather than
+// offered, made a model that had been selecting stop; --response-schema
+// exists so that measurement can be repeated against a real endpoint a
+// caller chooses, not to declare the risk resolved.
+func (o *OpenAI) CompleteWithSchema(ctx context.Context, messages []Message, schemaName string, schema []byte) (Completion, error) {
+	resp, err := o.client.CreateChatCompletion(ctx, openai.ChatCompletionRequest{
+		Model:       o.model,
+		Temperature: 0,
+		MaxTokens:   maxCompletionTokens(),
+		Messages:    wire(messages),
+		ResponseFormat: &openai.ChatCompletionResponseFormat{
+			Type: openai.ChatCompletionResponseFormatTypeJSONSchema,
+			JSONSchema: &openai.ChatCompletionResponseFormatJSONSchema{
+				Name:   schemaName,
+				Schema: rawSchema(schema),
+			},
+		},
+	})
+	if err != nil {
+		return Completion{}, fmt.Errorf(
+			"model %s: --response-schema asked this endpoint for response_format and it was rejected: %w", o.model, err)
+	}
+	if len(resp.Choices) == 0 {
+		return Completion{}, fmt.Errorf("model %s returned no choices", o.model)
+	}
+	return Completion{
+		Content:          resp.Choices[0].Message.Content,
+		PromptTokens:     resp.Usage.PromptTokens,
+		CompletionTokens: resp.Usage.CompletionTokens,
+	}, nil
+}
+
+// rawSchema carries a schema already compiled to JSON bytes - catalog.
+// (Catalog).ResponseSchema's output - through go-openai's
+// ChatCompletionResponseFormatJSONSchema.Schema field, typed json.Marshaler
+// because the library also accepts its own jsonschema.Definition builder.
+// Sedum has its own compiler and needs no second one; this only has to
+// re-emit the bytes it was given.
+type rawSchema []byte
+
+func (r rawSchema) MarshalJSON() ([]byte, error) { return r, nil }
+
 func wire(messages []Message) []openai.ChatCompletionMessage {
 	out := make([]openai.ChatCompletionMessage, 0, len(messages))
 	for _, m := range messages {

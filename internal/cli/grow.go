@@ -22,6 +22,12 @@ import (
 func newGrowCommand() *cobra.Command {
 	var cfg GrowConfig
 
+	// responseSchema is kept local rather than added to GrowConfig, since
+	// GrowConfig's file is outside this record's affected_scope: the flag is
+	// threaded through runGrow's own signature instead of the config struct
+	// every other flag here goes through.
+	var responseSchema bool
+
 	cmd := &cobra.Command{
 		Use:   "grow",
 		Short: "Run the full pipeline: load, ingest, resolve, create, invoke, validate, expand, inject",
@@ -38,7 +44,13 @@ Nothing is created that a provenance record did not authorize.`,
 			for _, ignored := range cfg.IgnoredFlags() {
 				fmt.Fprintf(cmd.ErrOrStderr(), "sedum: ignoring %s\n", ignored)
 			}
-			return runGrow(cmd.Context(), cmd.OutOrStdout(), cmd.ErrOrStderr(), cfg)
+			// Replay invokes no model, so nothing here would ever build a
+			// schema or a request to carry it on - the same reason --model
+			// and --full-catalog are ignored under --execute.
+			if cfg.Replaying() && responseSchema {
+				fmt.Fprintf(cmd.ErrOrStderr(), "sedum: ignoring --response-schema (replay invokes no model)\n")
+			}
+			return runGrow(cmd.Context(), cmd.OutOrStdout(), cmd.ErrOrStderr(), cfg, responseSchema)
 		},
 	}
 
@@ -62,6 +74,11 @@ Nothing is created that a provenance record did not authorize.`,
 	f.BoolVarP(&cfg.Verbose, "verbose", "v", false, "Mirror the run log to stdout.")
 	f.BoolVar(&cfg.FullCatalog, "full-catalog", false,
 		"Show the model every exposed action, including ones no authorized path can reach. Ignored with --execute.")
+	f.BoolVar(&responseSchema, "response-schema", false,
+		"Compile the record's filtered catalog into a JSON Schema and send it as response_format, "+
+			"constraining the model's completion. Off by default, and off, the request is byte-for-byte "+
+			"what it is today. Fails clearly if the endpoint rejects response_format; never falls back "+
+			"unconstrained. Ignored with --execute.")
 
 	mustMarkRequired(cmd, "generators")
 
@@ -80,7 +97,7 @@ Nothing is created that a provenance record did not authorize.`,
 // model fails while nothing has been written. Creating files and then failing
 // at the model call would leave the output tree half built for a reason the
 // user could have been told first.
-func runGrow(ctx context.Context, out, errOut io.Writer, cfg GrowConfig) error {
+func runGrow(ctx context.Context, out, errOut io.Writer, cfg GrowConfig, responseSchema bool) error {
 	// No --stop-after means run every phase. Zero is not a stop point, so it
 	// reads as "stop after nothing".
 	stopAfter := 0
@@ -153,6 +170,26 @@ func runGrow(ctx context.Context, out, errOut io.Writer, cfg GrowConfig) error {
 				return err
 			}
 			client = built
+		}
+
+		// --response-schema opts this run's client into structured output.
+		// The wrapper is recognized inside selection.Select, which is the one
+		// place that knows each record's own (authorized-path-filtered)
+		// catalog to compile a schema from; wrapping here rather than passing
+		// a bool through pipeline.Config means this record's flag reaches
+		// Select without pipeline.go - which only ever forwards a
+		// selection.Client unchanged - needing a change of its own.
+		//
+		// *Local (the bundled goinfer-serve backend) implements no
+		// structured-output method today, so wrapping it changes nothing
+		// about whether it can honor --response-schema: Select's own type
+		// assertion against selection.SchemaCapable still fails for it, and
+		// the run still fails clearly rather than silently running
+		// unconstrained. Whether goinfer-serve could honor response_format,
+		// or would reproduce prov-2026-4bcabb2f's collapse if it did, is
+		// unverified and this record does not resolve it.
+		if responseSchema {
+			client = selection.WithResponseSchema(client)
 		}
 	}
 

@@ -760,11 +760,18 @@ func isEmpty(v any) bool {
 // optional and the selected template renders is not optional, and that has to
 // hold for what it contains as well as for whether it is there
 // (prov-2026-9a491128).
+//
+// Resolving which variant a live response selected - reading the
+// discriminator's bound value out of inv, and falling back to
+// genpkg.DefaultVariant when it names no declared variant - is this
+// function's own job, because it is the one thing here that genuinely needs a
+// concrete recording.Invocation to answer. What a resolved variant actually
+// requires is not: that half is catalog.Action.RequiredForVariant, the same
+// method --response-schema's compiler reads, so the two cannot drift into
+// independently maintained copies of the rule (prov-2026-91c54941).
 func derivedRequirements(entry catalog.Action, inv recording.Invocation) (names []string, variant string) {
-	names = append(names, entry.Requires...)
-
 	if entry.Discriminator == "" || len(entry.VariantRequires) == 0 {
-		return names, ""
+		return entry.RequiredForVariant(""), ""
 	}
 	// Selection falls back exactly as template selection does, so a value with
 	// no dedicated template inherits the fallback's requirements rather than
@@ -773,15 +780,15 @@ func derivedRequirements(entry catalog.Action, inv recording.Invocation) (names 
 	// diagnostic harder to act on.
 	raw, bound := inv.Kwargs[entry.Discriminator]
 	if !bound {
-		return names, ""
+		return entry.RequiredForVariant(""), ""
 	}
 	value, ok := raw.(string)
 	if !ok {
-		return names, ""
+		return entry.RequiredForVariant(""), ""
 	}
 	variant = value
 	if _, covered := entry.VariantRequires[value]; !covered {
 		variant = genpkg.DefaultVariant
 	}
-	return append(names, entry.VariantRequires[variant]...), variant
+	return entry.RequiredForVariant(variant), variant
 }

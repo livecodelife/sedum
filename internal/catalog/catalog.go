@@ -396,6 +396,34 @@ func requirements(pkg *genpkg.Package, action *genpkg.Action) ([]string, map[str
 	return out, variants
 }
 
+// RequiredForVariant is every value this action's template renders
+// unconditionally, plus - for a declared variant - the values that variant's
+// own template additionally renders.
+//
+// This is the one place both Phase 5's derivedRequirements
+// (internal/selection/validate.go) and ResponseSchema read "what does this
+// action, at this variant, actually require" from, so the two cannot drift
+// into independently maintained copies of the same rule
+// (prov-2026-91c54941). It answers the question from the catalog's own
+// declared data alone - Requires and VariantRequires - so it needs no
+// concrete recording.Invocation the way the discriminator-value-to-variant
+// resolution derivedRequirements still does for a live response.
+//
+// variant is "" for a non-discriminated action, or the caller's already-
+// resolved variant (a declared one, or the fallback DefaultVariant a missing
+// or uncovered value maps to) for a discriminated one. A variant this action
+// has no VariantRequires entry for - deleted in a created/deleted pair where
+// only created's template renders an extra value - simply contributes
+// nothing beyond Requires, which is what "no requirement beyond the base"
+// means for that variant.
+func (a Action) RequiredForVariant(variant string) []string {
+	out := append([]string(nil), a.Requires...)
+	if variant != "" {
+		out = append(out, a.VariantRequires[variant]...)
+	}
+	return out
+}
+
 // Lookup returns every entry declaring a name.
 //
 // It returns a slice rather than one entry because a record spanning two

@@ -240,6 +240,39 @@ func Select(ctx context.Context, client Client, req Request, opts Options) (Answ
 		}
 	}
 
+	// --response-schema (prov-2026-91c54941): resolved once per record, before
+	// the retry loop, both because the schema is deterministic across
+	// attempts and because a client that cannot honor it should fail before
+	// any call is made rather than mid-retry.
+	//
+	// The marker is on the Client itself, not on Options, so that wiring this
+	// through the pipeline package - which only ever forwards a Client
+	// unchanged - needs no change of its own: grow.go wraps whichever Client
+	// it built with WithResponseSchema, and this is the one place that
+	// recognizes the wrapper.
+	var schemaClient SchemaCapable
+	var responseSchema []byte
+	if rs, ok := client.(*responseSchemaClient); ok {
+		capable, ok := rs.Client.(SchemaCapable)
+		if !ok {
+			return Answer{}, fmt.Errorf(
+				"record %s: --response-schema requires a client that supports structured output (response_format), and %T does not implement it; "+
+					"never falling back to an unconstrained call, since that would hide exactly what a caller who opted in needs to know",
+				req.RecordID, rs.Client)
+		}
+		schemaClient = capable
+
+		schema, err := promptCat.ResponseSchema()
+		if err != nil {
+			return Answer{}, fmt.Errorf("record %s: compiling --response-schema from this record's catalog: %w", req.RecordID, err)
+		}
+		responseSchema = schema
+		// Logged whole, the same way the prompt and the raw response already
+		// are below, so a run made with --response-schema is reproducible
+		// from the log alone.
+		log.Info("response schema compiled", "record", req.RecordID, "schema", string(responseSchema))
+	}
+
 	prompt, err := Prompt(req, promptCat)
 	if err != nil {
 		return Answer{}, err
@@ -268,7 +301,13 @@ func Select(ctx context.Context, client Client, req Request, opts Options) (Answ
 		log.Info("model prompt", "record", req.RecordID, "attempt", i+1,
 			"prompt", messages[len(messages)-1].Content)
 
-		raw, err := client.Complete(ctx, messages)
+		var raw Completion
+		var err error
+		if schemaClient != nil {
+			raw, err = schemaClient.CompleteWithSchema(ctx, messages, "sedum_invocations", responseSchema)
+		} else {
+			raw, err = client.Complete(ctx, messages)
+		}
 		answer.Calls++
 		if err != nil {
 			// A transport failure is not the model's mistake and is not a
