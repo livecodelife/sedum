@@ -1,0 +1,39 @@
+id: prov-2026-266ce4ce
+title: 'Version 0.7.0: opt-in JSON Schema structured output for sedum grow'
+status: draft
+created_at: "2026-09-30"
+author: calebcowen@gmail.com
+intent: |
+  0.6.0 -> 0.7.0: minor, additive. --response-schema is new
+  ([[prov-2026-91c54941]]): sedum grow can now compile the record's catalog
+  into a JSON Schema and send it as structured output to OpenAI-compatible
+  endpoints, default off. No existing invocation's behavior changes - the
+  request sedum grow sends is byte-for-byte identical to today's when the
+  flag is not given.
+constraints:
+  - >-
+    This record touches only the version constant. The tag-vs-constant check
+    in .github/workflows/release.yml, not a file change here, is what
+    actually gates and runs the release.
+  - >-
+    The tag is pushed only once this commit is on main, so CI builds the
+    commit the constant and the tag both name.
+affected_scope:
+  - internal/recording/version.go
+forbidden_scope: []
+type: blueprint
+implements: prov-2026-d554bfc3
+supersedes: ""
+superseded_by: ""
+related:
+  - prov-2026-91c54941
+  - prov-2026-4bcabb2f
+sealed_at_sha: ""
+associated_specs:
+  - path: internal/cli/release_test.go
+    run_command: go test -count=1 ./$(dirname {{path}})
+associated_traces: []
+monitors: []
+tags:
+    - sedum
+    - release
