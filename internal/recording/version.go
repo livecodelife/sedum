@@ -13,4 +13,4 @@ package recording
 // binary needs to know which one it has, and a version that is absent from a
 // `go build` or `go run` invocation would be absent exactly when someone is
 // developing against it (prov-2026-b5465dfa).
-const Version = "0.6.0"
+const Version = "0.7.0"
