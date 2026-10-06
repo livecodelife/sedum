@@ -1,0 +1,73 @@
+id: prov-2026-d2f1bdf2
+title: 'sedum-binder-final-2b-le12k-e5 becomes the default shipped model'
+status: open
+created_at: "2026-10-06"
+author: calebcowen@gmail.com
+intent: |
+  The checkpoint sedum-binder-final-2b-le12k-e5, a Q8_0 gguf of 2012012768
+  bytes, replaces the current model as the zero-flag default shipped beside the
+  sedum binary. The bundled filename stays sedum-default-model.gguf, as the
+  comment in bundled.go already says a re-tuned default should, so lookup code,
+  goreleaser and install.sh need no change. What changes is the content the
+  release asset URL serves, and the sha256 that hack/fetch-release-assets.sh
+  pins for it: 5185a0b25d5a13262fa6dfcdb1b2091b7bb64f130d65cdb5322c99c992dd052e.
+  This supersedes the default named by [[prov-2026-668746b1]] but not its
+  bundling mechanism.
+
+  The maintainer, not this work, uploads the file to the model-assets release.
+  Until that upload replaces the asset, the pinned checksum does not match what
+  the URL serves, and a release build fails its checksum check. That is the
+  intended failure: a build must never ship an unverified model. The order is
+  upload first, then tag.
+
+  A per-run --model or --local-model still overrides the default and is covered
+  by a spec. The evals under evals/ published results for the old default;
+  none of them are claimed for this checkpoint, and the new one is not
+  measured here.
+constraints:
+  - >-
+    MODEL_SHA in hack/fetch-release-assets.sh is exactly
+    5185a0b25d5a13262fa6dfcdb1b2091b7bb64f130d65cdb5322c99c992dd052e, the
+    sha256 of Qwen3.5-2B.Q8_0.gguf from the sedum-binder-final-2b-le12k-e5
+    directory. MODEL_URL and the bundled filename are unchanged.
+  - >-
+    Sedum work does not publish, upload, or tag anything. The maintainer
+    uploads the asset to the model-assets release. Until then a release build
+    fails its checksum, and this must be stated wherever the pin is changed.
+  - >-
+    --model and --local-model still take precedence over the bundled default
+    and a spec proves it, with both a bundled model present and absent.
+  - >-
+    README and docs wording about the default model names the new checkpoint
+    and carries no claim about its eval results.
+  - >-
+    Results under evals/results are not edited, and no published figure is
+    attributed to the new default.
+affected_scope:
+  - hack/fetch-release-assets.sh
+  - README.md
+forbidden_scope:
+  - evals/results/**
+type: blueprint
+implements: prov-2026-d554bfc3
+supersedes: ""
+superseded_by: ""
+related:
+  - prov-2026-668746b1
+sealed_at_sha: ""
+associated_specs:
+  - path: internal/selection/bundled_test.go
+    type: go
+    run_command: go test -count=1 ./$(dirname {{path}})
+  - path: internal/cli/flags_test.go
+    type: go
+    run_command: go test -count=1 ./$(dirname {{path}})
+  - path: internal/cli/release_test.go
+    type: go
+    run_command: go test -count=1 ./$(dirname {{path}})
+associated_traces: []
+monitors: []
+tags:
+  - sedum
+  - release
+  - model
