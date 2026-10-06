@@ -2,6 +2,7 @@ package cli
 
 import (
 	"bytes"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -89,6 +90,12 @@ func TestGrowFlagSurface(t *testing.T) {
 		// sends is byte-for-byte what it is today (internal/selection's
 		// TestCompleteWithoutSchemaMatchesTodaysRequestByteForByte).
 		{"response-schema", "", "bool", "false"},
+		// prov-2026-e4bab53b and prov-2026-8602b702: caller-supplied context
+		// for Phase 4's prompt. All three default to absent, and absent, the
+		// prompt is byte-for-byte what it was.
+		{"prompt", "", "string", ""},
+		{"prompt-file", "", "string", ""},
+		{"prior-recording", "", "string", ""},
 	})
 }
 
@@ -360,5 +367,262 @@ func TestVersionEmitsABareSemver(t *testing.T) {
 	// A prefix would be a parsing rule stated nowhere.
 	if !regexp.MustCompile(`^\d+\.\d+\.\d+$`).MatchString(got) {
 		t.Errorf("--version emitted %q, which is not a bare semver", got)
+	}
+}
+
+// prov-2026-e4bab53b and prov-2026-8602b702.
+//
+// Every case here points --generators and --records at directories that do not
+// exist. A flag problem is reported before any phase runs, so it fails with its
+// own message; a run whose flags were all accepted fails further on, at
+// reachesTheModel, which is how a case proves its flags were legal.
+
+// execIn is exec with a stdin, for --prompt-file -. It assumes the command reads
+// the input through cobra (cmd.InOrStdin) rather than os.Stdin directly.
+func execIn(t *testing.T, stdin string, args ...string) (string, error) {
+	t.Helper()
+	root := NewRootCommand()
+	var out bytes.Buffer
+	root.SetOut(&out)
+	root.SetErr(&out)
+	root.SetIn(io.NopCloser(strings.NewReader(stdin)))
+	root.SetArgs(args)
+	err := root.Execute()
+	return out.String(), err
+}
+
+func growArgs(t *testing.T, extra ...string) []string {
+	t.Helper()
+	args := []string{"grow", "--generators", "g", "--records", "r", "--log", filepath.Join(t.TempDir(), "run.log")}
+	return append(args, extra...)
+}
+
+func writeTemp(t *testing.T, name, content string) string {
+	t.Helper()
+	path := filepath.Join(t.TempDir(), name)
+	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	return path
+}
+
+// wantReachesTheModel asserts a run's flags were all accepted.
+func wantReachesTheModel(t *testing.T, err error) {
+	t.Helper()
+	if err == nil {
+		t.Fatal("expected an error, got nil")
+	}
+	if !strings.Contains(err.Error(), "no bundled model found") {
+		t.Fatalf("flag validation rejected a legal combination: %v", err)
+	}
+}
+
+func TestPromptAndPromptFileAreMutuallyExclusive(t *testing.T) {
+	file := writeTemp(t, "p.txt", "x")
+	_, err := exec(t, growArgs(t, "--prompt", "x", "--prompt-file", file)...)
+	wantErr(t, err, "prompt", "prompt-file")
+	// Not the flag-parsing failure of a flag that does not exist.
+	if strings.Contains(err.Error(), "unknown flag") {
+		t.Errorf("--prompt or --prompt-file does not exist yet: %v", err)
+	}
+}
+
+func TestPromptTextIsAcceptedAndReachesTheModel(t *testing.T) {
+	for name, args := range map[string][]string{
+		"inline text":          {"--prompt", "FAIL: undefined method"},
+		"whitespace only":      {"--prompt", " \n\t "},
+		"exactly 16384 B":      {"--prompt", strings.Repeat("a", 16384)},
+		"combined with --only": {"--prompt", "x", "--only", "PR-1"},
+	} {
+		t.Run(name, func(t *testing.T) {
+			_, err := exec(t, growArgs(t, args...)...)
+			wantReachesTheModel(t, err)
+		})
+	}
+}
+
+func TestPromptOverTheCapIsAnErrorNamingTheLimitAndTheSize(t *testing.T) {
+	_, err := exec(t, growArgs(t, "--prompt", strings.Repeat("a", 20000))...)
+	wantErr(t, err, "16384", "20000")
+	if strings.Contains(err.Error(), "unknown flag") {
+		t.Errorf("--prompt does not exist yet: %v", err)
+	}
+
+	// The limit is bytes, not characters: 8200 two-byte runes is 16400 bytes.
+	_, err = exec(t, growArgs(t, "--prompt", strings.Repeat("\u00e9", 8200))...)
+	wantErr(t, err, "16384", "16400")
+
+	_, err = exec(t, growArgs(t, "--prompt", strings.Repeat("a", 16385))...)
+	wantErr(t, err, "16384", "16385")
+}
+
+func TestPromptFileIsReadFromAPath(t *testing.T) {
+	ok := writeTemp(t, "ok.txt", "FAIL: validator output\n")
+	_, err := exec(t, growArgs(t, "--prompt-file", ok)...)
+	wantReachesTheModel(t, err)
+
+	big := writeTemp(t, "big.txt", strings.Repeat("a", 20000))
+	_, err = exec(t, growArgs(t, "--prompt-file", big)...)
+	wantErr(t, err, "16384", "20000")
+
+	missing := filepath.Join(t.TempDir(), "does-not-exist.txt")
+	_, err = exec(t, growArgs(t, "--prompt-file", missing)...)
+	wantErr(t, err, missing)
+
+	blank := writeTemp(t, "blank.txt", "\n  \n")
+	_, err = exec(t, growArgs(t, "--prompt-file", blank)...)
+	wantReachesTheModel(t, err)
+}
+
+func TestPromptFileDashReadsStdin(t *testing.T) {
+	_, err := execIn(t, "FAIL from stdin\n", growArgs(t, "--prompt-file", "-")...)
+	wantReachesTheModel(t, err)
+
+	_, err = execIn(t, strings.Repeat("a", 20000), growArgs(t, "--prompt-file", "-")...)
+	wantErr(t, err, "16384", "20000")
+}
+
+func TestPriorRecordingIsAcceptedWhenItHoldsRecords(t *testing.T) {
+	rec := writeTemp(t, "prior.json", `{"sedum_version":"0.7.0","packages":{},"records":[`+
+		`{"record_id":"PR-1","files":[],"phases":[{"name":"default","invocations":[{"action":"a","kwargs":{}}]}]}]}`)
+	_, err := exec(t, growArgs(t, "--prior-recording", rec)...)
+	wantReachesTheModel(t, err)
+
+	// A sedum_version nobody has heard of is not consulted for compatibility.
+	odd := writeTemp(t, "odd.json", `{"sedum_version":"99.0.0","packages":{},"records":[{"record_id":"PR-1","files":[],"phases":[]}]}`)
+	_, err = exec(t, growArgs(t, "--prior-recording", odd)...)
+	wantReachesTheModel(t, err)
+
+	// Composes with --prompt.
+	_, err = exec(t, growArgs(t, "--prior-recording", rec, "--prompt", "x")...)
+	wantReachesTheModel(t, err)
+}
+
+// A retry run that silently lacked its context would look like a normal run, so
+// each of these is an error naming the file, raised before any phase runs: the
+// generators directory these cases name does not exist, and its own error would
+// not name the recording.
+func TestPriorRecordingThatCannotBeUsedIsAnEarlyErrorNamingThePath(t *testing.T) {
+	missing := filepath.Join(t.TempDir(), "nope.json")
+	tests := map[string]string{
+		"missing":        missing,
+		"not json":       writeTemp(t, "prior.json", "this is not json"),
+		"empty file":     writeTemp(t, "empty.json", ""),
+		"no records":     writeTemp(t, "norecords.json", `{"sedum_version":"0.7.0","packages":{},"records":[]}`),
+		"records absent": writeTemp(t, "absent.json", `{"sedum_version":"0.7.0"}`),
+		"empty object":   writeTemp(t, "obj.json", `{}`),
+	}
+	for name, path := range tests {
+		t.Run(name, func(t *testing.T) {
+			_, err := exec(t, growArgs(t, "--prior-recording", path)...)
+			wantErr(t, err, path)
+			if strings.Contains(err.Error(), "unknown flag") {
+				t.Errorf("--prior-recording does not exist yet: %v", err)
+			}
+			if strings.Contains(err.Error(), "read generators directory") {
+				t.Errorf("the run got as far as Phase 0 before rejecting the recording: %v", err)
+			}
+		})
+	}
+}
+
+// Replay invokes no model, so neither flag has anything to do and neither is
+// consulted: an unreadable file or an oversized text is not an error there.
+func TestPromptAndPriorRecordingAreIgnoredUnderExecute(t *testing.T) {
+	missing := filepath.Join(t.TempDir(), "nope")
+
+	tests := []struct {
+		name   string
+		args   []string
+		notice string
+	}{
+		{"prompt", []string{"--prompt", "x"}, "--prompt (replay invokes no model"},
+		{"oversized prompt", []string{"--prompt", strings.Repeat("a", 20000)}, "--prompt (replay invokes no model"},
+		{"prompt-file", []string{"--prompt-file", missing}, "--prompt-file (replay invokes no model"},
+		{"prior-recording", []string{"--prior-recording", missing}, "--prior-recording (replay invokes no model"},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			args := append([]string{"grow", "--generators", "g", "--execute", "in.json",
+				"--log", filepath.Join(t.TempDir(), "run.log")}, tc.args...)
+			out, err := exec(t, args...)
+			if err == nil || !strings.Contains(err.Error(), "opening the recording") {
+				t.Fatalf("replay did not get as far as the recording it was told to read: %v", err)
+			}
+			if !strings.Contains(out, "ignoring "+tc.notice) {
+				t.Errorf("output does not list the flag as ignored with its reason (want %q):\n%s", tc.notice, out)
+			}
+		})
+	}
+}
+
+// prov-2026-d2f1bdf2: --model and --local-model take precedence over the
+// bundled default, whether or not this build carries one. BundledLocalConfig
+// resolves paths from os.Executable(), so a bundled default is staged next to
+// this test binary the same way selection's own test does it.
+//
+// What proves precedence is whose name appears in the failure: the bundled
+// paths are stand-in files that could never serve a model, so a run that chose
+// them would fail naming them.
+func TestModelFlagsOverrideTheBundledDefault(t *testing.T) {
+	exe, err := os.Executable()
+	if err != nil {
+		t.Fatal(err)
+	}
+	dir := filepath.Dir(exe)
+	bundledServer := filepath.Join(dir, "goinfer-serve")
+	bundledModel := filepath.Join(dir, "sedum-default-model.gguf")
+
+	stage := func(t *testing.T, present bool) {
+		t.Helper()
+		for _, p := range []string{bundledServer, bundledModel} {
+			os.Remove(p)
+			if present {
+				if err := os.WriteFile(p, []byte("stand-in for a test"), 0o644); err != nil {
+					t.Fatal(err)
+				}
+			}
+		}
+		t.Cleanup(func() { os.Remove(bundledServer); os.Remove(bundledModel) })
+	}
+
+	for _, present := range []bool{true, false} {
+		name := "bundled absent"
+		if present {
+			name = "bundled present"
+		}
+		t.Run(name+"/--model", func(t *testing.T) {
+			stage(t, present)
+			t.Setenv("OPENAI_BASE_URL", "")
+			t.Setenv("OPENAI_API_KEY", "")
+
+			_, err := exec(t, growArgs(t, "--model", "some-model")...)
+			if err == nil {
+				t.Fatal("expected an error, got nil")
+			}
+			// It tried to build a hosted client for the named model.
+			if !strings.Contains(err.Error(), "OPENAI_BASE_URL") {
+				t.Errorf("--model did not take the hosted path: %v", err)
+			}
+			if strings.Contains(err.Error(), "no bundled model found") || strings.Contains(err.Error(), bundledModel) {
+				t.Errorf("the bundled default was consulted despite --model: %v", err)
+			}
+		})
+		t.Run(name+"/--local-model", func(t *testing.T) {
+			stage(t, present)
+			userServer := filepath.Join(t.TempDir(), "my-serve")
+			userModel := filepath.Join(t.TempDir(), "mine.gguf")
+
+			_, err := exec(t, growArgs(t, "--local-model", userModel, "--local-model-server", userServer)...)
+			if err == nil {
+				t.Fatal("expected an error, got nil")
+			}
+			if !strings.Contains(err.Error(), userServer) {
+				t.Errorf("--local-model did not use the server it was given: %v", err)
+			}
+			if strings.Contains(err.Error(), bundledServer) || strings.Contains(err.Error(), "no bundled model found") {
+				t.Errorf("the bundled default was consulted despite --local-model: %v", err)
+			}
+		})
 	}
 }

@@ -1,12 +1,14 @@
 package selection
 
 import (
+	"encoding/json"
 	"fmt"
 	"sort"
 	"strings"
 
 	"github.com/livecodelife/sedum/internal/catalog"
 	"github.com/livecodelife/sedum/internal/expand"
+	"github.com/livecodelife/sedum/internal/recording"
 	"github.com/livecodelife/sedum/internal/resolve"
 )
 
@@ -97,6 +99,15 @@ func Prompt(req Request, cat catalog.Catalog) ([]Message, error) {
 		}
 	}
 
+	// Caller context follows the record's own words and is labelled as not
+	// being the record's. With neither text nor prior selections nothing is
+	// written, so the prompt is byte-for-byte what it was without the flags.
+	supplementary, err := supplementarySection(req)
+	if err != nil {
+		return nil, err
+	}
+	b.WriteString(supplementary)
+
 	writable, unmanaged := partition(req.Files)
 
 	b.WriteString("\n## Files\n\n")
@@ -179,4 +190,77 @@ func authorizedPaths(files []resolve.File) []string {
 	}
 	sort.Strings(out)
 	return out
+}
+
+// MaxPriorBytes bounds the serialized prior invocations shown for one record.
+// Over it is an error rather than a truncation, because truncating would drop
+// the tail, which is usually the part that says what went wrong.
+const MaxPriorBytes = 8192
+
+// priorLines serializes prior invocations one per line, and refuses more than
+// MaxPriorBytes of them. Both Prompt and the pipeline's up-front check use it,
+// so the bound is one rule measured one way.
+func priorLines(recordID string, prior []recording.Invocation) ([]string, error) {
+	var lines []string
+	size := 0
+	for _, inv := range prior {
+		payload, err := json.Marshal(inv)
+		if err != nil {
+			return nil, fmt.Errorf("record %s: serializing a prior selection: %w", recordID, err)
+		}
+		size += len(payload)
+		lines = append(lines, string(payload))
+	}
+	if size > MaxPriorBytes {
+		return nil, fmt.Errorf(
+			"record %s: its prior selections are %d bytes serialized, over the %d-byte limit; "+
+				"nothing is truncated, so narrow the prior recording to fewer or smaller selections",
+			recordID, size, MaxPriorBytes)
+	}
+	return lines, nil
+}
+
+// CheckPrior reports whether a record's prior selections fit the bound. It lets
+// a run refuse before any model call has been paid for.
+func CheckPrior(recordID string, prior []recording.Invocation) error {
+	_, err := priorLines(recordID, prior)
+	return err
+}
+
+// A note on files an earlier run wrote: Phase 7 replaces an owned region whose
+// identity matches an invocation of this run, in place, and leaves seeded
+// regions alone. It does not remove a region the earlier run wrote that this run
+// no longer selects. Showing prior selections therefore does not mean they are
+// overwritten cleanly; they are context and are never applied.
+//
+// supplementarySection is the one section holding the caller's text and the
+// prior selections. It is advisory: it follows the record's intent and
+// constraints, says it is not part of the record, and cannot widen what the
+// record authorized - Phase 5 judges the answer exactly as before.
+func supplementarySection(req Request) (string, error) {
+	text := strings.TrimSpace(req.Prompt)
+	lines, err := priorLines(req.RecordID, req.Prior)
+	if err != nil {
+		return "", err
+	}
+	if text == "" && len(lines) == 0 {
+		return "", nil
+	}
+
+	var b strings.Builder
+	b.WriteString("\n## Supplementary context\n\n")
+	b.WriteString("This section is supplied by the caller, not by the record. It is advisory: " +
+		"it does not add to or change what the record authorized, and the files below remain the only ones the actions may reach.\n")
+	if text != "" {
+		b.WriteString("\nCaller notes:\n\n")
+		b.WriteString(text)
+		b.WriteString("\n")
+	}
+	if len(lines) > 0 {
+		b.WriteString("\nSelections made for this change on an earlier run (context only; they are not applied):\n\n")
+		for _, l := range lines {
+			b.WriteString("- " + l + "\n")
+		}
+	}
+	return b.String(), nil
 }

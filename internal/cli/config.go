@@ -48,6 +48,17 @@ type GrowConfig struct {
 	// action across the record's packages, whether or not any authorized
 	// path could ever match it.
 	FullCatalog bool
+
+	// Prompt and PromptFile are caller text for Phase 4's supplementary
+	// section (prov-2026-e4bab53b). PromptFile is a path, or "-" for stdin.
+	// They are mutually exclusive and are read by the command, not here.
+	Prompt     string
+	PromptFile string
+
+	// PriorRecording is an earlier recording whose selections for this run's
+	// records are shown to the model as context (prov-2026-8602b702). It is
+	// not a replay.
+	PriorRecording string
 }
 
 // Replaying reports whether this run replays a recording instead of invoking a
@@ -117,6 +128,15 @@ func (c *GrowConfig) IgnoredFlags() []string {
 	}
 	if c.FullCatalog {
 		ignored = append(ignored, "--full-catalog (replay invokes no model, so nothing builds a prompt)")
+	}
+	if c.Prompt != "" {
+		ignored = append(ignored, "--prompt (replay invokes no model, so nothing builds a prompt)")
+	}
+	if c.PromptFile != "" {
+		ignored = append(ignored, "--prompt-file (replay invokes no model, so nothing builds a prompt)")
+	}
+	if c.PriorRecording != "" {
+		ignored = append(ignored, "--prior-recording (replay invokes no model, so nothing builds a prompt)")
 	}
 	return ignored
 }

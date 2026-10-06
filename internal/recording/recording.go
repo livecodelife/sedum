@@ -38,6 +38,13 @@ type Recording struct {
 	// different text depending on invisible run state would not be a recording
 	// (prov-2026-6fc3d13d).
 	Variables map[string]string `json:"variables,omitempty"`
+
+	// Prompt is the caller-supplied text (--prompt, --prompt-file) the run's
+	// Phase 4 prompt carried, verbatim, so a run is auditable
+	// (prov-2026-e4bab53b). Additive and omitted when empty: Read decodes
+	// leniently and sedum_version is never consulted, so no schema break.
+	// Replay ignores it.
+	Prompt string `json:"prompt,omitempty"`
 }
 
 // Package is a generator package as the run resolved it. Replay verifies that

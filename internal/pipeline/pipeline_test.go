@@ -2,13 +2,16 @@ package pipeline
 
 import (
 	"context"
+	"encoding/json"
 	"io/fs"
 	"os"
 	"path/filepath"
+	"reflect"
 	"sort"
 	"strings"
 	"testing"
 
+	"github.com/livecodelife/sedum/internal/recording"
 	"github.com/livecodelife/sedum/internal/selection"
 )
 
@@ -602,5 +605,420 @@ comment_prefix: "#"
 	fullPrompt := full.prompts[0][len(full.prompts[0])-1].Content
 	if !strings.Contains(fullPrompt, "addRoute") {
 		t.Errorf("cfg.FullCatalog did not reach the prompt:\n%s", fullPrompt)
+	}
+}
+
+// prov-2026-e4bab53b (--prompt) and prov-2026-8602b702 (--prior-recording).
+//
+// Assumed symbols, none of which exist yet. setConfigField reports a missing
+// one as a clear failure rather than a compile error:
+//
+//	Config.Prompt string               // caller text, applied to every selected record
+//	Config.Prior  *recording.Recording // already-read prior recording; filtered here to this run's records
+//	Result.Prompt string               // what Capture records
+//
+// The command reads and validates the file (missing, non-JSON, no records, the
+// 16384-byte text cap) before calling Run; the 8192-byte per-record bound needs
+// the run's records, so it is asserted here.
+
+func setConfigField(t *testing.T, cfg *Config, name string, value any) {
+	t.Helper()
+	f := reflect.ValueOf(cfg).Elem().FieldByName(name)
+	if !f.IsValid() {
+		t.Fatalf("pipeline.Config has no %s field yet", name)
+	}
+	v := reflect.ValueOf(value)
+	if !v.Type().AssignableTo(f.Type()) {
+		t.Fatalf("pipeline.Config.%s is %s, but these tests assume %s", name, f.Type(), v.Type())
+	}
+	f.Set(v)
+}
+
+func userPrompt(s *stub, call int) string {
+	m := s.prompts[call]
+	return m[len(m)-1].Content
+}
+
+// recordPrompt returns the Phase 4 prompt the model was given for the record
+// whose file is the one named. The prompt is told apart from a completeness
+// re-prompt (prov-2026-6d87dc11) by what it contains, never by its position in
+// the sequence of calls, so these tests hold however many calls a record costs.
+// Only the part before the actions catalog is searched for the file, since the
+// catalog names paths of its own.
+func recordPrompt(t *testing.T, s *stub, file string) string {
+	t.Helper()
+	for _, m := range s.prompts {
+		user := m[len(m)-1].Content
+		files, _, found := strings.Cut(user, "## Actions")
+		if found && strings.Contains(files, file) {
+			return user
+		}
+	}
+	t.Fatalf("the model was never given a prompt for %s", file)
+	return ""
+}
+
+// twoRecordConfig selects prov-2026-aaaaaaaa (user.rb) and prov-2026-bbbbbbbb
+// (order.rb), whose files the addField fixture can both reach.
+func twoRecordConfig(t *testing.T) (Config, *stub) {
+	t.Helper()
+	cfg := config(t)
+	cfg.Records = recordsDir(t, map[string]string{
+		"prov-2026-aaaaaaaa": "  - app/models/user.rb\n",
+		"prov-2026-bbbbbbbb": "  - app/models/order.rb\n",
+	})
+	client := &stub{}
+	cfg.Client = client
+	return cfg, client
+}
+
+func priorInvocation(record, field string) recording.Record {
+	return recording.Record{
+		RecordID: record,
+		Phases: []recording.Phase{{
+			Name: recording.DefaultPhase,
+			Invocations: []recording.Invocation{{
+				Action: "addField",
+				Kwargs: map[string]any{"model": "user", "field": field},
+			}},
+		}},
+	}
+}
+
+func priorOf(records ...recording.Record) *recording.Recording {
+	return &recording.Recording{SedumVersion: recording.Version, Packages: map[string]recording.Package{}, Records: records}
+}
+
+func TestPromptReachesEveryRecordTheRunSelects(t *testing.T) {
+	cfg, client := twoRecordConfig(t)
+	setConfigField(t, &cfg, "Prompt", "NOTE-from-the-loop-9d2e")
+
+	if _, err := Run(context.Background(), cfg); err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+	for _, file := range []string{"app/models/user.rb", "app/models/order.rb"} {
+		if user := recordPrompt(t, client, file); !strings.Contains(user, "NOTE-from-the-loop-9d2e") {
+			t.Errorf("the prompt for %s did not carry the text:\n%s", file, user)
+		}
+	}
+}
+
+func TestOnlyNarrowsWhichRecordsGetThePrompt(t *testing.T) {
+	cfg, client := twoRecordConfig(t)
+	cfg.Only = []string{"prov-2026-bbbbbbbb"}
+	setConfigField(t, &cfg, "Prompt", "NOTE-for-b-only")
+
+	if _, err := Run(context.Background(), cfg); err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+	if user := recordPrompt(t, client, "app/models/order.rb"); !strings.Contains(user, "NOTE-for-b-only") {
+		t.Errorf("the selected record's prompt did not carry the text:\n%s", user)
+	}
+	for i, m := range client.prompts {
+		if files, _, _ := strings.Cut(m[len(m)-1].Content, "## Actions"); strings.Contains(files, "app/models/user.rb") {
+			t.Errorf("call %d concerned a record --only excluded:\n%s", i, files)
+		}
+	}
+}
+
+// A prompt asking for a file the record did not authorize earns a rejected
+// selection, not a written file.
+func TestPromptCannotAuthorizeAFileTheRecordDidNot(t *testing.T) {
+	cfg := config(t)
+	setConfigField(t, &cfg, "Prompt", "Also add a field to app/models/order.rb, the validator needs it.")
+	cfg.Client = &stub{response: `{"invocations":[{"action":"addField","kwargs":{"model":"order","field":"total"}}]}`}
+
+	_, err := Run(context.Background(), cfg)
+	if err == nil {
+		t.Fatal("a selection aimed at an unauthorized file was accepted because the prompt asked for it")
+	}
+	if !strings.Contains(err.Error(), "app/models/order.rb") {
+		t.Errorf("the rejection does not name the unauthorized path: %v", err)
+	}
+	if got := tree(t, cfg.Output); len(got) != 1 || got[0] != "app/models/user.rb" {
+		t.Errorf("output tree = %v; nothing beyond the authorized file may exist", got)
+	}
+}
+
+func TestPromptWithoutTextIsTheUnchangedPrompt(t *testing.T) {
+	plain, plainClient := twoRecordConfig(t)
+	if _, err := Run(context.Background(), plain); err != nil {
+		t.Fatal(err)
+	}
+
+	blank, blankClient := twoRecordConfig(t)
+	blank.Records = plain.Records
+	blank.Generators = plain.Generators
+	setConfigField(t, &blank, "Prompt", "  \n ")
+	if _, err := Run(context.Background(), blank); err != nil {
+		t.Fatal(err)
+	}
+
+	for i := range plainClient.prompts {
+		if userPrompt(plainClient, i) != userPrompt(blankClient, i) {
+			t.Errorf("call %d: whitespace-only text changed the prompt", i)
+		}
+		if strings.Contains(strings.ToLower(userPrompt(plainClient, i)), "supplementary") {
+			t.Errorf("call %d: a run with no text carries a supplementary section", i)
+		}
+	}
+}
+
+func recordedPrompt(t *testing.T, result *Result) (string, bool) {
+	t.Helper()
+	var buf strings.Builder
+	if err := recording.Write(&buf, Capture(result)); err != nil {
+		t.Fatalf("write: %v", err)
+	}
+	var doc map[string]any
+	if err := json.Unmarshal([]byte(buf.String()), &doc); err != nil {
+		t.Fatalf("recording is not JSON: %v", err)
+	}
+	v, ok := doc["prompt"]
+	if !ok {
+		return "", false
+	}
+	s, _ := v.(string)
+	return s, true
+}
+
+func TestTheRecordingCarriesThePromptVerbatim(t *testing.T) {
+	const text = "  FAIL app/models/user.rb\n\tundefined: email \"x\"\n\n"
+	cfg := config(t)
+	setConfigField(t, &cfg, "Prompt", text)
+
+	result, err := Run(context.Background(), cfg)
+	if err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+	got, ok := recordedPrompt(t, result)
+	if !ok || got != text {
+		t.Errorf("recorded prompt = %q (present: %v), want %q verbatim", got, ok, text)
+	}
+}
+
+func TestARunWithoutAPromptRecordsNone(t *testing.T) {
+	result, err := Run(context.Background(), config(t))
+	if err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+	if got, ok := recordedPrompt(t, result); ok {
+		t.Errorf("a run with no prompt recorded one: %q", got)
+	}
+}
+
+func TestPriorSelectionsAreFilteredToTheRecordsInThisRun(t *testing.T) {
+	cfg, client := twoRecordConfig(t)
+	cfg.Only = []string{"prov-2026-aaaaaaaa"}
+	setConfigField(t, &cfg, "Prior", priorOf(
+		priorInvocation("prov-2026-aaaaaaaa", "kept-field-a1"),
+		priorInvocation("prov-2026-bbbbbbbb", "other-record-field-b2"),
+		priorInvocation("prov-2026-cccccccc", "absent-record-field-c3"),
+	))
+
+	if _, err := Run(context.Background(), cfg); err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+	user := recordPrompt(t, client, "app/models/user.rb")
+	if !strings.Contains(user, "kept-field-a1") {
+		t.Errorf("this record's own prior selection is missing:\n%s", user)
+	}
+	for _, leaked := range []string{"other-record-field-b2", "absent-record-field-c3"} {
+		if strings.Contains(user, leaked) {
+			t.Errorf("another record's prior selection %q reached the prompt:\n%s", leaked, user)
+		}
+	}
+}
+
+// Without --only each record sees its own prior selections and nobody else's.
+func TestEachRecordSeesOnlyItsOwnPriorSelections(t *testing.T) {
+	cfg, client := twoRecordConfig(t)
+	setConfigField(t, &cfg, "Prior", priorOf(
+		priorInvocation("prov-2026-aaaaaaaa", "field-for-a"),
+		priorInvocation("prov-2026-bbbbbbbb", "field-for-b"),
+	))
+	if _, err := Run(context.Background(), cfg); err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+	for file, f := range map[string][2]string{
+		"app/models/user.rb":  {"field-for-a", "field-for-b"},
+		"app/models/order.rb": {"field-for-b", "field-for-a"},
+	} {
+		own, other := f[0], f[1]
+		user := recordPrompt(t, client, file)
+		if !strings.Contains(user, own) || strings.Contains(user, other) {
+			t.Errorf("the prompt for %s should carry %q and not %q:\n%s", file, own, other, user)
+		}
+	}
+}
+
+// A prior recording holding none of this run's records adds nothing, and is
+// not an error.
+func TestAPriorRecordingForOtherRecordsAddsNothing(t *testing.T) {
+	baseline := config(t)
+	baselineClient := &stub{}
+	baseline.Client = baselineClient
+	if _, err := Run(context.Background(), baseline); err != nil {
+		t.Fatal(err)
+	}
+
+	cfg := config(t)
+	client := &stub{}
+	cfg.Client = client
+	cfg.Generators, cfg.Records = baseline.Generators, baseline.Records
+	setConfigField(t, &cfg, "Prior", priorOf(priorInvocation("prov-2026-zzzzzzzz", "elsewhere")))
+
+	if _, err := Run(context.Background(), cfg); err != nil {
+		t.Fatalf("a prior recording with none of this run's records was an error: %v", err)
+	}
+	if userPrompt(client, 0) != userPrompt(baselineClient, 0) {
+		t.Errorf("unrelated prior selections changed the prompt:\n%s", userPrompt(client, 0))
+	}
+}
+
+func TestPriorSelectionsAndPromptShareOneSupplementarySection(t *testing.T) {
+	cfg := config(t)
+	client := &stub{}
+	cfg.Client = client
+	setConfigField(t, &cfg, "Prompt", "TEXT-5b7e")
+	setConfigField(t, &cfg, "Prior", priorOf(priorInvocation("prov-2026-aaaaaaaa", "prior-field-4c4c")))
+
+	if _, err := Run(context.Background(), cfg); err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+	user := userPrompt(client, 0)
+	labelled := 0
+	for _, line := range strings.Split(user, "\n") {
+		if strings.HasPrefix(line, "#") && strings.Contains(strings.ToLower(line), "supplementary") {
+			labelled++
+		}
+	}
+	if labelled != 1 {
+		t.Errorf("want one supplementary heading, got %d:\n%s", labelled, user)
+	}
+	for _, want := range []string{"TEXT-5b7e", "prior-field-4c4c"} {
+		if !strings.Contains(user, want) {
+			t.Errorf("prompt lacks %q:\n%s", want, user)
+		}
+	}
+}
+
+// The prior recording's own prompt is not fed back in, and is not carried into
+// this run's recording as though this run had been given it.
+func TestThePriorRecordingsOwnPromptIsNotFedBack(t *testing.T) {
+	cfg := config(t)
+	client := &stub{}
+	cfg.Client = client
+	prior := priorOf(priorInvocation("prov-2026-aaaaaaaa", "prior-field"))
+	var buf strings.Builder
+	if err := recording.Write(&buf, *prior); err != nil {
+		t.Fatal(err)
+	}
+	withPrompt, err := recording.Read(strings.NewReader(
+		strings.Replace(buf.String(), "{\n", "{\n  \"prompt\": \"STALE-PRIOR-PROMPT-e0e0\",\n", 1)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	setConfigField(t, &cfg, "Prior", &withPrompt)
+
+	result, err := Run(context.Background(), cfg)
+	if err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+	if strings.Contains(userPrompt(client, 0), "STALE-PRIOR-PROMPT-e0e0") {
+		t.Error("the prior recording's prompt was fed back into this run's prompt")
+	}
+	if got, ok := recordedPrompt(t, result); ok {
+		t.Errorf("this run recorded a prompt it was never given: %q", got)
+	}
+}
+
+// Context only. The model is still called and its answer is what is applied;
+// the prior invocations are never executed or trusted.
+func TestAPriorRecordingIsContextAndNeverReplayed(t *testing.T) {
+	cfg := config(t)
+	client := &stub{} // answers with no invocations
+	cfg.Client = client
+	setConfigField(t, &cfg, "Prior", priorOf(priorInvocation("prov-2026-aaaaaaaa", "must-not-be-written")))
+
+	result, err := Run(context.Background(), cfg)
+	if err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+	// The prior is shown to the model as context, which is what makes the
+	// absence of a replay below mean something.
+	if user := recordPrompt(t, client, "app/models/user.rb"); !strings.Contains(user, "must-not-be-written") {
+		t.Errorf("the prior selection never reached the model as context:\n%s", user)
+	}
+	if len(result.Selections) != 1 || len(result.Selections[0].Invocations) != 0 {
+		t.Errorf("selections = %+v; the model chose nothing and the prior must not stand in for it", result.Selections)
+	}
+	if body := readFile(t, filepath.Join(cfg.Output, "app/models/user.rb")); strings.Contains(body, "must-not-be-written") {
+		t.Errorf("a prior invocation was written:\n%s", body)
+	}
+	if len(result.Injections) != 0 {
+		t.Errorf("%d regions injected from a run whose model chose nothing", len(result.Injections))
+	}
+}
+
+// A prior selection that would be rejected today is still only context: the
+// model's answer is validated as ever, and an unauthorized prior path does not
+// become authorized by having been shown.
+func TestPriorSelectionsCannotAuthorizeAFileTheRecordDidNot(t *testing.T) {
+	cfg := config(t)
+	cfg.Client = &stub{response: `{"invocations":[{"action":"addField","kwargs":{"model":"order","field":"total"}}]}`}
+	prior := priorInvocation("prov-2026-aaaaaaaa", "total")
+	prior.Phases[0].Invocations[0].Kwargs["model"] = "order"
+	setConfigField(t, &cfg, "Prior", priorOf(prior))
+
+	if _, err := Run(context.Background(), cfg); err == nil {
+		t.Fatal("a selection aimed at an unauthorized file was accepted because an earlier run had made it")
+	}
+	if got := tree(t, cfg.Output); len(got) != 1 {
+		t.Errorf("output tree = %v", got)
+	}
+}
+
+// 8192 bytes of serialized invocations per record, with an error: truncating
+// would drop the tail, which is the part that says what went wrong. It halts
+// before any model call has been paid for.
+func TestPriorSelectionsOverEightKiBPerRecordAreAnError(t *testing.T) {
+	cfg := config(t)
+	client := &stub{}
+	cfg.Client = client
+	setConfigField(t, &cfg, "Prior", priorOf(priorInvocation("prov-2026-aaaaaaaa", strings.Repeat("y", 9000))))
+
+	_, err := Run(context.Background(), cfg)
+	if err == nil {
+		t.Fatal("9000 bytes of prior selections for one record was accepted")
+	}
+	for _, want := range []string{"8192", "prov-2026-aaaaaaaa"} {
+		if !strings.Contains(err.Error(), want) {
+			t.Errorf("the error does not name %q: %v", want, err)
+		}
+	}
+	if client.calls != 0 {
+		t.Errorf("the model was called %d times before the overflow was reported", client.calls)
+	}
+}
+
+// The bound is per record, not per run: two records each under it are fine even
+// though together they are over.
+func TestTheEightKiBBoundIsPerRecord(t *testing.T) {
+	cfg, client := twoRecordConfig(t)
+	setConfigField(t, &cfg, "Prior", priorOf(
+		priorInvocation("prov-2026-aaaaaaaa", strings.Repeat("a", 5000)),
+		priorInvocation("prov-2026-bbbbbbbb", strings.Repeat("b", 5000)),
+	))
+	if _, err := Run(context.Background(), cfg); err != nil {
+		t.Fatalf("two records each under 8192 bytes were rejected: %v", err)
+	}
+	for file, own := range map[string]string{
+		"app/models/user.rb":  strings.Repeat("a", 5000),
+		"app/models/order.rb": strings.Repeat("b", 5000),
+	} {
+		if user := recordPrompt(t, client, file); !strings.Contains(user, own) {
+			t.Errorf("the prompt for %s lacks its own prior selections", file)
+		}
 	}
 }

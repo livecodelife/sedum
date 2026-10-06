@@ -81,6 +81,16 @@ type Config struct {
 	// exposed action in the prompt whether or not any authorized path could
 	// ever match it - the prompt every version before this one sent.
 	FullCatalog bool
+
+	// Prompt is caller-supplied text added to every selected record's prompt,
+	// in the supplementary section. Blank or whitespace-only adds nothing.
+	Prompt string
+
+	// Prior is an already-read earlier recording. It is context only, never
+	// replayed: the invocations of the records this run selects are shown to
+	// the model, and nothing else in it is used - not its sedum_version, and
+	// not its own Prompt. Run filters it, so --only narrows it.
+	Prior *recording.Recording
 }
 
 // Result is what a run decided and what it did.
@@ -115,6 +125,10 @@ type Result struct {
 	// Warnings are collected from every phase. Where they go is the command's
 	// decision, not this package's.
 	Warnings []string
+
+	// Prompt is the caller's text as given, when it was non-blank. Capture
+	// writes it into the recording.
+	Prompt string
 
 	// StoppedAfter is the phase the run halted at, or zero if it ran to the
 	// end.
@@ -152,6 +166,9 @@ func Run(ctx context.Context, cfg Config) (*Result, error) {
 	}
 
 	result := &Result{StoppedAfter: cfg.StopAfterPhase}
+	if strings.TrimSpace(cfg.Prompt) != "" {
+		result.Prompt = cfg.Prompt
+	}
 
 	// Phase 0 - load and validate generator packages.
 	packages, findings, err := genpkg.Load(cfg.Generators, genpkg.Options{})
@@ -314,6 +331,18 @@ func selectAll(ctx context.Context, cfg Config, records *record.Set, files []res
 		return nil, err
 	}
 
+	// The prior-selection bound is per record and is checked for every selected
+	// record before the first call, so an overflow costs nothing. Selections
+	// from a prior recording that belong to no record in this run are never
+	// looked at.
+	prior := map[string][]recording.Invocation{}
+	for _, rec := range records.Records {
+		prior[rec.ID] = priorFor(cfg.Prior, rec.ID)
+		if err := selection.CheckPrior(rec.ID, prior[rec.ID]); err != nil {
+			return nil, err
+		}
+	}
+
 	var out []Selection
 
 	for _, rec := range records.Records {
@@ -337,6 +366,8 @@ func selectAll(ctx context.Context, cfg Config, records *record.Set, files []res
 			Intent:      rec.Intent,
 			Constraints: rec.Constraints,
 			Files:       mine,
+			Prompt:      cfg.Prompt,
+			Prior:       prior[rec.ID],
 		}, selection.Options{Retries: cfg.Retries, Variables: variables, Log: log, FullCatalog: cfg.FullCatalog})
 		if err != nil {
 			return nil, err
@@ -377,4 +408,23 @@ func anyManaged(files []resolve.File) bool {
 		}
 	}
 	return false
+}
+
+// priorFor returns the invocations a prior recording holds for one record,
+// across its phases. Only the invocations are taken: the prior recording's own
+// prompt is deliberately never read.
+func priorFor(prior *recording.Recording, recordID string) []recording.Invocation {
+	if prior == nil {
+		return nil
+	}
+	var out []recording.Invocation
+	for _, r := range prior.Records {
+		if r.RecordID != recordID {
+			continue
+		}
+		for _, ph := range r.Phases {
+			out = append(out, ph.Invocations...)
+		}
+	}
+	return out
 }

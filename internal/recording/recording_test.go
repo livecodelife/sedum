@@ -221,3 +221,71 @@ func TestReadPreservesNumbersInKwargs(t *testing.T) {
 		t.Errorf("a JSON number decoded to %q", rendered)
 	}
 }
+
+// prov-2026-e4bab53b: the caller's supplementary prompt text is carried in the
+// recording verbatim so a run is auditable. These assert on the serialized
+// document, which is what a committed recording is, so they hold whatever the
+// Go field is called.
+
+func writtenDocument(t *testing.T, r Recording) map[string]any {
+	t.Helper()
+	var buf strings.Builder
+	if err := Write(&buf, r); err != nil {
+		t.Fatalf("write: %v", err)
+	}
+	var doc map[string]any
+	if err := json.Unmarshal([]byte(buf.String()), &doc); err != nil {
+		t.Fatalf("the written recording is not JSON: %v\n%s", err, buf.String())
+	}
+	return doc
+}
+
+// Read -> Write carries the text through byte for byte, including the parts a
+// careless writer would trim or escape differently: a trailing newline, a
+// blank line, quotes, and non-ASCII.
+func TestThePromptSurvivesAReadAndWriteVerbatim(t *testing.T) {
+	text := "validator said:\n\n  FAIL app/models/user.rb: \"unexpected end\"\n\tcaf\u00e9 \u2014 done\n\n"
+	quoted, err := json.Marshal(text)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	in := `{"sedum_version":"0.1.0","packages":{},"records":[],"prompt":` + string(quoted) + `}`
+	rec, err := Read(strings.NewReader(in))
+	if err != nil {
+		t.Fatalf("read: %v", err)
+	}
+
+	got, ok := writtenDocument(t, rec)["prompt"].(string)
+	if !ok {
+		t.Fatalf("a recording read with a prompt does not write one back")
+	}
+	if got != text {
+		t.Errorf("prompt = %q, want %q", got, text)
+	}
+}
+
+// Recordings from runs without the flag are unchanged: no "prompt": "" and no
+// "prompt": null in an artifact whose value is that it diffs cleanly.
+func TestARecordingWithoutAPromptHasNoPromptKey(t *testing.T) {
+	doc := writtenDocument(t, Recording{
+		SedumVersion: Version,
+		Packages:     map[string]Package{},
+		Records:      []Record{{RecordID: "PR-1", Phases: []Phase{{Name: DefaultPhase}}}},
+	})
+	if v, present := doc["prompt"]; present {
+		t.Errorf("a recording of a run with no prompt carries \"prompt\": %#v", v)
+	}
+}
+
+// A recording written before this field existed reads cleanly and carries no
+// prompt; no schema version is consulted or introduced.
+func TestReadAcceptsARecordingWithNoPromptKey(t *testing.T) {
+	rec, err := Read(strings.NewReader(`{"sedum_version":"0.0.1","packages":{},"records":[]}`))
+	if err != nil {
+		t.Fatalf("read: %v", err)
+	}
+	if _, present := writtenDocument(t, rec)["prompt"]; present {
+		t.Error("reading a recording with no prompt invented one")
+	}
+}

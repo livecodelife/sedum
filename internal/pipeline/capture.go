@@ -19,6 +19,7 @@ func Capture(result *Result) recording.Recording {
 		SedumVersion: recording.Version,
 		Packages:     map[string]recording.Package{},
 		Variables:    result.Variables,
+		Prompt:       result.Prompt,
 	}
 
 	for _, s := range result.Selections {

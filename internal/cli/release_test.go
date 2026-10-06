@@ -162,3 +162,63 @@ func TestInstallerAndReleaseAgreeOnArchiveNames(t *testing.T) {
 		t.Error("install.sh's archive name changed; it must match .goreleaser.yml's name_template")
 	}
 }
+
+// prov-2026-d2f1bdf2: the bundled default model is whatever the release asset
+// URL serves, and the only thing standing between a release build and an
+// unverified model is the checksum this script pins. The maintainer uploads the
+// asset; until they do, the pin does not match and the build fails, which is
+// intended. So the pin is asserted to the digit, and the URL and filename that
+// everything else (goreleaser, install.sh, bundled.go) depends on are asserted
+// to have stayed where they were.
+
+const newDefaultModelSHA = "5185a0b25d5a13262fa6dfcdb1b2091b7bb64f130d65cdb5322c99c992dd052e"
+
+func TestFetchScriptPinsTheNewDefaultModel(t *testing.T) {
+	sh := read(t, "hack/fetch-release-assets.sh")
+
+	m := regexp.MustCompile(`(?m)^MODEL_SHA=["']?([0-9a-fA-F]+)["']?\s*$`).FindStringSubmatch(sh)
+	if m == nil {
+		t.Fatal("hack/fetch-release-assets.sh has no MODEL_SHA=<hex> line this test recognises")
+	}
+	if m[1] != newDefaultModelSHA {
+		t.Errorf("MODEL_SHA = %s, want %s (sedum-binder-final-2b-le12k-e5, Qwen3.5-2B.Q8_0.gguf)", m[1], newDefaultModelSHA)
+	}
+}
+
+func TestFetchScriptKeepsTheModelURLAndBundledFilename(t *testing.T) {
+	sh := read(t, "hack/fetch-release-assets.sh")
+
+	const url = `MODEL_URL="https://github.com/livecodelife/sedum/releases/download/model-assets/sedum-default-model.gguf"`
+	if !strings.Contains(sh, url) {
+		t.Errorf("MODEL_URL changed; the record keeps it and the bundled filename as they were:\n  want %s", url)
+	}
+	if !strings.Contains(sh, `"$DIST/sedum-default-model.gguf"`) {
+		t.Error("the staged model filename is no longer sedum-default-model.gguf, which bundled.go looks up")
+	}
+	if !strings.Contains(sh, `fetch_and_verify "$MODEL_URL"`) {
+		t.Error("the model is no longer fetched through fetch_and_verify, so nothing checks its checksum")
+	}
+}
+
+// The pin changing without the reason being said beside it would leave the next
+// person staring at a release build that fails its checksum with no way to know
+// that is the intended order of operations (upload first, then tag).
+func TestFetchScriptSaysTheUploadComesBeforeTheTag(t *testing.T) {
+	sh := strings.ToLower(read(t, "hack/fetch-release-assets.sh"))
+
+	for _, want := range []string{"upload", "checksum"} {
+		if !strings.Contains(sh, want) {
+			t.Errorf("hack/fetch-release-assets.sh does not mention %q beside the pin; the record requires the "+
+				"upload-then-tag requirement to be stated wherever the pin is changed", want)
+		}
+	}
+	if !strings.Contains(sh, "sedum-binder-final-2b-le12k-e5") {
+		t.Error("hack/fetch-release-assets.sh does not name the checkpoint the pin is for")
+	}
+}
+
+func TestReadmeNamesTheNewDefaultCheckpoint(t *testing.T) {
+	if !strings.Contains(read(t, "README.md"), "sedum-binder-final-2b-le12k-e5") {
+		t.Error("README.md does not name sedum-binder-final-2b-le12k-e5 as the default model")
+	}
+}

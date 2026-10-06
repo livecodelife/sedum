@@ -205,7 +205,9 @@ the same code path.
 
 **Run it with no flags at all** — installed via `install.sh` or an official
 release archive, `sedum` carries a bundled `goinfer-serve` and a fine-tuned
-default model as its own siblings. With neither `--model` nor `--local-model`
+default model as its own siblings. The default checkpoint is
+`sedum-binder-final-2b-le12k-e5`, a Q8_0 gguf, shipped as
+`sedum-default-model.gguf`. `--model` and `--local-model` override it. With neither `--model` nor `--local-model`
 given, it starts that bundled server against that bundled model and stops it
 when the run ends — no endpoint, no key, no network access at run time.
 `go install` and a from-source build carry neither file, so this only applies
@@ -1017,6 +1019,20 @@ sedum grow --generators ./generators --records ./provenance --output ./build
 | `--log <path>` | Run log location. Defaults to `.sedum/run.log`. |
 | `-v, --verbose` | Mirror the run log to stdout. |
 | `--full-catalog` | Show the model every exposed action, including ones no authorized path can reach. Ignored with `--execute`. |
+| `--prompt <text>` | Supplementary text added to every selected record's prompt. Advisory, at most 16384 bytes. Ignored with `--execute`. |
+| `--prompt-file <path>` | The same text read from a file, or from stdin with `-`. Mutually exclusive with `--prompt`. Ignored with `--execute`. |
+| `--prior-recording <path>` | A recording whose selections for this run's records are shown to the model as context. Ignored with `--execute`. |
+
+### Supplementary context: `--prompt`, `--prompt-file`, `--prior-recording`
+
+These let a tool above Sedum feed a retry: the validator's failure output, and what the model chose last time. Sedum only accepts text and a file; it never runs the command that produced them.
+
+- The text and the prior selections go in one section of the Phase 4 prompt headed "Supplementary context", after the record's intent and constraints and labelled as not part of the record. They are advisory. They cannot widen `affected_scope`, `forbidden_scope` or any path authorization: Phase 5 validation and path checks run exactly as before, so a prompt asking for an unauthorized file produces a rejected selection, not a written file.
+- The text applies to every record the run selects; combine with `--only` to target one. Blank or whitespace-only text adds nothing, and with neither flag the prompt is byte-for-byte what it was.
+- Text over 16384 bytes is an error naming the limit and the size, never a truncation. The text is written verbatim into the recording's `prompt` field when `--record` is given; recordings from runs without it are unchanged.
+- `--prior-recording` is context, not a replay: the model is still called and its output validated. Only invocations for records in this run are included (so `--only` narrows it), and a recording holding none of them adds nothing. A missing, unreadable or non-JSON recording, or one with no records, is an error naming the path before any phase runs. More than 8192 bytes of serialized selections for one record is an error, not a truncation. The prior recording's own `prompt` is not fed back, and its `sedum_version` is not checked: recordings carry no schema version and no version is consulted for compatibility anywhere.
+- Under `--execute` all three are ignored and listed as such; a bad file or oversized text is not an error there.
+- Files from an earlier run: injection replaces an owned region whose identity matches one of this run's invocations, in place, and leaves seeded regions alone. It does not remove a region from the earlier run that this run no longer selects, so a retry that picks differently can leave the earlier output beside the new. The prior selections shown to the model are not applied.
 
 `--record` and `--dry-run` compose. Together they capture a recording without writing any generated files — the model runs, its output is validated and saved, and nothing is created. Without `--dry-run`, the run records and executes in the same pass.
 

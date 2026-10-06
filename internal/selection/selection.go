@@ -83,6 +83,16 @@ type Request struct {
 	Intent      string
 	Constraints []string
 	Files       []resolve.File
+
+	// Prompt is caller-supplied text (--prompt, --prompt-file), verbatim. It is
+	// advisory context for the supplementary section of the prompt and never
+	// authorizes anything (prov-2026-e4bab53b). Blank means none.
+	Prompt string
+
+	// Prior is this record's invocations from an earlier recording
+	// (--prior-recording), shown in the same section. Context only: it is not
+	// replayed, executed or trusted (prov-2026-8602b702).
+	Prior []recording.Invocation
 }
 
 // Options bound and observe the loop.

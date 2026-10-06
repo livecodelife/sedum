@@ -73,3 +73,15 @@ func removeIfExists(t *testing.T, path string) {
 		t.Fatalf("removing %s: %v", path, err)
 	}
 }
+
+// prov-2026-d2f1bdf2: a re-tuned default ships under the same filename, so
+// lookup, goreleaser and install.sh need no change. The checkpoint changes
+// what the release asset URL serves, never what Sedum looks for.
+func TestTheBundledModelKeepsItsFilename(t *testing.T) {
+	if bundledModelName != "sedum-default-model.gguf" {
+		t.Errorf("bundledModelName = %q; the new default ships as sedum-default-model.gguf", bundledModelName)
+	}
+	if bundledServerName != "goinfer-serve" {
+		t.Errorf("bundledServerName = %q, want goinfer-serve", bundledServerName)
+	}
+}

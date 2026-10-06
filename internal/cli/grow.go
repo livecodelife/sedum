@@ -50,7 +50,18 @@ Nothing is created that a provenance record did not authorize.`,
 			if cfg.Replaying() && responseSchema {
 				fmt.Fprintf(cmd.ErrOrStderr(), "sedum: ignoring --response-schema (replay invokes no model)\n")
 			}
-			return runGrow(cmd.Context(), cmd.OutOrStdout(), cmd.ErrOrStderr(), cfg, responseSchema)
+			// The caller's context is read and checked here, before any phase
+			// and before a model client is built, so a bad file or an
+			// oversized text costs nothing. Replay consults neither, so under
+			// --execute they are not read and cannot fail the run.
+			var ctxIn promptContext
+			if !cfg.Replaying() {
+				var err error
+				if ctxIn, err = readPromptContext(cmd.InOrStdin(), cfg); err != nil {
+					return err
+				}
+			}
+			return runGrow(cmd.Context(), cmd.OutOrStdout(), cmd.ErrOrStderr(), cfg, responseSchema, ctxIn)
 		},
 	}
 
@@ -80,6 +91,15 @@ Nothing is created that a provenance record did not authorize.`,
 			"what it is today. Fails clearly if the endpoint rejects response_format; never falls back "+
 			"unconstrained. Ignored with --execute.")
 
+	f.StringVar(&cfg.Prompt, "prompt", "",
+		"Supplementary text added to every selected record's prompt, after its intent and constraints. "+
+			"Advisory: it cannot widen what a record authorizes. At most 16384 bytes. Ignored with --execute.")
+	f.StringVar(&cfg.PromptFile, "prompt-file", "",
+		"Read the supplementary text from a file, or from stdin with -. Same rules as --prompt. Ignored with --execute.")
+	f.StringVar(&cfg.PriorRecording, "prior-recording", "",
+		"A recording whose selections for this run's records are shown to the model as context. "+
+			"Not a replay: the model is still called and its output validated as ever. Ignored with --execute.")
+
 	mustMarkRequired(cmd, "generators")
 
 	// A recording is either being written or being replayed, never both.
@@ -87,6 +107,9 @@ Nothing is created that a provenance record did not authorize.`,
 
 	// A run consults exactly one model source.
 	cmd.MarkFlagsMutuallyExclusive("model", "local-model")
+
+	// Text comes from one place.
+	cmd.MarkFlagsMutuallyExclusive("prompt", "prompt-file")
 
 	return cmd
 }
@@ -97,7 +120,7 @@ Nothing is created that a provenance record did not authorize.`,
 // model fails while nothing has been written. Creating files and then failing
 // at the model call would leave the output tree half built for a reason the
 // user could have been told first.
-func runGrow(ctx context.Context, out, errOut io.Writer, cfg GrowConfig, responseSchema bool) error {
+func runGrow(ctx context.Context, out, errOut io.Writer, cfg GrowConfig, responseSchema bool, pc promptContext) error {
 	// No --stop-after means run every phase. Zero is not a stop point, so it
 	// reads as "stop after nothing".
 	stopAfter := 0
@@ -211,6 +234,8 @@ func runGrow(ctx context.Context, out, errOut io.Writer, cfg GrowConfig, respons
 		Variables:      variables,
 		Log:            log,
 		FullCatalog:    cfg.FullCatalog,
+		Prompt:         pc.text,
+		Prior:          pc.prior,
 	})
 	if err != nil {
 		return err
@@ -232,6 +257,64 @@ func runGrow(ctx context.Context, out, errOut io.Writer, cfg GrowConfig, respons
 		fmt.Fprintf(out, "\nrecording written to %s\n", cfg.RecordTo)
 	}
 	return nil
+}
+
+// maxPromptBytes bounds the caller's text. Over it is an error, not a
+// truncation: the tail of a failure log is usually the part that says what
+// went wrong.
+const maxPromptBytes = 16384
+
+// promptContext is the caller's context for Phase 4, already read and checked.
+type promptContext struct {
+	text  string
+	prior *recording.Recording
+}
+
+// readPromptContext resolves --prompt / --prompt-file and --prior-recording.
+//
+// Blank text is no text. --prior-recording must hold at least one record: a
+// retry run that silently lacked its context would look like a normal run. No
+// version check is made on the prior recording: the recording carries no schema
+// version and sedum_version is not consulted for compatibility anywhere.
+func readPromptContext(stdin io.Reader, cfg GrowConfig) (promptContext, error) {
+	var pc promptContext
+
+	text := cfg.Prompt
+	if cfg.PromptFile != "" {
+		var data []byte
+		var err error
+		if cfg.PromptFile == "-" {
+			data, err = io.ReadAll(stdin)
+			if err != nil {
+				return pc, fmt.Errorf("reading --prompt-file from stdin: %w", err)
+			}
+		} else {
+			data, err = os.ReadFile(cfg.PromptFile)
+			if err != nil {
+				return pc, fmt.Errorf("reading --prompt-file %s: %w", cfg.PromptFile, err)
+			}
+		}
+		text = string(data)
+	}
+	if len(text) > maxPromptBytes {
+		return pc, fmt.Errorf("the supplementary prompt is %d bytes, over the %d-byte limit; nothing is truncated, so shorten it",
+			len(text), maxPromptBytes)
+	}
+	if strings.TrimSpace(text) != "" {
+		pc.text = text
+	}
+
+	if cfg.PriorRecording != "" {
+		rec, err := readRecording(cfg.PriorRecording)
+		if err != nil {
+			return pc, fmt.Errorf("--prior-recording %s: %w", cfg.PriorRecording, err)
+		}
+		if len(rec.Records) == 0 {
+			return pc, fmt.Errorf("--prior-recording %s holds no records, so it has no selections to show", cfg.PriorRecording)
+		}
+		pc.prior = &rec
+	}
+	return pc, nil
 }
 
 // runReplay executes a recording instead of consulting a model.

@@ -80,7 +80,14 @@ done
 # "model-assets" is a standing, non-version tag - never referenced by a v*
 # release tag, so it never triggers .github/workflows/release.yml on its own.
 MODEL_URL="https://github.com/livecodelife/sedum/releases/download/model-assets/sedum-default-model.gguf"
-MODEL_SHA=2aba74f7d9ef2e5d688564f4386ef69c0109fed10a9e07dbcae8732787ff3541
+#
+# The pin below is the sha256 of Qwen3.5-2B.Q8_0.gguf from the
+# sedum-binder-final-2b-le12k-e5 checkpoint. The maintainer must UPLOAD that
+# file to the model-assets release, replacing sedum-default-model.gguf, BEFORE
+# tagging a release. Until then the URL serves the old model, the checksum does
+# not match, and the release build fails its checksum check. That failure is
+# intended: a build must never ship an unverified model. Order: upload, then tag.
+MODEL_SHA=5185a0b25d5a13262fa6dfcdb1b2091b7bb64f130d65cdb5322c99c992dd052e
 
 fetch_and_verify "$MODEL_URL" "$DIST/sedum-default-model.gguf" "$MODEL_SHA"
 
