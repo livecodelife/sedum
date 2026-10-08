@@ -1,0 +1,38 @@
+id: prov-2026-fb853ca9
+title: 'Version 0.8.0: --prompt, --prompt-file, --prior-recording and the sedum-binder-final default model'
+status: draft
+created_at: "2026-10-08"
+author: calebcowen@gmail.com
+intent: |
+    0.7.0 -> 0.8.0: minor, additive. sedum grow gains --prompt / --prompt-file
+    (caller-supplied supplementary context, [[prov-2026-e4bab53b]]) and
+    --prior-recording (the model's own earlier selections as context,
+    [[prov-2026-8602b702]]), so a caller above Sedum can run its own
+    generate/validate/feed-back loop. The bundled default model becomes
+    sedum-binder-final-2b-le12k-e5 ([[prov-2026-d2f1bdf2]]). Without the new
+    flags the prompt sent to the model is byte-for-byte unchanged; the model
+    change is the one behavioral difference a plain install sees.
+constraints:
+    - This record touches only the version constant. The tag-vs-constant check in .github/workflows/release.yml, not a file change here, is what gates and runs the release.
+    - The tag is pushed only once this commit is on main, so CI builds the commit the constant and the tag both name.
+    - The new default model asset must be uploaded to the model-assets release before the tag is pushed, because hack/fetch-release-assets.sh pins its checksum and the release build fails without it.
+affected_scope:
+    - internal/recording/version.go
+forbidden_scope: []
+type: blueprint
+supersedes: ""
+superseded_by: ""
+implements: prov-2026-d554bfc3
+related:
+    - prov-2026-e4bab53b
+    - prov-2026-8602b702
+    - prov-2026-d2f1bdf2
+sealed_at_sha: ""
+associated_specs:
+    - path: internal/cli/release_test.go
+      run_command: go test -count=1 ./$(dirname {{path}})
+associated_traces: []
+monitors: []
+tags:
+    - sedum
+    - release
