@@ -1,6 +1,6 @@
 id: prov-2026-fb853ca9
 title: 'Version 0.8.0: --prompt, --prompt-file, --prior-recording and the sedum-binder-final default model'
-status: open
+status: implemented
 created_at: "2026-10-08"
 author: calebcowen@gmail.com
 intent: |
@@ -27,7 +27,7 @@ related:
     - prov-2026-e4bab53b
     - prov-2026-8602b702
     - prov-2026-d2f1bdf2
-sealed_at_sha: ""
+sealed_at_sha: efa4d0f9e6bbcb1e0e18c316d783693180a12942
 associated_specs:
     - path: internal/cli/release_test.go
       run_command: go test -count=1 ./$(dirname {{path}})
