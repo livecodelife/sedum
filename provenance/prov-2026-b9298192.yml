@@ -1,0 +1,52 @@
+id: prov-2026-b9298192
+title: Recordings carry each record's gen so replay reproduces grow
+status: draft
+created_at: "2026-10-15"
+author: calebcowen@gmail.com
+intent: |
+  Replay must reproduce the grow it recorded byte for byte. Once markers carry
+  gen, replay without --records has no record to hash, so its regions would
+  lack the gen the original run wrote and the files would differ.
+
+  The recording gains an optional per-record "gen": the gen_hash of the record
+  version the selection was made from. It is deterministic in the record's
+  content, so it is not a volatile field and two recordings of equivalent runs
+  still diff cleanly. It is also the truthful value: the invocations in the
+  recording were chosen against that version, so a marker written on replay
+  should name it even if the record has since changed - a later grow will see
+  the record moved and re-select, which is exactly right.
+
+  Replay's precedence for a record's gen: the recorded value; else the gen of
+  the record of that id under --records; else none, which reads as stale. A
+  harness-synthesized recording without gen therefore still gets one when it
+  supplies --records, since its selection was made against those records.
+
+  Approved in #provisio by provisio-mgr (2026-10-15) as additive to the
+  recording format, which decodes leniently - the precedent is prompt
+  (prov-2026-e4bab53b) - so no version floor is needed.
+constraints:
+  - gen is omitempty on a recording record and sits after record_id; a recording without it reads exactly as before.
+  - Capture takes gen from the run's loaded records and recomputes nothing.
+  - Replay never validates the recorded gen against --records; a mismatch means the record changed since recording, which is a later grow's concern, not replay's.
+affected_scope:
+  - internal/recording/recording.go
+  - internal/recording/*_test.go
+  - internal/pipeline/capture.go
+  - internal/pipeline/pipeline.go
+  - internal/pipeline/replay.go
+  - internal/pipeline/*_test.go
+forbidden_scope: []
+type: imprint
+implements: prov-2026-66bea9f3
+supersedes: ""
+superseded_by: ""
+related: []
+sealed_at_sha: ""
+associated_specs:
+  - path: internal/pipeline/replay_test.go
+    run_command: go test ./$(dirname {{path}})
+  - path: internal/recording/recording_test.go
+    run_command: go test ./$(dirname {{path}})
+associated_traces: []
+monitors: []
+tags: []
