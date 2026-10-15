@@ -63,6 +63,12 @@ type Config struct {
 	// DryRun runs every phase and writes nothing.
 	DryRun bool
 
+	// Force lets a record whose selection came back empty prune every region
+	// it owns. Without it that is an error, because an empty reply is more
+	// often a flaky model than an intent to delete a record's code
+	// (prov-2026-375f5d4a).
+	Force bool
+
 	// StopAfterPhase halts the run after the named phase. Zero runs every
 	// phase, since Phase 0 is not a stop point.
 	StopAfterPhase int
@@ -300,11 +306,17 @@ func Run(ctx context.Context, cfg Config) (*Result, error) {
 	}
 
 	// Phase 7 - inject.
+	// Phase 7 reconciles each record the model was asked about: its owned
+	// regions it did not select again are pruned, in the same all-or-nothing
+	// write as everything else.
 	applied, err := inject.Apply(resolved, inject.Options{
 		Output:    cfg.Output,
 		DryRun:    cfg.DryRun,
 		Unwritten: unwrittenFiles(cfg.DryRun, files),
 		Log:       log,
+		Owners:    ownersOf(records),
+		Reconcile: reconcileOf(selections),
+		Force:     cfg.Force,
 	})
 	if err != nil {
 		return nil, err
@@ -320,17 +332,9 @@ func Run(ctx context.Context, cfg Config) (*Result, error) {
 // empty list, and paying for a call to be told so would be a cost the run can
 // see is pointless before it is incurred.
 func selectAll(ctx context.Context, cfg Config, records *record.Set, files []resolve.File, variables map[string]string, log *runlog.Log) ([]Selection, error) {
-	// Phase 4's entry is where the duplicate-path check belongs, because this
-	// is the phase whose one-call-per-record shape is the reason for it. Two
-	// records naming one file would mean two independent calls deciding that
-	// file's contents (prov-2026-dc227be7).
-	//
-	// It halts before the first call rather than before records are read, so
-	// nothing has been paid for. Replay never reaches this function and is
-	// therefore never subject to a rule that has no meaning without a model.
-	if err := records.CheckDuplicatePaths(); err != nil {
-		return nil, err
-	}
+	// No duplicate-path check: records sharing a file are reconciled region
+	// by region in Phase 7, where a record selecting a region another record
+	// owns is the error (prov-2026-375f5d4a).
 
 	// The prior-selection bound is per record and is checked for every selected
 	// record before the first call, so an overflow costs nothing. Selections
@@ -453,4 +457,40 @@ func genOf(records *record.Set, recordID string) string {
 		return ""
 	}
 	return rec.Gen
+}
+
+// ownersOf is what Phase 7 knows about every record in the directory, for
+// region ownership and anchor order. Records --only left out are included,
+// because the regions a run meets may belong to any of them.
+func ownersOf(records *record.Set) map[string]inject.Owner {
+	if records == nil {
+		return nil
+	}
+	out := make(map[string]inject.Owner, len(records.Known))
+	for _, r := range records.Known {
+		out[r.ID] = inject.Owner{ID: r.ID, Aliases: r.Aliases, CreatedAt: r.CreatedAt}
+	}
+	return out
+}
+
+// reconcileOf names the records whose owned regions Phase 7 reconciles: every
+// record the model was asked about, over the managed files it authorizes. A
+// record skipped without a model call made no selection, so it reconciles
+// nothing.
+func reconcileOf(selections []Selection) []inject.Reconcile {
+	var out []inject.Reconcile
+	for _, s := range selections {
+		if !anyManaged(s.Files) {
+			continue
+		}
+		rec := inject.Reconcile{RecordID: s.RecordID}
+		for _, f := range s.Files {
+			if f.Unmanaged || f.Package == nil {
+				continue
+			}
+			rec.Targets = append(rec.Targets, inject.Target{Path: f.Path, Package: f.Package})
+		}
+		out = append(out, rec)
+	}
+	return out
 }

@@ -184,11 +184,14 @@ func Replay(rec recording.Recording, cfg ReplayConfig) (*Result, error) {
 	}
 
 	// Phase 7 - inject, unchanged.
+	// Ownership applies to replay as to grow; reconciliation does not, since a
+	// recording may be partial and replay never prunes (prov-2026-375f5d4a).
 	applied, err := inject.Apply(resolved, inject.Options{
 		Output:    cfg.Output,
 		DryRun:    cfg.DryRun,
 		Unwritten: unwrittenFiles(cfg.DryRun, files),
 		Log:       log,
+		Owners:    ownersOf(result.Records),
 	})
 	if err != nil {
 		return nil, err

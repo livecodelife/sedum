@@ -70,6 +70,49 @@ type Options struct {
 
 	// Log is the run log. A nil log discards.
 	Log *runlog.Log
+
+	// Owners are the records the run knows, keyed by id: every record in the
+	// records directory, not only the ones this run grows, because ownership
+	// and anchor order concern regions any record wrote (prov-2026-375f5d4a).
+	// A record absent here still owns the regions naming its id; it only
+	// lacks aliases and a creation date.
+	Owners map[string]Owner
+
+	// Reconcile names the records whose owned regions this run reconciles
+	// against their selection: an owned region of one of these records that
+	// it did not select again is pruned. Grow sets it for every record it
+	// asked the model about. Replay never does, because a recording may be
+	// partial (OPEN_QUESTIONS section 16).
+	Reconcile []Reconcile
+
+	// Force allows a record whose selection is empty to prune every region it
+	// owns. Without it that is an error, because an empty reply is more often
+	// a flaky model than an intent to delete a record's code.
+	Force bool
+}
+
+// Owner is what Phase 7 knows about a record that may own regions.
+type Owner struct {
+	ID string
+	// Aliases are ids folded into this record, whose regions it owns.
+	Aliases []string
+	// CreatedAt orders owners at a shared anchor, before the id does.
+	CreatedAt string
+}
+
+// Reconcile is one record whose owned regions are reconciled in this run.
+type Reconcile struct {
+	RecordID string
+	// Targets are the files the record is authorized to inject into in this
+	// run. Only these are pruned.
+	Targets []Target
+}
+
+// Target is one file a reconciled record may own regions in, with the package
+// whose actions and comment syntax govern it.
+type Target struct {
+	Path    string
+	Package *genpkg.Package
 }
 
 // Result is what one invocation did.
@@ -77,11 +120,20 @@ type Result struct {
 	Path    string
 	Action  string
 	Variant string
+	// Record is the record that wrote the region, or for a pruned region the
+	// record that owned it.
+	Record string
 	// Replaced reports that an owned region with this invocation's identity
 	// was already in the file and was overwritten in place.
 	Replaced bool
 	// Skipped reports that the region was seeded, so it was left as it is.
 	Skipped bool
+	// Pruned reports that the region's owner did not select it again, so it
+	// was removed.
+	Pruned bool
+	// Held reports a prune that only --force would carry out: the owner's
+	// selection was empty. Reported by a dry run; a real run fails instead.
+	Held bool
 }
 
 // Apply runs Phase 7 over every invocation.
@@ -108,13 +160,12 @@ func Apply(invocations []Invocation, opts Options) ([]Result, error) {
 	// fault, and under last-write-wins one of the two silently does not
 	// happen. Keyed by path as well as identity, because one identity in two
 	// files is two regions.
-	type placement struct {
-		path     string
-		identity Identity
-	}
 	claimed := map[placement]string{}
+	own := newOwnership(opts.Owners)
+	selectedBy := map[string]int{}
 
 	for _, inv := range invocations {
+		selectedBy[inv.RecordID]++
 		if identity, err := identityFor(inv.Action, Marker{
 			Action: inv.Action.Name, Variant: inv.Variant, Kwargs: inv.Kwargs,
 		}); err == nil {
@@ -139,7 +190,7 @@ func Apply(invocations []Invocation, opts Options) ([]Result, error) {
 			touched = append(touched, inv.Path)
 		}
 
-		updated, result, err := applyOne(inv, content)
+		updated, result, err := applyOne(inv, content, own)
 		if err != nil {
 			problems = append(problems, err)
 			// The buffer is still recorded so that later invocations into
@@ -163,6 +214,29 @@ func Apply(invocations []Invocation, opts Options) ([]Result, error) {
 			log.Info("injected region",
 				"path", inv.Path, "action", inv.Action.Name, "variant", inv.Variant,
 				"anchor", inv.Action.Anchor, "record", inv.RecordID)
+		}
+	}
+
+	// Reconciliation runs against the buffers every invocation has already
+	// been applied to, and only when nothing above failed: a prune is never
+	// written unless the whole run is (prov-2026-375f5d4a).
+	if len(problems) == 0 {
+		for _, rec := range opts.Reconcile {
+			pruned, err := reconcile(rec, buffers, &touched, claimed, selectedBy[rec.RecordID], own, opts)
+			if err != nil {
+				problems = append(problems, err)
+				continue
+			}
+			for _, r := range pruned {
+				if r.Held {
+					log.Info("region would be pruned with --force",
+						"path", r.Path, "action", r.Action, "variant", r.Variant, "record", r.Record)
+				} else {
+					log.Info("pruned region its record no longer selects",
+						"path", r.Path, "action", r.Action, "variant", r.Variant, "record", r.Record)
+				}
+			}
+			results = append(results, pruned...)
 		}
 	}
 
@@ -217,8 +291,8 @@ func readTarget(output string, unwritten map[string]string, inv Invocation) (str
 }
 
 // applyOne injects one invocation into one file's content.
-func applyOne(inv Invocation, content string) (string, Result, error) {
-	result := Result{Path: inv.Path, Action: inv.Action.Name, Variant: inv.Variant}
+func applyOne(inv Invocation, content string, own ownership) (string, Result, error) {
+	result := Result{Path: inv.Path, Action: inv.Action.Name, Variant: inv.Variant, Record: inv.RecordID}
 
 	marker := Marker{
 		Action:  inv.Action.Name,
@@ -254,6 +328,17 @@ func applyOne(inv Invocation, content string) (string, Result, error) {
 		}
 		if existing != identity {
 			continue
+		}
+
+		// A region belongs to the record its marker names, and only that
+		// record rewrites it. Another record selecting it means a new record
+		// was written where the owner should have been revised, which is
+		// an error rather than an update (prov-2026-375f5d4a). A region
+		// naming no record is unowned and is claimed here.
+		if owner := region.Marker.Record; owner != "" && !own.owns(inv.RecordID, owner) {
+			return "", result, fmt.Errorf(
+				"file %s: record %s selected %s, which record %s owns (identity %s); revise %s, or change %s's selection",
+				inv.Path, describeRecord(inv.RecordID), region.Marker.Label(), owner, identity.Key, owner, describeRecord(inv.RecordID))
 		}
 
 		if region.Marker.Tier == TierSeeded {
@@ -298,7 +383,7 @@ func applyOne(inv Invocation, content string) (string, Result, error) {
 		return "", result, err
 	}
 
-	offset := skipRegionsAt(regions, where.offset)
+	offset := orderedOffset(regions, where.offset, own, inv.RecordID)
 	return content[:offset] + rendered + content[offset:], result, nil
 }
 
@@ -335,21 +420,29 @@ func renderRegion(inv Invocation, marker Marker, indent string) (string, error) 
 	return b.String(), nil
 }
 
-// skipRegionsAt advances past regions already sitting at the insertion point,
-// so that repeated injections at one anchor accumulate in the order they were
-// applied rather than in reverse.
-func skipRegionsAt(regions []Region, offset int) int {
-	moved := true
-	for moved {
-		moved = false
-		for _, region := range regions {
+// orderedOffset finds where a new region goes among the regions already
+// sitting at its insertion point: after every region whose owner sorts at or
+// before its own, and before the first that sorts after (prov-2026-375f5d4a).
+//
+// Owners sort by creation date, then id, so a file regenerated from scratch
+// comes out the same whatever order its records were grown in. One owner's
+// regions keep the order they were applied in, because a region never sorts
+// after its own owner. Nothing already in the file moves.
+func orderedOffset(regions []Region, offset int, own ownership, recordID string) int {
+	key := own.key(recordID)
+	for {
+		next := -1
+		for i, region := range regions {
 			if region.Start == offset {
-				offset = region.End
-				moved = true
+				next = i
+				break
 			}
 		}
+		if next < 0 || own.key(regions[next].Marker.Record) > key {
+			return offset
+		}
+		offset = regions[next].End
 	}
-	return offset
 }
 
 // identityFor computes the identity of the region a marker describes, under the
@@ -394,4 +487,175 @@ func selectingKwargs(action *genpkg.Action) []string {
 	}
 	sort.Strings(out)
 	return out
+}
+
+// placement is one region in one file. Keyed by path as well as identity,
+// because one identity in two files is two regions.
+type placement struct {
+	path     string
+	identity Identity
+}
+
+// ownership answers which record owns a region and how owners sort.
+type ownership struct {
+	byID map[string]Owner
+	// alias maps an alias to the id of the record that folded it in.
+	alias map[string]string
+}
+
+func newOwnership(owners map[string]Owner) ownership {
+	own := ownership{byID: owners, alias: map[string]string{}}
+	for id, o := range owners {
+		for _, a := range o.Aliases {
+			own.alias[a] = id
+		}
+	}
+	return own
+}
+
+// canonical returns the record id a marker's record names, following an alias.
+func (o ownership) canonical(id string) string {
+	if current, ok := o.alias[id]; ok {
+		return current
+	}
+	return id
+}
+
+// owns reports whether the record recordID owns a region whose marker names
+// owner.
+func (o ownership) owns(recordID, owner string) bool {
+	return owner == recordID || o.canonical(owner) == recordID
+}
+
+// key is the sort key of a region's owner at a shared anchor: creation date,
+// then id. A region naming no record sorts first, and an owner the run does
+// not know sorts by id alone, ahead of every dated owner - deterministic
+// either way, which is what reproducing a file needs.
+func (o ownership) key(owner string) string {
+	if owner == "" {
+		return ""
+	}
+	id := o.canonical(owner)
+	return o.byID[id].CreatedAt + "\x00" + id
+}
+
+// describeRecord names a record in a diagnostic, including the absence of one.
+func describeRecord(id string) string {
+	if id == "" {
+		return "(none)"
+	}
+	return id
+}
+
+// reconcile prunes the owned regions of one record that it did not select in
+// this run, in the files it is authorized for (prov-2026-375f5d4a).
+//
+// A region survives when its owner selected its identity in that file this
+// run - which is every region the run just replaced or inserted for it. Seeded
+// regions, other owners' regions and unowned regions are never touched. A
+// region whose action the package no longer declares cannot have been
+// selected, so it is pruned too.
+//
+// An empty selection over owned regions is refused unless opts.Force, because
+// an empty reply is more often a flaky model than an intent to delete a
+// record's code. A dry run reports those prunes as held instead of failing, so
+// a person can see what --force would remove.
+func reconcile(rec Reconcile, buffers map[string]string, touched *[]string, claimed map[placement]string, selected int, own ownership, opts Options) ([]Result, error) {
+	type cut struct {
+		path   string
+		region Region
+	}
+	var cuts []cut
+	loaded := map[string]string{}
+
+	for _, target := range rec.Targets {
+		content, ok := buffers[target.Path]
+		if !ok {
+			var found bool
+			content, found = readExisting(opts.Output, opts.Unwritten, target.Path)
+			if !found {
+				// Nothing on disk means nothing to prune.
+				continue
+			}
+		}
+		loaded[target.Path] = content
+
+		regions, err := FindRegions(target.Package.Comment(), content)
+		if err != nil {
+			return nil, fmt.Errorf("file %s: %w", target.Path, err)
+		}
+		for _, region := range regions {
+			m := region.Marker
+			if m.Tier == TierSeeded || m.Record == "" || !own.owns(rec.RecordID, m.Record) {
+				continue
+			}
+			if action, ok := target.Package.Actions[m.Action]; ok {
+				identity, err := identityFor(action, m)
+				if err != nil {
+					return nil, fmt.Errorf("file %s: %w", target.Path, err)
+				}
+				if claimed[placement{path: target.Path, identity: identity}] == rec.RecordID {
+					continue
+				}
+			}
+			cuts = append(cuts, cut{path: target.Path, region: region})
+		}
+	}
+
+	if len(cuts) == 0 {
+		return nil, nil
+	}
+
+	held := selected == 0 && !opts.Force
+	if held && !opts.DryRun {
+		var where []string
+		for _, c := range cuts {
+			where = append(where, c.path+" "+c.region.Marker.Label())
+		}
+		return nil, fmt.Errorf(
+			"record %s selected nothing but owns %d region(s): %s; rerun with --force to remove them, or check the model's reply",
+			rec.RecordID, len(cuts), strings.Join(where, ", "))
+	}
+
+	var results []Result
+	// Cut from the end of each file backwards so earlier offsets stay valid.
+	for i := len(cuts) - 1; i >= 0; i-- {
+		c := cuts[i]
+		results = append([]Result{{
+			Path: c.path, Action: c.region.Marker.Action, Variant: c.region.Marker.Variant,
+			Record: c.region.Marker.Record, Pruned: true, Held: held,
+		}}, results...)
+		if held {
+			continue
+		}
+		content := loaded[c.path]
+		loaded[c.path] = content[:c.region.Start] + content[c.region.End:]
+	}
+
+	if !held {
+		changed := map[string]bool{}
+		for _, c := range cuts {
+			changed[c.path] = true
+		}
+		for path := range changed {
+			if _, seen := buffers[path]; !seen {
+				*touched = append(*touched, path)
+			}
+			buffers[path] = loaded[path]
+		}
+	}
+	return results, nil
+}
+
+// readExisting reads a file Phase 7 may prune in, from disk or, in a dry run,
+// from what Phase 3 would have written. It reports whether there was one.
+func readExisting(output string, unwritten map[string]string, path string) (string, bool) {
+	data, err := os.ReadFile(filepath.Join(output, filepath.FromSlash(path)))
+	if err == nil {
+		return string(data), true
+	}
+	if content, ok := unwritten[path]; ok {
+		return content, true
+	}
+	return "", false
 }

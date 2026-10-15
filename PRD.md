@@ -565,7 +565,7 @@ Marker comments are the load-bearing case. Marker syntax uses the package's decl
 
 ## Ownership and Idempotency
 
-Every injected region is wrapped in ownership markers naming the action that produced it, the ownership tier, the record that last parameterized it, the hashes of that record and of the package it was rendered from, and the kwargs it was rendered from:
+Every injected region is wrapped in ownership markers naming the action that produced it, the ownership tier, the record that owns it, the hashes of that record and of the package it was rendered from, and the kwargs it was rendered from:
 
 ```ruby
 # sedum:createControllerMethod:index {"tier":"owned","record":"PR-014","gen":"sha256:…","pkg":"sha256:…","kwargs":{"controller":"users","collection":"users"}}
@@ -639,15 +639,25 @@ Recording all of them, rather than the subset that selects a region, is what kep
 
 The declaration exists because required and selecting are different properties that happened to coincide. A kwarg is required because the model must state it; it selects because it says which region is meant. For an action whose required kwargs name a target — the symbol an import binds — those are the same set. For one whose required kwargs are mostly content — a pattern, a selector, a count — they are not, and selecting on all of them means changing a value mints a second region beside the first instead of refining it. The seeded tier and retained marker attributes are both read only after a region matches, so they are lost with it (prov-2026-d71d6f76).
 
-### The record attribute
+### The record attribute: ownership
 
-The marker carries the ID of the record that last wrote a region, **as an attribute rather than as part of the region's identity**. A region is identified by its action, its variant, and its selecting kwargs; the record ID says who last wrote it.
+The marker carries the ID of the record that **owns** the region, **as an attribute rather than as part of the region's identity**. A region is identified by its action, its variant, and its selecting kwargs; the record ID says whose it is (`prov-2026-375f5d4a`, replacing the earlier last-writer rule of `prov-2026-36c8a99c`).
 
-That distinction is what lets a later record refine a region an earlier record produced, replacing it in place instead of minting a second region beside it. Under record-scoped identity, a record whose intent is *"PUT should support partial updates"* would produce two definitions of one function rather than a replacement.
+Keeping the record out of identity is still what stops two records producing two definitions of one function. What changed is what happens when a second record selects a region the first one owns: it is an **error naming both records**, not a silent takeover. Under versioned records a record keeps its id when it changes, so another record selecting the same region means someone wrote a new record where they should have revised the existing one. Refining a region is done by revising its owner.
 
-**One file is still generated from one record within a single run.** Ingestion rejects a path named by two records, because Phase 4 makes one model call per record and two records naming one file would mean two independent calls deciding the same file's contents. Records that share a file are generated one at a time with `--only`, and their regions coexist and survive each other's reruns.
+- A record owns a region when the marker names its id or one of its `aliases` (ids folded into it by migration). A rewritten region's marker names the current id.
+- A region whose marker names no record is unowned, and the first record to select its identity claims it.
+- Ownership changes only by an explicit handover, which is not yet implemented.
 
-So the two halves are worth stating separately: refinement of a region across records and across runs is supported and is what the record attribute exists for. Two records naming one path in one run is not, and the restriction is on the whole-directory run rather than on the outcome.
+**Reconciliation.** After a record's selection validates and expands, `grow` reconciles it against what is on disk by identity: a region it selects again is replaced in place, a new identity is inserted, and an `owned` region of this record that it did not select again is **pruned**. Seeded regions, other records' regions and unowned regions are never pruned, and only the files the record authorizes in this run are considered. Pruning is part of Phase 7's single all-or-nothing write, so any failure anywhere in the run leaves every region alone. A record skipped without a model call reconciles nothing.
+
+An empty selection from a record that already owns regions is an **error unless `--force`**, because an empty reply is more often a flaky model than an intent to delete a record's code. `--dry-run` reports those regions as held for `--force`.
+
+Replay (`--execute`) checks ownership but never prunes: a recording may be partial, and turning replay into reconciliation is opt-in (*Open Design Questions* §16).
+
+**Records sharing a file grow in one run.** The rule that rejected a path named by two records is gone; ownership now protects the code region by region. Two records selecting one identity in the same run is still an error naming both.
+
+**Order at a shared anchor.** A new region goes after every region at its anchor whose owner sorts at or before its own owner, and before the rest. Owners sort by the record's `created_at`, then id; a region naming no record sorts first, and an owner the run does not know sorts by id alone. One owner's regions keep the order they were applied in, and no existing region is moved, so regenerating a file from scratch reproduces it byte for byte whatever order its records were grown in.
 
 ---
 
@@ -799,7 +809,8 @@ Every case cites the record that decided the behavior it pins, and a case is add
 Sedum tolerates other writers in the files it generates. The tolerance has limits, and they are stated here rather than discovered, because an unwritten constraint's first breakage looks like a Sedum bug.
 
 - **Do not remove or relocate a marker a file template planted.** Anchors exist because a template created them; moving one breaks the injection that targets it, and Phase 7 reports a missing anchor rather than guessing.
-- **Do not reorder regions within a file.** Repeated injections at one anchor accumulate in invocation order, and reordering them makes a rerun's output differ from its input for reasons Sedum cannot see.
+- **Do not reorder regions within a file.** Regions at one anchor are ordered by owner and then by invocation order, and reordering them makes a rerun's output differ from its input for reasons Sedum cannot see.
+- **Do not change a region's `record`.** It names the region's owner, which is the only record that may rewrite or prune it. Ownership changes by an explicit handover, never by editing the marker.
 - **Preserve unknown marker attributes in both directions.** This is the same promise Sedum makes, and it is symmetric: a writer that drops the keys it does not recognise destroys the state of every other writer, Sedum included.
 - **Do not edit an `owned` region and expect the edit to survive.** Demote the region to `seeded` if it has stopped being Sedum's to overwrite. That is what the tier is for, and what the `writer` attribute makes attributable.
 
@@ -825,7 +836,8 @@ sedum grow --generators ./generators --records ./provenance --output ./build
 | `--var <name>=<value>` | Bind a variable a generator package declares. Repeatable. |
 | `--record <path>` | Write a recording of the run to the given path. |
 | `--execute <path>` | Replay a recording. Skips model invocation. Mutually exclusive with `--record`. |
-| `--dry-run` | Run every phase, write nothing. Reports the files that would be created and the injections that would be applied. |
+| `--dry-run` | Run every phase, write nothing. Reports the files that would be created, the injections that would be applied, and the regions that would be pruned. |
+| `--force` | Let a record whose selection comes back empty prune every region it owns. Without it that is an error. Ignored with `--execute`. |
 | `--stop-after <phase>` | Halt after the named phase. One of `resolution`, `files`, `invocations`, `expansion`. |
 | `--retries <n>` | Model output validation retry limit. Default 3. Ignored with `--execute`. |
 | `--model <name>` | Model identifier. Endpoint and credentials come from environment. Ignored with `--execute`. Mutually exclusive with `--local-model`. |

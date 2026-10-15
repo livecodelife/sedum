@@ -330,7 +330,7 @@ func TestReplacementKeepsTheRegionsOwnIndentation(t *testing.T) {
 	}
 
 	refreshed := invocation(t, pkg, "createControllerMethod", "index",
-		"def index\n  User.all\nend\n", "PR-092", kwargs)
+		"def index\n  User.all\nend\n", "PR-014", kwargs)
 	if _, err := Apply([]Invocation{refreshed}, Options{Output: root}); err != nil {
 		t.Fatalf("rerun Apply: %v", err)
 	}
@@ -390,7 +390,7 @@ func TestDeclaredIdentityReplacesWhenContentKwargChanges(t *testing.T) {
 		t.Fatalf("first Apply: %v", err)
 	}
 
-	refined := invocation(t, pkg, "addPolicy", "", "policy :read, owner?\n", "PR-002",
+	refined := invocation(t, pkg, "addPolicy", "", "policy :read, owner?\n", "PR-001",
 		map[string]any{"controller": "users", "name": "read", "rule": "owner?"})
 	results, err := Apply([]Invocation{refined}, Options{Output: root})
 	if err != nil {
@@ -477,7 +477,7 @@ func TestDeclaredIdentityRetainsMarkerAttributesAcrossAContentChange(t *testing.
 		t.Fatalf("annotate: %v", err)
 	}
 
-	refined := invocation(t, pkg, "addPolicy", "", "policy :read, owner?\n", "PR-002",
+	refined := invocation(t, pkg, "addPolicy", "", "policy :read, owner?\n", "PR-001",
 		map[string]any{"controller": "users", "name": "read", "rule": "owner?"})
 	if _, err := Apply([]Invocation{refined}, Options{Output: root}); err != nil {
 		t.Fatalf("second Apply: %v", err)
@@ -503,7 +503,7 @@ func TestDeclaredIdentitySpansVariants(t *testing.T) {
 		t.Fatalf("first Apply: %v", err)
 	}
 
-	lax := invocation(t, pkg, "addSetting", "lax", "setting :audit, strict: false\n", "PR-002",
+	lax := invocation(t, pkg, "addSetting", "lax", "setting :audit, strict: false\n", "PR-001",
 		map[string]any{"controller": "users", "name": "audit", "mode": "lax"})
 	results, err := Apply([]Invocation{lax}, Options{Output: root})
 	if err != nil {
@@ -563,10 +563,10 @@ func TestRerunReplacesOwnedRegionRatherThanDuplicating(t *testing.T) {
 		t.Fatalf("first Apply: %v", err)
 	}
 
-	// A later record refines the region: same action, same variant, a
+	// The record refines its region: same action, same variant, a
 	// different non-selecting kwarg.
 	refined := invocation(t, pkg, "createControllerMethod", "index",
-		"def index\n  User.where(active: true)\nend\n", "PR-092",
+		"def index\n  User.where(active: true)\nend\n", "PR-014",
 		map[string]any{"controller": "users", "name": "index", "collection": "admins"})
 
 	results, err := Apply([]Invocation{refined}, Options{Output: root})
@@ -585,13 +585,11 @@ func TestRerunReplacesOwnedRegionRatherThanDuplicating(t *testing.T) {
 		t.Errorf("the refined body is not in the file:\n%s", got)
 	}
 
-	// The marker records who last wrote the region, so the audit trail
-	// improves rather than degrading.
-	if !strings.Contains(got, `"record":"PR-092"`) {
-		t.Errorf("marker does not name the record that last wrote the region:\n%s", got)
-	}
-	if strings.Contains(got, "PR-014") {
-		t.Errorf("marker still names the record that no longer parameterizes the region:\n%s", got)
+	// The region still belongs to its record. A different record selecting
+	// it is an ownership error, covered in ownership_test.go
+	// (prov-2026-375f5d4a).
+	if !strings.Contains(got, `"record":"PR-014"`) {
+		t.Errorf("marker does not name the record that owns the region:\n%s", got)
 	}
 }
 
@@ -626,7 +624,7 @@ func TestReplacementPreservesAnotherWritersAttributes(t *testing.T) {
 	}
 
 	refined := invocation(t, pkg, "createControllerMethod", "index",
-		"def index\n  User.where(active: true)\nend\n", "PR-092", kwargs)
+		"def index\n  User.where(active: true)\nend\n", "PR-014", kwargs)
 
 	results, err := Apply([]Invocation{refined}, Options{Output: root})
 	if err != nil {
@@ -645,8 +643,8 @@ func TestReplacementPreservesAnotherWritersAttributes(t *testing.T) {
 
 	// The keys Sedum does model still describe the region as it is now, not as
 	// the annotating tool found it.
-	if !strings.Contains(got, `"record":"PR-092"`) {
-		t.Errorf("marker does not name the record that last wrote the region:\n%s", got)
+	if !strings.Contains(got, `"record":"PR-014"`) {
+		t.Errorf("marker does not name the record that owns the region:\n%s", got)
 	}
 	if !strings.Contains(got, "User.where(active: true)") {
 		t.Errorf("the refined body is not in the file:\n%s", got)

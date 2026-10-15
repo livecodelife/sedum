@@ -75,6 +75,8 @@ Nothing is created that a provenance record did not authorize.`,
 	f.StringArrayVar(&cfg.Vars, "var", nil, "Bind a variable a generator package declares, as name=value. Repeatable.")
 	f.StringVar(&cfg.Execute, "execute", "", "Replay a recording. Skips model invocation.")
 	f.BoolVar(&cfg.DryRun, "dry-run", false, "Run every phase, write nothing.")
+	f.BoolVar(&cfg.Force, "force", false,
+		"Let a record whose selection comes back empty remove every region it owns. Without it that is an error. Ignored with --execute.")
 	f.StringVar(&cfg.StopAfter, "stop-after", "", "Halt after the named phase. One of: "+stopPointNames()+".")
 	f.IntVar(&cfg.Retries, "retries", defaultRetries, "Model output validation retry limit. Ignored with --execute.")
 	f.StringVar(&cfg.Model, "model", "", "Model identifier. Endpoint and credentials come from environment. Ignored with --execute.")
@@ -228,6 +230,7 @@ func runGrow(ctx context.Context, out, errOut io.Writer, cfg GrowConfig, respons
 		Lang:           cfg.Lang,
 		Only:           cfg.Only,
 		DryRun:         cfg.DryRun,
+		Force:          cfg.Force,
 		StopAfterPhase: stopAfter,
 		Client:         client,
 		Retries:        cfg.Retries,
@@ -442,9 +445,19 @@ func printInjections(out io.Writer, result *pipeline.Result, dryRun bool) {
 	}
 
 	fmt.Fprintln(out)
-	var replaced, skipped int
+	var replaced, skipped, pruned, held int
 	for _, r := range result.Injections {
 		switch {
+		case r.Held:
+			held++
+			fmt.Fprintf(out, "held     %s  %s (record %s selected nothing; --force would remove it)\n", r.Path, describeRegion(r), r.Record)
+		case r.Pruned:
+			pruned++
+			if dryRun {
+				fmt.Fprintf(out, "would prune %s  %s (record %s no longer selects it)\n", r.Path, describeRegion(r), r.Record)
+			} else {
+				fmt.Fprintf(out, "pruned   %s  %s (record %s no longer selects it)\n", r.Path, describeRegion(r), r.Record)
+			}
 		case r.Skipped:
 			skipped++
 			fmt.Fprintf(out, "seeded   %s  %s (left as it is)\n", r.Path, describeRegion(r))
@@ -456,7 +469,10 @@ func printInjections(out io.Writer, result *pipeline.Result, dryRun bool) {
 		}
 	}
 	fmt.Fprintf(out, "\n%d region(s) %s, %d replaced, %d left as seeded\n",
-		len(result.Injections), verb, replaced, skipped)
+		len(result.Injections)-pruned-held, verb, replaced, skipped)
+	if pruned > 0 || held > 0 {
+		fmt.Fprintf(out, "%d region(s) pruned, %d held for --force\n", pruned, held)
+	}
 }
 
 func describeRegion(r inject.Result) string {

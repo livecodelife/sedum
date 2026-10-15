@@ -56,13 +56,11 @@ a trick — see [Recorded Executions](#recorded-executions).
 
 Two limits are worth knowing before pointing this at a real project.
 
-A path named by two provenance records is rejected, now at Phase 4's entry
-rather than at ingestion. Phase 4 makes one model call per record, so two
-records naming one file would mean two independent calls deciding one file's
-contents. Under `--execute` there is no model call, so the check does not apply
-and a recording may legitimately cover a shared file. Records that share a file
-generate correctly one at a time with `--only`, and their regions coexist and
-survive each other's reruns.
+A region belongs to the record named on its marker. Records that share a file
+grow together, but a record selecting a region another record owns is an error
+naming both: refine a region by revising its owner. And `grow` prunes the
+regions a record no longer selects, so an edited record's code follows it
+(an empty selection over owned regions needs `--force`).
 
 And a model's selection is the one part of a run that is not reproducible by
 construction. Temperature is pinned to zero, but the open-weight range this is
@@ -701,7 +699,7 @@ This is a governance position. `forbidden_scope` means Sedum does not touch what
 
 ### Phase 4 — Model invocation
 
-A path named by two records is rejected here, at the phase's entry. One model call per record means two records naming one file would be two independent calls deciding one file's contents. The check lives here rather than at ingestion because replay has no model call and so no such conflict — under `--execute` a recording may legitimately cover a shared file.
+Records that share a file are grown in one run. Ownership protects the code region by region rather than file by file: a record selecting a region another record owns is an error naming both, as is two records selecting one region in the same run (`prov-2026-375f5d4a`).
 
 One call per provenance record. The prompt contains the record's `intent`, its `constraints`, the paths created for it in Phase 3, and the action catalog — the **union of exposed actions across every package the record's paths resolved to**, with their kwarg schemas and variant lists.
 
@@ -774,7 +772,7 @@ An action targeting a marker that no file template in its package plants also wa
 
 ## Ownership and Idempotency
 
-Every injected region is wrapped in ownership markers naming the action that produced it, the ownership tier, the record that last parameterized it, the hashes of that record (`gen`) and of the action and templates it was rendered from (`pkg`), and the kwargs it was rendered from:
+Every injected region is wrapped in ownership markers naming the action that produced it, the ownership tier, the record that owns it, the hashes of that record (`gen`) and of the action and templates it was rendered from (`pkg`), and the kwargs it was rendered from:
 
 ```ruby
   # sedum:createControllerMethod:index {"tier":"owned","record":"PR-014","gen":"sha256:…","pkg":"sha256:…","kwargs":{"collection":"users","controller":"users"}}
@@ -815,9 +813,9 @@ The kwargs serialized on the opening marker make a region self-describing. A rea
 
 Nothing currently reads them back. They are written for the same reason the tier field is: markers are durable artifacts, and changing their shape after generated codebases exist is expensive.
 
-The marker carries the record ID from the first generated file — as an attribute, not as part of a region's identity. A region is identified by its action, its variant, and the kwargs it was rendered from; the record ID records who last wrote it. That distinction is what lets a later record refine a region an earlier one produced, rather than minting a second region beside it.
+The marker carries the ID of the record that **owns** the region — as an attribute, not as part of a region's identity. A region is identified by its action, its variant, and its selecting kwargs, so two records can never silently produce two copies of one definition; a record selecting a region another record owns is an error naming both, and refining a region means revising its owner (`prov-2026-375f5d4a`). A record also owns regions whose marker names one of its `aliases`.
 
-Refinement of a region across records and across runs is what that attribute is for, and it works. Two records naming **one path in one run** is a different thing and is still rejected at ingestion, because Phase 4 makes one model call per record — see the note in [Status](#status) about `--only`.
+`grow` reconciles each record it asks the model about: a region selected again is replaced in place, a new one is inserted, and an `owned` region the record no longer selects is pruned — inside Phase 7's all-or-nothing write, never touching seeded regions or other records' regions. An empty selection over owned regions is an error unless `--force`. Replay never prunes. New regions at a shared anchor are ordered by owner (`created_at`, then id), so a file regenerated from scratch is byte-identical whatever order its records grew in.
 
 ### The attribute object is the extension point
 
@@ -1012,7 +1010,8 @@ sedum grow --generators ./generators --records ./provenance --output ./build
 | `--only <id>` | Generate only the named provenance record. Repeatable. |
 | `--record <path>` | Write a recording of the run to the given path. |
 | `--execute <path>` | Replay a recording. Skips model invocation. Mutually exclusive with `--record`. |
-| `--dry-run` | Run every phase, write nothing. Reports the files that would be created and the injections that would be applied. |
+| `--dry-run` | Run every phase, write nothing. Reports the files that would be created, the injections that would be applied, and the regions that would be pruned. |
+| `--force` | Let a record whose selection comes back empty prune every region it owns. Without it that is an error. Ignored with `--execute`. |
 | `--stop-after <phase>` | Halt after the named phase. One of `resolution`, `files`, `invocations`, `expansion`. |
 | `--retries <n>` | Model output validation retry limit. Default 3. Ignored with `--execute`. |
 | `--model <name>` | Model identifier. Endpoint and credentials come from environment. Ignored with `--execute`. |

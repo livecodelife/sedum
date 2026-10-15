@@ -23,10 +23,15 @@ type GrowConfig struct {
 	Execute    string
 	DryRun     bool
 	StopAfter  string
-	Retries    int
-	Model      string
-	LogPath    string
-	Verbose    bool
+
+	// Force lets a record whose selection comes back empty remove every
+	// region it owns (prov-2026-375f5d4a).
+	Force bool
+
+	Retries int
+	Model   string
+	LogPath string
+	Verbose bool
 
 	// LocalModel is a gguf file to serve locally instead of consulting
 	// --model against a hosted or already-running endpoint. Set, it starts

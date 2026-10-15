@@ -77,6 +77,7 @@ func TestGrowFlagSurface(t *testing.T) {
 		{"record", "", "string", ""},
 		{"execute", "", "string", ""},
 		{"dry-run", "", "bool", "false"},
+		{"force", "", "bool", "false"},
 		{"stop-after", "", "string", ""},
 		{"retries", "", "int", "3"},
 		{"model", "", "string", ""},

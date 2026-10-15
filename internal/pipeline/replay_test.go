@@ -42,39 +42,6 @@ func TestPhaseOrderingReplayDependsOn(t *testing.T) {
 	}
 }
 
-// The duplicate-path check moved from ingestion to Phase 4's entry. The grow
-// path's behaviour is unchanged, and that is the test - two records naming one
-// file still halt with the same diagnostic. What changed is when: before the
-// first model call rather than before records are read (prov-2026-dc227be7).
-
-func TestTwoRecordsNamingOneFileStillHalt(t *testing.T) {
-	cfg := config(t)
-	cfg.Records = recordsDir(t, map[string]string{
-		"prov-2026-aaaaaaaa": "  - app/models/user.rb\n",
-		"prov-2026-bbbbbbbb": "  - app/models/user.rb\n",
-	})
-	client := &stub{}
-	cfg.Client = client
-
-	_, err := Run(context.Background(), cfg)
-	if err == nil {
-		t.Fatal("a path named by two records did not halt the run")
-	}
-	for _, want := range []string{"app/models/user.rb", "prov-2026-aaaaaaaa", "prov-2026-bbbbbbbb"} {
-		if !strings.Contains(err.Error(), want) {
-			t.Errorf("the diagnostic does not name %q: %v", want, err)
-		}
-	}
-
-	// The point of moving it rather than deleting it: nothing was paid for.
-	if client.calls != 0 {
-		t.Errorf("the run made %d model call(s) before halting on a duplicate path", client.calls)
-	}
-}
-
-// Records are still ingested and resolved when they share a path. The rule is
-// Phase 4's, so everything before Phase 4 has to be reachable - this is what a
-// caller supplying records purely for scope validation depends on.
 func TestADuplicatePathSurvivesEverythingBeforePhaseFour(t *testing.T) {
 	cfg := config(t)
 	cfg.Records = recordsDir(t, map[string]string{

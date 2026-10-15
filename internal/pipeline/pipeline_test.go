@@ -72,6 +72,10 @@ func recordsDir(t *testing.T, records map[string]string) string {
 // would have chosen.
 type stub struct {
 	response string
+	// sequence, when set, answers call n with sequence[n], in the order
+	// records are asked - sorted by id. It is how a test gives two records
+	// different selections.
+	sequence []string
 	calls    int
 	prompts  [][]selection.Message
 }
@@ -79,6 +83,9 @@ type stub struct {
 func (s *stub) Complete(_ context.Context, messages []selection.Message) (selection.Completion, error) {
 	s.calls++
 	s.prompts = append(s.prompts, messages)
+	if len(s.sequence) > 0 {
+		return selection.Completion{Content: s.sequence[(s.calls-1)%len(s.sequence)]}, nil
+	}
 	if s.response == "" {
 		return selection.Completion{Content: `{"invocations": []}`}, nil
 	}
@@ -1020,5 +1027,126 @@ func TestTheEightKiBBoundIsPerRecord(t *testing.T) {
 		if user := recordPrompt(t, client, file); !strings.Contains(user, own) {
 			t.Errorf("the prompt for %s lacks its own prior selections", file)
 		}
+	}
+}
+
+func fields(names ...string) string {
+	var parts []string
+	for _, n := range names {
+		parts = append(parts, `{"action": "addField", "kwargs": {"model": "user", "field": "`+n+`"}}`)
+	}
+	return `{"invocations": [` + strings.Join(parts, ", ") + `]}`
+}
+
+func userModel(t *testing.T, cfg Config) string {
+	t.Helper()
+	return readFile(t, filepath.Join(cfg.Output, "app", "models", "user.rb"))
+}
+
+// Records sharing a file grow in one run, each owning its own regions: the
+// duplicate-path check is gone and ownership works region by region
+// (prov-2026-375f5d4a).
+func TestRecordsSharingAFileGrowTogether(t *testing.T) {
+	cfg := config(t)
+	cfg.Records = recordsDir(t, map[string]string{
+		"prov-2026-aaaaaaaa": "  - app/models/user.rb\n",
+		"prov-2026-bbbbbbbb": "  - app/models/user.rb\n",
+	})
+	cfg.Client = &stub{sequence: []string{fields("email"), fields("name")}}
+
+	if _, err := Run(context.Background(), cfg); err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+	got := userModel(t, cfg)
+	for _, want := range []string{
+		`"record":"prov-2026-aaaaaaaa"`, "attribute :email",
+		`"record":"prov-2026-bbbbbbbb"`, "attribute :name",
+	} {
+		if !strings.Contains(got, want) {
+			t.Errorf("the shared file lacks %q:\n%s", want, got)
+		}
+	}
+}
+
+// Two records selecting one region in one run still halt, naming both.
+func TestTwoRecordsClaimingOneRegionHalt(t *testing.T) {
+	cfg := config(t)
+	cfg.Records = recordsDir(t, map[string]string{
+		"prov-2026-aaaaaaaa": "  - app/models/user.rb\n",
+		"prov-2026-bbbbbbbb": "  - app/models/user.rb\n",
+	})
+	cfg.Client = &stub{response: fields("email")}
+
+	_, err := Run(context.Background(), cfg)
+	if err == nil {
+		t.Fatal("two records claiming one region did not halt the run")
+	}
+	for _, want := range []string{"app/models/user.rb", "prov-2026-aaaaaaaa"} {
+		if !strings.Contains(err.Error(), want) {
+			t.Errorf("the diagnostic does not name %q: %v", want, err)
+		}
+	}
+}
+
+// Grow reconciles a record's regions: what it no longer selects is pruned,
+// an empty selection needs --force, and --only never prunes another record's
+// regions (prov-2026-375f5d4a).
+func TestGrowPrunesWhatARecordNoLongerSelects(t *testing.T) {
+	cfg := config(t)
+	cfg.Records = recordsDir(t, map[string]string{
+		"prov-2026-aaaaaaaa": "  - app/models/user.rb\n",
+		"prov-2026-bbbbbbbb": "  - app/models/user.rb\n",
+	})
+	run := func(c Config, client *stub) (*Result, error) {
+		c.Client = client
+		return Run(context.Background(), c)
+	}
+
+	if _, err := run(cfg, &stub{sequence: []string{fields("email", "name"), fields("role")}}); err != nil {
+		t.Fatalf("first grow: %v", err)
+	}
+
+	// Only record a regrows, keeping email and dropping name.
+	only := cfg
+	only.Only = []string{"prov-2026-aaaaaaaa"}
+	result, err := run(only, &stub{response: fields("email")})
+	if err != nil {
+		t.Fatalf("regrow: %v", err)
+	}
+	got := userModel(t, cfg)
+	if strings.Contains(got, "attribute :name") {
+		t.Errorf("a region its record no longer selects survived:\n%s", got)
+	}
+	for _, kept := range []string{"attribute :email", "attribute :role"} {
+		if !strings.Contains(got, kept) {
+			t.Errorf("%q was pruned, but only record a's unselected regions may be:\n%s", kept, got)
+		}
+	}
+	pruned := 0
+	for _, r := range result.Injections {
+		if r.Pruned {
+			pruned++
+		}
+	}
+	if pruned != 1 {
+		t.Errorf("result reports %d pruned regions, want 1", pruned)
+	}
+
+	// An empty reply refuses to wipe the record's code without --force.
+	before := userModel(t, cfg)
+	if _, err := run(only, &stub{}); err == nil || !strings.Contains(err.Error(), "--force") {
+		t.Fatalf("an empty selection over owned regions = %v, want an error naming --force", err)
+	}
+	if got := userModel(t, cfg); got != before {
+		t.Errorf("a refused prune changed the file:\n%s", got)
+	}
+
+	forced := only
+	forced.Force = true
+	if _, err := run(forced, &stub{}); err != nil {
+		t.Fatalf("forced grow: %v", err)
+	}
+	if got := userModel(t, cfg); strings.Contains(got, "attribute :email") || !strings.Contains(got, "attribute :role") {
+		t.Errorf("--force should prune only record a's regions:\n%s", got)
 	}
 }

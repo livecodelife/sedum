@@ -59,6 +59,13 @@ type Record struct {
 	// split into paths and patterns - because the hash is shared with every
 	// other tool that reads records, and none of them see Sedum's view.
 	Gen string
+
+	// CreatedAt and Aliases are what region ownership reads
+	// (prov-2026-375f5d4a): a record owns the regions whose marker names its
+	// id or one of its aliases - ids folded into it by migration - and owners
+	// at a shared anchor are ordered by creation date, then id.
+	CreatedAt string
+	Aliases   []string
 }
 
 // Forbids reports whether the record's forbidden_scope covers path, and returns
@@ -77,6 +84,12 @@ func (r *Record) Forbids(target string) (string, bool) {
 type Set struct {
 	// Records are the ingested records, sorted by ID.
 	Records []*Record
+
+	// Known is every record read from the directory, sorted by ID, including
+	// those --only left out. A run grows only Records, but the regions it
+	// meets may belong to any of them, and ownership and anchor order need
+	// their aliases and creation dates (prov-2026-375f5d4a).
+	Known []*Record
 }
 
 // Paths returns every literal path the set authorizes, sorted.
@@ -142,6 +155,9 @@ func Load(dir string, opts Options) (*Set, []string, error) {
 		records = append(records, rec)
 	}
 
+	known := append([]*Record(nil), records...)
+	sort.Slice(known, func(i, j int) bool { return known[i].ID < known[j].ID })
+
 	records, err = filterOnly(records, opts.Only)
 	if err != nil {
 		problems = append(problems, err)
@@ -155,7 +171,7 @@ func Load(dir string, opts Options) (*Set, []string, error) {
 	if len(problems) > 0 {
 		return nil, warnings, errors.Join(problems...)
 	}
-	return &Set{Records: records}, warnings, nil
+	return &Set{Records: records, Known: known}, warnings, nil
 }
 
 // isRecordFile reports whether a directory entry is a record. The records
@@ -176,6 +192,8 @@ type document struct {
 	Constraints    []string `yaml:"constraints"`
 	AffectedScope  []string `yaml:"affected_scope"`
 	ForbiddenScope []string `yaml:"forbidden_scope"`
+	CreatedAt      string   `yaml:"created_at"`
+	Aliases        []string `yaml:"aliases"`
 }
 
 func readRecord(full, name string) (*Record, error) {
@@ -197,6 +215,8 @@ func readRecord(full, name string) (*Record, error) {
 		Source:      name,
 		Intent:      doc.Intent,
 		Constraints: doc.Constraints,
+		CreatedAt:   doc.CreatedAt,
+		Aliases:     doc.Aliases,
 		Gen: genhash.Of(genhash.Input{
 			Intent:         doc.Intent,
 			Constraints:    doc.Constraints,
@@ -296,45 +316,6 @@ func checkForbidden(records []*Record) []error {
 		}
 	}
 	return problems
-}
-
-// CheckDuplicatePaths rejects a path named by two records.
-//
-// It is a method rather than part of ingestion because its justification is not
-// a property of records: Phase 4 makes one model call per record, so two
-// records naming one file would mean two independent invocation lists deciding
-// one file's contents. That reason holds at Phase 4's entry and nowhere else.
-//
-// Under replay there is no model call and the reason does not survive. The
-// recording already says what happens to the file, and a caller supplying
-// records purely for scope validation is asking whether paths were authorized -
-// two records legitimately refining regions in one file is what the marker's
-// record attribute exists to support. Ingesting is what ingestion does
-// (prov-2026-dc227be7).
-//
-// This is still the last point at which both record IDs are in hand to name, so
-// the diagnostic is unchanged.
-func (s *Set) CheckDuplicatePaths() error {
-	owners := map[string][]string{}
-	var order []string
-	for _, r := range s.Records {
-		for _, p := range r.Paths {
-			if len(owners[p]) == 0 {
-				order = append(order, p)
-			}
-			owners[p] = append(owners[p], r.ID)
-		}
-	}
-
-	var problems []error
-	for _, p := range order {
-		if len(owners[p]) > 1 {
-			problems = append(problems, fmt.Errorf(
-				"path %s is named by records %s; one file is generated from one record",
-				p, strings.Join(owners[p], " and ")))
-		}
-	}
-	return errors.Join(problems...)
 }
 
 // warnEmpty reports a record that authorizes only patterns. Generating nothing

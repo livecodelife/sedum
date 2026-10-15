@@ -173,21 +173,6 @@ forbidden_scope:
 	wantErr(t, err, "prov-2026-aaaaaaaa", "app/models/user.rb", "app/models/**")
 }
 
-// One file, two records means two model calls injecting into the same file,
-// which the PRD puts out of scope. The check reports both record IDs, because
-// this is still the last point at which both are in hand to name.
-func TestTwoRecordsNamingOnePathIsAnError(t *testing.T) {
-	set, _, err := Load(writeRecords(t, map[string]string{
-		"a.yml": "id: prov-2026-aaaaaaaa\naffected_scope: [app/models/user.rb]\n",
-		"b.yml": "id: prov-2026-bbbbbbbb\naffected_scope: [app/models/user.rb]\n",
-	}), Options{})
-	if err != nil {
-		t.Fatalf("load: %v", err)
-	}
-
-	wantErr(t, set.CheckDuplicatePaths(), "app/models/user.rb", "prov-2026-aaaaaaaa", "prov-2026-bbbbbbbb")
-}
-
 // Ingesting is what ingestion does. The duplicate-path rule's justification is
 // Phase 4's one-call-per-record shape, so it lives at Phase 4's entry and a
 // caller that never reaches Phase 4 is never subject to it - which is what lets
@@ -206,18 +191,30 @@ func TestIngestionDoesNotRejectADuplicatePath(t *testing.T) {
 	}
 }
 
-// A path named once is not a duplicate, and the check must not invent one out
-// of a record that lists it twice - Paths is deduplicated per record.
-func TestCheckDuplicatePathsPassesWhenEachPathHasOneOwner(t *testing.T) {
+// Ownership needs every record's aliases and creation date, including the
+// records --only leaves out, because a run meets regions any record wrote
+// (prov-2026-375f5d4a).
+func TestKnownCarriesEveryRecordWithItsOwnershipFields(t *testing.T) {
 	set, _, err := Load(writeRecords(t, map[string]string{
-		"a.yml": "id: prov-2026-aaaaaaaa\naffected_scope: [app/models/user.rb, app/models/user.rb]\n",
-		"b.yml": "id: prov-2026-bbbbbbbb\naffected_scope: [app/models/order.rb]\n",
-	}), Options{})
+		"a.yml": "id: prov-2026-aaaaaaaa\ncreated_at: \"2026-08-14\"\naliases: [prov-2026-01d01d01]\naffected_scope: [app/models/user.rb]\n",
+		"b.yml": "id: prov-2026-bbbbbbbb\ncreated_at: 2026-08-15\naffected_scope: [app/models/order.rb]\n",
+	}), Options{Only: []string{"prov-2026-bbbbbbbb"}})
 	if err != nil {
 		t.Fatalf("load: %v", err)
 	}
-	if err := set.CheckDuplicatePaths(); err != nil {
-		t.Errorf("unexpected duplicate: %v", err)
+	if len(set.Records) != 1 || set.Records[0].ID != "prov-2026-bbbbbbbb" {
+		t.Fatalf("Records = %v, want only the record --only names", set.Records)
+	}
+	if len(set.Known) != 2 {
+		t.Fatalf("Known has %d records, want every record read", len(set.Known))
+	}
+	a := set.Known[0]
+	if a.ID != "prov-2026-aaaaaaaa" || a.CreatedAt != "2026-08-14" || len(a.Aliases) != 1 || a.Aliases[0] != "prov-2026-01d01d01" {
+		t.Errorf("Known[0] = %+v, want its created_at and aliases", a)
+	}
+	// An unquoted YAML date reads as the same text.
+	if b := set.Known[1]; b.CreatedAt != "2026-08-15" {
+		t.Errorf("unquoted created_at read as %q", b.CreatedAt)
 	}
 }
 
