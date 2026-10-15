@@ -1,6 +1,6 @@
 id: prov-2026-dac49f78
 title: gen_hash comes from the shared provenance record library
-status: open
+status: implemented
 created_at: "2026-10-15"
 author: calebcowen@gmail.com
 intent: |
@@ -34,7 +34,7 @@ supersedes: ""
 superseded_by: ""
 related:
   - prov-2026-66bea9f3
-sealed_at_sha: ""
+sealed_at_sha: ed6b10ad26f0b9d6f3229d9e2d5b68fdab5ecd42
 associated_specs:
   - path: internal/genhash/genhash_test.go
     run_command: go test ./$(dirname {{path}})
