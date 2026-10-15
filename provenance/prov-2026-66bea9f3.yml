@@ -1,6 +1,6 @@
 id: prov-2026-66bea9f3
 title: Markers carry gen and pkg hashes as first-class attributes
-status: draft
+status: open
 created_at: "2026-10-15"
 author: calebcowen@gmail.com
 intent: |
@@ -80,7 +80,15 @@ related:
   - prov-2026-c6580f1e
   - prov-2026-36c8a99c
 sealed_at_sha: ""
-associated_specs: []
+associated_specs:
+  - path: internal/genhash/genhash_test.go
+    run_command: go test ./$(dirname {{path}})
+  - path: internal/genpkg/pkghash_test.go
+    run_command: go test ./$(dirname {{path}})
+  - path: internal/inject/conformance_test.go
+    run_command: go test ./$(dirname {{path}})
+  - path: internal/pipeline/pipeline_test.go
+    run_command: go test ./$(dirname {{path}})
 associated_traces: []
 monitors: []
 tags: []
