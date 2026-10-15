@@ -65,6 +65,9 @@ affected_scope:
   - internal/pipeline/pipeline.go
   - internal/pipeline/replay.go
   - internal/pipeline/*_test.go
+  - internal/pipeline/capture.go
+  - internal/recording/recording.go
+  - internal/recording/*_test.go
   - conformance/README.md
   - conformance/markers/cases.json
   - conformance/pkghash/cases.json
