@@ -1,0 +1,43 @@
+id: prov-2026-dac49f78
+title: gen_hash comes from the shared provenance record library
+status: draft
+created_at: "2026-10-15"
+author: calebcowen@gmail.com
+intent: |
+  Phase 1's done-check is that linespec and sedum compute identical hashes, and
+  the way to guarantee it is one implementation. prov-2026-66bea9f3 put
+  gen_hash behind internal/genhash with an interim copy of the canonical
+  encoding; the shared record library now exists
+  (github.com/livecodelife/provenance, package record, GenHash(GenInput)), so
+  genhash.Of delegates to record.GenHash and the interim encoding is deleted.
+  Requested by provisio-mgr in #provisio (2026-10-15).
+
+  The library is not published, so go.mod requires it at a placeholder
+  version with a replace directive to the sibling checkout (../provenance).
+  That builds only where the provenance repo sits beside sedum: CI and release
+  check out sedum alone and would fail, so grow-prep must not reach main until
+  the library has a fetchable version and the replace is dropped. This is the
+  brief's stated plan, recorded so the cost is a decision rather than a
+  surprise.
+constraints:
+  - genhash.Input and genhash.Of keep their signatures; no caller outside internal/genhash changes.
+  - The interim canonical encoding and its shared-corpus test are deleted; the library's own conformance tests own that corpus. The oracle-vector test stays as a check on the seam.
+  - go.mod adds github.com/livecodelife/provenance with replace => ../provenance; golang.org/x/text moves only as far as minimum version selection requires, without raising the go directive.
+  - grow-prep is not merged to main while the replace points at a local path.
+affected_scope:
+  - internal/genhash/*.go
+  - go.mod
+  - go.sum
+forbidden_scope: []
+type: blueprint
+supersedes: ""
+superseded_by: ""
+related:
+  - prov-2026-66bea9f3
+sealed_at_sha: ""
+associated_specs:
+  - path: internal/genhash/genhash_test.go
+    run_command: go test ./$(dirname {{path}})
+associated_traces: []
+monitors: []
+tags: []
