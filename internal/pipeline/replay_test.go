@@ -397,3 +397,30 @@ func TestReplayGenPrecedence(t *testing.T) {
 		}
 	})
 }
+
+// Replay without --records lays out a shared anchor exactly as the grow it
+// recorded did, even when created_at order and id order disagree, because the
+// recording carries each record's created_at (prov-2026-43b7ec39).
+func TestReplayOrdersASharedAnchorLikeGrow(t *testing.T) {
+	cfg := config(t)
+	cfg.Records = writeTree(t, map[string]string{
+		// Created later, sorts first by id.
+		"prov-2026-aaaaaaaa.yml": "id: prov-2026-aaaaaaaa\ncreated_at: \"2026-09-01\"\nintent: |\n  Something.\naffected_scope:\n  - app/models/user.rb\n",
+		"prov-2026-bbbbbbbb.yml": "id: prov-2026-bbbbbbbb\ncreated_at: \"2026-08-01\"\nintent: |\n  Something.\naffected_scope:\n  - app/models/user.rb\n",
+	})
+	cfg.Client = &stub{sequence: []string{fields("email"), fields("name")}}
+	rec, grown := recorded(t, cfg)
+
+	grownModel := readFile(t, filepath.Join(grown, "app", "models", "user.rb"))
+	if strings.Index(grownModel, "attribute :name") > strings.Index(grownModel, "attribute :email") {
+		t.Fatalf("grow should put the earlier-created record's region first:\n%s", grownModel)
+	}
+
+	rcfg := replayConfig(t, cfg)
+	if _, err := Replay(rec, rcfg); err != nil {
+		t.Fatalf("Replay: %v", err)
+	}
+	if got := readFile(t, filepath.Join(rcfg.Output, "app", "models", "user.rb")); got != grownModel {
+		t.Errorf("replay laid out the shared anchor differently:\n got %q\nwant %q", got, grownModel)
+	}
+}

@@ -191,7 +191,7 @@ func Replay(rec recording.Recording, cfg ReplayConfig) (*Result, error) {
 		DryRun:    cfg.DryRun,
 		Unwritten: unwrittenFiles(cfg.DryRun, files),
 		Log:       log,
-		Owners:    ownersOf(result.Records),
+		Owners:    replayOwners(rec, result.Records),
 	})
 	if err != nil {
 		return nil, err
@@ -413,4 +413,20 @@ func replayGen(rec recording.Recording, records *record.Set, recordID string) st
 		}
 	}
 	return genOf(records, recordID)
+}
+
+// replayOwners is the owner table replay orders shared anchors by: the
+// recording's own records with the creation dates they were captured with,
+// overlaid by --records when given, which knows every record and its aliases
+// (prov-2026-43b7ec39). Without it, replay would order owners by id alone and
+// could lay out a shared anchor differently from the grow it recorded.
+func replayOwners(rec recording.Recording, records *record.Set) map[string]inject.Owner {
+	out := map[string]inject.Owner{}
+	for _, r := range rec.Records {
+		out[r.RecordID] = inject.Owner{ID: r.RecordID, CreatedAt: r.CreatedAt}
+	}
+	for id, owner := range ownersOf(records) {
+		out[id] = owner
+	}
+	return out
 }

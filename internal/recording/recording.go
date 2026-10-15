@@ -64,9 +64,14 @@ type Record struct {
 	// record's content, so it is not a volatile field. Additive and omitted
 	// when empty: a recording without it reads exactly as before, and replay
 	// then takes gen from --records, or writes none.
-	Gen    string  `json:"gen,omitempty"`
-	Files  []File  `json:"files"`
-	Phases []Phase `json:"phases"`
+	Gen string `json:"gen,omitempty"`
+	// CreatedAt is the record's creation date, which orders owners at a shared
+	// anchor. Recorded so that replay without --records lays a shared anchor
+	// out exactly as the grow it recorded did (prov-2026-43b7ec39). Optional
+	// and omitted when empty, like gen.
+	CreatedAt string  `json:"created_at,omitempty"`
+	Files     []File  `json:"files"`
+	Phases    []Phase `json:"phases"`
 }
 
 // File is one authorized path with the resolution decided for it: which package
