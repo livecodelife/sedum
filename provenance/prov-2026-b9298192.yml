@@ -1,6 +1,6 @@
 id: prov-2026-b9298192
 title: Recordings carry each record's gen so replay reproduces grow
-status: draft
+status: open
 created_at: "2026-10-15"
 author: calebcowen@gmail.com
 intent: |
