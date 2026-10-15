@@ -13,6 +13,17 @@ func TestOfMatchesTheCanonicalEncoding(t *testing.T) {
 		want string
 	}{
 		{
+			// The worked example of HASHING.md section 5, as the shared
+			// corpus pins it (gen/example-from-spec). It keeps the seam itself
+			// tested against a value the library's authors published.
+			name: "the shared corpus's worked example",
+			in: Input{
+				Intent:      "Users can\nsign in.\n",
+				Constraints: []string{"No  passwords "},
+			},
+			want: "sha256:68d37480ba807fe51b98239aa22a2334f50254d0cab63d313f278f8733624e1f",
+		},
+		{
 			name: "an empty record hashes its empty fields, not nothing",
 			in:   Input{},
 			want: "sha256:7923a2ea36ef30a60c1a9cee38850f45e9dc2c661e1a7f052d4e03f784e69b7d",
