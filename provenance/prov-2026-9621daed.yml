@@ -76,6 +76,7 @@ constraints:
   - --record makes grow re-select every record, and the run report says it did.
   - Replay (--execute) is unchanged; it never classifies or skips.
   - --dry-run reports each record's classification alongside what it would write.
+  - grow's --check and --force help text say that re-render replays marker kwargs verbatim, so a changed kwarg default or --var value needs --force (provisio-mgr, #provisio 2026-10-15).
   - The PRD and README describe the table above, --check's output and exit status, --force, --record's re-select, and the kwarg-default / --var limit.
 affected_scope:
   - internal/pipeline/pipeline.go
