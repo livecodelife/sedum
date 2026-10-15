@@ -681,6 +681,7 @@ This makes three things possible. Runs become reproducible in the strong sense �
     {
       "record_id": "PR-014",
       "gen": "sha256:…",
+      "created_at": "2026-08-14",
       "files": [
         {
           "path": "app/controllers/users_controller.rb",
@@ -716,6 +717,8 @@ The grouping exists because recordings are committed artifacts. A team's standar
 Invocations are recorded **pre-expansion**. A composite is stored as the composite, not as its children, because expansion is deterministic and re-running it costs nothing. This keeps recordings compact and keeps them at the abstraction level an author edits in — changing a `createMethod` call means editing one entry, not keeping two injections in sync.
 
 A record's `gen` is the `gen_hash` of the record version its invocations were selected from. It is optional: replay writes the recorded value on every marker, takes it from `--records` when the recording has none, and otherwise writes none (`prov-2026-b9298192`). The recorded value wins even when the record has changed since, because it is the version the selection was made against; a later `grow` sees the change and re-selects.
+
+A record's `created_at` is recorded too, also optional, because owners at a shared anchor are ordered by it: replay takes it from the recording, overlaid by `--records` when given, so a replay without `--records` lays out a shared anchor exactly as the grow it recorded (`prov-2026-43b7ec39`).
 
 Recordings carry no timestamps, run identifiers, or other volatile fields. Two recordings of equivalent runs should diff cleanly, so that a change in model output is visible as a change in the file.
 
