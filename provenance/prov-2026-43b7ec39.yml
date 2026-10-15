@@ -1,6 +1,6 @@
 id: prov-2026-43b7ec39
 title: Recordings carry each record's created_at so replay orders shared anchors like grow
-status: open
+status: implemented
 created_at: "2026-10-15"
 author: calebcowen@gmail.com
 intent: |
@@ -33,7 +33,7 @@ implements: prov-2026-375f5d4a
 supersedes: ""
 superseded_by: ""
 related: []
-sealed_at_sha: ""
+sealed_at_sha: e550f00c9c07ebe67829af7ccab00e9855496d69
 associated_specs:
   - path: internal/pipeline/replay_test.go
     run_command: go test ./$(dirname {{path}})
