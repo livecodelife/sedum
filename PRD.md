@@ -565,10 +565,10 @@ Marker comments are the load-bearing case. Marker syntax uses the package's decl
 
 ## Ownership and Idempotency
 
-Every injected region is wrapped in ownership markers naming the action that produced it, the ownership tier, the record that last parameterized it, and the kwargs it was rendered from:
+Every injected region is wrapped in ownership markers naming the action that produced it, the ownership tier, the record that last parameterized it, the hashes of that record and of the package it was rendered from, and the kwargs it was rendered from:
 
 ```ruby
-# sedum:createControllerMethod:index {"tier":"owned","record":"PR-014","kwargs":{"controller":"users","collection":"users"}}
+# sedum:createControllerMethod:index {"tier":"owned","record":"PR-014","gen":"sha256:…","pkg":"sha256:…","kwargs":{"controller":"users","collection":"users"}}
 def index
   @users = User.all
   render json: @users
@@ -596,9 +596,20 @@ Two promises follow, and Sedum keeps both:
 
 The second promise is what makes the attribute object usable by anything other than Sedum. A tool built above Sedum annotates a region with its own state under its own keys, and that state is still there after the next run — without a schema change and without a sidecar file keyed by region, which would reintroduce exactly the maintained state markers exist to avoid.
 
-Preservation is transparent. Sedum does not read, validate, interpret, or reorder an unrecognised key, and a carried key may not shadow one Sedum models. The keys Sedum models are `tier`, `record`, `writer`, and `kwargs`.
+Preservation is transparent. Sedum does not read, validate, interpret, or reorder an unrecognised key, and a carried key may not shadow one Sedum models. The keys Sedum models are `tier`, `record`, `gen`, `pkg`, `writer`, and `kwargs`, emitted in that order.
 
 `writer` names the tool that last wrote the region. It is absent when that tool is Sedum, so every marker written before the key existed reads correctly. It exists because a demoted tier is otherwise unattributable — a region reading `seeded` gives no way to tell whether a package author declared it or another tool demoted it — and because Phase 3's *"something other than Sedum wrote it"* diagnostic is undiagnosable in a two-writer world without it.
+
+### The gen and pkg hashes
+
+`gen` and `pkg` say whether a region is current, from the marker alone, so that a later `grow` can decide per record whether to skip, re-render, or re-select without a manifest or lockfile (`prov-2026-66bea9f3`).
+
+- **`gen`** is the `gen_hash` of the record that wrote the region, as it was at write time: SHA-256 over the canonical encoding of exactly the fields Sedum reads — `intent`, `constraints`, `affected_scope`, `forbidden_scope`. Status, sealing and every other field stay out, so a lifecycle change never looks like a content change. The encoding is defined by the shared provenance record library and its corpus (`conformance/hashing/cases.json` in the provenance repository), not by Sedum.
+- **`pkg`** is the hash of everything that decides what the action renders for fixed kwargs: its resolved declaration (kwargs with types, required flags and defaults; discriminator; variants; `injects_into`; anchor fields; identity), the content of each of its templates, and the package's `transforms` and `op_exceptions`. Descriptions are left out, because they reach the model and never the renderer. A region written by a composite carries its child's `pkg`, since the marker names the child. The encoding is pinned in `conformance/pkghash/cases.json`.
+
+Both are written as `sha256:` and 64 lowercase hex digits, and both are omitted when empty, so a marker written before they existed is unchanged by being read and rewritten. **Empty means unknown, and unknown must be read as stale, never as current.** A replay with no recorded `gen` and no `--records` writes none. Neither hash takes part in a region's identity: a hash says which version of a region this is, never which region.
+
+The inflection table ships with Sedum rather than with a package, so an upgrade that changes an irregular plural is not reflected in `pkg`.
 
 No version token. Additive evolution is already free under the object, and a token earns its place only for a breaking change, meaning an existing field whose meaning changes.
 
@@ -659,6 +670,7 @@ This makes three things possible. Runs become reproducible in the strong sense �
   "records": [
     {
       "record_id": "PR-014",
+      "gen": "sha256:…",
       "files": [
         {
           "path": "app/controllers/users_controller.rb",
@@ -692,6 +704,8 @@ Invocations are grouped under `phases` rather than listed flat. Every recording 
 The grouping exists because recordings are committed artifacts. A team's standard service scaffold lives in version control, and changing the schema after those files exist means migrating them. Reserving the level costs one array nesting; adding it later costs a migration.
 
 Invocations are recorded **pre-expansion**. A composite is stored as the composite, not as its children, because expansion is deterministic and re-running it costs nothing. This keeps recordings compact and keeps them at the abstraction level an author edits in — changing a `createMethod` call means editing one entry, not keeping two injections in sync.
+
+A record's `gen` is the `gen_hash` of the record version its invocations were selected from. It is optional: replay writes the recorded value on every marker, takes it from `--records` when the recording has none, and otherwise writes none (`prov-2026-b9298192`). The recorded value wins even when the record has changed since, because it is the version the selection was made against; a later `grow` sees the change and re-selects.
 
 Recordings carry no timestamps, run identifiers, or other volatile fields. Two recordings of equivalent runs should diff cleanly, so that a change in model output is visible as a change in the file.
 
@@ -772,7 +786,7 @@ This is also what keeps Sedum independently runnable. Committing a recording as 
 
 ### The conformance corpus
 
-The rules below are prose, and prose constraining a durable on-disk format with more than one writer is the kind of constraint that gets discovered rather than followed. `conformance/markers/cases.json` states the checkable ones as data: golden marker lines, their expected parse results, and the expected **bytes** after emitting, re-emitting, and replacing.
+The rules below are prose, and prose constraining a durable on-disk format with more than one writer is the kind of constraint that gets discovered rather than followed. `conformance/markers/cases.json` states the checkable ones as data: golden marker lines, their expected parse results, and the expected **bytes** after emitting, re-emitting, and replacing. `conformance/pkghash/cases.json` pins the `pkg` hash's encoding, so a tool above Sedum can tell a region rendered from an older package without linking Sedum.
 
 The marker is the only format in this table that a foreign tool writes into files Sedum will later re-read and rewrite with no validation gate in between. A misread `sedum.yaml` fails on the reader's side; a malformed recording is refused terminally at ingestion. A malformed marker corrupts state silently, and the first breakage looks like a bug in Sedum.
 

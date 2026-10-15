@@ -774,10 +774,10 @@ An action targeting a marker that no file template in its package plants also wa
 
 ## Ownership and Idempotency
 
-Every injected region is wrapped in ownership markers naming the action that produced it, the ownership tier, the record that last parameterized it, and the kwargs it was rendered from:
+Every injected region is wrapped in ownership markers naming the action that produced it, the ownership tier, the record that last parameterized it, the hashes of that record (`gen`) and of the action and templates it was rendered from (`pkg`), and the kwargs it was rendered from:
 
 ```ruby
-  # sedum:createControllerMethod:index {"tier":"owned","record":"PR-014","kwargs":{"collection":"users","controller":"users"}}
+  # sedum:createControllerMethod:index {"tier":"owned","record":"PR-014","gen":"sha256:…","pkg":"sha256:…","kwargs":{"collection":"users","controller":"users"}}
 def index
   @users = User.all
   render json: @users
@@ -837,7 +837,7 @@ Rerun that region and `verified_by` is still there. This is the half that does n
 
 That promise is what makes the object usable by anything other than Sedum. A tool built above Sedum records its own per-region state under its own keys and finds it intact after the next run, with no schema change and no sidecar file keyed by region — which would reintroduce exactly the maintained state markers exist to avoid.
 
-Preservation is transparent: Sedum does not read, validate, interpret, or reorder a carried key, and a carried key may not shadow one Sedum models. The modelled keys are `tier`, `record`, `writer`, and `kwargs`. Carried keys are written after them in sorted order, so a marker with none is byte-identical to one written before any of this existed.
+Preservation is transparent: Sedum does not read, validate, interpret, or reorder a carried key, and a carried key may not shadow one Sedum models. The modelled keys are `tier`, `record`, `gen`, `pkg`, `writer`, and `kwargs`. `gen` and `pkg` are omitted when unknown, and unknown must be read as stale; see the PRD's *The gen and pkg hashes*. Carried keys are written after them in sorted order, so a marker with none is byte-identical to one written before any of this existed.
 
 `writer` names the tool that last wrote the region, and is omitted when that tool is Sedum. It exists because a demoted tier is otherwise unattributable — a region reading `seeded` cannot say whether a package author declared it or another tool demoted it.
 

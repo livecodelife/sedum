@@ -4,7 +4,7 @@ Golden cases for the file formats Sedum shares with other tools, so that a tool
 Sedum's authors did not write can check that it has complied rather than
 discovering the rules one breakage at a time.
 
-Today it covers one format: the **ownership marker**.
+It covers the **ownership marker**, and the **`pkg` hash** a marker carries.
 
 ## Why the marker and nothing else yet
 
@@ -49,6 +49,38 @@ and, depending on `kind`:
 
 `parsed.extra` and `marker.extra` hold the attribute keys the format does not
 model. Compare them as JSON values, not as text.
+
+## `pkghash/cases.json`
+
+The `pkg` attribute on a marker is the hash of everything that decides what an
+action renders for fixed kwargs (`prov-2026-66bea9f3`). A tool deciding whether
+a region was rendered from an older package needs to compute it, and must not
+have to link Sedum to do so. Each case carries:
+
+| Field | Meaning |
+|---|---|
+| `files` | A complete generator package, keyed by path under the generators directory. |
+| `action` | The action whose hash the case pins. |
+| `canonical` | The exact bytes hashed. |
+| `pkg` | `sha256:` and the lowercase hex SHA-256 of `canonical`. |
+
+`canonical` is one JSON object with byte-sorted keys and no insignificant
+whitespace, escaping only `"`, `\`, and U+0000–U+001F, which are always
+written `\u00xx` in lowercase hex — the same rules as the shared `gen_hash`
+encoding, so a reader learns one encoding. Its keys:
+
+- `format`: `"sedum.pkg/1"`
+- `action`: `name`; `kwargs` as `{name: {type, required, default}}` with an
+  undeclared default as `null`; `discriminator`; `variants` in declared order;
+  `injects_into`; `anchor`, `anchor_start`, `anchor_end`, `anchor_pattern`;
+  `identity`. Absent strings are `""` and absent lists `[]`.
+- `templates`: each template's content keyed by variant name, `_default`
+  included, or by `""` for a simple action
+- `transforms` and `op_exceptions`: the package's, as declared
+
+Descriptions are left out, of the action and of each kwarg: they reach the
+model, never the renderer. The expected values were computed by an
+independent Python implementation of the description above, not by Sedum.
 
 ## Running it
 
