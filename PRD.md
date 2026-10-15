@@ -659,6 +659,28 @@ Replay (`--execute`) checks ownership but never prunes: a recording may be parti
 
 **Order at a shared anchor.** A new region goes after every region at its anchor whose owner sorts at or before its own owner, and before the rest. Owners sort by the record's `created_at`, then id; a region naming no record sorts first, and an owner the run does not know sorts by id alone. One owner's regions keep the order they were applied in, and no existing region is moved, so regenerating a file from scratch reproduces it byte for byte whatever order its records were grown in.
 
+### What grow does per record
+
+`grow` is safe to run on every record, every time (`prov-2026-9621daed`). After Phase 3 it reads the regions each record owns in the managed files it authorizes and decides, from the markers alone:
+
+| The record's owned regions | `grow` | Model call |
+| --- | --- | --- |
+| none yet | select (a normal grow) | yes |
+| some region's `gen` differs from the record's, or is unknown | re-select, then reconcile | yes |
+| `--force`, or `--record` | re-select, then reconcile | yes |
+| every `gen` and every `pkg` matches | skip: nothing expanded, no file written | no |
+| every `gen` matches, some `pkg` differs | re-render those regions in place from their markers | no |
+
+A re-rendered region is rebuilt from the action and kwargs on its own marker, which is a one-line recording; nothing is pruned, because nothing was re-selected. A region that can no longer be re-rendered - its action is gone, or it would now render into another file - sends its record to re-select instead. Seeded regions decide nothing and are never rewritten, but a seeded region whose record's `gen` has moved is reported so a person can look.
+
+So a second `grow` over unchanged records makes no model call and writes no file.
+
+**`--check`** classifies every record the same way and reports it as current, stale, to re-render, or unknown (no regions yet), with no model call and nothing written, Phase 3's files included. It exits non-zero when any record is stale or needs re-rendering; unknown does not fail. It suits CI and pre-commit hooks, and cannot be combined with `--execute`, `--record`, `--dry-run`, `--force` or `--stop-after`.
+
+**`--record` re-selects every record.** A recording captures selections, and a record that was skipped or re-rendered made none. Its invocations cannot be rebuilt from markers either: a composite's regions name its unexposed children, which recording validation rejects.
+
+**A limit, by decision.** A marker records every kwarg its region was rendered from, including package defaults and `--var` values bound at the time. Re-rendering replays them verbatim, and neither `gen` nor `pkg` covers them, so a changed kwarg default or `--var` value reaches an existing region only with `--force`.
+
 ---
 
 ## Recorded Executions
@@ -837,10 +859,11 @@ sedum grow --generators ./generators --records ./provenance --output ./build
 | `--lang <name>` | Prefer the named package where an extension is contested. Repeatable. |
 | `--only <id>` | Generate only the named provenance record. Repeatable. |
 | `--var <name>=<value>` | Bind a variable a generator package declares. Repeatable. |
-| `--record <path>` | Write a recording of the run to the given path. |
+| `--record <path>` | Write a recording of the run to the given path. Re-selects every record, so the recording holds a selection for each. |
 | `--execute <path>` | Replay a recording. Skips model invocation. Mutually exclusive with `--record`. |
 | `--dry-run` | Run every phase, write nothing. Reports the files that would be created, the injections that would be applied, and the regions that would be pruned. |
-| `--force` | Let a record whose selection comes back empty prune every region it owns. Without it that is an error. Ignored with `--execute`. |
+| `--force` | Re-select every record even when its markers say it is current, and let a record whose selection comes back empty prune every region it owns (without `--force` that is an error). Ignored with `--execute`. |
+| `--check` | Report each record as current, stale, to re-render, or unknown, from its markers. No model call, nothing written; exits non-zero when any record is stale or needs re-rendering. |
 | `--stop-after <phase>` | Halt after the named phase. One of `resolution`, `files`, `invocations`, `expansion`. |
 | `--retries <n>` | Model output validation retry limit. Default 3. Ignored with `--execute`. |
 | `--model <name>` | Model identifier. Endpoint and credentials come from environment. Ignored with `--execute`. Mutually exclusive with `--local-model`. |

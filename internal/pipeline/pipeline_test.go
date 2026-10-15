@@ -426,7 +426,10 @@ func TestDryRunReadsFilesThatAreAlreadyThere(t *testing.T) {
 	}
 	before := readFile(t, filepath.Join(cfg.Output, "app/models/user.rb"))
 
+	// The record is unchanged, so without Reselect it would be skipped
+	// (prov-2026-9621daed); this test is about what a dry run reads.
 	cfg.DryRun = true
+	cfg.Reselect = true
 	result, err := Run(context.Background(), cfg)
 	if err != nil {
 		t.Fatalf("dry run: %v", err)
@@ -1109,6 +1112,9 @@ func TestGrowPrunesWhatARecordNoLongerSelects(t *testing.T) {
 	// Only record a regrows, keeping email and dropping name.
 	only := cfg
 	only.Only = []string{"prov-2026-aaaaaaaa"}
+	// The record is unchanged, so it is re-selected explicitly: what is under
+	// test is reconciling a selection that differs (prov-2026-9621daed).
+	only.Reselect = true
 	result, err := run(only, &stub{response: fields("email")})
 	if err != nil {
 		t.Fatalf("regrow: %v", err)

@@ -66,8 +66,18 @@ type Config struct {
 	// Force lets a record whose selection came back empty prune every region
 	// it owns. Without it that is an error, because an empty reply is more
 	// often a flaky model than an intent to delete a record's code
-	// (prov-2026-375f5d4a).
+	// (prov-2026-375f5d4a). It also re-selects every record whatever its
+	// hashes say (prov-2026-9621daed).
 	Force bool
+
+	// Reselect re-selects every record whatever its hashes say, without
+	// Force's licence to prune on an empty selection. A recording run sets
+	// it: a recording captures selections, and a skipped record makes none.
+	Reselect bool
+
+	// Check classifies every record and stops: no model call, and nothing
+	// written, Phase 3's files included (prov-2026-9621daed).
+	Check bool
 
 	// StopAfterPhase halts the run after the named phase. Zero runs every
 	// phase, since Phase 0 is not a stop point.
@@ -139,6 +149,22 @@ type Result struct {
 	// StoppedAfter is the phase the run halted at, or zero if it ran to the
 	// end.
 	StoppedAfter int
+
+	// Classifications are what grow decided for each record from its markers
+	// - select, re-select, skip or re-render - and why (prov-2026-9621daed).
+	// Nil when the run stopped before they were made.
+	Classifications []Classification
+}
+
+// CheckFailed reports whether --check fails: some record is stale or needs
+// re-rendering. A record with no regions is unknown and does not fail.
+func (r *Result) CheckFailed() bool {
+	for _, c := range r.Classifications {
+		if c.Failing() {
+			return true
+		}
+	}
+	return false
 }
 
 // Selection is one record's validated invocation list, with the files it was
@@ -251,10 +277,12 @@ func Run(ctx context.Context, cfg Config) (*Result, error) {
 		return result, nil
 	}
 
-	// Phase 3 - create files from templates.
+	// Phase 3 - create files from templates. --check writes nothing, so it
+	// takes Phase 3's dry-run path and reads what would have been written.
+	writeless := cfg.DryRun || cfg.Check
 	files, err := resolve.Create(resolutions, resolve.Options{
 		Output:    cfg.Output,
-		DryRun:    cfg.DryRun,
+		DryRun:    writeless,
 		Variables: variables,
 		Log:       log,
 	})
@@ -268,13 +296,32 @@ func Run(ctx context.Context, cfg Config) (*Result, error) {
 		return result, nil
 	}
 
+	// Classify each record from its markers: select, re-select, skip, or
+	// re-render. Only the first two reach the model (prov-2026-9621daed).
+	owners := ownersOf(records)
+	classes, err := classify(records, files, owners, cfg.Output, unwrittenFiles(writeless, files), cfg.Force || cfg.Reselect)
+	if err != nil {
+		return nil, err
+	}
+	result.Classifications = classes
+	needsModel := map[string]bool{}
+	for _, c := range classes {
+		needsModel[c.RecordID] = c.needsModel()
+		log.Info("classified record", "record", c.RecordID, "mode", c.Mode.String(),
+			"stale", len(c.Stale), "rerender", len(c.Rerender), "stale_seeded", len(c.StaleSeeded))
+	}
+	if cfg.Check {
+		log.Info("check complete; nothing written")
+		return result, nil
+	}
+
 	// Phases 4 and 5 - one model call per record, and deterministic
 	// validation of what it returned.
 	//
 	// Per record rather than per run, because a record is the unit of intent:
 	// its constraints govern its own paths, and one call deciding two records'
 	// files would make each record's constraints apply to the other's.
-	selections, err := selectAll(ctx, cfg, records, files, variables, log)
+	selections, err := selectAll(ctx, cfg, records, files, variables, needsModel, log)
 	if err != nil {
 		return nil, err
 	}
@@ -299,6 +346,14 @@ func Run(ctx context.Context, cfg Config) (*Result, error) {
 			"selected", len(s.Invocations), "resolved", len(expanded))
 		resolved = append(resolved, expanded...)
 	}
+	// A re-rendered record's invocations were built from its markers during
+	// classification; they replace its pkg-stale regions in place.
+	for _, c := range classes {
+		if c.Mode == ModeRerender {
+			log.Info("re-rendering regions from their markers", "record", c.RecordID, "regions", len(c.rerendered))
+			resolved = append(resolved, c.rerendered...)
+		}
+	}
 
 	if cfg.StopAfterPhase == PhaseExpand {
 		log.Info("stopping after expansion")
@@ -314,8 +369,8 @@ func Run(ctx context.Context, cfg Config) (*Result, error) {
 		DryRun:    cfg.DryRun,
 		Unwritten: unwrittenFiles(cfg.DryRun, files),
 		Log:       log,
-		Owners:    ownersOf(records),
-		Reconcile: reconcileOf(selections),
+		Owners:    owners,
+		Reconcile: reconcileOf(selections, needsModel),
 		Force:     cfg.Force,
 	})
 	if err != nil {
@@ -331,7 +386,7 @@ func Run(ctx context.Context, cfg Config) (*Result, error) {
 // a model call. Its catalog would be empty, so the only valid answer is an
 // empty list, and paying for a call to be told so would be a cost the run can
 // see is pointless before it is incurred.
-func selectAll(ctx context.Context, cfg Config, records *record.Set, files []resolve.File, variables map[string]string, log *runlog.Log) ([]Selection, error) {
+func selectAll(ctx context.Context, cfg Config, records *record.Set, files []resolve.File, variables map[string]string, needsModel map[string]bool, log *runlog.Log) ([]Selection, error) {
 	// No duplicate-path check: records sharing a file are reconciled region
 	// by region in Phase 7, where a record selecting a region another record
 	// owns is the error (prov-2026-375f5d4a).
@@ -352,6 +407,14 @@ func selectAll(ctx context.Context, cfg Config, records *record.Set, files []res
 
 	for _, rec := range records.Records {
 		mine := filesOf(files, rec.ID)
+		if anyManaged(mine) && !needsModel[rec.ID] {
+			// Classified skip or re-render: everything it needs is on its
+			// markers (prov-2026-9621daed).
+			log.Info("no model call for record", "record", rec.ID,
+				"reason", "its regions are current against the record")
+			out = append(out, Selection{RecordID: rec.ID, Files: mine})
+			continue
+		}
 		if !anyManaged(mine) {
 			log.Info("no model call for record", "record", rec.ID,
 				"reason", "no path it authorized is written by a generator package")
@@ -475,22 +538,15 @@ func ownersOf(records *record.Set) map[string]inject.Owner {
 
 // reconcileOf names the records whose owned regions Phase 7 reconciles: every
 // record the model was asked about, over the managed files it authorizes. A
-// record skipped without a model call made no selection, so it reconciles
-// nothing.
-func reconcileOf(selections []Selection) []inject.Reconcile {
+// record that made no selection - nothing to grow, skipped, or re-rendered -
+// reconciles nothing.
+func reconcileOf(selections []Selection, needsModel map[string]bool) []inject.Reconcile {
 	var out []inject.Reconcile
 	for _, s := range selections {
-		if !anyManaged(s.Files) {
+		if !anyManaged(s.Files) || !needsModel[s.RecordID] {
 			continue
 		}
-		rec := inject.Reconcile{RecordID: s.RecordID}
-		for _, f := range s.Files {
-			if f.Unmanaged || f.Package == nil {
-				continue
-			}
-			rec.Targets = append(rec.Targets, inject.Target{Path: f.Path, Package: f.Package})
-		}
-		out = append(out, rec)
+		out = append(out, inject.Reconcile{RecordID: s.RecordID, Targets: targetsOf(s.Files)})
 	}
 	return out
 }

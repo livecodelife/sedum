@@ -76,7 +76,12 @@ Nothing is created that a provenance record did not authorize.`,
 	f.StringVar(&cfg.Execute, "execute", "", "Replay a recording. Skips model invocation.")
 	f.BoolVar(&cfg.DryRun, "dry-run", false, "Run every phase, write nothing.")
 	f.BoolVar(&cfg.Force, "force", false,
-		"Let a record whose selection comes back empty remove every region it owns. Without it that is an error. Ignored with --execute.")
+		"Re-select every record even when its markers say it is current, and let a record whose selection comes back empty "+
+			"remove every region it owns (without --force that is an error). Re-rendering replays the kwargs on each marker verbatim, so a changed kwarg default or --var value reaches an existing region only with --force. Ignored with --execute.")
+	f.BoolVar(&cfg.Check, "check", false,
+		"Report which records are current, stale, need re-rendering, or have no regions yet (unknown), from their markers. "+
+			"No model call, nothing written. Exits non-zero when any record is stale or needs re-rendering; unknown does not fail. "+
+			"Re-rendering replays the kwargs on each marker verbatim, so a changed kwarg default or --var value reaches an existing region only with --force. Cannot be combined with --execute, --record, --dry-run, --force or --stop-after.")
 	f.StringVar(&cfg.StopAfter, "stop-after", "", "Halt after the named phase. One of: "+stopPointNames()+".")
 	f.IntVar(&cfg.Retries, "retries", defaultRetries, "Model output validation retry limit. Ignored with --execute.")
 	f.StringVar(&cfg.Model, "model", "", "Model identifier. Endpoint and credentials come from environment. Ignored with --execute.")
@@ -135,6 +140,10 @@ func runGrow(ctx context.Context, out, errOut io.Writer, cfg GrowConfig, respons
 		stopAfter, name = sp.afterPhase, sp.name
 	}
 
+	if err := checkCombinations(cfg); err != nil {
+		return err
+	}
+
 	log, err := runlog.New(cfg.LogPath, cfg.Verbose)
 	if err != nil {
 		return err
@@ -154,7 +163,7 @@ func runGrow(ctx context.Context, out, errOut io.Writer, cfg GrowConfig, respons
 	// and then failing at the call for a reason the user could have been told
 	// first.
 	var client selection.Client
-	if stopAfter == 0 || stopAfter >= pipeline.PhaseSelect {
+	if !cfg.Check && (stopAfter == 0 || stopAfter >= pipeline.PhaseSelect) {
 		var localCfg selection.LocalConfig
 		var useLocal bool
 
@@ -224,13 +233,17 @@ func runGrow(ctx context.Context, out, errOut io.Writer, cfg GrowConfig, respons
 	}
 
 	result, err := pipeline.Run(ctx, pipeline.Config{
-		Generators:     cfg.Generators,
-		Records:        cfg.Records,
-		Output:         cfg.Output,
-		Lang:           cfg.Lang,
-		Only:           cfg.Only,
-		DryRun:         cfg.DryRun,
-		Force:          cfg.Force,
+		Generators: cfg.Generators,
+		Records:    cfg.Records,
+		Output:     cfg.Output,
+		Lang:       cfg.Lang,
+		Only:       cfg.Only,
+		DryRun:     cfg.DryRun,
+		Force:      cfg.Force,
+		// A recording captures selections, and a record skipped or
+		// re-rendered from its markers makes none (prov-2026-9621daed).
+		Reselect:       cfg.RecordTo != "",
+		Check:          cfg.Check,
 		StopAfterPhase: stopAfter,
 		Client:         client,
 		Retries:        cfg.Retries,
@@ -245,6 +258,16 @@ func runGrow(ctx context.Context, out, errOut io.Writer, cfg GrowConfig, respons
 	}
 
 	printWarnings(errOut, result.Warnings)
+	if cfg.Check {
+		printClassifications(out, result)
+		if result.CheckFailed() {
+			return errors.New("check failed: some records are stale or need re-rendering; run sedum grow to bring them up to date")
+		}
+		return nil
+	}
+	if cfg.RecordTo != "" {
+		fmt.Fprintln(out, "--record: every record re-selected, whatever its markers say, so the recording holds a selection for each")
+	}
 	report(out, result, stopAfter, cfg.DryRun)
 	if name != "" {
 		fmt.Fprintf(out, "\nstopped after %s\n", name)
@@ -412,6 +435,7 @@ func report(out io.Writer, result *pipeline.Result, stopAfter int, dryRun bool) 
 		return
 	}
 
+	printStaleSeeded(out, result)
 	printSelections(out, result)
 	if stopAfter == pipeline.PhaseValidate || stopAfter == pipeline.PhaseExpand {
 		return
@@ -424,8 +448,20 @@ func report(out io.Writer, result *pipeline.Result, stopAfter int, dryRun bool) 
 func printSelections(out io.Writer, result *pipeline.Result) {
 	fmt.Fprintln(out)
 	var total int
+	modes := map[string]pipeline.Mode{}
+	for _, c := range result.Classifications {
+		modes[c.RecordID] = c.Mode
+	}
 	for _, s := range result.Selections {
 		fmt.Fprintf(out, "%s\n", s.RecordID)
+		switch modes[s.RecordID] {
+		case pipeline.ModeSkip:
+			fmt.Fprintf(out, "  (current; no model call)\n")
+			continue
+		case pipeline.ModeRerender:
+			fmt.Fprintf(out, "  (package changed; regions re-rendered from their markers, no model call)\n")
+			continue
+		}
 		if len(s.Invocations) == 0 {
 			fmt.Fprintf(out, "  (no action selected)\n")
 			continue
@@ -547,4 +583,78 @@ func printFiles(out io.Writer, result *pipeline.Result, dryRun bool) {
 			fmt.Fprintf(out, "  %s (%s declares %q)\n", f.Path, f.UnmanagedBy, f.UnmanagedAs)
 		}
 	}
+}
+
+// checkCombinations rejects flag combinations --check cannot honor. --check
+// writes nothing and calls no model, so anything that writes, records, replays
+// or forces a selection contradicts it (prov-2026-9621daed).
+func checkCombinations(cfg GrowConfig) error {
+	if !cfg.Check {
+		return nil
+	}
+	for _, c := range []struct {
+		set  bool
+		flag string
+	}{
+		{cfg.Execute != "", "--execute"},
+		{cfg.RecordTo != "", "--record"},
+		{cfg.DryRun, "--dry-run"},
+		{cfg.Force, "--force"},
+		{cfg.StopAfter != "", "--stop-after"},
+	} {
+		if c.set {
+			return fmt.Errorf("--check cannot be combined with %s: --check only reports, from markers, with no model call and nothing written", c.flag)
+		}
+	}
+	return nil
+}
+
+// printClassifications is --check's report: each record's state and the
+// regions behind it.
+func printClassifications(out io.Writer, result *pipeline.Result) {
+	var current, stale, rerender, unknown int
+	for _, c := range result.Classifications {
+		switch c.Mode {
+		case pipeline.ModeNone:
+			fmt.Fprintf(out, "%-10s %s (nothing Sedum writes)\n", "none", c.RecordID)
+		case pipeline.ModeSelect:
+			unknown++
+			fmt.Fprintf(out, "%-10s %s (no regions yet)\n", "unknown", c.RecordID)
+		case pipeline.ModeSkip:
+			current++
+			fmt.Fprintf(out, "%-10s %s\n", "current", c.RecordID)
+		case pipeline.ModeReselect:
+			stale++
+			fmt.Fprintf(out, "%-10s %s\n", "stale", c.RecordID)
+			for _, r := range c.Stale {
+				fmt.Fprintf(out, "             %s  %s\n", r.Path, describeRef(r))
+			}
+		case pipeline.ModeRerender:
+			rerender++
+			fmt.Fprintf(out, "%-10s %s (package changed)\n", "re-render", c.RecordID)
+			for _, r := range c.Rerender {
+				fmt.Fprintf(out, "             %s  %s\n", r.Path, describeRef(r))
+			}
+		}
+	}
+	printStaleSeeded(out, result)
+	fmt.Fprintf(out, "\n%d current, %d stale, %d to re-render, %d unknown\n", current, stale, rerender, unknown)
+}
+
+// printStaleSeeded lists seeded regions whose record has changed since they
+// were written. Sedum never rewrites them; a person should look.
+func printStaleSeeded(out io.Writer, result *pipeline.Result) {
+	for _, c := range result.Classifications {
+		for _, r := range c.StaleSeeded {
+			fmt.Fprintf(out, "seeded region %s  %s was written from an older version of %s; Sedum leaves it alone, so look at it\n",
+				r.Path, describeRef(r), c.RecordID)
+		}
+	}
+}
+
+func describeRef(r pipeline.RegionRef) string {
+	if r.Variant == "" {
+		return r.Action
+	}
+	return r.Action + ":" + r.Variant
 }

@@ -25,8 +25,13 @@ type GrowConfig struct {
 	StopAfter  string
 
 	// Force lets a record whose selection comes back empty remove every
-	// region it owns (prov-2026-375f5d4a).
+	// region it owns (prov-2026-375f5d4a), and re-selects every record whatever
+	// its hashes say (prov-2026-9621daed).
 	Force bool
+
+	// Check classifies every record from its markers and reports, with no
+	// model call and nothing written (prov-2026-9621daed).
+	Check bool
 
 	Retries int
 	Model   string
