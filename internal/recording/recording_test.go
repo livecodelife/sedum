@@ -289,3 +289,31 @@ func TestReadAcceptsARecordingWithNoPromptKey(t *testing.T) {
 		t.Error("reading a recording with no prompt invented one")
 	}
 }
+
+// A record's gen survives a write and a read, and a record without one writes
+// no key at all, so recordings made before the field existed are unchanged by
+// it (prov-2026-b9298192).
+func TestGenIsCarriedAndOmittedWhenEmpty(t *testing.T) {
+	const gen = "sha256:0000000000000000000000000000000000000000000000000000000000000001"
+	r := Recording{SedumVersion: Version, Records: []Record{
+		{RecordID: "prov-2026-aaaaaaaa", Gen: gen},
+		{RecordID: "prov-2026-bbbbbbbb"},
+	}}
+
+	var buf strings.Builder
+	if err := Write(&buf, r); err != nil {
+		t.Fatal(err)
+	}
+	got, err := Read(strings.NewReader(buf.String()))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.Records[0].Gen != gen {
+		t.Errorf("gen after a round trip = %q, want %q", got.Records[0].Gen, gen)
+	}
+
+	records := writtenDocument(t, r)["records"].([]any)
+	if _, ok := records[1].(map[string]any)["gen"]; ok {
+		t.Error("a record without a gen wrote a gen key")
+	}
+}

@@ -288,6 +288,7 @@ func Run(ctx context.Context, cfg Config) (*Result, error) {
 		if err != nil {
 			return nil, fmt.Errorf("record %s: %w", s.RecordID, err)
 		}
+		stampGen(expanded, genOf(records, s.RecordID))
 		log.Info("expanded invocations", "record", s.RecordID,
 			"selected", len(s.Invocations), "resolved", len(expanded))
 		resolved = append(resolved, expanded...)
@@ -427,4 +428,29 @@ func priorFor(prior *recording.Recording, recordID string) []recording.Invocatio
 		}
 	}
 	return out
+}
+
+// stampGen sets the gen_hash of the record that selected them on a record's
+// expanded invocations, so every region it writes says which version of the
+// record wrote it (prov-2026-66bea9f3).
+func stampGen(invocations []inject.Invocation, gen string) {
+	for i := range invocations {
+		invocations[i].Gen = gen
+	}
+}
+
+// genOf returns the gen_hash of the record with the given id, or nothing when
+// the run has no such record.
+//
+// Nothing is not a gap to fill with a guess: an empty gen means unknown, and a
+// later grow reads unknown as stale.
+func genOf(records *record.Set, recordID string) string {
+	if records == nil {
+		return ""
+	}
+	rec, ok := records.Lookup(recordID)
+	if !ok {
+		return ""
+	}
+	return rec.Gen
 }

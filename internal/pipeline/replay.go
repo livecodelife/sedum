@@ -172,6 +172,7 @@ func Replay(rec recording.Recording, cfg ReplayConfig) (*Result, error) {
 		if err != nil {
 			return nil, fmt.Errorf("record %s: %w", s.RecordID, err)
 		}
+		stampGen(expanded, replayGen(rec, result.Records, s.RecordID))
 		log.Info("expanded invocations", "record", s.RecordID,
 			"selected", len(s.Invocations), "resolved", len(expanded))
 		resolved = append(resolved, expanded...)
@@ -390,4 +391,23 @@ func unwrittenFiles(dryRun bool, files []resolve.File) map[string]string {
 		out[f.Path] = f.Rendered
 	}
 	return out
+}
+
+// replayGen decides the gen a replayed record's regions carry
+// (prov-2026-b9298192).
+//
+// The recorded value comes first, because the invocations were selected
+// against that version of the record: it stays the truthful answer even if the
+// record has since changed, and a later grow will see the change and
+// re-select. A recording without one - written before the field existed, or
+// synthesized by a harness - takes the record's current gen from --records,
+// since that is what such a selection was made against. With neither, gen is
+// left empty, which reads as stale.
+func replayGen(rec recording.Recording, records *record.Set, recordID string) string {
+	for _, r := range rec.Records {
+		if r.RecordID == recordID && r.Gen != "" {
+			return r.Gen
+		}
+	}
+	return genOf(records, recordID)
 }

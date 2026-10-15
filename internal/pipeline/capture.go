@@ -23,7 +23,7 @@ func Capture(result *Result) recording.Recording {
 	}
 
 	for _, s := range result.Selections {
-		rec := recording.Record{RecordID: s.RecordID}
+		rec := recording.Record{RecordID: s.RecordID, Gen: genOf(result.Records, s.RecordID)}
 
 		for _, f := range s.Files {
 			// An unmanaged path has no package by design, and replay does not
