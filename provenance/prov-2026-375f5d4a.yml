@@ -68,7 +68,8 @@ constraints:
   - Ownership compares the marker's record against the selecting record's id and aliases; an empty marker record is unowned. A mismatch is an error naming the file, the region identity, the owning record and the selecting record, and nothing is written.
   - Prune removes exactly this record's owned-tier regions, in files the record is authorized for in this run, whose identity it did not select. It never touches seeded regions, other owners' regions, or files outside the run.
   - Prune happens only in grow, inside Phase 7's single all-or-nothing write, and --dry-run reports prunes without writing. Replay never prunes.
-  - A record whose selection is empty prunes all of its owned regions in its files; a record skipped without a model call prunes nothing.
+  - An empty selection from a record that already owns regions in its files is an error unless --force, so a flaky model reply cannot wipe a record's code (provisio-mgr, #provisio 2026-10-15). With --force it prunes all of them; --dry-run still reports the prune. A record skipped without a model call prunes nothing.
+  - This record adds grow's --force flag with only that meaning; blueprint 3 extends it to re-select when hashes match.
   - CheckDuplicatePaths is removed from grow; the in-run identity claim check stays and keeps naming both records.
   - Insertion at a shared anchor orders by owner (created_at, then id) and keeps invocation order within one owner; existing regions are never moved. A region with an unknown owner sorts first.
   - Results and grow's report gain pruned regions.
