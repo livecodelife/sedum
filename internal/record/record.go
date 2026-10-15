@@ -17,6 +17,7 @@ package record
 import (
 	"errors"
 	"fmt"
+	"github.com/livecodelife/sedum/internal/genhash"
 	"github.com/livecodelife/sedum/internal/pathpat"
 	"os"
 	"path"
@@ -51,6 +52,13 @@ type Record struct {
 	Patterns []string
 	// Forbidden are the forbidden_scope entries, literal or pattern alike.
 	Forbidden []string
+
+	// Gen is the record's gen_hash, which every region it writes carries as
+	// "gen" (prov-2026-66bea9f3). It is taken over the four fields exactly as
+	// the file states them - before trimming, deduplication, sorting, or the
+	// split into paths and patterns - because the hash is shared with every
+	// other tool that reads records, and none of them see Sedum's view.
+	Gen string
 }
 
 // Forbids reports whether the record's forbidden_scope covers path, and returns
@@ -189,6 +197,12 @@ func readRecord(full, name string) (*Record, error) {
 		Source:      name,
 		Intent:      doc.Intent,
 		Constraints: doc.Constraints,
+		Gen: genhash.Of(genhash.Input{
+			Intent:         doc.Intent,
+			Constraints:    doc.Constraints,
+			AffectedScope:  doc.AffectedScope,
+			ForbiddenScope: doc.ForbiddenScope,
+		}),
 	}
 
 	var problems []error

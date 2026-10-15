@@ -14,10 +14,11 @@ import (
 // format.
 //
 // A region is written between a pair of markers naming the action that produced
-// it, the ownership tier, the kwargs it was rendered from, and the record that
-// last parameterized it:
+// it, the ownership tier, the kwargs it was rendered from, the record that
+// last parameterized it, and the hashes of that record and of the package it
+// was rendered from:
 //
-//	# sedum:createControllerMethod:index {"tier":"owned","record":"PR-014","kwargs":{"controller":"users"}}
+//	# sedum:createControllerMethod:index {"tier":"owned","record":"PR-014","gen":"sha256:…","pkg":"sha256:…","kwargs":{"controller":"users"}}
 //	def index
 //	  @users = User.all
 //	end
@@ -109,6 +110,17 @@ type Marker struct {
 	// not by who wrote it, so that a later record refining an earlier region
 	// replaces it in place instead of minting a duplicate beside it.
 	Record string
+	// Gen is the gen_hash of the record that wrote the region, as it was at
+	// write time. Pkg is the hash of the action definition and templates the
+	// region was rendered from. Together they say whether a region is current
+	// without a manifest: a record whose gen_hash moved needs re-selecting, and
+	// an action whose pkg moved needs only re-rendering (prov-2026-66bea9f3).
+	//
+	// Empty means unknown - a marker written before these existed, or by a
+	// run with no record to hash - and a consumer must read unknown as stale,
+	// never as current.
+	Gen string
+	Pkg string
 	// Writer names the tool that last wrote the region. Absent on the marker
 	// means DefaultWriter, so the field distinguishes writers without
 	// asserting anything about the markers written before it existed.
@@ -136,16 +148,25 @@ type Marker struct {
 type attrs struct {
 	Tier   Tier           `json:"tier"`
 	Record string         `json:"record,omitempty"`
+	Gen    string         `json:"gen,omitempty"`
+	Pkg    string         `json:"pkg,omitempty"`
 	Writer string         `json:"writer,omitempty"`
 	Kwargs map[string]any `json:"kwargs,omitempty"`
 }
 
 // declaredAttrs is the key set attrs models, and so the set an entry in
 // Marker.Extra may not shadow. It is derived from the tags above by hand
-// because there are four of them; a fifth belongs here too.
+// because there are few of them; a new one belongs here too.
+//
+// A key that moves from carried to declared - as gen and pkg did - is read into
+// its field from then on and is never also re-emitted from Extra, so a marker a
+// foreign tool annotated with the same name loses nothing and gains no
+// duplicate.
 var declaredAttrs = map[string]bool{
 	"tier":   true,
 	"record": true,
+	"gen":    true,
+	"pkg":    true,
 	"writer": true,
 	"kwargs": true,
 }
@@ -186,6 +207,8 @@ func (m Marker) encodeAttrs() (string, error) {
 	declared, err := encodeJSON(attrs{
 		Tier:   m.tierOrDefault(),
 		Record: m.Record,
+		Gen:    m.Gen,
+		Pkg:    m.Pkg,
 		Writer: m.writerIfNamed(),
 		Kwargs: m.Kwargs,
 	})
@@ -340,6 +363,8 @@ func parseOpen(comment genpkg.Comment, line string) (Marker, bool, error) {
 		marker.Writer = a.Writer
 	}
 	marker.Record = a.Record
+	marker.Gen = a.Gen
+	marker.Pkg = a.Pkg
 	marker.Kwargs = a.Kwargs
 
 	for name, value := range all {
@@ -392,7 +417,9 @@ func splitLabel(label string) (action, variant string) {
 
 // Identity is what makes two invocations the same region.
 //
-// Neither the writer nor any carried attribute takes part in it. A region is
+// Neither the writer, the gen and pkg hashes, nor any carried attribute takes
+// part in it. A hash says which version of a region this is, never which
+// region. A region is
 // identified by what it is, and a key Sedum does not model cannot be allowed to
 // decide whether two invocations are the same thing - if it could, a tool
 // annotating a region would silently split it in two.

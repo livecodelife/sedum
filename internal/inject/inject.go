@@ -39,6 +39,9 @@ type Invocation struct {
 	// RecordID is the provenance record this invocation came from. It is
 	// recorded on the marker and never matched on.
 	RecordID string
+	// Gen is that record's gen_hash, recorded on the marker. Empty when the
+	// run had no record to hash, which a later grow reads as stale.
+	Gen string
 	// Content is the rendered template output.
 	Content string
 	// Tier declares whether Sedum may overwrite the region on a later run.
@@ -222,7 +225,12 @@ func applyOne(inv Invocation, content string) (string, Result, error) {
 		Variant: inv.Variant,
 		Tier:    inv.Tier,
 		Record:  inv.RecordID,
-		Kwargs:  inv.Kwargs,
+		Gen:     inv.Gen,
+		// A composite never owns a region: the marker names the child that
+		// rendered it, so the hash is the child's, which is what re-rendering
+		// would replay.
+		Pkg:    inv.Action.PkgHash,
+		Kwargs: inv.Kwargs,
 	}
 
 	identity, err := identityFor(inv.Action, marker)

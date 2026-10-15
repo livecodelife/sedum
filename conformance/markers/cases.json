@@ -1,6 +1,6 @@
 {
   "format": "sedum.marker",
-  "corpus_version": 2,
+  "corpus_version": 3,
   "description": "Golden cases for Sedum's ownership marker format. Every case cites the record that decided the behavior it pins.",
   "cases": [
     {
@@ -21,7 +21,9 @@
           "collection": "users",
           "controller": "users"
         },
-        "extra": {}
+        "extra": {},
+        "gen": "",
+        "pkg": ""
       }
     },
     {
@@ -44,7 +46,9 @@
         "extra": {
           "harness_attempts": 3,
           "verified_by": "spec/users.linespec"
-        }
+        },
+        "gen": "",
+        "pkg": ""
       }
     },
     {
@@ -67,7 +71,9 @@
         "extra": {
           "harness_attempts": 3,
           "verified_by": "spec/users.linespec"
-        }
+        },
+        "gen": "",
+        "pkg": ""
       },
       "output": "# sedum:createControllerMethod:index {\"tier\":\"owned\",\"record\":\"PR-9\",\"kwargs\":{\"controller\":\"users\"},\"harness_attempts\":3,\"verified_by\":\"spec/users.linespec\"}"
     },
@@ -92,7 +98,9 @@
             "b": 2,
             "a": 1
           }
-        }
+        },
+        "gen": "",
+        "pkg": ""
       },
       "output": "# sedum:createControllerMethod:index {\"tier\":\"owned\",\"alpha\":{\"b\":2,\"a\":1},\"zeta\":1}"
     },
@@ -111,7 +119,9 @@
         "record": "",
         "writer": "sedum",
         "kwargs": {},
-        "extra": {}
+        "extra": {},
+        "gen": "",
+        "pkg": ""
       },
       "output": "# sedum:addImport {\"tier\":\"owned\"}"
     },
@@ -317,7 +327,9 @@
         "kwargs": {
           "column": "inactive_flag"
         },
-        "extra": {}
+        "extra": {},
+        "gen": "",
+        "pkg": ""
       },
       "output": "<!-- sedum:addSelectColumn {\"tier\":\"owned\",\"record\":\"ERP-2\",\"kwargs\":{\"column\":\"inactive_flag\"}} -->"
     },
@@ -337,7 +349,9 @@
         "record": "",
         "writer": "sedum",
         "kwargs": {},
-        "extra": {}
+        "extra": {},
+        "gen": "",
+        "pkg": ""
       }
     },
     {
@@ -370,6 +384,94 @@
         "extra": {}
       },
       "output": "// sedum:addColumn {\"tier\":\"owned\",\"record\":\"ERP-3\",\"kwargs\":{\"column\":\"comments\"}}"
+    },
+    {
+      "id": "parse/gen-and-pkg-are-declared-attributes",
+      "kind": "parse",
+      "decision": "prov-2026-66bea9f3",
+      "why": "gen is the gen_hash of the record that wrote the region and pkg the hash of the action and templates it was rendered from. They are modelled, not carried: a later grow decides skip, re-render or re-select from them, so a reader that left them in extra would never see a region as current.",
+      "comment_prefix": "#",
+      "input": "# sedum:createControllerMethod:index {\"tier\":\"owned\",\"record\":\"prov-2026-1a2b3c4d\",\"gen\":\"sha256:1111111111111111111111111111111111111111111111111111111111111111\",\"pkg\":\"sha256:2222222222222222222222222222222222222222222222222222222222222222\",\"kwargs\":{\"controller\":\"users\"}}",
+      "parsed": {
+        "recognized": true,
+        "action": "createControllerMethod",
+        "variant": "index",
+        "tier": "owned",
+        "record": "prov-2026-1a2b3c4d",
+        "gen": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+        "pkg": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+        "writer": "sedum",
+        "kwargs": {
+          "controller": "users"
+        },
+        "extra": {}
+      }
+    },
+    {
+      "id": "emit/gen-and-pkg-follow-record-and-precede-writer",
+      "kind": "emit",
+      "decision": "prov-2026-66bea9f3",
+      "why": "Declared keys are emitted in one fixed order - tier, record, gen, pkg, writer, kwargs - so the same marker always produces the same bytes. Carried keys still follow, sorted.",
+      "comment_prefix": "#",
+      "marker": {
+        "action": "createControllerMethod",
+        "variant": "index",
+        "tier": "owned",
+        "record": "prov-2026-1a2b3c4d",
+        "gen": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+        "pkg": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+        "writer": "harness",
+        "kwargs": {
+          "controller": "users"
+        },
+        "extra": {
+          "attempts": 2
+        }
+      },
+      "output": "# sedum:createControllerMethod:index {\"tier\":\"owned\",\"record\":\"prov-2026-1a2b3c4d\",\"gen\":\"sha256:1111111111111111111111111111111111111111111111111111111111111111\",\"pkg\":\"sha256:2222222222222222222222222222222222222222222222222222222222222222\",\"writer\":\"harness\",\"kwargs\":{\"controller\":\"users\"},\"attempts\":2}"
+    },
+    {
+      "id": "round-trip/absent-gen-and-pkg-stay-absent",
+      "kind": "round_trip",
+      "decision": "prov-2026-66bea9f3",
+      "why": "A marker written before the hashes existed must not be rewritten merely by being read, so empty values are omitted rather than written as empty strings. Absent means unknown, and a consumer must treat unknown as stale, never as current.",
+      "comment_prefix": "#",
+      "input": "# sedum:createControllerMethod:index {\"tier\":\"owned\",\"record\":\"PR-014\",\"kwargs\":{\"controller\":\"users\"}}",
+      "parsed": {
+        "recognized": true,
+        "action": "createControllerMethod",
+        "variant": "index",
+        "tier": "owned",
+        "record": "PR-014",
+        "gen": "",
+        "pkg": "",
+        "writer": "sedum",
+        "kwargs": {
+          "controller": "users"
+        },
+        "extra": {}
+      },
+      "output": "# sedum:createControllerMethod:index {\"tier\":\"owned\",\"record\":\"PR-014\",\"kwargs\":{\"controller\":\"users\"}}"
+    },
+    {
+      "id": "replace/a-replacement-writes-the-new-hashes-not-the-old",
+      "kind": "replace",
+      "decision": "prov-2026-66bea9f3",
+      "why": "The hashes say which version of the record and the package a region was written from, so they are modelled fields and come from the marker being written. Carrying the old ones forward would make a regenerated region read as stale forever.",
+      "comment_prefix": "#",
+      "existing": "# sedum:createControllerMethod:index {\"tier\":\"owned\",\"record\":\"prov-2026-1a2b3c4d\",\"gen\":\"sha256:1111111111111111111111111111111111111111111111111111111111111111\",\"pkg\":\"sha256:2222222222222222222222222222222222222222222222222222222222222222\",\"kwargs\":{\"controller\":\"users\"},\"attempts\":2}",
+      "marker": {
+        "action": "createControllerMethod",
+        "variant": "index",
+        "tier": "owned",
+        "record": "prov-2026-1a2b3c4d",
+        "gen": "sha256:3333333333333333333333333333333333333333333333333333333333333333",
+        "pkg": "sha256:4444444444444444444444444444444444444444444444444444444444444444",
+        "kwargs": {
+          "controller": "users"
+        }
+      },
+      "output": "# sedum:createControllerMethod:index {\"tier\":\"owned\",\"record\":\"prov-2026-1a2b3c4d\",\"gen\":\"sha256:3333333333333333333333333333333333333333333333333333333333333333\",\"pkg\":\"sha256:4444444444444444444444444444444444444444444444444444444444444444\",\"kwargs\":{\"controller\":\"users\"},\"attempts\":2}"
     }
   ]
 }

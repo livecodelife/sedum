@@ -266,6 +266,11 @@ type Action struct {
 	// guess (prov-2026-369544c1).
 	TemplateRefs map[string][]string
 
+	// PkgHash is the hash of everything that decides what this action renders
+	// for fixed kwargs, written on each region's marker as "pkg". A region
+	// whose pkg differs was rendered from an older package (prov-2026-66bea9f3).
+	PkgHash string
+
 	kind ActionKind
 }
 

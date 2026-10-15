@@ -232,6 +232,9 @@ func loadPackage(dir, dirName string) (*Package, Findings, error) {
 	if r.hasErrors() {
 		return nil, r.findings, nil
 	}
+	if err := stampPkgHashes(pkg); err != nil {
+		return nil, nil, err
+	}
 	return pkg, r.findings, nil
 }
 

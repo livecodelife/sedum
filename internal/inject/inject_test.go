@@ -227,7 +227,7 @@ func TestInjectsAtMarkerAnchor(t *testing.T) {
 		"  # sedum:anchor:class_body_top\n" +
 		"\n" +
 		"  # sedum:anchor:class_body\n" +
-		`  # sedum:createControllerMethod:index {"tier":"owned","record":"PR-014","kwargs":{"collection":"users","controller":"users","name":"index"}}` + "\n" +
+		`  # sedum:createControllerMethod:index {"tier":"owned","record":"PR-014","pkg":"` + pkg.Actions["createControllerMethod"].PkgHash + `","kwargs":{"collection":"users","controller":"users","name":"index"}}` + "\n" +
 		"def index\n  User.all\nend\n" +
 		"  # /sedum:createControllerMethod:index\n" +
 		"end\n"

@@ -62,6 +62,8 @@ type corpusMarker struct {
 	Variant string                     `json:"variant"`
 	Tier    string                     `json:"tier"`
 	Record  string                     `json:"record"`
+	Gen     string                     `json:"gen"`
+	Pkg     string                     `json:"pkg"`
 	Writer  string                     `json:"writer"`
 	Kwargs  map[string]any             `json:"kwargs"`
 	Extra   map[string]json.RawMessage `json:"extra"`
@@ -73,6 +75,8 @@ type corpusParse struct {
 	Variant    string         `json:"variant"`
 	Tier       string         `json:"tier"`
 	Record     string         `json:"record"`
+	Gen        string         `json:"gen"`
+	Pkg        string         `json:"pkg"`
 	Writer     string         `json:"writer"`
 	Kwargs     map[string]any `json:"kwargs"`
 	Extra      map[string]any `json:"extra"`
@@ -84,6 +88,8 @@ func (m corpusMarker) marker() Marker {
 		Variant: m.Variant,
 		Tier:    Tier(m.Tier),
 		Record:  m.Record,
+		Gen:     m.Gen,
+		Pkg:     m.Pkg,
 		Writer:  m.Writer,
 	}
 	if len(m.Kwargs) > 0 {
@@ -170,6 +176,12 @@ func checkParse(t *testing.T, tc corpusCase) {
 	}
 	if got.Record != tc.Parsed.Record {
 		t.Errorf("record = %q, want %q", got.Record, tc.Parsed.Record)
+	}
+	if got.Gen != tc.Parsed.Gen {
+		t.Errorf("gen = %q, want %q", got.Gen, tc.Parsed.Gen)
+	}
+	if got.Pkg != tc.Parsed.Pkg {
+		t.Errorf("pkg = %q, want %q", got.Pkg, tc.Parsed.Pkg)
 	}
 	if got.Writer != tc.Parsed.Writer {
 		t.Errorf("writer = %q, want %q", got.Writer, tc.Parsed.Writer)
