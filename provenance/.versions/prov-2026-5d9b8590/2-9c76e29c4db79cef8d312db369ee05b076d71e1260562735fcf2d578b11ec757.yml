@@ -1,15 +1,15 @@
 id: prov-2026-5d9b8590
 version: 2
-content_hash: sha256:95cf5dc9ef04088866fac126c7eb5104118b19132272e616c4d5a8bb6f0b53b7
+content_hash: sha256:9c76e29c4db79cef8d312db369ee05b076d71e1260562735fcf2d578b11ec757
 parent_hash: sha256:8d28da28617d0af63c4493ff0a456f77911d5c2fa6e73fc8228e7e86be8fe4c4
-reason: Spec file edited under prov-2026-c637c262; refresh its hash
+reason: Spec file edited under prov-2026-3f83335f; refresh its hash
 author: calebcowen@gmail.com
-created_at: "2026-10-16T05:55:59Z"
+created_at: "2026-10-16T05:32:58Z"
 spec_hashes:
   - sha256:0369e879548b4c3d8502143797c84ba4bb2705ac3de82e025b537584b9b9aaac
   - sha256:27ee7b587e7fd9659bc9a59d1d34bfcbba52d3e559d95a70ad20dcb7d4f1fe63
   - sha256:42b3f5d0a0f781489b8fd36ce814730de3dca66ee381ce735d610dcfcbceb153
-  - sha256:e97137c4e4de29b121e3656158492f10a051cd5ab2279f1db197c3a19b1ca982
+  - sha256:14a319036d9fb0483c3339c1883940f28696b51c0b547d1adb69ec5accfd2148
 content:
   id: prov-2026-5d9b8590
   title: Phase 4's catalog is filtered to what a record could legally authorize

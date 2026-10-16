@@ -85,6 +85,9 @@ Nothing is created that a provenance record did not authorize.`,
 		"With --execute and --records: stamp each recorded record's current gen onto its regions in place of the gen the recording "+
 			"carries, so a replay after a record edit reads as current. The recorded selection must still pass replay's own checks. "+
 			"Asserts the selection still satisfies the edited record.")
+	f.BoolVar(&cfg.ListOrphans, "orphans", false,
+		"Print every orphan region, one line each, in place of the per-fate summary (counts and the busiest directories). "+
+			"The --json report always lists them all.")
 	f.BoolVar(&cfg.Stamp, "stamp", false,
 		"Write the current gen and pkg onto markers missing them, where the owning record exists, and change nothing else. "+
 			"No model call. Asserts that the code is current, so a migrated repository's next grow skips instead of re-selecting. "+
@@ -288,7 +291,7 @@ func runGrow(ctx context.Context, out, errOut io.Writer, cfg GrowConfig, respons
 	}
 	if cfg.Check {
 		printClassifications(out, result)
-		printOrphans(out, result)
+		printOrphans(out, result, cfg.ListOrphans)
 		if result.CheckFailed() {
 			return errors.New("check failed: some records are stale, need re-rendering, or have left orphan regions; run sedum grow (with --prune-orphans for orphans)")
 		}
@@ -301,7 +304,7 @@ func runGrow(ctx context.Context, out, errOut io.Writer, cfg GrowConfig, respons
 	if cfg.RecordTo != "" {
 		fmt.Fprintln(out, "--record: every record re-selected, whatever its markers say, so the recording holds a selection for each")
 	}
-	report(out, result, stopAfter, cfg.DryRun)
+	report(out, result, stopAfter, cfg.DryRun, cfg.ListOrphans)
 	if name != "" {
 		fmt.Fprintf(out, "\nstopped after %s\n", name)
 	}
@@ -417,7 +420,7 @@ func runReplay(out, errOut io.Writer, cfg GrowConfig, stopAfter int, name string
 	for _, r := range result.Restamps {
 		fmt.Fprintln(out, r)
 	}
-	report(out, result, stopAfter, cfg.DryRun || cfg.Check)
+	report(out, result, stopAfter, cfg.DryRun || cfg.Check, cfg.ListOrphans)
 	if name != "" {
 		fmt.Fprintf(out, "\nstopped after %s\n", name)
 	}
@@ -477,7 +480,7 @@ func writeRecording(path string, rec recording.Recording) error {
 // useful. A run halted at resolution has decided nothing to show but
 // resolutions; one that finished has files, selections, and injections, and the
 // interesting part is the last of those.
-func report(out io.Writer, result *pipeline.Result, stopAfter int, dryRun bool) {
+func report(out io.Writer, result *pipeline.Result, stopAfter int, dryRun, listOrphans bool) {
 	if stopAfter == pipeline.PhaseResolve {
 		printResolutions(out, result, nil, false)
 		return
@@ -494,7 +497,7 @@ func report(out io.Writer, result *pipeline.Result, stopAfter int, dryRun bool) 
 		return
 	}
 	printInjections(out, result, dryRun)
-	printOrphans(out, result)
+	printOrphans(out, result, listOrphans)
 }
 
 // printSelections reports what the model chose, grouped by record because a
@@ -743,26 +746,6 @@ func printStaleSeeded(out io.Writer, result *pipeline.Result) {
 }
 
 func describeRef(r pipeline.RegionRef) string { return label(r.Action, r.Variant) }
-
-// printOrphans lists regions whose record is no longer current, and what was
-// done with each (prov-2026-cc73cf61).
-func printOrphans(out io.Writer, result *pipeline.Result) {
-	if len(result.Orphans) == 0 {
-		return
-	}
-	fmt.Fprintln(out)
-	for _, o := range result.Orphans {
-		ref := describeRef(pipeline.RegionRef{Path: o.Path, Action: o.Action, Variant: o.Variant})
-		switch {
-		case o.Pruned:
-			fmt.Fprintf(out, "pruned orphan %s  %s (record %s is gone or deprecated)\n", o.Path, ref, o.Record)
-		case !o.Authorized:
-			fmt.Fprintf(out, "orphan        %s  %s (record %s is gone or deprecated; no record authorizes this file, so it is left alone)\n", o.Path, ref, o.Record)
-		default:
-			fmt.Fprintf(out, "orphan        %s  %s (record %s is gone or deprecated; --prune-orphans removes it)\n", o.Path, ref, o.Record)
-		}
-	}
-}
 
 // printStamped is --stamp's report.
 func printStamped(out io.Writer, result *pipeline.Result, dryRun bool) {

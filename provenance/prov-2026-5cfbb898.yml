@@ -1,0 +1,136 @@
+id: prov-2026-5cfbb898
+title: 'go: internal/cli/orphans.go, grow''s orphan summary'
+type: imprint
+status: implemented
+version: 2
+reason: Spec file edited under prov-2026-3f83335f; refresh its hash
+created_at: "2026-10-16"
+author: calebcowen@gmail.com
+intent: |-
+  The Go logic of internal/cli/orphans.go (go package, package cli): sedum grow reports orphan regions as a summary per outcome, with the full list behind a flag (prov-2026-3f83335f).
+
+  Imports, each its own addImport, exactly: fmt, io, path, sort, strings, github.com/livecodelife/sedum/internal/pipeline.
+
+  Declarations, in this order, each exactly one set* call whose code kwarg is the code below verbatim (gofmt-formatted, comments kept). Do not alter, reorder or add anything.
+
+    - setConst name orphanDirs, code exactly:
+        // orphanDirs is how many directories a summary names.
+        const orphanDirs = 3
+
+    - setType name orphanGroup, code exactly:
+        // orphanGroup is the orphans of one run that share a fate: pruned, removable
+        // by --prune-orphans, or left alone because no current record authorizes
+        // their file (prov-2026-3f83335f).
+        type orphanGroup struct {
+        	regions int
+        	files   map[string]bool
+        	records map[string]bool
+        	dirs    map[string]int
+        }
+
+    - setFunction name newOrphanGroup, code exactly:
+        func newOrphanGroup() *orphanGroup {
+        	return &orphanGroup{files: map[string]bool{}, records: map[string]bool{}, dirs: map[string]int{}}
+        }
+
+    - setMethod name add, receiver orphanGroup, code exactly:
+        func (g *orphanGroup) add(o pipeline.Orphan) {
+        	g.regions++
+        	g.files[o.Path] = true
+        	g.records[o.Record] = true
+        	g.dirs[path.Dir(o.Path)]++
+        }
+
+    - setMethod name topDirs, receiver orphanGroup, code exactly:
+        // topDirs names the directories holding the most orphan regions, most first,
+        // ties by path, so a reader sees where to look without reading every line.
+        func (g *orphanGroup) topDirs() string {
+        	names := make([]string, 0, len(g.dirs))
+        	for dir := range g.dirs {
+        		names = append(names, dir)
+        	}
+        	sort.Slice(names, func(i, j int) bool {
+        		if g.dirs[names[i]] != g.dirs[names[j]] {
+        			return g.dirs[names[i]] > g.dirs[names[j]]
+        		}
+        		return names[i] < names[j]
+        	})
+        	if len(names) > orphanDirs {
+        		names = names[:orphanDirs]
+        	}
+        	parts := make([]string, len(names))
+        	for i, dir := range names {
+        		parts[i] = fmt.Sprintf("%s (%d)", dir, g.dirs[dir])
+        	}
+        	return strings.Join(parts, ", ")
+        }
+
+    - setMethod name line, receiver orphanGroup, code exactly:
+        // line is the group's one-line summary: the verb and the closing clause come
+        // from the caller, the counts and the busiest directories from the group.
+        func (g *orphanGroup) line(verb, rest string) string {
+        	return fmt.Sprintf("%s%d orphan region(s) in %d file(s) from %d gone or deprecated record(s)%s; top directories: %s",
+        		verb, g.regions, len(g.files), len(g.records), rest, g.topDirs())
+        }
+
+    - setFunction name printOrphans, code exactly:
+        // printOrphans reports regions whose record is no longer current, and what was
+        // done with each (prov-2026-cc73cf61). It prints one summary line per fate,
+        // because a repository that vendors a corpus can hold thousands of orphans and
+        // a line each buries the rest of the report; list restores the line each.
+        func printOrphans(out io.Writer, result *pipeline.Result, list bool) {
+        	if len(result.Orphans) == 0 {
+        		return
+        	}
+        	fmt.Fprintln(out)
+        	if list {
+        		for _, o := range result.Orphans {
+        			ref := describeRef(pipeline.RegionRef{Path: o.Path, Action: o.Action, Variant: o.Variant})
+        			switch {
+        			case o.Pruned:
+        				fmt.Fprintf(out, "pruned orphan %s  %s (record %s is gone or deprecated)\n", o.Path, ref, o.Record)
+        			case !o.Authorized:
+        				fmt.Fprintf(out, "orphan        %s  %s (record %s is gone or deprecated; no record authorizes this file, so it is left alone)\n", o.Path, ref, o.Record)
+        			default:
+        				fmt.Fprintf(out, "orphan        %s  %s (record %s is gone or deprecated; --prune-orphans removes it)\n", o.Path, ref, o.Record)
+        			}
+        		}
+        		return
+        	}
+        	pruned, removable, leftAlone := newOrphanGroup(), newOrphanGroup(), newOrphanGroup()
+        	for _, o := range result.Orphans {
+        		switch {
+        		case o.Pruned:
+        			pruned.add(o)
+        		case !o.Authorized:
+        			leftAlone.add(o)
+        		default:
+        			removable.add(o)
+        		}
+        	}
+        	if pruned.regions > 0 {
+        		fmt.Fprintln(out, pruned.line("pruned ", ""))
+        	}
+        	if removable.regions > 0 {
+        		fmt.Fprintln(out, removable.line("", "; --prune-orphans removes them"))
+        	}
+        	if leftAlone.regions > 0 {
+        		fmt.Fprintln(out, leftAlone.line("", "; left alone, no current record authorizes the file"))
+        	}
+        	fmt.Fprintln(out, "--orphans lists every region")
+        }
+constraints: []
+affected_scope:
+  - internal/cli/orphans.go
+forbidden_scope: []
+implements: prov-2026-3f83335f
+implements_version: 2
+related: []
+sealed_at_sha: d3bb8ceb98ae36ebf5e35d3a1e42132e336f5666
+associated_specs:
+  - path: internal/cli/orphans_test.go
+    run_command: go test ./internal/cli -count=1 -run 'Orphan'
+associated_traces: []
+monitors: []
+tags:
+  - orphans

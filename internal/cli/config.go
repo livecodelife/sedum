@@ -40,6 +40,9 @@ type GrowConfig struct {
 	// RestampGen makes a replay stamp each named record's current gen in place
 	// of the one the recording carries (prov-2026-c637c262).
 	RestampGen bool
+	// ListOrphans prints every orphan region in place of the summary
+	// (prov-2026-3f83335f).
+	ListOrphans bool
 
 	// Stamp writes a missing gen or pkg onto markers whose record exists, and
 	// nothing else (prov-2026-cc73cf61).

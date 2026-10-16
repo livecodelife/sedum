@@ -158,10 +158,10 @@ capture 06-check-stamped "$SEDUM" grow --check --generators generators --records
 # 07 - a deprecated record's region is an orphan; --prune-orphans removes it.
 record prov-2026-bbbbbbbb 2026-10-02 "Log every request." "status: deprecated
 "
-capture 07-check-orphan "$SEDUM" grow --check --generators generators --records provenance --log "$T/run.log"
+capture 07-check-orphan "$SEDUM" grow --check --orphans --generators generators --records provenance --log "$T/run.log"
 [ "$LAST_EXIT" -ne 0 ] || fail "07: --check should fail on an orphan"
 seen "orphan" 07-check-orphan
-grows 07-prune-orphans --prune-orphans
+grows 07-prune-orphans --prune-orphans --orphans
 seen "pruned orphan" 07-prune-orphans
 capture 07-markers cat "$CTRL"
 grep -q log_request "$OUT/07-markers.txt" && fail "07: the orphan region is still there"
