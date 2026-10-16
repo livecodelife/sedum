@@ -38,6 +38,7 @@ var Operations = []string{
 	"plural", "singular",
 	"prefix", "suffix",
 	"join",
+	"quote",
 }
 
 // parameterized operations take a string literal after a colon: prefix:@,

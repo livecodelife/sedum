@@ -1,6 +1,8 @@
 package transform
 
 import (
+	"bytes"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"reflect"
@@ -67,6 +69,8 @@ func (e *Engine) operate(r Ref, v any) (string, error) {
 		return r.Arg + s, nil
 	case "suffix":
 		return s + r.Arg, nil
+	case "quote":
+		return quote(s)
 	}
 	return "", checkOperation(r)
 }
@@ -162,4 +166,21 @@ func describeKind(rv reflect.Value) string {
 	default:
 		return "a " + rv.Kind().String()
 	}
+}
+
+// quote renders a value as a complete double-quoted string literal
+// (prov-2026-f63c340a): the value JSON-encoded, without HTML escaping. That is
+// a valid string literal in Go, JavaScript, TypeScript, Java and C# for any
+// input, so a template writes {{usage|quote}} with no quotes of its own and a
+// quote or backslash the model bound can no longer break the generated file.
+// Which targets it suits is a fact about JSON's grammar, not knowledge of any
+// one language.
+func quote(s string) (string, error) {
+	var buf bytes.Buffer
+	encoder := json.NewEncoder(&buf)
+	encoder.SetEscapeHTML(false)
+	if err := encoder.Encode(s); err != nil {
+		return "", err
+	}
+	return strings.TrimSuffix(buf.String(), "\n"), nil
 }

@@ -74,6 +74,8 @@ func TestBuiltinOperations(t *testing.T) {
 
 		{"prefix:@", "users", "@users"},
 		{"suffix:_path", "users", "users_path"},
+
+		{"quote", `say "hi"`, `"say \"hi\""`},
 	}
 
 	for _, c := range cases {
