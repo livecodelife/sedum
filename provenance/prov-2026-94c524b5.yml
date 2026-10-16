@@ -1,7 +1,7 @@
 id: prov-2026-94c524b5
 title: 'go: internal/cli/orphans_test.go, tests for the orphan summary'
 type: imprint
-status: open
+status: implemented
 version: 2
 reason: Spec file edited under prov-2026-3f83335f; refresh its hash
 created_at: "2026-10-16"
@@ -81,7 +81,7 @@ forbidden_scope: []
 implements: prov-2026-3f83335f
 implements_version: 2
 related: []
-sealed_at_sha: ""
+sealed_at_sha: f55c840559f708dbc65ee393eb471b363221a088
 associated_specs:
   - path: internal/cli/orphans_test.go
     run_command: go test ./internal/cli -count=1 -run 'Orphan'
