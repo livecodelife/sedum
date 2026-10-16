@@ -1,0 +1,20 @@
+id: since
+package: since
+target:
+- parse.go
+context: []
+hidden:
+- since_test.go
+behaviour: |
+  Package since parses the --since option of `sedum grow-log`. Write parse.go. It provides the function parseSince.
+
+  parseSince(s string, now time.Time) (time.Time, error) turns s into the earliest time to keep. The empty string is the zero time (and no error). A number followed by d is that many days before now. A Go duration such as 36h is that long before now. A date such as 2026-10-01 is that day at midnight UTC. An RFC3339 time is itself. Anything else is an error whose message says what was expected: a duration (36h), a number of days (7d), a date (2026-10-01) or an RFC3339 time, and names the option as --since and the offending text quoted.
+signatures: |
+  Package since parses the --since option of `sedum grow-log`. Write parse.go. It provides the function parseSince.
+
+  parseSince(s string, now time.Time) (time.Time, error) turns s into the earliest time to keep. The empty string is the zero time (and no error). A number followed by d is that many days before now. A Go duration such as 36h is that long before now. A date such as 2026-10-01 is that day at midnight UTC. An RFC3339 time is itself. Anything else is an error whose message says what was expected: a duration (36h), a number of days (7d), a date (2026-10-01) or an RFC3339 time, and names the option as --since and the offending text quoted.
+
+  The declarations to provide, with bodies elided:
+
+  func parseSince(s string, now time.Time) (time.Time, error)
+code: "Write the following code into parse.go, exactly as it is, with no changes:\n\npackage since\n\nimport (\n\t\"fmt\"\n\t\"strconv\"\n\t\"strings\"\n\t\"time\"\n)\n\n// parseSince reads --since: a Go duration (\"36h\"), a number of days (\"7d\"), a\n// date (\"2026-10-01\") or an RFC3339 time. The empty string is the zero time.\nfunc parseSince(s string, now time.Time) (time.Time, error) {\n\tif s == \"\" {\n\t\treturn time.Time{}, nil\n\t}\n\tif days, ok := strings.CutSuffix(s, \"d\"); ok {\n\t\tif n, err := strconv.Atoi(days); err == nil {\n\t\t\treturn now.AddDate(0, 0, -n), nil\n\t\t}\n\t}\n\tif d, err := time.ParseDuration(s); err == nil {\n\t\treturn now.Add(-d), nil\n\t}\n\tfor _, layout := range []string{\"2006-01-02\", time.RFC3339} {\n\t\tif t, err := time.Parse(layout, s); err == nil {\n\t\t\treturn t, nil\n\t\t}\n\t}\n\treturn time.Time{}, fmt.Errorf(\"--since %q is not a duration (36h), a number of days (7d), a date (2026-10-01) or an RFC3339 time\", s)\n}\n"

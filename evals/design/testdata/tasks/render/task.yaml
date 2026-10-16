@@ -1,0 +1,29 @@
+id: render
+package: growlog
+target:
+- render.go
+context:
+- entry.go
+- summary.go
+hidden:
+- render_test.go
+- summary_test.go
+behaviour: |
+  Package growlog (Entry, Filter, ModelStats and Summary already exist; ModelStats has a LiteralShare method). Write render.go. It provides two methods on Summary: JSON and Text.
+
+  JSON() ([]byte, error) renders the summary as JSON indented with two spaces, with a trailing newline. An empty Models slice renders as `"models": []`.
+
+  Text() string renders a table. The first line is `grow log: N line(s), M malformed` where N is Entries and M is Malformed. Then a header row and then one row per model in Models order and a last row named total (for Total). The columns are, in order, with these header names: model, grows, failed, calls, retries, repairs, tokens in/out, literal. A row shows the model name, Grows, Failed, Calls, Retries, Repairs, `PromptTokens/CompletionTokens` (for example 150/25) and the literal share as a whole-number percentage with a percent sign (for example 75%). A model whose name is empty is shown as (none). The columns are aligned with a text/tabwriter using minimum width 0, tab width 8, padding 2 and padding character space.
+signatures: |
+  Package growlog (Entry, Filter, ModelStats and Summary already exist; ModelStats has a LiteralShare method). Write render.go. It provides two methods on Summary: JSON and Text.
+
+  JSON() ([]byte, error) renders the summary as JSON indented with two spaces, with a trailing newline. An empty Models slice renders as `"models": []`.
+
+  Text() string renders a table. The first line is `grow log: N line(s), M malformed` where N is Entries and M is Malformed. Then a header row and then one row per model in Models order and a last row named total (for Total). The columns are, in order, with these header names: model, grows, failed, calls, retries, repairs, tokens in/out, literal. A row shows the model name, Grows, Failed, Calls, Retries, Repairs, `PromptTokens/CompletionTokens` (for example 150/25) and the literal share as a whole-number percentage with a percent sign (for example 75%). A model whose name is empty is shown as (none). The columns are aligned with a text/tabwriter using minimum width 0, tab width 8, padding 2 and padding character space.
+
+  The declarations to provide, with bodies elided:
+
+  func (s Summary) JSON() ([]byte, error)
+
+  func (s Summary) Text() string
+code: "Write the following code into render.go, exactly as it is, with no changes:\n\npackage growlog\n\nimport (\n\t\"bytes\"\n\t\"encoding/json\"\n\t\"fmt\"\n\t\"strings\"\n\t\"text/tabwriter\"\n)\n\n// JSON renders the summary as indented JSON with a trailing newline.\nfunc (s Summary) JSON() ([]byte, error) {\n\tb, err := json.MarshalIndent(s, \"\", \"  \")\n\tif err != nil {\n\t\treturn nil, err\n\t}\n\treturn append(b, '\\n'), nil\n}\n\n// Text renders the summary as a table: one row per model and a total row. A\n// run with no model shows as (none).\nfunc (s Summary) Text() string {\n\tvar b strings.Builder\n\tfmt.Fprintf(&b, \"grow log: %d line(s), %d malformed\\n\", s.Entries, s.Malformed)\n\tvar buf bytes.Buffer\n\tw := tabwriter.NewWriter(&buf, 0, 8, 2, ' ', 0)\n\tfmt.Fprintln(w, \"model\\tgrows\\tfailed\\tcalls\\tretries\\trepairs\\ttokens in/out\\tliteral\")\n\trow := func(name string, m ModelStats) {\n\t\tif name == \"\" {\n\t\t\tname = \"(none)\"\n\t\t}\n\t\tfmt.Fprintf(w, \"%s\\t%d\\t%d\\t%d\\t%d\\t%d\\t%d/%d\\t%.0f%%\\n\", name, m.Grows, m.Failed, m.Calls, m.Retries, m.Repairs, m.PromptTokens, m.CompletionTokens, m.LiteralShare()*100)\n\t}\n\tfor _, m := range s.Models {\n\t\trow(m.Model, m)\n\t}\n\trow(\"total\", s.Total)\n\tw.Flush()\n\tb.Write(buf.Bytes())\n\treturn b.String()\n}\n"
