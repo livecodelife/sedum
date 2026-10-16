@@ -1,0 +1,110 @@
+id: prov-2026-9621daed
+version: 4
+content_hash: sha256:8480134a2aa8c23da50f2ceec569e83fd926c1b33e7d457c8cce94ac5a4f7ad9
+parent_hash: sha256:8dbe5cb2a09947f0698027844dc41a978d767cc400da0c501ea2f5cbd9718396
+reason: Spec files edited under prov-2026-b5c21813 (--no-verify, --repair 0); refresh its hash
+author: calebcowen@gmail.com
+created_at: "2026-10-16T07:02:58Z"
+spec_hashes:
+  - sha256:9404fb0aef1aa9f08ec36c6c87a2809869510d4a2a96f9bf0c1468128954d87b
+  - sha256:878f207005f6aa2339b1d9b9a778b41e08e37bf705366a3e1175f7e34798ffb1
+content:
+  id: prov-2026-9621daed
+  title: Grow skips, re-renders or re-selects each record by its hashes
+  type: blueprint
+  created_at: "2026-10-15"
+  author: calebcowen@gmail.com
+  intent: |
+    Third step of hash-aware grow (provenance DESIGN.md, "What grow does per
+    record"), and Phase 2's done-check: a second grow over unchanged records
+    makes no model calls and edits no files.
+
+    ## Per record, before Phase 4
+
+    After Phase 3, grow reads the regions each record owns in the managed files
+    it authorizes (owned by id or alias, per prov-2026-375f5d4a) and decides:
+
+    | Record's owned regions                       | Action     | Model call |
+    | none yet                                     | select     | yes        |
+    | any owned region's gen differs, or is empty   | re-select  | yes        |
+    | --force                                      | re-select  | yes        |
+    | every gen matches, every pkg matches          | skip       | no         |
+    | every gen matches, some pkg differs           | re-render  | no         |
+
+    Re-select is today's path: Phase 4, then Phase 6/7 with reconciliation. A
+    skipped record is not expanded or applied, so its files are not rewritten.
+    A re-rendered record re-renders only its pkg-stale regions from the action,
+    variant-selecting kwargs and kwargs on each marker - the marker is its own
+    one-line recording - and replaces them in place; it prunes nothing, because
+    nothing was re-selected. A pkg-stale region whose action no longer exists, or
+    whose re-rendered path is not the file it sits in, cannot be re-rendered and
+    sends its record to re-select instead.
+
+    Seeded regions never decide anything and are never rewritten, but grow
+    reports any seeded region whose record's gen has moved, so a person can look.
+
+    ## --check
+
+    Runs Phases 0-3 without writing (as --dry-run does), classifies every record,
+    and reports per record: current, re-render (and which regions), stale (and
+    which regions), or unknown - a record with no regions, which DESIGN.md says
+    to report as unknown rather than stale. It makes no model call and writes
+    nothing. Exit status is non-zero when any record is stale or needs
+    re-rendering; unknown alone does not fail. Suitable for CI and pre-commit.
+
+    ## --force
+
+    Re-selects every record regardless of hashes (it already lets an empty
+    selection prune, from prov-2026-375f5d4a).
+
+    ## --record re-selects
+
+    A recording captures model selections, and a skipped or re-rendered record
+    made none. Rebuilding its invocations from markers does not work: regions a
+    composite wrote name unexposed child actions, which recording validation
+    rejects. So --record re-selects every record, as --force does, and says so.
+
+    ## Known limit, recorded as a decision
+
+    Markers record every kwarg a region was rendered from, including package
+    defaults and --var values bound at write time. Re-rendering replays those
+    verbatim, so a changed kwarg default or a changed --var value does not reach
+    an existing region through re-render; neither is covered by gen or pkg.
+    --force picks both up. Fixing it would mean recording on the marker which
+    kwargs the model bound, a marker-format change left for its own record.
+
+    ## Not in this blueprint (proposed as the next one)
+    --prune-orphans, deprecated records as orphans, and the selection-prompt
+    context DESIGN.md asks for (prior selections rebuilt from markers, and other
+    records' regions listed as "already present, do not select").
+  constraints:
+    - Classification reads markers only; Sedum keeps no manifest or lockfile.
+    - A record classified skip makes no model call and its files are not written, not even with identical bytes. The done-check is tested by a second grow that counts zero model calls and leaves every file's bytes and modification time unchanged.
+    - A record classified re-render makes no model call, rewrites only its pkg-stale regions in place, and prunes nothing.
+    - Unknown gen (empty) is stale, never current. A record that owns only seeded regions is classified by them as having no owned regions (select), and its stale seeded regions are reported.
+    - --check makes no model call, writes nothing (including Phase 3 files), and exits non-zero exactly when some record is stale or needs re-rendering.
+    - --check is rejected with --execute, --record and --dry-run; --force is rejected with --check.
+    - --record makes grow re-select every record, and the run report says it did.
+    - Replay (--execute) is unchanged; it never classifies or skips.
+    - --dry-run reports each record's classification alongside what it would write.
+    - grow's --check and --force help text say that re-render replays marker kwargs verbatim, so a changed kwarg default or --var value needs --force (provisio-mgr,
+    - The PRD and README describe the table above, --check's output and exit status, --force, --record's re-select, and the kwarg-default / --var limit.
+  affected_scope:
+    - internal/pipeline/pipeline.go
+    - internal/pipeline/classify.go
+    - internal/pipeline/*_test.go
+    - internal/inject/inject.go
+    - internal/inject/scan.go
+    - internal/inject/*_test.go
+    - internal/expand/expand.go
+    - internal/expand/*_test.go
+    - internal/cli/grow.go
+    - internal/cli/config.go
+    - internal/cli/*_test.go
+    - PRD.md
+  related:
+    - prov-2026-66bea9f3
+    - prov-2026-375f5d4a
+  associated_specs:
+    - path: internal/pipeline/classify_test.go
+    - path: internal/cli/flags_test.go

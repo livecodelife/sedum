@@ -1,9 +1,9 @@
 id: prov-2026-b5c21813
 title: grow --repair feeds project verification failures back to the model
 type: blueprint
-status: implemented
-version: 2
-reason: 'scope: the grown selection test, root.go, and the records pinned to the flag test, PRD and .gitignore, which are refreshed in the same commit'
+status: open
+version: 3
+reason: 'provisio-mgr: --repair 0 verifies once and fails fast, --no-verify skips verification, and the failure names every model call spent'
 created_at: "2026-10-16"
 author: calebcowen@gmail.com
 intent: |
@@ -20,14 +20,14 @@ intent: |
         - go vet ./internal/...
       verify_timeout: 120s     # per command; default 120s
 
-  `.sedum/config.yml` is un-ignored in .gitignore like context.md. `--verify <cmd>` (repeatable) adds commands for one run, after the config's. Nothing configured means no verification and today's behaviour exactly. Generator packages never contribute commands: running a third-party package's commands is arbitrary code execution, and the person who owns the project owns the commands.
+  `.sedum/config.yml` is un-ignored in .gitignore like context.md. `--verify <cmd>` (repeatable) adds commands for one run, and `--no-verify` skips verification for one run (it cannot be combined with `--verify`), after the config's. Nothing configured means no verification and today's behaviour exactly. Generator packages never contribute commands: running a third-party package's commands is arbitrary code execution, and the person who owns the project owns the commands.
 
   ## The loop
-  `grow --repair N` (default 1, hard cap 3, N above 3 is an error; 0 turns repair off). Per record, after Phase 5 accepts a selection:
+  `grow --repair N` (default 1, hard cap 3, N above 3 is an error; 0 means verify once and fail fast, with no repair). Per record, after Phase 5 accepts a selection:
   1. Build the candidate with inject.Preview (the files Phase 7 would write; no disk writes).
   2. Copy the output tree to a scratch directory (skipping hidden directories and the generators and records directories, as the orphan walk does), overlay the candidate, run each verify command there with `sh -c`, `cwd` the scratch root, the timeout above, stdout+stderr captured.
   3. All pass: the selection is accepted as today. Any fails: with attempts left, the conversation gets the assistant's answer and a user message `These checks failed after applying your selection:` plus, per failing command, `$ <cmd>`, its exit status and the last 4000 bytes of output; the model is called again. The scratch directory is always removed.
-  4. Out of attempts: the run fails naming the record, the command and its output, and writes nothing (Phase 7 never ran for any record). One repair attempt is one extra model call, counted in the run's calls.
+  4. Out of attempts: the run fails naming the record, the command and its output and the model calls it spent, counting answers Phase 5 rejected as well as repairs, and writes no generated region (Phase 7 never ran for any record). A repair attempt is one extra model call, but the total can be higher: a Phase 5 rejection of a repaired answer spends a `--retries` re-prompt, and the failure message says so.
   A record whose selection is empty or whose files are all unmanaged is not verified. Records are verified one at a time, in the order they are selected, against the tree plus that record's own candidate; a command that depends on a later record's regions can therefore fail on a record that is fine once the run finishes. That is a known limit of verifying one record at a time, stated here and in the README rather than hidden.
 
   ## Trust and safety (provisio-mgr's conditions)
@@ -76,9 +76,10 @@ affected_scope:
   - provenance/prov-2026-aabeac10.yml
   - provenance/prov-2026-6ab86198.yml
   - provenance/prov-2026-751790c4.yml
+  - internal/selection/repair_test.go
 forbidden_scope: []
 related: []
-sealed_at_sha: aa3074a0cf9ba728742ffd349a768840546b8491
+sealed_at_sha: ""
 associated_specs:
   - path: internal/verify/verify_test.go
     run_command: go test ./internal/verify -count=1

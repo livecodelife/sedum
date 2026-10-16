@@ -1,8 +1,8 @@
 id: prov-2026-aa4b736d
 title: 'M0 - CLI scaffold: Cobra command surface, project layout, and run log'
-status: implemented
-version: 3
-reason: Spec file edited under prov-2026-b5c21813; refresh its hash
+status: open
+version: 4
+reason: Spec files edited under prov-2026-b5c21813 (--no-verify, --repair 0); refresh its hash
 created_at: "2026-08-07"
 author: calebcowen@gmail.com
 intent: |
@@ -81,7 +81,7 @@ type: blueprint
 implements: prov-2026-d554bfc3
 implements_version: 1
 related: []
-sealed_at_sha: ba3fbaf0cc6776c32e23fb6ed2bdd03671c10c6d
+sealed_at_sha: ""
 associated_specs:
   - path: internal/cli/flags_test.go
     run_command: go test -count=1 ./$(dirname {{path}})

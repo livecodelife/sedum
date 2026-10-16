@@ -100,7 +100,9 @@ Nothing is created that a provenance record did not authorize.`,
 	f.IntVar(&cfg.Retries, "retries", defaultRetries, "Model output validation retry limit. Ignored with --execute.")
 	f.IntVar(&cfg.Repair, "repair", defaultRepair,
 		"How many times a selection that passed validation is sent back, with the output, because a verification command failed it "+
-			"(0 turns verification off, at most 3). Commands come from .sedum/config.yml under the output directory and --verify, run in a scratch copy of the tree. Ignored with --execute.")
+			"(0 verifies once and fails the run, at most 3). Commands come from .sedum/config.yml under the output directory and --verify, run in a scratch copy of the tree. Ignored with --execute.")
+	f.BoolVar(&cfg.NoVerify, "no-verify", false,
+		"Skip verification for this run, whatever .sedum/config.yml names. Cannot be combined with --verify. Ignored with --execute.")
 	f.StringArrayVar(&cfg.Verify, "verify", nil,
 		"A shell command run in a scratch copy of the tree with a record's selection applied; repeatable, added after .sedum/config.yml's. "+
 			"It must exit 0. Ignored with --execute.")
@@ -761,10 +763,10 @@ func printStamped(out io.Writer, result *pipeline.Result, dryRun bool) {
 // verifier is the project's verification for this run: the commands in
 // .sedum/config.yml under the output directory, then --verify, run by
 // verify.Run in a scratch copy of the tree. It returns a nil function when
-// there is nothing to run or --repair is 0, which is how a run behaves as it
-// always did (prov-2026-b5c21813).
+// there is nothing to run or --no-verify is set, which is how a run behaves as
+// it always did (prov-2026-b5c21813).
 func verifier(out io.Writer, cfg GrowConfig) (func(context.Context, map[string]string) (string, error), int, error) {
-	if cfg.Repair == 0 || cfg.Check || cfg.Stamp {
+	if cfg.NoVerify || cfg.Check || cfg.Stamp {
 		return nil, 0, nil
 	}
 	loaded, err := verify.LoadConfig(cfg.Output)

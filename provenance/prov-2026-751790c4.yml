@@ -1,13 +1,13 @@
 id: prov-2026-751790c4
 title: 'go: internal/selection/repair_test.go, tests for the repair loop'
 type: imprint
-status: implemented
-version: 2
-reason: Spec file edited under prov-2026-b5c21813; refresh its hash
+status: open
+version: 3
+reason: 'Two more tests: exhaustion counts every model call, and --repair 0 verifies once and fails'
 created_at: "2026-10-16"
 author: calebcowen@gmail.com
 intent: |
-  The tests of internal/selection/repair_test.go (go package, package selection): a failed verification is sent back to the model within the repair budget, and what happens when it is exhausted or absent.
+  The tests of internal/selection/repair_test.go (go package, package selection): a failed verification is sent back to the model within the repair budget, what happens when it is exhausted (every model call is counted) or absent, and that a repair budget of zero verifies once and fails.
 
   Imports, each its own addImport, exactly: context, errors, strings, testing.
 
@@ -120,6 +120,36 @@ intent: |
         		t.Errorf("the model was called %d times, want 1: a broken verifier is not the model's mistake", len(client.seen))
         	}
         }
+
+    - setFunction name TestRepairExhaustionCountsEveryModelCall, code exactly:
+        func TestRepairExhaustionCountsEveryModelCall(t *testing.T) {
+        	bad := `{"invocations":[{"action":"createControllerMethod","kwargs":{"controller":"users"}}]}`
+        	check := &failing{n: 5, message: "These checks failed: make test"}
+        	_, client, err := selectRepairing(t, 1, check.verify, validResponse, bad, validResponse)
+        	if err == nil {
+        		t.Fatal("an answer that never verifies should fail")
+        	}
+        	for _, want := range []string{"1 repair attempt(s)", "3 model call(s)", "1 answer(s) rejected by validation"} {
+        		if !strings.Contains(err.Error(), want) {
+        			t.Errorf("the error lacks %q: %v", want, err)
+        		}
+        	}
+        	if len(client.seen) != 3 {
+        		t.Errorf("the model was called %d times, want 3", len(client.seen))
+        	}
+        }
+
+    - setFunction name TestRepairZeroVerifiesOnceAndFails, code exactly:
+        func TestRepairZeroVerifiesOnceAndFails(t *testing.T) {
+        	check := &failing{n: 5, message: "These checks failed: make test"}
+        	_, client, err := selectRepairing(t, 0, check.verify, validResponse, validResponse)
+        	if err == nil || !strings.Contains(err.Error(), "after 0 repair attempt(s)") {
+        		t.Fatalf("error = %v, want one saying no repair was allowed", err)
+        	}
+        	if len(client.seen) != 1 || len(check.candidates) != 1 {
+        		t.Errorf("%d model call(s) and %d verification(s), want 1 and 1", len(client.seen), len(check.candidates))
+        	}
+        }
 constraints: []
 affected_scope:
   - internal/selection/repair_test.go
@@ -127,7 +157,7 @@ forbidden_scope: []
 implements: prov-2026-b5c21813
 implements_version: 1
 related: []
-sealed_at_sha: acead8c732b0bd800d9a6a23bdc48ec5607ca762
+sealed_at_sha: ""
 associated_specs:
   - path: internal/verify/verify_test.go
     run_command: go test ./internal/selection -count=1 -run 'Repair|Verify'

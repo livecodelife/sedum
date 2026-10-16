@@ -81,6 +81,7 @@ func TestGrowFlagSurface(t *testing.T) {
 		{"check", "", "bool", "false"},
 		{"prune-orphans", "", "bool", "false"},
 		{"repair", "", "int", "1"},
+		{"no-verify", "", "bool", "false"},
 		{"verify", "", "stringArray", "[]"},
 		{"orphans", "", "bool", "false"},
 		{"stamp", "", "bool", "false"},
@@ -687,4 +688,11 @@ func TestStampRefusesWhatContradictsIt(t *testing.T) {
 		_, err := exec(t, growArgs(t, append([]string{"--stamp"}, extra...)...)...)
 		wantErr(t, err, "--stamp", extra[0])
 	}
+}
+
+// --no-verify skips verification and --verify adds to it, so the two together
+// say nothing a run could do (prov-2026-b5c21813).
+func TestNoVerifyRefusesVerify(t *testing.T) {
+	_, err := exec(t, growArgs(t, "--no-verify", "--verify", "true")...)
+	wantErr(t, err, "--no-verify", "--verify")
 }

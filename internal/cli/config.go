@@ -54,11 +54,14 @@ type GrowConfig struct {
 	// Repair bounds how often a selection that passed Phase 5 is sent back
 	// because the project's verification failed it, and Verify adds commands
 	// to the ones in .sedum/config.yml (prov-2026-b5c21813).
-	Repair  int
-	Verify  []string
-	Model   string
-	LogPath string
-	Verbose bool
+	Repair int
+	Verify []string
+
+	// NoVerify skips verification for the run, whatever .sedum/config.yml names.
+	NoVerify bool
+	Model    string
+	LogPath  string
+	Verbose  bool
 
 	// LocalModel is a gguf file to serve locally instead of consulting
 	// --model against a hosted or already-running endpoint. Set, it starts
@@ -104,8 +107,12 @@ func (c *GrowConfig) Validate() error {
 		return errors.New("--records is required unless --execute names a recording to replay")
 	}
 
+	if c.NoVerify && len(c.Verify) > 0 {
+		return errors.New("--no-verify cannot be combined with --verify: one skips verification and the other adds commands to it")
+	}
+
 	if c.Repair < 0 || c.Repair > maxRepair {
-		return fmt.Errorf("--repair %d is out of range: use 0 (off) to %d", c.Repair, maxRepair)
+		return fmt.Errorf("--repair %d is out of range: use 0 (verify once, no repair) to %d", c.Repair, maxRepair)
 	}
 
 	if c.LocalModel == "" && c.LocalModelServer != "" {
@@ -164,6 +171,9 @@ func (c *GrowConfig) IgnoredFlags() []string {
 	}
 	if len(c.Verify) > 0 {
 		ignored = append(ignored, "--verify (replay invokes no model, so nothing is verified)")
+	}
+	if c.NoVerify {
+		ignored = append(ignored, "--no-verify (replay verifies nothing)")
 	}
 	if c.Retries != defaultRetries {
 		ignored = append(ignored, "--retries (replay validation is terminal, never re-prompted)")
