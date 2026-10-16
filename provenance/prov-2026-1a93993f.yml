@@ -1,9 +1,9 @@
 id: prov-2026-1a93993f
 title: grow-prep migrates to v2 behind per-worktree hooks, with the undo recorded
 type: imprint
-status: implemented
-version: 1
-reason: ""
+status: open
+version: 2
+reason: Spec file edited under prov-2026-019c616e (exclude_paths, .gitignore); refresh its hash
 created_at: "2026-10-15"
 author: calebcowen@gmail.com
 intent: |-
@@ -35,7 +35,7 @@ forbidden_scope: []
 implements: prov-2026-3c35801c
 implements_version: 2
 related: []
-sealed_at_sha: 78a776129e2d42a475ed31209d8aecd3561d7e24
+sealed_at_sha: ""
 associated_specs:
   - path: .provenance.yml
     run_command: test -s {{path}}
