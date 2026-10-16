@@ -1,7 +1,7 @@
 id: prov-2026-c637c262
 title: Replay can restamp gen and reconcile a complete recording
 type: blueprint
-status: open
+status: implemented
 version: 2
 reason: 'scope: inject.go and pipeline.go carry the reconcile report and the Restamps field; the records whose spec is flags_test.go or PRD.md, and the two grown-file imprints, are refreshed in the same commit'
 created_at: "2026-10-16"
@@ -63,7 +63,7 @@ affected_scope:
   - provenance/prov-2026-e4bab53b.yml
 forbidden_scope: []
 related: []
-sealed_at_sha: ""
+sealed_at_sha: 811d0655453e411449cff0e7c9f856787562992e
 associated_specs:
   - path: internal/pipeline/restamp_test.go
     run_command: go test ./internal/pipeline -count=1 -run 'Restamp|Reconcile'
