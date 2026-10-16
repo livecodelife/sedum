@@ -119,6 +119,8 @@ affected_scope:
   - internal/inject/*_test.go
   - internal/pipeline/pipeline.go
   - internal/pipeline/replay.go
+  - internal/pipeline/orphans.go
+  - internal/pipeline/classify.go
   - internal/pipeline/*_test.go
   - internal/cli/*_test.go
   - PRD.md
