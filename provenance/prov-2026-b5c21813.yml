@@ -1,7 +1,7 @@
 id: prov-2026-b5c21813
 title: grow --repair feeds project verification failures back to the model
 type: blueprint
-status: open
+status: implemented
 version: 3
 reason: 'provisio-mgr: --repair 0 verifies once and fails fast, --no-verify skips verification, and the failure names every model call spent'
 created_at: "2026-10-16"
@@ -79,7 +79,7 @@ affected_scope:
   - internal/selection/repair_test.go
 forbidden_scope: []
 related: []
-sealed_at_sha: ""
+sealed_at_sha: 03537511ee25c8f1302af3372c190473b26aaff0
 associated_specs:
   - path: internal/verify/verify_test.go
     run_command: go test ./internal/verify -count=1
