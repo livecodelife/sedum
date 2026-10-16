@@ -1,0 +1,39 @@
+id: prov-2026-fc05416c
+title: Grow's marker scans skip the generators and records directories
+status: draft
+created_at: "2026-10-15"
+author: calebcowen@gmail.com
+intent: |
+  prov-cli found (#provisio, 2026-10-15) that grow's orphan scan read the
+  markers in its cobra package's golden fixtures under generators/, and
+  reported them as orphans in an authorized file, because the cobra blueprint
+  authorizes generators/cobra/**. --prune-orphans would have edited the
+  fixtures and --check failed on them. Generator packages - their templates,
+  fixtures and goldens - are not application code, whatever markers they
+  carry. provisio-mgr decided: grow's marker scans skip the --generators
+  directory entirely, and the records directory with it.
+
+  The orphan walk skips both directories wherever they sit under the output
+  tree, and the per-record scans behind classification and --check ignore any
+  target inside them.
+constraints:
+  - Skipping compares cleaned absolute paths, so ./generators and an absolute path name the same directory.
+  - Nothing is skipped when the directory is outside the output tree.
+affected_scope:
+  - internal/pipeline/orphans.go
+  - internal/pipeline/classify.go
+  - internal/pipeline/pipeline.go
+  - internal/pipeline/*_test.go
+forbidden_scope: []
+type: imprint
+implements: prov-2026-5403d162
+supersedes: ""
+superseded_by: ""
+related: []
+sealed_at_sha: ""
+associated_specs:
+  - path: internal/pipeline/orphans_test.go
+    run_command: go test ./$(dirname {{path}})
+associated_traces: []
+monitors: []
+tags: []
