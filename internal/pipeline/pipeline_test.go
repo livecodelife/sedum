@@ -457,10 +457,11 @@ func TestAnUnauthorizedTargetHaltsWithNothingInjected(t *testing.T) {
 		t.Errorf("the error does not name the unauthorized path: %v", err)
 	}
 
-	// The authorized file was still created by Phase 3, and carries no region.
-	body := readFile(t, filepath.Join(cfg.Output, "app/models/user.rb"))
-	if strings.Contains(body, "sedum:addField") {
-		t.Errorf("a halted run still injected:\n%s", body)
+	// The authorized file was created by Phase 3, but the run failed, so it is
+	// removed again: a failed run leaves the tree as it found it
+	// (prov-2026-8394826c).
+	if got := tree(t, cfg.Output); len(got) != 0 {
+		t.Errorf("a halted run left %v", got)
 	}
 }
 
@@ -745,8 +746,8 @@ func TestPromptCannotAuthorizeAFileTheRecordDidNot(t *testing.T) {
 	if !strings.Contains(err.Error(), "app/models/order.rb") {
 		t.Errorf("the rejection does not name the unauthorized path: %v", err)
 	}
-	if got := tree(t, cfg.Output); len(got) != 1 || got[0] != "app/models/user.rb" {
-		t.Errorf("output tree = %v; nothing beyond the authorized file may exist", got)
+	if got := tree(t, cfg.Output); len(got) != 0 {
+		t.Errorf("output tree = %v; a failed run leaves nothing behind", got)
 	}
 }
 
@@ -984,7 +985,7 @@ func TestPriorSelectionsCannotAuthorizeAFileTheRecordDidNot(t *testing.T) {
 	if _, err := Run(context.Background(), cfg); err == nil {
 		t.Fatal("a selection aimed at an unauthorized file was accepted because an earlier run had made it")
 	}
-	if got := tree(t, cfg.Output); len(got) != 1 {
+	if got := tree(t, cfg.Output); len(got) != 0 {
 		t.Errorf("output tree = %v", got)
 	}
 }

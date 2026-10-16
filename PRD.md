@@ -195,6 +195,8 @@ If no template matches, Sedum uses the package's `_default` template if one exis
 
 This is deliberately not a hard error. Not every authorized path needs boilerplate — a SQL migration or a plain config file may legitimately start blank, and forcing authors to declare a template for every extension would be noise.
 
+The empty file is only a problem when an action then targets it: the markers a template would have planted are not there. Phase 7 then names the cause instead of only the missing marker (`prov-2026-8394826c`): `no file template in package go matches this path, so the file was created empty and has none of the markers a template plants`, followed by the package's file templates. The go package has no root-level template on purpose, since a root file's package name is not knowable from its path. A run that fails after Phase 3 removes the files it created and the directories it had to make for them; files that existed before the run are never touched, and a successful run keeps everything.
+
 ### Anchors and marker planting
 
 File templates plant the markers that action anchors target. This closes the loop: injection points exist because a file template created them, not because Sedum parsed the file for structure. It is the reason no language parser is required anywhere in the system.

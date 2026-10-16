@@ -209,13 +209,13 @@ type Selection struct {
 }
 
 // Run executes the phases in order.
-func Run(ctx context.Context, cfg Config) (*Result, error) {
+func Run(ctx context.Context, cfg Config) (result *Result, err error) {
 	log := cfg.Log
 	if log == nil {
 		log = runlog.Discard()
 	}
 
-	result := &Result{StoppedAfter: cfg.StopAfterPhase}
+	result = &Result{StoppedAfter: cfg.StopAfterPhase}
 	if strings.TrimSpace(cfg.Prompt) != "" {
 		result.Prompt = cfg.Prompt
 	}
@@ -298,6 +298,18 @@ func Run(ctx context.Context, cfg Config) (*Result, error) {
 	// Phase 3 - create files from templates. --check writes nothing, so it
 	// takes Phase 3's dry-run path and reads what would have been written.
 	writeless := cfg.DryRun || cfg.Check || cfg.Stamp
+	var cleanup *runCleanup
+	if !writeless {
+		// A run that fails after Phase 3 must not leave the files it created
+		// (an empty file nothing could fill) or the directories it made. Files
+		// that existed before the run are never recorded, so never removed.
+		cleanup = newRunCleanup(cfg.Output, pathsOf(resolutions))
+		defer func() {
+			if err != nil {
+				cleanup.undo(log)
+			}
+		}()
+	}
 	files, err := resolve.Create(resolutions, resolve.Options{
 		Output:    cfg.Output,
 		DryRun:    writeless,
@@ -308,6 +320,9 @@ func Run(ctx context.Context, cfg Config) (*Result, error) {
 		return nil, err
 	}
 	result.Files = files
+	if cleanup != nil {
+		cleanup.created(files)
+	}
 
 	if cfg.StopAfterPhase == PhaseCreate {
 		log.Info("stopping after file creation")
@@ -678,6 +693,15 @@ func priorFromMarkers(recordID string, found []inject.OwnedRegion, owners map[st
 			}
 		}
 		out = append(out, recording.Invocation{Action: m.Action, Kwargs: kwargs})
+	}
+	return out
+}
+
+// pathsOf lists the path of each resolution, in order.
+func pathsOf(resolutions []resolve.Resolution) []string {
+	out := make([]string, 0, len(resolutions))
+	for _, r := range resolutions {
+		out = append(out, r.Path)
 	}
 	return out
 }
