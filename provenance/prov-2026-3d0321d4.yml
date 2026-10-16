@@ -1,7 +1,7 @@
 id: prov-2026-3d0321d4
 title: 'genpkg: the adopt key in sedum.yaml'
 type: imprint
-status: open
+status: implemented
 version: 5
 reason: the three hand-written lines wiring the key (schema.go, load.go)
 created_at: "2026-10-16"
@@ -32,7 +32,7 @@ forbidden_scope: []
 implements: prov-2026-95d9ae7e
 implements_version: 1
 related: []
-sealed_at_sha: ""
+sealed_at_sha: 7dd9983e59410209b0dcdaad99c3b4fd43587cb2
 associated_specs:
   - path: internal/genpkg/adopt_test.go
     run_command: go test ./internal/genpkg -run 'Adopt' -count=1
