@@ -1,0 +1,51 @@
+id: prov-2026-7a13f569
+version: 1
+content_hash: sha256:7e0796bec177ea4e737630eb8900f9bf5c55a05ef8bfa45f9579b9dde3a07e38
+parent_hash: ""
+reason: ""
+author: calebcowen@gmail.com
+created_at: "2026-10-16T22:59:54Z"
+spec_hashes:
+  - sha256:0413aa0a2689baf6d0226cfa32c2e3f143c5797f2c3564f3fbfa02709dc8919e
+content:
+  id: prov-2026-7a13f569
+  title: 'Sedum grow log: a persistent record of what each grow cost'
+  type: blueprint
+  created_at: "2026-10-16"
+  author: calebcowen@gmail.com
+  intent: |-
+    A persistent grow log: what each `sedum grow` cost and how it went, kept across runs, so the herd (and anyone adopting Sedum) can see model cost, retries, repair rate and failures over time instead of reading a run log that is truncated every run (COMMON.md: "Log each grow ... when sedum's grow log exists").
+
+    ## What it is
+    An append-only JSON Lines file, default `.sedum/grow.jsonl` (the run log stays `.sedum/run.log`, diagnostic and cleared per run; the two are different things). One line per record per `sedum grow` invocation that reaches Phase 5 or replays, written when the record finishes, whether it succeeded or failed. Nothing in Sedum reads it to decide anything: like the run log it is output, so idempotency still lives in the markers.
+
+    ## Line schema (version 1; unknown fields ignored by readers)
+    `v` (1), `ts` (RFC3339 UTC), `sedum` (version string), `record` (id), `mode` (`select` | `replay` | `rerender` | `skip`), `model` (the model name the run used, `stub` for a stub, "" when no model was asked), `calls` (model calls), `rejected` (answers that failed validation), `completeness` (completeness questions), `repairs` (verification send-backs), `prompt_tokens`, `completion_tokens` (0 when the server reported none), `invocations` (selected), `literal` (invocations that carry a kwarg of type literal, i.e. code the model supplied) and `declarative` (the rest), `regions` {injected, replaced, pruned, unchanged}, `files` (number written), `ms` (wall time for the record), `outcome` (`ok` | `failed`) and, when failed, `error` (first line only, at most 300 bytes). It never contains prompt or response text, kwargs values, file contents or key material.
+
+    ## Behaviour
+    - `--grow-log <path>` sets the location; `--no-grow-log` turns it off. The directory is created. A write failure is a warning on stderr and never fails the grow.
+    - `--check` and `--dry`-style runs that write nothing append nothing. A record skipped as current appends one `skip` line only with `--grow-log-skips` (off by default, so a no-op grow adds no lines).
+    - Concurrent writers: each line is one `write` of a complete line to an `O_APPEND` file, so lines never interleave.
+    - `sedum grow-log [--json] [--since <duration|date>] [--record <id>] [--model <name>] [<path>]` summarizes the file: totals and, per model, grows, calls, rejected, repairs, tokens, literal share, failure rate; `--json` prints the same numbers machine-readable. A malformed line is counted and skipped, never fatal.
+
+    ## Package and wiring
+    New package internal/growlog: `Entry` (the schema above), `Append(path string, e Entry) error`, `Read(path string) ([]Entry, int, error)` (entries and the count of malformed lines), `Summarize(entries []Entry) Summary` and its text and JSON renderers. internal/cli/grow.go builds an Entry per pipeline.Selection (Selection already carries Calls, Rejected, Completeness, Repairs and the token counts) plus region counts from the injector's result, and calls Append; internal/cli gains the `grow-log` command. The gen_hash is unaffected: the log is output.
+
+    ## Constraints
+    - Standard library only. Generated code, grown by Haiku from intents with exact code (the capable model plans, Haiku transcribes).
+    - The log is gitignored by default (`sedum init`/docs say so); it is not a record and not evidence.
+    - No wall-clock or token numbers enter any hash.
+
+    ## Out of scope
+    Cost in money (needs a price table), shipping the log anywhere, a dashboard, and the behaviour-only-intent eval (separate blueprint, which will read this file).
+
+    ## Approved additions (provisio-mgr)
+    - The log is machine-local: the README says to ignore `.sedum/grow.jsonl` in .gitignore (this repo's `.sedum/*` rule already does; the other herd repos must ignore it too).
+    - The per-model summary carries retries (answers the model had refused) and repair counts, so Haiku runs can be compared over time.
+  affected_scope:
+    - internal/growlog/**
+    - internal/cli/grow*.go
+    - internal/cli/root.go
+    - internal/growlog/growlog_blueprint_test.go
+  associated_specs:
+    - path: internal/growlog/growlog_blueprint_test.go
