@@ -18,7 +18,7 @@ intent: |
   a pseudo-version of a pushed commit. go test ./... passes with the replace
   removed and the module cache cleared of the local copy.
 
-  ## (b) docs/GROW_PREP_PROOF.md
+  ## (b) proof/GROW_PREP.md
 
   One document a reviewer can read instead of 60 commits: what changed
   against main, and for each feature the command that shows it and the output
@@ -32,7 +32,10 @@ intent: |
   - sedum regions --json and grow --json
   - the go package with syntax checks, and quote
   - gen_hash parity with the library: 1,100 v1 and 938 v2 records
-  Each section cites its record. It links migrate-dry's lifecycle testbed as
+  Each section cites its record. It lives outside docs/, which pages.yml
+  publishes, and proof/capture.sh re-runs every captured command against a
+  freshly built binary so a reviewer can reproduce each output (provisio-mgr,
+  #provisio). Its summary is the PR description. It links migrate-dry's lifecycle testbed as
   the PR's runnable demo once that is pinned to a grow-prep commit.
 
   ## (c) grow-prep's records on v2
@@ -48,8 +51,7 @@ constraints:
 affected_scope:
   - go.mod
   - go.sum
-  - docs/GROW_PREP_PROOF.md
-  - docs/grow-prep-proof/**
+  - proof/**
 forbidden_scope: []
 type: blueprint
 supersedes: ""
@@ -57,7 +59,9 @@ superseded_by: ""
 related:
   - prov-2026-dac49f78
 sealed_at_sha: ""
-associated_specs: []
+associated_specs:
+  - path: proof/capture.sh
+    run_command: bash {{path}} --check
 associated_traces: []
 monitors: []
 tags: []
