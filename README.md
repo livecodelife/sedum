@@ -867,13 +867,19 @@ So a second `grow` over unchanged records makes no model call and writes no file
 
 **Deprecated records are retired** (`prov-2026-cc73cf61`). A record's `status` is the one lifecycle field Sedum reads, and only the value `deprecated`: such a record takes no new versions, is never grown, and owns nothing. `--only` naming one is an error.
 
-**Orphans.** An orphan is an `owned` region whose marker names a record that is not in the records directory, by id or alias, or that is deprecated. Every `grow` reports orphans. `--prune-orphans` removes them, inside Phase 7's all-or-nothing write, but only in files some current record authorizes; Sedum writes nothing else, so an orphan in any other file is reported and left alone. Seeded and unowned regions are never orphans. `--check` lists orphans and fails on them: an orphan is code no current record stands behind.
+**Orphans.** An orphan is an `owned` region whose marker names a record that is not in the records directory, by id or alias, or that is deprecated. Every `grow` reports orphans: a summary per outcome (counts, and the directories holding the most), or with `--orphans` a line per region. `--prune-orphans` removes them, inside Phase 7's all-or-nothing write, but only in files some current record authorizes; Sedum writes nothing else, so an orphan in any other file is reported and left alone. Seeded and unowned regions are never orphans. `--check` lists orphans and fails on them: an orphan is code no current record stands behind.
 
 **`--stamp`** writes the current `gen` onto a record's regions whose marker has none, and the action's current `pkg` onto those with none, where the owning record exists, and changes nothing else — no body, no value already present, no record id. It makes no model call and runs nothing else. Running it asserts that the code is current, so a repository whose markers predate the hashes can skip a full re-select after migration. Because it writes only missing values, it never hides a real change. It cannot be combined with `--check`, `--execute`, `--record` or `--force`; with `--dry-run` it reports what it would stamp. A marker naming an alias keeps it until its region is next written, when the surviving id replaces it.
 
 **Prompt context.** For each file a record may write, the selection prompt lists the regions other records already own there — action, identifying kwargs, owner — under *Already present*, as not to be selected; selecting one would be refused in Phase 7. When a record is re-selected and no `--prior-recording` supplies its earlier selections, they are rebuilt from its own markers as context, keeping exposed actions and declared kwargs only. Hashes never reach the prompt.
 
 ---
+
+## Practical notes for outside users
+
+- **Keep escape-heavy literals out of intents.** A model asked to reproduce a string full of backslashes and quotes, or one holding an exotic character such as U+2028, will double the backslashes or turn the character into a newline, and the region then fails its own tests. Write such values with Go escapes or raw strings that need one level of escaping, and keep an exact-bytes corpus in a checked-in file rather than in an intent.
+- **Give a vendored generator package its own `go.mod`.** A package vendored inside a Go repository (for example `generators/go`) holds templates, some with names like `{pkg}`, and `go build ./...` tries to compile them. A `go.mod` in `generators/` makes it a separate module the root build skips.
+- **A large orphan count usually means a vendored corpus.** `grow` summarizes orphans and names the directories holding the most; `--orphans` lists every region.
 
 ## Recorded Executions
 
@@ -1046,6 +1052,7 @@ sedum grow --generators ./generators --records ./provenance --output ./build
 | `--force` | Re-select every record even when its markers say it is current, and let a record whose selection comes back empty prune every region it owns (without `--force` that is an error). Ignored with `--execute`. |
 | `--check` | Report each record as current, stale, to re-render, or unknown, and any orphan regions, from markers. No model call, nothing written; exits non-zero when any record is stale or needs re-rendering, or any orphan exists. |
 | `--prune-orphans` | Remove regions whose record was removed or deprecated, in files some current record authorizes; report the rest. Ignored with `--execute`. |
+| `--orphans` | Print every orphan region, one line each, in place of the per-fate summary (counts and the busiest directories) that `grow` and `--check` print by default. The `--json` report always lists them all. |
 | `--json` | Print the run's report as the `sedum.grow/1` JSON document (`conformance/formats/`) instead of text. Each record says whether its regions changed — inserted, pruned, or rewritten with different bytes — so a caller runs only the specs whose code moved. |
 | `--stamp` | Write the current `gen` and `pkg` onto markers missing them, where the owning record exists, and nothing else. No model call. Cannot be combined with `--check`, `--execute`, `--record` or `--force`. |
 | `--stop-after <phase>` | Halt after the named phase. One of `resolution`, `files`, `invocations`, `expansion`. |
