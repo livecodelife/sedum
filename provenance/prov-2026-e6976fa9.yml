@@ -1,13 +1,13 @@
 id: prov-2026-e6976fa9
 title: 'eval design: drawing samples'
 type: imprint
-status: implemented
-version: 2
-reason: tests grown into the placeholder spec file
+status: open
+version: 4
+reason: targets live in a package directory
 created_at: "2026-10-16"
 author: calebcowen@gmail.com
 intent: |-
-  Drawing samples for the behaviour-only-intent eval (prov-2026-d694c4c4): Config, RunSample (prepare, grow through Config.Grow, read the grow log the grow wrote, grade), Run and Plan. Prepare, Grade, Sample, Task and Variant exist; growlog.Read exists in internal/growlog. The tests use the task data in testdata/tasks and the generators in ../../generators.
+  Drawing samples for the behaviour-only-intent eval (prov-2026-d694c4c4): Config, RunSample (prepare, grow through Config.Grow, read the grow log the grow wrote, grade), Run and Plan. Prepare, Grade, Sample, Task and Variant exist; growlog.Read exists in internal/growlog. The tests use the task data in testdata/tasks and the generators in ../../generators; the fake grows write into the package directory (dir/<package>/<file>).
 
   New file evals/design/sample.go (package design); TRANSCRIBE, do not design: write exactly the code below. Imports (context, fmt, os, path/filepath, strings, time, github.com/livecodelife/sedum/internal/growlog): one addImport each. Declarations: one invocation per declaration (type -> setType, const -> setConst, func -> setFunction, method -> setMethod with the receiver type name), code = the whole declaration including its doc comment, exactly as written, tabs for indentation, no changes of any kind.
 
@@ -126,7 +126,7 @@ intent: |-
   		if len(parts) != 2 {
   			t.Fatalf("task %s: unexpected code intent", task.ID)
   		}
-  		if err := os.WriteFile(filepath.Join(dir, task.Target[0]), []byte(parts[1]), 0o644); err != nil {
+  		if err := os.WriteFile(filepath.Join(dir, task.Package, task.Target[0]), []byte(parts[1]), 0o644); err != nil {
   			return err
   		}
   		return growlog.Append(filepath.Join(dir, ".sedum", "grow.jsonl"), growlog.Entry{Calls: 2, Rejected: 1, Repairs: 1, PromptTokens: 100, CompletionTokens: 10})
@@ -162,7 +162,7 @@ intent: |-
   	}
   	write := func(content string) func(context.Context, string) error {
   		return func(_ context.Context, dir string) error {
-  			return os.WriteFile(filepath.Join(dir, "parse.go"), []byte(content), 0o644)
+  			return os.WriteFile(filepath.Join(dir, "since", "parse.go"), []byte(content), 0o644)
   		}
   	}
   	cases := []struct {
@@ -216,7 +216,7 @@ forbidden_scope: []
 implements: prov-2026-d694c4c4
 implements_version: 1
 related: []
-sealed_at_sha: 25f161362e0ed0b678d5c8efe21b2be8df4b9324
+sealed_at_sha: ""
 associated_specs:
   - path: evals/design/sample_test.go
     run_command: go test ./evals/design -run 'TestReferenceCodePassesEveryTask|TestRunSampleOutcomes|TestRunAndPlan' -count=1
