@@ -45,6 +45,39 @@ jobs:
             GOOS=${target%/*} GOARCH=${target#*/} go build -trimpath -o /dev/null ./cmd/sedum
           done
 
+  # Records drift silently: a spec file edited, a snapshot missing, a parent
+  # moved. Nothing ran `provenance lint` here until prov-2026-1a93993f went
+  # stale on main with every job green. The CLI is pinned to a full commit SHA
+  # of github.com/livecodelife/provenance (no tag exists yet).
+  provenance:
+    name: Provenance
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: false
+
+      - name: Install the provenance CLI
+        run: go install github.com/livecodelife/provenance/cmd/provenance@81f0cf8c973127f871b2a119bd3133d40ed6cbd7
+
+      - name: Lint records
+        run: provenance lint --enforcement strict
+
+      # Informational: 66 imprints are pinned to older versions of blueprints
+      # that were revised since, which is normal here, so `--exit-code` would
+      # fail every build. The list is in the log; repin when one matters.
+      - name: List stale records
+        run: provenance stale
+
+      - name: Check the commits in this pull request
+        if: github.event_name == 'pull_request'
+        run: provenance check --range "origin/${{ github.base_ref }}..HEAD"
+
   packaging:
     name: Packaging
     runs-on: ubuntu-latest
