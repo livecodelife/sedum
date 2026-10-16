@@ -2,8 +2,8 @@ id: prov-2026-a77c2e9f
 title: 'adopt: the sedum adopt command'
 type: imprint
 status: open
-version: 1
-reason: ""
+version: 2
+reason: the one hand-written line registering the command
 created_at: "2026-10-16"
 author: calebcowen@gmail.com
 intent: |-
@@ -47,6 +47,7 @@ constraints: []
 affected_scope:
   - internal/cli/adopt.go
   - internal/cli/adopt_test.go
+  - internal/cli/root.go
 forbidden_scope: []
 implements: prov-2026-95d9ae7e
 implements_version: 2
@@ -54,7 +55,7 @@ related: []
 sealed_at_sha: ""
 associated_specs:
   - path: internal/cli/adopt_test.go
-    run_command: go test ./internal/adopt -run 'TestAdoptCommand' -count=1
+    run_command: go test ./internal/cli -run 'TestAdoptCommand' -count=1
 associated_traces: []
 monitors: []
 tags: []
