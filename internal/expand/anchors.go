@@ -117,9 +117,22 @@ func Unfilled(recordID string, files []resolve.File, invocations []recording.Inv
 	}
 	fillable := Fillable(files)
 
+	// An anchor its package declares optional is never asked about
+	// (prov-2026-73d32e29): it is an injection point, not work the file
+	// expects.
+	optional := map[Anchor]bool{}
+	for _, f := range files {
+		if f.Package == nil {
+			continue
+		}
+		for _, name := range f.Package.OptionalAnchors {
+			optional[Anchor{Path: f.Path, Marker: name}] = true
+		}
+	}
+
 	var out []Anchor
 	for _, a := range Planted(files) {
-		if filled[a] || !fillable[a.Marker] {
+		if filled[a] || !fillable[a.Marker] || optional[a] {
 			continue
 		}
 		out = append(out, a)

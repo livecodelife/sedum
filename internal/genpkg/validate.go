@@ -777,3 +777,15 @@ func checkSyntax(pkg *Package, r *reporter) {
 			pkg.Syntax, strings.Join(syntax.Names(), ", "))
 	}
 }
+
+// checkOptionalAnchors rejects an optional_anchors entry no file template in
+// the package plants.
+func checkOptionalAnchors(pkg *Package, fileTemplates []string, r *reporter) {
+	planted := plantedMarkers(pkg.Comment(), fileTemplates)
+	for _, name := range pkg.OptionalAnchors {
+		if !planted[name] {
+			r.errorf(manifestFile, RuleOptionalAnchorUnplanted,
+				"optional_anchors names %q, which no file template in this package plants", name)
+		}
+	}
+}

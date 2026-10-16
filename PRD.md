@@ -123,6 +123,10 @@ The check runs twice. In Phase 5 the validated answer is applied to its files in
 
 A package that checks syntax shapes its markers to pass: a template ending in a blank line keeps one before its closing marker (`prov-2026-ab24df5a`), which is what gofmt wants after a top-level declaration. The reference package is `testdata/generators/go`: `setFunction`, `setMethod`, `setType`, `setVar`, `setConst` and `addImport`, each writing one whole declaration the model supplies as a `literal` into the file its `file` kwarg names, with identity file and name (and receiver). It imports with one `import "path"` declaration per region, because no marker layout inside an `import ( )` block is gofmt-clean both before and after the first import.
 
+### Optional anchors
+
+`optional_anchors` names anchors the package's templates plant that Phase 5's completeness check never asks about (`prov-2026-73d32e29`). They remain injection points; they are simply not work a file expects. The go package declares its `imports` anchor optional, because most declarations need no new import and asking would cost a model call on nearly every answer. An entry no file template in the package plants is a load error.
+
 ### Test paths
 
 A package may declare which of its paths hold tests:

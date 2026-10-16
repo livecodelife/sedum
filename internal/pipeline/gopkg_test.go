@@ -138,11 +138,10 @@ func TestGrowRepromptsWithTheGofmtForm(t *testing.T) {
 	cfg.Generators = goGenerators(t, nil)
 	cfg.Records = recordsDir(t, map[string]string{"prov-2026-aaaaaaaa": "  - " + storePath + "\n"})
 	cfg.Retries = 2
-	// The third answer is the reply to the completeness question about the
-	// imports anchor this selection leaves empty.
+	// No completeness question follows the corrected answer: the go package
+	// declares its imports anchor optional (prov-2026-73d32e29).
 	client := &stub{sequence: []string{
 		goSelection("func New()  {\n    return\n}"),
-		goSelection("func New() {\n\treturn\n}"),
 		goSelection("func New() {\n\treturn\n}"),
 	}}
 	cfg.Client = client
@@ -150,8 +149,8 @@ func TestGrowRepromptsWithTheGofmtForm(t *testing.T) {
 	if _, err := Run(context.Background(), cfg); err != nil {
 		t.Fatalf("grow: %v", err)
 	}
-	if client.calls != 3 {
-		t.Fatalf("calls = %d, want 3: a syntax rejection, the corrected answer, and the completeness reply", client.calls)
+	if client.calls != 2 {
+		t.Fatalf("calls = %d, want 2: a syntax rejection and the corrected answer, with no question about the optional imports anchor", client.calls)
 	}
 	followUp := client.prompts[1][len(client.prompts[1])-1].Content
 	if !strings.Contains(followUp, "func New() {\n\treturn\n}") {

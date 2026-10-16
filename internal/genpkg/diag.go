@@ -95,6 +95,11 @@ const (
 	// hold. The registry is closed, so an unknown name cannot mean anything
 	// (prov-2026-5403d162).
 	RuleSyntaxUnknown = "syntax_unknown"
+
+	// RuleOptionalAnchorUnplanted is an optional_anchors entry no file
+	// template in the package plants, so the list cannot go stale silently
+	// (prov-2026-73d32e29).
+	RuleOptionalAnchorUnplanted = "optional_anchor_unplanted"
 )
 
 // Finding is one load-time diagnostic.

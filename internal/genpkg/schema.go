@@ -30,6 +30,7 @@ type manifest struct {
 	TestPaths     []string                     `yaml:"test_paths"`
 	Variables     map[string]Variable          `yaml:"variables"`
 	Syntax        string                       `yaml:"syntax"`
+	Optional      []string                     `yaml:"optional_anchors"`
 }
 
 // Variable is a project fact this package's templates reference and cannot
@@ -407,6 +408,12 @@ type Package struct {
 	// knowledge reaches a run: opted into here, shipped with Sedum, and never
 	// an external program.
 	Syntax string
+
+	// OptionalAnchors are anchors this package's templates plant that Phase
+	// 5's completeness check never asks about (prov-2026-73d32e29). They are
+	// injection points like any other, just not work a file expects: a Go
+	// file's imports anchor, which most declarations leave empty.
+	OptionalAnchors []string
 
 	// Variables are the project facts this package's templates reference and
 	// cannot know. The run supplies their values (prov-2026-6fc3d13d).
