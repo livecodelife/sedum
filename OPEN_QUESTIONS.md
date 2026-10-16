@@ -610,7 +610,7 @@ action at the wrong file.
 
 ## 16. Other unresolved items
 
-**Removal.** If a record drops `destroy`, does replay delete the owned region? Saying yes turns recordings from action logs into declarative desired state and replay into reconciliation — powerful, converges toward idempotent sync. It also means an incomplete hand-edited recording silently deletes code. If pursued: `--prune` opt-in, never default.
+**Removal.** *(Answered by `prov-2026-375f5d4a` and `prov-2026-cc73cf61`: `grow` prunes a re-selected record's own owned regions it no longer selects, inside Phase 7's all-or-nothing write, and an empty selection over owned regions needs `--force`; replay never prunes; regions of a removed or deprecated record are orphans, removed only with `--prune-orphans` and only in authorized files. The original question follows.)* If a record drops `destroy`, does replay delete the owned region? Saying yes turns recordings from action logs into declarative desired state and replay into reconciliation — powerful, converges toward idempotent sync. It also means an incomplete hand-edited recording silently deletes code. If pursued: `--prune` opt-in, never default.
 
 **`forbidden_scope` becomes load-bearing** the moment Sedum edits an existing repository rather than generating into paths it created. It is nearly decorative under the MVP scope.
 
