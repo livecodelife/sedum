@@ -1,6 +1,6 @@
 id: prov-2026-ed9124e1
 title: The go checker flags unused function-local variables and unused imports
-status: draft
+status: open
 created_at: "2026-10-15"
 author: calebcowen@gmail.com
 intent: |
