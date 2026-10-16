@@ -1,0 +1,162 @@
+id: prov-2026-1a55bc63
+version: 1
+content_hash: sha256:5d15e50891b64d04a6769c3ff727b939fa0097d5a8e95a300bb1636815a35807
+parent_hash: ""
+reason: ""
+author: calebcowen@gmail.com
+created_at: "2026-10-16T03:43:59Z"
+spec_hashes:
+  - sha256:10bc1c4d85d0c931a2fed6f2e5fa96edebf1d26b29125f0af5dc069b207a01e9
+content:
+  id: prov-2026-1a55bc63
+  title: 'go: internal/genpkg/pkghash.go, the pkg hash over record.Canonical'
+  type: imprint
+  created_at: "2026-10-15"
+  author: calebcowen@gmail.com
+  intent: |-
+    The Go logic of internal/genpkg/pkghash.go (go package, package genpkg): the pkg hash a marker carries (prov-2026-66bea9f3), now encoded by the provenance library's record.Canonical instead of a private copy.
+
+    Imports, each its own addImport, exactly: crypto/sha256, encoding/hex, fmt, github.com/livecodelife/provenance/record.
+
+    Declarations, in this order, each exactly one set* call whose code kwarg is the code below verbatim (gofmt-formatted, comments kept). Do not alter, reorder or add anything.
+
+      - setConst name pkgFormat, code exactly:
+          // The pkg hash a marker carries: everything that decides what an action
+          // renders for fixed kwargs, hashed at load (prov-2026-66bea9f3).
+          //
+          // A region whose pkg differs from its action's current one was rendered from an
+          // older package, and is brought up to date by re-rendering it from the kwargs
+          // already on its marker - no model call, because nothing the model chose has
+          // changed. So the hash has to cover every input of rendering and should cover
+          // nothing else:
+          //
+          //   - the resolved action declaration: name, kwargs with their types,
+          //     required flags and defaults, discriminator, variants in declared order,
+          //     injects_into, the anchor fields, and identity
+          //   - the content of each of the action's templates, keyed by variant name,
+          //     or by the empty string for a simple action
+          //   - the package's transforms and op_exceptions, since any template may use
+          //     any of them
+          //
+          // Descriptions are left out, of the action and of each kwarg: they reach the
+          // model and never the renderer. The package-wide part errs the other way on
+          // purpose. An unrelated transform edit costs a re-render, while leaving out an
+          // input that does matter would make a stale region read as current.
+          //
+          // The inflection table ships with Sedum rather than with a package, so a Sedum
+          // upgrade that changes an irregular plural is not seen here.
+          //
+          // The encoding is published in conformance/pkghash so a tool above Sedum can
+          // compute the same value without linking it.
+
+          // pkgFormat names this encoding inside the hashed object, so a later change to
+          // what is covered changes every hash rather than colliding with this one.
+          const pkgFormat = "sedum.pkg/1"
+
+      - setFunction name stampPkgHashes, code exactly:
+          // stampPkgHashes sets PkgHash on every action in a loaded package.
+          func stampPkgHashes(pkg *Package) error {
+          	for _, action := range pkg.Actions {
+          		canonical, err := pkgCanonical(pkg, action)
+          		if err != nil {
+          			return err
+          		}
+          		sum := sha256.Sum256(canonical)
+          		action.PkgHash = "sha256:" + hex.EncodeToString(sum[:])
+          	}
+          	return nil
+          }
+
+      - setFunction name pkgCanonical, code exactly:
+          // pkgCanonical is the exact bytes the pkg hash is taken over: the object below
+          // encoded by the provenance library's record.Canonical, the same canonical form
+          // gen_hash uses.
+          func pkgCanonical(pkg *Package, action *Action) (canonical []byte, err error) {
+          	// record.Canonical panics on a value it cannot encode. Load validation
+          	// keeps kwarg defaults to string, int, bool and list, so this is
+          	// unreachable for a valid package; it is an error rather than a crash
+          	// for any other.
+          	defer func() {
+          		if r := recover(); r != nil {
+          			canonical, err = nil, fmt.Errorf("package %s: action %s: cannot be hashed: %v", pkg.Name, action.Name, r)
+          		}
+          	}()
+
+          	kwargs := map[string]any{}
+          	for name, k := range action.Kwargs {
+          		kwargs[name] = map[string]any{
+          			"type":     k.Type,
+          			"required": k.Required,
+          			"default":  k.Default,
+          		}
+          	}
+
+          	templates := map[string]any{}
+          	paths := map[string]string{}
+          	if action.Template != "" {
+          		paths[SoleTemplate] = action.Template
+          	}
+          	for variant, path := range action.Templates {
+          		paths[variant] = path
+          	}
+          	for key, path := range paths {
+          		content, ok := pkg.ActionTemplate(path)
+          		if !ok {
+          			return nil, fmt.Errorf("package %s: action %s: template %s was not loaded", pkg.Name, action.Name, path)
+          		}
+          		templates[key] = content
+          	}
+
+          	transforms := map[string]any{}
+          	for name, ops := range pkg.Transforms {
+          		transforms[name] = stringList(ops)
+          	}
+          	exceptions := map[string]any{}
+          	for op, table := range pkg.OpExceptions {
+          		words := map[string]any{}
+          		for word, replacement := range table {
+          			words[word] = replacement
+          		}
+          		exceptions[op] = words
+          	}
+
+          	object := map[string]any{
+          		"format": pkgFormat,
+          		"action": map[string]any{
+          			"name":           action.Name,
+          			"kwargs":         kwargs,
+          			"discriminator":  action.Discriminator,
+          			"variants":       stringList(action.Variants),
+          			"injects_into":   action.InjectsInto,
+          			"anchor":         action.Anchor,
+          			"anchor_start":   action.AnchorStart,
+          			"anchor_end":     action.AnchorEnd,
+          			"anchor_pattern": action.AnchorPattern,
+          			"identity":       stringList(action.Identity),
+          		},
+          		"templates":     templates,
+          		"transforms":    transforms,
+          		"op_exceptions": exceptions,
+          	}
+
+          	return []byte(record.Canonical(object)), nil
+          }
+
+      - setFunction name stringList, code exactly:
+          // stringList turns a possibly nil string list into a JSON list, so an absent list
+          // and an empty one encode alike.
+          func stringList(list []string) []any {
+          	out := make([]any, len(list))
+          	for i, s := range list {
+          		out[i] = s
+          	}
+          	return out
+          }
+  affected_scope:
+    - internal/genpkg/pkghash.go
+  implements: prov-2026-019c616e
+  implements_version: 1
+  associated_specs:
+    - path: conformance/pkghash/cases.json
+  tags:
+    - canonical
