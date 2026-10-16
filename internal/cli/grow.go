@@ -502,6 +502,10 @@ func printInjections(out io.Writer, result *pipeline.Result, dryRun bool) {
 		case r.Held:
 			held++
 			fmt.Fprintf(out, "held     %s  %s (record %s selected nothing; --force would remove it)\n", r.Path, describeRegion(r), r.Record)
+		case r.Orphan:
+			// Reported once, by printOrphans, which says why: its record is
+			// gone or deprecated, not that it stopped selecting the region.
+			continue
 		case r.Pruned:
 			pruned++
 			if dryRun {
@@ -519,8 +523,14 @@ func printInjections(out io.Writer, result *pipeline.Result, dryRun bool) {
 			fmt.Fprintf(out, "%s %s  %s\n", verb, r.Path, describeRegion(r))
 		}
 	}
+	orphans := 0
+	for _, r := range result.Injections {
+		if r.Orphan {
+			orphans++
+		}
+	}
 	fmt.Fprintf(out, "\n%d region(s) %s, %d replaced, %d left as seeded\n",
-		len(result.Injections)-pruned-held, verb, replaced, skipped)
+		len(result.Injections)-pruned-held-orphans, verb, replaced, skipped)
 	if pruned > 0 || held > 0 {
 		fmt.Fprintf(out, "%d region(s) pruned, %d held for --force\n", pruned, held)
 	}
