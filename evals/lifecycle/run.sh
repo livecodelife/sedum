@@ -332,7 +332,7 @@ step3grow() {
 
 pending() { say "$1"; printf '   skipped: waiting on %s\n' "$2"; SKIPPED="waiting on $2"; }
 set_status() {  # set_status <id> <status>
-	sed -i '' "s/^status: .*/status: $2/" "$W/provenance/$1.yml"
+	sed -i.bak "s/^status: .*/status: $2/" "$W/provenance/$1.yml" && rm -f "$W/provenance/$1.yml.bak"
 }
 
 drop_imprint() { local keep=() id; for id in "${IMPRINTS[@]}"; do [ "$id" = "$1" ] || keep+=("$id"); done; IMPRINTS=("${keep[@]}"); }
