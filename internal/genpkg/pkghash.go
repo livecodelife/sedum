@@ -1,15 +1,25 @@
 package genpkg
 
-import (
-	"crypto/sha256"
-	"encoding/hex"
-	"encoding/json"
-	"fmt"
-	"sort"
-	"strings"
-	"unicode/utf8"
-)
+// sedum:anchor:imports
+// sedum:addImport {"tier":"owned","record":"prov-2026-1a55bc63","gen":"sha256:50dbb2109211cfaffb8624aa1e7c541e9662b5cc018317ad8d168033916054e4","pkg":"sha256:d6a9443c14d82b7bdf19bb96637f957fd44ad9bfbe8f167c97e6f7699c8b830f","kwargs":{"file":"internal/genpkg/pkghash.go","path":"crypto/sha256"}}
+import "crypto/sha256"
 
+// /sedum:addImport
+// sedum:addImport {"tier":"owned","record":"prov-2026-1a55bc63","gen":"sha256:50dbb2109211cfaffb8624aa1e7c541e9662b5cc018317ad8d168033916054e4","pkg":"sha256:d6a9443c14d82b7bdf19bb96637f957fd44ad9bfbe8f167c97e6f7699c8b830f","kwargs":{"file":"internal/genpkg/pkghash.go","path":"encoding/hex"}}
+import "encoding/hex"
+
+// /sedum:addImport
+// sedum:addImport {"tier":"owned","record":"prov-2026-1a55bc63","gen":"sha256:50dbb2109211cfaffb8624aa1e7c541e9662b5cc018317ad8d168033916054e4","pkg":"sha256:d6a9443c14d82b7bdf19bb96637f957fd44ad9bfbe8f167c97e6f7699c8b830f","kwargs":{"file":"internal/genpkg/pkghash.go","path":"fmt"}}
+import "fmt"
+
+// /sedum:addImport
+// sedum:addImport {"tier":"owned","record":"prov-2026-1a55bc63","gen":"sha256:50dbb2109211cfaffb8624aa1e7c541e9662b5cc018317ad8d168033916054e4","pkg":"sha256:d6a9443c14d82b7bdf19bb96637f957fd44ad9bfbe8f167c97e6f7699c8b830f","kwargs":{"file":"internal/genpkg/pkghash.go","path":"github.com/livecodelife/provenance/record"}}
+import "github.com/livecodelife/provenance/record"
+
+// /sedum:addImport
+
+// sedum:anchor:decls
+// sedum:setConst {"tier":"owned","record":"prov-2026-1a55bc63","gen":"sha256:50dbb2109211cfaffb8624aa1e7c541e9662b5cc018317ad8d168033916054e4","pkg":"sha256:51be1c18998d63cc558c253e211a6bd188d96cb251dad68c6ea88e03c2d5cc4c","kwargs":{"code":"// The pkg hash a marker carries: everything that decides what an action\n// renders for fixed kwargs, hashed at load (prov-2026-66bea9f3).\n//\n// A region whose pkg differs from its action's current one was rendered from an\n// older package, and is brought up to date by re-rendering it from the kwargs\n// already on its marker - no model call, because nothing the model chose has\n// changed. So the hash has to cover every input of rendering and should cover\n// nothing else:\n//\n//   - the resolved action declaration: name, kwargs with their types,\n//     required flags and defaults, discriminator, variants in declared order,\n//     injects_into, the anchor fields, and identity\n//   - the content of each of the action's templates, keyed by variant name,\n//     or by the empty string for a simple action\n//   - the package's transforms and op_exceptions, since any template may use\n//     any of them\n//\n// Descriptions are left out, of the action and of each kwarg: they reach the\n// model and never the renderer. The package-wide part errs the other way on\n// purpose. An unrelated transform edit costs a re-render, while leaving out an\n// input that does matter would make a stale region read as current.\n//\n// The inflection table ships with Sedum rather than with a package, so a Sedum\n// upgrade that changes an irregular plural is not seen here.\n//\n// The encoding is published in conformance/pkghash so a tool above Sedum can\n// compute the same value without linking it.\n\n// pkgFormat names this encoding inside the hashed object, so a later change to\n// what is covered changes every hash rather than colliding with this one.\nconst pkgFormat = \"sedum.pkg/1\"","file":"internal/genpkg/pkghash.go","name":"pkgFormat"}}
 // The pkg hash a marker carries: everything that decides what an action
 // renders for fixed kwargs, hashed at load (prov-2026-66bea9f3).
 //
@@ -42,6 +52,8 @@ import (
 // what is covered changes every hash rather than colliding with this one.
 const pkgFormat = "sedum.pkg/1"
 
+// /sedum:setConst
+// sedum:setFunction {"tier":"owned","record":"prov-2026-1a55bc63","gen":"sha256:50dbb2109211cfaffb8624aa1e7c541e9662b5cc018317ad8d168033916054e4","pkg":"sha256:6589611adfb6618a7920e43f951a79901428192ea95c1084fde9f222aecd9537","kwargs":{"code":"// stampPkgHashes sets PkgHash on every action in a loaded package.\nfunc stampPkgHashes(pkg *Package) error {\n\tfor _, action := range pkg.Actions {\n\t\tcanonical, err := pkgCanonical(pkg, action)\n\t\tif err != nil {\n\t\t\treturn err\n\t\t}\n\t\tsum := sha256.Sum256(canonical)\n\t\taction.PkgHash = \"sha256:\" + hex.EncodeToString(sum[:])\n\t}\n\treturn nil\n}","file":"internal/genpkg/pkghash.go","name":"stampPkgHashes"}}
 // stampPkgHashes sets PkgHash on every action in a loaded package.
 func stampPkgHashes(pkg *Package) error {
 	for _, action := range pkg.Actions {
@@ -55,8 +67,22 @@ func stampPkgHashes(pkg *Package) error {
 	return nil
 }
 
-// pkgCanonical is the exact bytes the pkg hash is taken over.
-func pkgCanonical(pkg *Package, action *Action) ([]byte, error) {
+// /sedum:setFunction
+// sedum:setFunction {"tier":"owned","record":"prov-2026-1a55bc63","gen":"sha256:50dbb2109211cfaffb8624aa1e7c541e9662b5cc018317ad8d168033916054e4","pkg":"sha256:6589611adfb6618a7920e43f951a79901428192ea95c1084fde9f222aecd9537","kwargs":{"code":"// pkgCanonical is the exact bytes the pkg hash is taken over: the object below\n// encoded by the provenance library's record.Canonical, the same canonical form\n// gen_hash uses.\nfunc pkgCanonical(pkg *Package, action *Action) (canonical []byte, err error) {\n\t// record.Canonical panics on a value it cannot encode. Load validation\n\t// keeps kwarg defaults to string, int, bool and list, so this is\n\t// unreachable for a valid package; it is an error rather than a crash\n\t// for any other.\n\tdefer func() {\n\t\tif r := recover(); r != nil {\n\t\t\tcanonical, err = nil, fmt.Errorf(\"package %s: action %s: cannot be hashed: %v\", pkg.Name, action.Name, r)\n\t\t}\n\t}()\n\n\tkwargs := map[string]any{}\n\tfor name, k := range action.Kwargs {\n\t\tkwargs[name] = map[string]any{\n\t\t\t\"type\":     k.Type,\n\t\t\t\"required\": k.Required,\n\t\t\t\"default\":  k.Default,\n\t\t}\n\t}\n\n\ttemplates := map[string]any{}\n\tpaths := map[string]string{}\n\tif action.Template != \"\" {\n\t\tpaths[SoleTemplate] = action.Template\n\t}\n\tfor variant, path := range action.Templates {\n\t\tpaths[variant] = path\n\t}\n\tfor key, path := range paths {\n\t\tcontent, ok := pkg.ActionTemplate(path)\n\t\tif !ok {\n\t\t\treturn nil, fmt.Errorf(\"package %s: action %s: template %s was not loaded\", pkg.Name, action.Name, path)\n\t\t}\n\t\ttemplates[key] = content\n\t}\n\n\ttransforms := map[string]any{}\n\tfor name, ops := range pkg.Transforms {\n\t\ttransforms[name] = stringList(ops)\n\t}\n\texceptions := map[string]any{}\n\tfor op, table := range pkg.OpExceptions {\n\t\twords := map[string]any{}\n\t\tfor word, replacement := range table {\n\t\t\twords[word] = replacement\n\t\t}\n\t\texceptions[op] = words\n\t}\n\n\tobject := map[string]any{\n\t\t\"format\": pkgFormat,\n\t\t\"action\": map[string]any{\n\t\t\t\"name\":           action.Name,\n\t\t\t\"kwargs\":         kwargs,\n\t\t\t\"discriminator\":  action.Discriminator,\n\t\t\t\"variants\":       stringList(action.Variants),\n\t\t\t\"injects_into\":   action.InjectsInto,\n\t\t\t\"anchor\":         action.Anchor,\n\t\t\t\"anchor_start\":   action.AnchorStart,\n\t\t\t\"anchor_end\":     action.AnchorEnd,\n\t\t\t\"anchor_pattern\": action.AnchorPattern,\n\t\t\t\"identity\":       stringList(action.Identity),\n\t\t},\n\t\t\"templates\":     templates,\n\t\t\"transforms\":    transforms,\n\t\t\"op_exceptions\": exceptions,\n\t}\n\n\treturn []byte(record.Canonical(object)), nil\n}","file":"internal/genpkg/pkghash.go","name":"pkgCanonical"}}
+// pkgCanonical is the exact bytes the pkg hash is taken over: the object below
+// encoded by the provenance library's record.Canonical, the same canonical form
+// gen_hash uses.
+func pkgCanonical(pkg *Package, action *Action) (canonical []byte, err error) {
+	// record.Canonical panics on a value it cannot encode. Load validation
+	// keeps kwarg defaults to string, int, bool and list, so this is
+	// unreachable for a valid package; it is an error rather than a crash
+	// for any other.
+	defer func() {
+		if r := recover(); r != nil {
+			canonical, err = nil, fmt.Errorf("package %s: action %s: cannot be hashed: %v", pkg.Name, action.Name, r)
+		}
+	}()
+
 	kwargs := map[string]any{}
 	for name, k := range action.Kwargs {
 		kwargs[name] = map[string]any{
@@ -114,13 +140,11 @@ func pkgCanonical(pkg *Package, action *Action) ([]byte, error) {
 		"op_exceptions": exceptions,
 	}
 
-	var b strings.Builder
-	if err := writeCanonical(&b, object); err != nil {
-		return nil, fmt.Errorf("package %s: action %s: %w", pkg.Name, action.Name, err)
-	}
-	return []byte(b.String()), nil
+	return []byte(record.Canonical(object)), nil
 }
 
+// /sedum:setFunction
+// sedum:setFunction {"tier":"owned","record":"prov-2026-1a55bc63","gen":"sha256:50dbb2109211cfaffb8624aa1e7c541e9662b5cc018317ad8d168033916054e4","pkg":"sha256:6589611adfb6618a7920e43f951a79901428192ea95c1084fde9f222aecd9537","kwargs":{"code":"// stringList turns a possibly nil string list into a JSON list, so an absent list\n// and an empty one encode alike.\nfunc stringList(list []string) []any {\n\tout := make([]any, len(list))\n\tfor i, s := range list {\n\t\tout[i] = s\n\t}\n\treturn out\n}","file":"internal/genpkg/pkghash.go","name":"stringList"}}
 // stringList turns a possibly nil string list into a JSON list, so an absent list
 // and an empty one encode alike.
 func stringList(list []string) []any {
@@ -131,74 +155,4 @@ func stringList(list []string) []any {
 	return out
 }
 
-// writeCanonical writes v as JSON with byte-sorted object keys, no
-// insignificant whitespace, and only the escapes JSON requires - the same
-// rules gen_hash's canonical form uses, so a reader learns one encoding.
-func writeCanonical(b *strings.Builder, v any) error {
-	switch v := v.(type) {
-	case nil:
-		b.WriteString("null")
-	case string:
-		writeCanonicalString(b, v)
-	case bool, int, int64, uint64, float64:
-		encoded, err := json.Marshal(v)
-		if err != nil {
-			return err
-		}
-		b.Write(encoded)
-	case []any:
-		b.WriteByte('[')
-		for i, item := range v {
-			if i > 0 {
-				b.WriteByte(',')
-			}
-			if err := writeCanonical(b, item); err != nil {
-				return err
-			}
-		}
-		b.WriteByte(']')
-	case map[string]any:
-		keys := make([]string, 0, len(v))
-		for k := range v {
-			keys = append(keys, k)
-		}
-		sort.Strings(keys)
-		b.WriteByte('{')
-		for i, k := range keys {
-			if i > 0 {
-				b.WriteByte(',')
-			}
-			writeCanonicalString(b, k)
-			b.WriteByte(':')
-			if err := writeCanonical(b, v[k]); err != nil {
-				return err
-			}
-		}
-		b.WriteByte('}')
-	default:
-		return fmt.Errorf("a value of type %T cannot be hashed", v)
-	}
-	return nil
-}
-
-func writeCanonicalString(b *strings.Builder, s string) {
-	const hexDigits = "0123456789abcdef"
-	b.WriteByte('"')
-	for i := 0; i < len(s); {
-		r, size := utf8.DecodeRuneInString(s[i:])
-		switch {
-		case r == '"':
-			b.WriteString(`\"`)
-		case r == '\\':
-			b.WriteString(`\\`)
-		case r < 0x20:
-			b.WriteString(`\u00`)
-			b.WriteByte(hexDigits[r>>4])
-			b.WriteByte(hexDigits[r&0xf])
-		default:
-			b.WriteString(s[i : i+size])
-		}
-		i += size
-	}
-	b.WriteByte('"')
-}
+// /sedum:setFunction
