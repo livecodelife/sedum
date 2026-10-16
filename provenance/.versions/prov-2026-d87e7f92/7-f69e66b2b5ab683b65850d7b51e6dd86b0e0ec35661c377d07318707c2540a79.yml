@@ -1,0 +1,33 @@
+id: prov-2026-d87e7f92
+version: 7
+content_hash: sha256:f69e66b2b5ab683b65850d7b51e6dd86b0e0ec35661c377d07318707c2540a79
+parent_hash: sha256:a9edb407f146870186b09eafbb09a10da54fc83f93a934190b54b19b12cd5f90
+reason: 'revert: header kwargs are not needed; a file''s package comes from its path (specs refreshed)'
+author: calebcowen@gmail.com
+created_at: "2026-10-16T22:43:27Z"
+spec_hashes:
+  - sha256:bb095b4995f6671e8736ea05e4f5cf36832b39bc0b81fb6b24fee974204fc902
+content:
+  id: prov-2026-d87e7f92
+  title: 'adopt: the span contract and coverage check'
+  type: imprint
+  created_at: "2026-10-16"
+  author: calebcowen@gmail.com
+  intent: |-
+    Implements prov-2026-95d9ae7e: the span contract. New file internal/adopt/span.go (package adopt) defines, exactly:
+
+    - `type Kind string` with constants `KindHeader Kind = "header"`, `KindUnit Kind = "unit"`, `KindResidual Kind = "residual"`.
+    - `type Span struct { Kind Kind; Text string; Action string; Kwargs map[string]any }` with JSON tags `kind`, `text`, `action,omitempty`, `kwargs,omitempty`.
+    - `type Adopter interface { Split(path string, src []byte) ([]Span, error) }`.
+    - `func Coverage(src []byte, spans []Span) error`: returns nil when the concatenation of every span's Text, in order, equals src byte for byte. Otherwise it returns a *CoverageError (exported struct, implements error) with fields `Offset int` (the first byte offset where the concatenation and src differ, or the length of the shorter one when one is a prefix of the other), `Line int` (1-based line of that offset in src), `Want string` and `Got string` (up to 40 bytes of src and of the concatenation starting at Offset). Error() reads like `coverage: spans differ from the file at byte 120 (line 7): want "func b" got "func c"`.
+    - `func (s Span) Valid() error`: a KindUnit span must have a non-empty Action and non-empty Text; KindHeader and KindResidual spans must have empty Action and nil Kwargs; an unknown Kind is an error.
+    - `func CheckSpans(src []byte, spans []Span) error`: calls Valid on every span (wrapping the error with the span index), then Coverage; also errors when no span is given for a non-empty src.
+    - `func ResidualIsBlank(s Span) bool`: true for a KindResidual span whose Text is only whitespace; false for any other kind.
+    Tests (internal/adopt/span_test.go, table-driven): exact coverage passes; a missing byte, an extra byte, a changed byte, a prefix and an empty spans list each fail with the right Offset and Line; Valid rejects each malformed span; CheckSpans reports the span index; ResidualIsBlank.
+  affected_scope:
+    - internal/adopt/span.go
+    - internal/adopt/span_test.go
+  implements: prov-2026-95d9ae7e
+  implements_version: 2
+  associated_specs:
+    - path: internal/adopt/span_test.go
