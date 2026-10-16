@@ -12,5 +12,13 @@ syntax: go
 # declarations is worth a question.
 optional_anchors: [imports]
 
+# go.mod and go.sum belong to `go mod`, never to a template, in every Go
+# repository (prov-2026-7a704b59).
+unmanaged:
+  - go.mod
+  - go.sum
+  - "**/go.mod"
+  - "**/go.sum"
+
 test_paths:
   - "**/*_test.go"

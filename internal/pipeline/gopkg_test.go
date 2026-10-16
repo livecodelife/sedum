@@ -205,3 +205,31 @@ func TestTheMostSpecificTemplateWinsAContestedExtension(t *testing.T) {
 		}
 	}
 }
+
+// go.mod and go.sum belong to `go mod`: a record naming them is authorized but
+// Sedum leaves them to it, at any depth (prov-2026-7a704b59).
+func TestTheGoPackageLeavesModuleFilesToGoMod(t *testing.T) {
+	cfg := config(t)
+	cfg.Generators = goGenerators(t, nil)
+	cfg.Records = recordsDir(t, map[string]string{
+		"prov-2026-aaaaaaaa": "  - go.mod\n  - go.sum\n  - tools/go.mod\n  - " + storePath + "\n",
+	})
+	cfg.StopAfterPhase = PhaseResolve
+
+	result, err := Run(context.Background(), cfg)
+	if err != nil {
+		t.Fatalf("resolve: %v", err)
+	}
+	unmanaged := map[string]bool{}
+	for _, r := range result.Unmanaged {
+		unmanaged[r.Path] = true
+	}
+	for _, p := range []string{"go.mod", "go.sum", "tools/go.mod"} {
+		if !unmanaged[p] {
+			t.Errorf("%s is not unmanaged; unmanaged = %v", p, unmanaged)
+		}
+	}
+	if unmanaged[storePath] {
+		t.Errorf("%s was left unmanaged", storePath)
+	}
+}
