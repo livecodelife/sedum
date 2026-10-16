@@ -53,6 +53,8 @@ affected_scope:
   - go.sum
   - proof/**
   - evals/lifecycle/**
+  - internal/cli/*_test.go
+  - internal/record/*_test.go
 forbidden_scope: []
 type: blueprint
 supersedes: ""
