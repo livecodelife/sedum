@@ -1,9 +1,9 @@
 id: prov-2026-9bc22cf7
 title: 'adopt: the built-in Go adopter'
 type: imprint
-status: implemented
-version: 4
-reason: the header span carries no kwargs
+status: open
+version: 6
+reason: 'stage 2: the repository round trip test'
 created_at: "2026-10-16"
 author: calebcowen@gmail.com
 intent: |-
@@ -276,18 +276,53 @@ intent: |-
   		t.Fatalf("err = %v, want not gofmt-clean", err)
   	}
   }
+
+  Stage 2 addition (blueprint constraint: round trip over this repository's own Go files). New test in the NEW file internal/adopt/goadopter_repo_test.go (package adopt; imports io/fs, os, path/filepath, strings, testing; one addImport each), its OWN setFunction, exactly:
+  func TestGoAdopterCoversRepoFiles(t *testing.T) {
+  	n := 0
+  	err := filepath.WalkDir("../../internal", func(p string, d fs.DirEntry, err error) error {
+  		if err != nil || d.IsDir() || !strings.HasSuffix(p, ".go") {
+  			return err
+  		}
+  		src, err := os.ReadFile(p)
+  		if err != nil {
+  			return err
+  		}
+  		if strings.Contains(string(src), "sedum:") {
+  			return nil
+  		}
+  		spans, err := GoAdopter{}.Split(p, src)
+  		if err != nil {
+  			return nil
+  		}
+  		if err := CheckSpans(src, spans); err != nil {
+  			t.Errorf("%s: %v", p, err)
+  		}
+  		n++
+  		return nil
+  	})
+  	if err != nil {
+  		t.Fatal(err)
+  	}
+  	if n == 0 {
+  		t.Fatal("no Go files were split")
+  	}
+  }
 constraints: []
 affected_scope:
   - internal/adopt/goadopter.go
   - internal/adopt/goadopter_test.go
+  - internal/adopt/goadopter_repo_test.go
 forbidden_scope: []
 implements: prov-2026-36809902
 implements_version: 2
 related: []
-sealed_at_sha: 16167361ddcf9df84e0cc394df94c633b9bc3ced
+sealed_at_sha: ""
 associated_specs:
   - path: internal/adopt/goadopter_test.go
     run_command: go test ./internal/adopt -run 'GoAdopter' -count=1
+  - path: internal/adopt/goadopter_repo_test.go
+    run_command: go test ./internal/adopt -run 'GoAdopterCoversRepoFiles' -count=1
 associated_traces: []
 monitors: []
 tags: []
