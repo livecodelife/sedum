@@ -1,0 +1,52 @@
+id: prov-2026-0ce03d1c
+title: The go checker flags package qualifiers the file does not import
+status: draft
+created_at: "2026-10-15"
+author: calebcowen@gmail.com
+intent: |
+  prov-cli's first grown command parsed and was gofmt-clean but used
+  `record.` without importing it (#provisio, 2026-10-15), and only its
+  hand-written test gate caught it, a model call later. provisio-mgr approved
+  extending `syntax: go` so Phase 5 re-prompts on a package qualifier the file
+  does not import, using go/parser and the file's imports, with no go/types.
+
+  A selector X.Sel is flagged when X is an identifier the parser leaves
+  unresolved in the file, no import of the file can supply it, and no file
+  beside it in the same directory declares it at top level. An import supplies
+  its explicit name, or the names its path plausibly gives: the last element,
+  without a .vN or -go suffix or a go- prefix, and the element before a
+  /vN major-version suffix. A file with a dot import is not checked.
+
+  The sibling-declarations rule is a refinement of the approved "no
+  cross-file resolution": it reads sibling files with go/parser for their
+  top-level names only. Without it a package-level variable declared in
+  another file - `rootCmd.AddCommand(...)` - would be flagged, and a correct
+  answer would be re-prompted until its retries ran out. Being wrong in that
+  direction would block grow, so the check errs toward silence: it never
+  resolves types, and any import whose name it cannot infer still counts.
+constraints:
+  - Only go/parser is used; no go/types, no build, no external program.
+  - A flagged file names each missing qualifier, so the re-prompt says exactly what to import.
+  - Sibling files are read from disk, or from the run's in-memory content for files the run itself touches.
+affected_scope:
+  - internal/syntax/*.go
+  - internal/inject/inject.go
+  - internal/inject/*_test.go
+  - internal/selection/syntax.go
+  - internal/selection/*_test.go
+  - internal/pipeline/*_test.go
+forbidden_scope: []
+type: imprint
+implements: prov-2026-5403d162
+supersedes: ""
+superseded_by: ""
+related: []
+sealed_at_sha: ""
+associated_specs:
+  - path: internal/syntax/syntax_test.go
+    run_command: go test ./$(dirname {{path}})
+  - path: internal/pipeline/gopkg_test.go
+    run_command: go test ./$(dirname {{path}})
+associated_traces: []
+monitors: []
+tags: []
