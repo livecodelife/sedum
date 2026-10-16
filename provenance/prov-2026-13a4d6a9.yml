@@ -1,7 +1,7 @@
 id: prov-2026-13a4d6a9
 title: 'growlog: the summary renderers'
 type: imprint
-status: open
+status: implemented
 version: 2
 reason: tests grown into the placeholder spec file
 created_at: "2026-10-16"
@@ -99,7 +99,7 @@ forbidden_scope: []
 implements: prov-2026-7a13f569
 implements_version: 1
 related: []
-sealed_at_sha: ""
+sealed_at_sha: 3bc74c2ef459131be018c769faff3544e9c88617
 associated_specs:
   - path: internal/growlog/render_test.go
     run_command: go test ./internal/growlog -run 'TestSummaryText|TestSummaryJSON' -count=1
