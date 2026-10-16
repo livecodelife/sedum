@@ -461,6 +461,8 @@ Packages are wholly valid or rejected. No partial loads.
 
 Read the provenance directory. Parse each record: `intent`, `constraints`, `affected_scope`, `forbidden_scope`. Validate schema conformance. Collect the authorized path set.
 
+Records are decoded by the shared provenance record library (`github.com/livecodelife/provenance/record`), v1 and v2 alike, so every tool reads a record the same way (`prov-2026-5f1e4f0a`). The library owns the schema and rejects a malformed value in any field it models; Sedum keeps one leniency on top, because the schema is not its own (`prov-2026-dad4d877`): it hands the library only the keys it reads — `id`, `intent`, `constraints`, `affected_scope`, `forbidden_scope`, `created_at`, `aliases`, `status`, `type`, `implements`, and `version`, which decides the schema — so a field it does not read can never fail a run. A malformed value in one it reads is an error naming the file and the line. Sedum also requires an `id`, which the library does not.
+
 ### Phase 2 — Resolve paths to packages
 
 For each authorized path, first check it against the union of every package's `unmanaged` patterns; a match is recorded and skipped. Then resolve its extension to a generator package, applying `--lang` where the extension is contested. A path whose extension no package claims is a hard error. A contested extension with no disambiguating flag is a hard error naming both candidate packages.

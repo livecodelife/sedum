@@ -2,11 +2,15 @@
 // set every later phase is bounded by.
 //
 // A provenance record declares intent, constraints, and the files a change is
-// authorized to touch. Sedum reads five fields - id, intent, constraints,
-// affected_scope, and forbidden_scope - and nothing else. It does not interpret
-// a record's status or lifecycle, and it never writes to one: the record schema
-// belongs to the governance tool that produces it, so decoding is lenient and a
-// key Sedum does not model is ignored rather than rejected (prov-2026-dad4d877).
+// authorized to touch. Records are decoded by the shared provenance record
+// library, v1 and v2 alike (prov-2026-5f1e4f0a), over only the keys Sedum
+// reads: id, intent, constraints, affected_scope, forbidden_scope, created_at,
+// aliases, status, type, implements, and version, which decides the schema.
+// The record schema belongs to the governance tool that produces it, so a key
+// Sedum does not read can never fail a run - unknown or malformed alike - while
+// a malformed value in one it reads is an error (prov-2026-dad4d877). Sedum
+// acts on one lifecycle value, deprecated (prov-2026-cc73cf61), and never
+// writes to a record.
 //
 // An affected_scope entry is either a literal path, which names a file to
 // create, or a pattern, which authorizes matches without naming any. Only the
@@ -17,11 +21,13 @@ package record
 import (
 	"errors"
 	"fmt"
+	librecord "github.com/livecodelife/provenance/record"
 	"github.com/livecodelife/sedum/internal/genhash"
 	"github.com/livecodelife/sedum/internal/pathpat"
 	"os"
 	"path"
 	"path/filepath"
+	"regexp"
 	"slices"
 	"sort"
 	"strings"
@@ -72,6 +78,12 @@ type Record struct {
 	// record takes no new versions, is never grown, and owns nothing, so its
 	// regions are orphans.
 	Deprecated bool
+
+	// Type and Implements are read through the shared library and carried
+	// for reporting and for DESIGN's "only imprints grow regions"; nothing in
+	// sedum acts on them yet (prov-2026-5f1e4f0a).
+	Type       string
+	Implements string
 }
 
 // Forbids reports whether the record's forbidden_scope covers path, and returns
@@ -190,19 +202,57 @@ func isRecordFile(name string) bool {
 	return ext == ".yml" || ext == ".yaml"
 }
 
-// document is the shape Sedum decodes a record into. Decoding is deliberately
-// not strict: every other key a record carries belongs to the governance tool
-// that wrote it (prov-2026-dad4d877).
-type document struct {
-	ID             string   `yaml:"id"`
-	Intent         string   `yaml:"intent"`
-	Constraints    []string `yaml:"constraints"`
-	AffectedScope  []string `yaml:"affected_scope"`
-	ForbiddenScope []string `yaml:"forbidden_scope"`
-	CreatedAt      string   `yaml:"created_at"`
-	Aliases        []string `yaml:"aliases"`
-	Status         string   `yaml:"status"`
+// readKeys are the record keys sedum reads (prov-2026-5f1e4f0a). Each file is
+// projected onto them before the shared record library decodes it: the library
+// owns the schema and rejects a malformed value in any field it models, while
+// sedum must not fail on a field it does not read (prov-2026-dad4d877). A
+// malformed value in one of these is still the library's error. version stays
+// because it decides whether the file is v1 or v2.
+var readKeys = map[string]bool{
+	"id": true, "version": true, "created_at": true, "status": true,
+	"aliases": true, "type": true, "implements": true,
+	"intent": true, "constraints": true, "affected_scope": true, "forbidden_scope": true,
 }
+
+// decode reads one record file through the shared library, over the keys
+// sedum reads only. An error names the line of the offending key in the
+// original file, not in the projection.
+func decode(data []byte) (*librecord.Record, error) {
+	var root yaml.Node
+	if err := yaml.Unmarshal(data, &root); err != nil {
+		return nil, err
+	}
+	if len(root.Content) == 0 || root.Content[0].Kind != yaml.MappingNode {
+		return librecord.Decode(data)
+	}
+	mapping := root.Content[0]
+	projected := &yaml.Node{Kind: yaml.MappingNode, Tag: "!!map"}
+	lines := map[string]int{}
+	for i := 0; i+1 < len(mapping.Content); i += 2 {
+		key := mapping.Content[i]
+		if readKeys[key.Value] {
+			projected.Content = append(projected.Content, key, mapping.Content[i+1])
+			lines[key.Value] = key.Line
+		}
+	}
+	out, err := yaml.Marshal(projected)
+	if err != nil {
+		return nil, err
+	}
+	rec, err := librecord.Decode(out)
+	if err != nil {
+		if m := libraryError.FindStringSubmatch(err.Error()); m != nil {
+			if line, ok := lines[m[1]]; ok {
+				return nil, fmt.Errorf("line %d: %s%s", line, m[1], m[2])
+			}
+		}
+		return nil, err
+	}
+	return rec, nil
+}
+
+// libraryError is the library's decode error: "line N: <field> <problem>".
+var libraryError = regexp.MustCompile(`^line \d+: ([a-z_]+)(.*)$`)
 
 func readRecord(full, name string) (*Record, error) {
 	data, err := os.ReadFile(full)
@@ -210,10 +260,12 @@ func readRecord(full, name string) (*Record, error) {
 		return nil, fmt.Errorf("read record %s: %w", name, err)
 	}
 
-	var doc document
-	if err := yaml.Unmarshal(data, &doc); err != nil {
+	doc, err := decode(data)
+	if err != nil {
 		return nil, fmt.Errorf("record %s could not be read: %w", name, err)
 	}
+	// The library accepts a file with no id; sedum cannot, because the id is
+	// what --only names and what every diagnostic identifies a record by.
 	if doc.ID == "" {
 		return nil, fmt.Errorf("record %s declares no id; the id is what --only names and what every diagnostic identifies a record by", name)
 	}
@@ -225,7 +277,9 @@ func readRecord(full, name string) (*Record, error) {
 		Constraints: doc.Constraints,
 		CreatedAt:   doc.CreatedAt,
 		Aliases:     doc.Aliases,
-		Deprecated:  strings.TrimSpace(doc.Status) == "deprecated",
+		Type:        string(doc.Type),
+		Implements:  doc.Implements,
+		Deprecated:  doc.Status == librecord.StatusDeprecated,
 		Gen: genhash.Of(genhash.Input{
 			Intent:         doc.Intent,
 			Constraints:    doc.Constraints,

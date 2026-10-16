@@ -406,3 +406,49 @@ func TestADeprecatedRecordIsKnownButNotGrown(t *testing.T) {
 	_, _, err = Load(dir, Options{Only: []string{"prov-2026-aaaaaaaa"}})
 	wantErr(t, err, "prov-2026-aaaaaaaa", "deprecated")
 }
+
+// The library decodes every field sedum reads; a malformed value in a field
+// sedum does not read never fails a run (prov-2026-5f1e4f0a, prov-2026-dad4d877).
+func TestOnlyFieldsSedumReadsCanFailARecord(t *testing.T) {
+	set, _, err := Load(writeRecords(t, map[string]string{
+		"a.yml": "id: prov-2026-aaaaaaaa\nmonitors: 5\nsealed_at_sha: [a]\nassociated_specs: nope\nintent: x\naffected_scope: [app/models/user.rb]\n",
+	}), Options{})
+	if err != nil {
+		t.Fatalf("a malformed field sedum does not read failed the record: %v", err)
+	}
+	if len(set.Records) != 1 {
+		t.Fatalf("records = %v", set.Records)
+	}
+
+	_, _, err = Load(writeRecords(t, map[string]string{
+		"b.yml": "id: prov-2026-bbbbbbbb\ntitle: t\ntags: [x]\nintent: [not, a, string]\n",
+	}), Options{})
+	wantErr(t, err, "b.yml", "line 4", "intent")
+
+	// status is read - deprecated retires a record - so it is held to the
+	// library's decoding like the other fields sedum reads.
+	_, _, err = Load(writeRecords(t, map[string]string{
+		"c.yml": "id: prov-2026-cccccccc\nstatus: [a]\nintent: x\n",
+	}), Options{})
+	wantErr(t, err, "c.yml", "line 2", "status")
+}
+
+// v1 and v2 files read the same for sedum: a v2 record's version and reason
+// are not sedum's business, and aliases and implements come through.
+func TestV1AndV2RecordsReadAlike(t *testing.T) {
+	set, _, err := Load(writeRecords(t, map[string]string{
+		"a.yml": "id: prov-2026-aaaaaaaa\ntype: imprint\nimplements: prov-2026-cccccccc\nintent: x\naffected_scope: [app/models/user.rb]\n",
+		"b.yml": "id: prov-2026-bbbbbbbb\nversion: 3\nreason: tightened\ntype: imprint\nimplements: prov-2026-cccccccc\naliases: [prov-2026-01d01d01]\nintent: x\naffected_scope: [app/models/user.rb]\n",
+	}), Options{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	a, _ := set.Lookup("prov-2026-aaaaaaaa")
+	b, _ := set.Lookup("prov-2026-bbbbbbbb")
+	if a.Implements != "prov-2026-cccccccc" || b.Implements != "prov-2026-cccccccc" || a.Type != "imprint" || b.Type != "imprint" {
+		t.Errorf("implements/type not read: a=%+v b=%+v", a, b)
+	}
+	if len(b.Aliases) != 1 || a.Gen != b.Gen {
+		t.Errorf("v2 aliases %v; gen a=%s b=%s, want equal for equal content", b.Aliases, a.Gen, b.Gen)
+	}
+}
