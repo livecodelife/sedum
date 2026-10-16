@@ -54,6 +54,7 @@ constraints:
   - gen and pkg are reported verbatim from markers, "" when absent; Sedum never computes or fills them in this command.
   - A region counts as changed only when its bytes changed; identical rewrites are unchanged.
   - Text output is unchanged when --json is not given.
+  - conformance/formats/ documents both formats with an example of each, and Sedum's tests check real output against the documented keys, so a TypeScript consumer can rely on them (provisio-mgr, #provisio).
 affected_scope:
   - internal/cli/regions.go
   - internal/cli/root.go
@@ -67,6 +68,8 @@ affected_scope:
   - internal/inject/inject.go
   - internal/inject/*_test.go
   - PRD.md
+  - conformance/README.md
+  - conformance/formats/**
 forbidden_scope: []
 type: blueprint
 supersedes: ""
