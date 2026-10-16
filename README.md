@@ -1177,6 +1177,18 @@ Lists every region whose marker names a record: its file, action, identifying kw
 | `--record <id>` | List only this record's regions. Repeatable. |
 | `--json` | Print the `sedum.regions/1` JSON document. |
 
+### The grow log and `sedum grow-log`
+
+Every `sedum grow` that writes appends one JSON line per record to `.sedum/grow.jsonl` (a persistent log, separate from the per-run `.sedum/run.log`): the model, model calls, `rejected` answers (retries), completeness questions, verification `repairs`, prompt and completion tokens, how many invocations carried model-written code (`literal`) versus declarative ones, region counts (injected, replaced, pruned, unchanged), files, wall time of the run, and the outcome with the first line of any error. Failed grows are logged too. It never contains prompt or response text, kwargs, file contents or keys. Runs that write nothing (`--dry-run`, `--check`, `--stamp`, `--stop-after`) log nothing, and a log that cannot be written is a warning, not a failed grow.
+
+`SEDUM_GROW_LOG=<path>` moves the file and `SEDUM_GROW_LOG=off` turns it off; `SEDUM_GROW_LOG_SKIPS=1` also logs records skipped as current. The log is machine-local: keep `.sedum/grow.jsonl` out of git (this repository's `.sedum/*` rule already does).
+
+```
+sedum grow-log [--json] [--since <36h|7d|2026-10-01>] [--record <id>] [--model <name>] [<path>]
+```
+
+Summarizes the log per model: grows, failures, calls, retries, repairs, tokens in/out and the literal share, plus a total row. Malformed lines are counted and skipped.
+
 ### `sedum adopt`
 
 ```
