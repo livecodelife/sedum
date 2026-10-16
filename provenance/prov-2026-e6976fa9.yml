@@ -1,7 +1,7 @@
 id: prov-2026-e6976fa9
 title: 'eval design: drawing samples'
 type: imprint
-status: open
+status: implemented
 version: 4
 reason: targets live in a package directory
 created_at: "2026-10-16"
@@ -216,7 +216,7 @@ forbidden_scope: []
 implements: prov-2026-d694c4c4
 implements_version: 1
 related: []
-sealed_at_sha: ""
+sealed_at_sha: 18fb168e829dda1111df8569bb2457382927e15a
 associated_specs:
   - path: evals/design/sample_test.go
     run_command: go test ./evals/design -run 'TestReferenceCodePassesEveryTask|TestRunSampleOutcomes|TestRunAndPlan' -count=1
