@@ -1,0 +1,28 @@
+id: prov-2026-2558649d
+version: 2
+content_hash: sha256:5e791e97711cfe2e115280afb63df61f7db18f581db60f8ef5ac6b67d194d3c9
+parent_hash: sha256:1c5ca304e201b4209177f86346a0b45e5a2f026c846d9fbd64e0847b65ecae38
+reason: tests grown into the placeholder spec file
+author: calebcowen@gmail.com
+created_at: "2026-10-16T10:04:06Z"
+spec_hashes:
+  - sha256:6ab816087292a9b78bce53642e46c7199094ff2cc6a67df6c6d495cc265e4e40
+content:
+  id: prov-2026-2558649d
+  title: A failed run removes the files and directories it created
+  type: imprint
+  created_at: "2026-10-16"
+  author: calebcowen@gmail.com
+  intent: |
+    Implements prov-2026-8394826c, behaviour 2: a run that fails removes what it created. New file internal/pipeline/cleanup.go holds an unexported `runCleanup` with:
+    - `newRunCleanup(output string, paths []string) *runCleanup`: records, before Phase 3 runs, every ancestor directory of each authorized path (relative, slash paths, joined under output) that does not exist yet, ordered deepest first.
+    - `(*runCleanup).created(files []resolve.File)`: records the files this run wrote: each File with Existed false and Unmanaged false (resolve.File embeds Resolution, which carries Path and Unmanaged).
+    - `(*runCleanup).undo(log *runlog.Log)`: removes the recorded files, then the recorded directories deepest first, each with os.Remove so a directory that is not empty (something else lives there) is left, and logs `removed file created by a failed run` (path) per removal at Info. A nil log discards. It ignores a file already gone and never removes anything not recorded, so a file that existed before the run, and its directory, are never touched.
+    pipeline.go's Run is hand-edited (it is not region-owned): it builds newRunCleanup before resolve.Create when the run writes (not DryRun, Check or Stamp), calls created(files) after Create, and on any error return after that point calls undo; a successful run, including one stopped by --stop-after, keeps everything. Tests in internal/pipeline/cleanup_test.go cover: undo removes created files and the directories the run made, but keeps a directory that already existed or still holds another file; a pre-existing file is never touched even when the run fails; end to end through Run (using the rails generators fixture in pipeline_test.go) a failing run (a model answer targeting an unauthorized file, as TestAnUnauthorizedTargetHaltsWithNothingInjected does) leaves the output tree as it was, while the same run succeeding keeps the created file; a DryRun creates nothing and so removes nothing. Grown via sedum-haiku (setType runCleanup, setFunction/setMethod, tests).
+  affected_scope:
+    - internal/pipeline/cleanup.go
+    - internal/pipeline/cleanup_test.go
+  implements: prov-2026-8394826c
+  implements_version: 2
+  associated_specs:
+    - path: internal/pipeline/cleanup_test.go
