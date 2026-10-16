@@ -1,6 +1,6 @@
 id: prov-2026-f63c340a
 title: A quote transform renders a value as a string literal
-status: open
+status: implemented
 created_at: "2026-10-15"
 author: calebcowen@gmail.com
 intent: |
@@ -38,7 +38,7 @@ superseded_by: ""
 related:
   - prov-2026-73127e53
   - prov-2026-c5697387
-sealed_at_sha: ""
+sealed_at_sha: d7da9d0e4a444c21a95474ea5368cf8bb8c5163f
 associated_specs:
   - path: internal/transform/quote_test.go
     run_command: go test ./$(dirname {{path}})
