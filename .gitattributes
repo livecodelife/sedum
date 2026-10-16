@@ -1,0 +1,3 @@
+provenance/.versions/** linguist-generated=true -diff
+provenance/.evidence/** linguist-generated=true -diff
+.provenance/versions.jsonl linguist-generated=true -diff
