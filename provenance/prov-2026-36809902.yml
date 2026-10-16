@@ -1,7 +1,7 @@
 id: prov-2026-36809902
 title: 'Sedum adopt stage 2: built-in Go adopter'
 type: blueprint
-status: open
+status: implemented
 version: 2
 reason: 'lint: glob scopes, a spec, and no implements on a blueprint'
 created_at: "2026-10-16"
@@ -49,7 +49,7 @@ affected_scope:
   - internal/builtin/**
 forbidden_scope: []
 related: []
-sealed_at_sha: ""
+sealed_at_sha: c9a519548683f0b21e042da7aea853f5b6f157c0
 associated_specs:
   - path: internal/adopt/go_blueprint_test.go
     run_command: go test ./internal/adopt -count=1
