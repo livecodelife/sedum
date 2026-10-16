@@ -285,7 +285,7 @@ func Apply(invocations []Invocation, opts Options) ([]Result, error) {
 	// built-in checker must pass it, or nothing is written
 	// (prov-2026-5403d162). Phase 5 has already shown the model any failure;
 	// this is what makes the guarantee hold for every path into Phase 7.
-	if err := checkSyntax(touched, buffers, packagesByPath(invocations, opts)); err != nil {
+	if err := checkSyntax(opts.Output, touched, buffers, packagesByPath(invocations, opts)); err != nil {
 		return nil, err
 	}
 	if opts.DryRun {
@@ -794,7 +794,7 @@ func packagesByPath(invocations []Invocation, opts Options) map[string]*genpkg.P
 
 // checkSyntax runs each touched file of a package with a syntax: key through
 // that built-in checker.
-func checkSyntax(touched []string, buffers map[string]string, packages map[string]*genpkg.Package) error {
+func checkSyntax(output string, touched []string, buffers map[string]string, packages map[string]*genpkg.Package) error {
 	var problems []error
 	for _, path := range touched {
 		pkg := packages[path]
@@ -805,7 +805,8 @@ func checkSyntax(touched []string, buffers map[string]string, packages map[strin
 		if !ok {
 			continue // rejected at load; unreachable for a loaded package
 		}
-		if err := checker.Check(path, buffers[path]); err != nil {
+		file := syntax.File{Path: path, Content: buffers[path], Siblings: syntax.Siblings(output, path, buffers)}
+		if err := checker.Check(file); err != nil {
 			problems = append(problems, fmt.Errorf("file %s would not pass the %s check, so nothing was written: %w", path, pkg.Syntax, err))
 		}
 	}

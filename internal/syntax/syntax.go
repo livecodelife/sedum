@@ -15,15 +15,65 @@ package syntax
 
 import (
 	"fmt"
+	"go/ast"
 	"go/format"
+	"go/parser"
+	"go/token"
+	"os"
+	"path"
+	"path/filepath"
+	"regexp"
 	"sort"
+	"strings"
 )
+
+// File is one whole file to check, with the other files beside it in its
+// directory that share its extension. A checker may read siblings to learn
+// what the file's package declares elsewhere; it never resolves further.
+type File struct {
+	Path     string
+	Content  string
+	Siblings []string
+}
 
 // Checker checks one whole file of its language.
 type Checker interface {
-	// Check returns nil when content is acceptable, and otherwise a *Problem
-	// naming path.
-	Check(path, content string) error
+	// Check returns nil when the file is acceptable, and otherwise a *Problem
+	// naming its path.
+	Check(f File) error
+}
+
+// Siblings returns the contents of the files beside target in its directory
+// under output that share its extension, target excluded. A file the run holds
+// in memory is read from overrides, keyed by the same slash-separated path
+// relative to output, in preference to disk.
+func Siblings(output, target string, overrides map[string]string) []string {
+	dir := path.Dir(target)
+	ext := path.Ext(target)
+	seen := map[string]bool{target: true}
+	var out []string
+	for p, content := range overrides {
+		if path.Dir(p) == dir && path.Ext(p) == ext && !seen[p] {
+			seen[p] = true
+			out = append(out, content)
+		}
+	}
+	entries, err := os.ReadDir(filepath.Join(output, filepath.FromSlash(dir)))
+	if err != nil {
+		return out
+	}
+	for _, e := range entries {
+		p := path.Join(dir, e.Name())
+		if e.IsDir() || path.Ext(p) != ext || seen[p] {
+			continue
+		}
+		data, err := os.ReadFile(filepath.Join(output, filepath.FromSlash(p)))
+		if err == nil {
+			seen[p] = true
+			out = append(out, string(data))
+		}
+	}
+	return out
 }
 
 // Problem is a file a checker rejected.
@@ -64,13 +114,126 @@ func Names() []string {
 // write. It uses go/format, the library gofmt itself is built on.
 type goChecker struct{}
 
-func (goChecker) Check(path, content string) error {
-	formatted, err := format.Source([]byte(content))
+func (goChecker) Check(f File) error {
+	formatted, err := format.Source([]byte(f.Content))
 	if err != nil {
-		return &Problem{Path: path, Reason: "does not parse as Go: " + err.Error()}
+		return &Problem{Path: f.Path, Reason: "does not parse as Go: " + err.Error()}
 	}
-	if string(formatted) != content {
-		return &Problem{Path: path, Reason: "is not gofmt-clean", Formatted: string(formatted)}
+	if string(formatted) != f.Content {
+		return &Problem{Path: f.Path, Reason: "is not gofmt-clean", Formatted: string(formatted)}
+	}
+	if missing := unimportedQualifiers(f); len(missing) > 0 {
+		return &Problem{Path: f.Path, Reason: fmt.Sprintf(
+			"uses %s as a package qualifier without importing it; import the package each one names",
+			strings.Join(missing, ", "))}
 	}
 	return nil
+}
+
+// unimportedQualifiers returns, sorted, the identifiers used as X in an X.Sel
+// selector that nothing in reach supplies (prov-2026-0ce03d1c): the parser
+// leaves them unresolved in the file, no import of the file can supply the
+// name, and no sibling file declares it at top level. It uses go/parser only
+// and errs toward silence - a false alarm re-prompts a correct answer until its
+// retries run out - so a dot import turns the check off and an import whose
+// name cannot be inferred still supplies every name it plausibly could.
+func unimportedQualifiers(f File) []string {
+	fset := token.NewFileSet()
+	file, err := parser.ParseFile(fset, f.Path, f.Content, 0)
+	if err != nil {
+		return nil
+	}
+
+	supplied := map[string]bool{}
+	for _, imp := range file.Imports {
+		if imp.Name != nil {
+			if imp.Name.Name == "." {
+				return nil
+			}
+			supplied[imp.Name.Name] = true
+			continue
+		}
+		for _, name := range importNames(strings.Trim(imp.Path.Value, "`\"")) {
+			supplied[name] = true
+		}
+	}
+	for _, sibling := range f.Siblings {
+		for name := range topLevelNames(sibling) {
+			supplied[name] = true
+		}
+	}
+
+	unresolved := map[*ast.Ident]bool{}
+	for _, id := range file.Unresolved {
+		unresolved[id] = true
+	}
+	missing := map[string]bool{}
+	ast.Inspect(file, func(n ast.Node) bool {
+		sel, ok := n.(*ast.SelectorExpr)
+		if !ok {
+			return true
+		}
+		if x, ok := sel.X.(*ast.Ident); ok && unresolved[x] && !supplied[x.Name] {
+			missing[x.Name] = true
+		}
+		return true
+	})
+
+	out := make([]string, 0, len(missing))
+	for name := range missing {
+		out = append(out, name)
+	}
+	sort.Strings(out)
+	return out
+}
+
+var majorVersion = regexp.MustCompile(`^v[0-9]+$`)
+var dotVersion = regexp.MustCompile(`\.v[0-9]+$`)
+
+// importNames are the package names an import path plausibly gives, without
+// type information: the last element, and that element without a .vN suffix,
+// a -go suffix or a go- prefix; and for a path ending in a /vN major-version
+// element, the element before it, treated the same way.
+func importNames(importPath string) []string {
+	elems := strings.Split(importPath, "/")
+	last := elems[len(elems)-1]
+	candidates := []string{last}
+	if majorVersion.MatchString(last) && len(elems) > 1 {
+		candidates = append(candidates, elems[len(elems)-2])
+	}
+	var out []string
+	for _, c := range candidates {
+		c = dotVersion.ReplaceAllString(c, "")
+		out = append(out, c, strings.TrimPrefix(c, "go-"), strings.TrimSuffix(c, "-go"))
+	}
+	return out
+}
+
+// topLevelNames are the names a Go file declares at package level.
+func topLevelNames(content string) map[string]bool {
+	out := map[string]bool{}
+	file, err := parser.ParseFile(token.NewFileSet(), "", content, parser.SkipObjectResolution)
+	if err != nil {
+		return out
+	}
+	for _, decl := range file.Decls {
+		switch d := decl.(type) {
+		case *ast.FuncDecl:
+			if d.Recv == nil {
+				out[d.Name.Name] = true
+			}
+		case *ast.GenDecl:
+			for _, spec := range d.Specs {
+				switch s := spec.(type) {
+				case *ast.ValueSpec:
+					for _, n := range s.Names {
+						out[n.Name] = true
+					}
+				case *ast.TypeSpec:
+					out[s.Name.Name] = true
+				}
+			}
+		}
+	}
+	return out
 }

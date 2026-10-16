@@ -74,7 +74,7 @@ func CheckSyntax(recordID string, files []resolve.File, invocations []recording.
 		if name == "" || !ok {
 			continue
 		}
-		err := checker.Check(path, buffers[path])
+		err := checker.Check(syntax.File{Path: path, Content: buffers[path], Siblings: syntax.Siblings(output, path, buffers)})
 		if err == nil {
 			continue
 		}

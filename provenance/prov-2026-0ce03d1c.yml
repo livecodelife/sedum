@@ -35,6 +35,7 @@ affected_scope:
   - internal/selection/syntax.go
   - internal/selection/*_test.go
   - internal/pipeline/*_test.go
+  - PRD.md
 forbidden_scope: []
 type: imprint
 implements: prov-2026-5403d162

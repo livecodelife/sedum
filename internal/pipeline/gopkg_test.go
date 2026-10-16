@@ -233,3 +233,32 @@ func TestTheGoPackageLeavesModuleFilesToGoMod(t *testing.T) {
 		t.Errorf("%s was left unmanaged", storePath)
 	}
 }
+
+// An answer using a package it did not import is re-prompted in Phase 5, and
+// the answer that adds the import is what lands (prov-2026-0ce03d1c).
+func TestGrowRepromptsForAnUnimportedQualifier(t *testing.T) {
+	cfg := config(t)
+	cfg.Generators = goGenerators(t, nil)
+	cfg.Records = recordsDir(t, map[string]string{"prov-2026-aaaaaaaa": "  - " + storePath + "\n"})
+	cfg.Retries = 2
+	code, _ := json.Marshal("func New() error {\n\treturn errors.New(\"no\")\n}")
+	without := `{"invocations": [{"action": "setFunction", "kwargs": {"file": "` + storePath + `", "name": "New", "code": ` + string(code) + `}}]}`
+	with := `{"invocations": [{"action": "addImport", "kwargs": {"file": "` + storePath + `", "path": "errors"}}, {"action": "setFunction", "kwargs": {"file": "` + storePath + `", "name": "New", "code": ` + string(code) + `}}]}`
+	client := &stub{sequence: []string{without, with}}
+	cfg.Client = client
+
+	if _, err := Run(context.Background(), cfg); err != nil {
+		t.Fatalf("grow: %v", err)
+	}
+	if client.calls != 2 {
+		t.Fatalf("calls = %d, want 2", client.calls)
+	}
+	followUp := client.prompts[1][len(client.prompts[1])-1].Content
+	if !strings.Contains(followUp, "errors") || !strings.Contains(followUp, "without importing") {
+		t.Errorf("the re-prompt does not name the missing import:\n%s", followUp)
+	}
+	got := mustBeGofmtClean(t, filepath.Join(cfg.Output, storePath))
+	if !strings.Contains(got, `import "errors"`) {
+		t.Errorf("the corrected answer's import did not land:\n%s", got)
+	}
+}

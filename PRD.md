@@ -117,7 +117,7 @@ Two packages declaring the same path do not conflict; they agree. A path one pac
 
 ### Syntax checks
 
-`syntax:` names a built-in checker every file the package touches must pass (`prov-2026-5403d162`). The registry is closed and ships with Sedum; today it holds one member, `go`, which accepts a file only if it parses and is exactly what gofmt would write. An unknown name rejects the package at load.
+`syntax:` names a built-in checker every file the package touches must pass (`prov-2026-5403d162`). The registry is closed and ships with Sedum; today it holds one member, `go`, which accepts a file only if it parses, is exactly what gofmt would write, and uses no package qualifier that nothing in reach supplies — no import of the file, and no top-level declaration in a sibling file (`prov-2026-0ce03d1c`). That last check uses `go/parser` alone and errs toward silence: a dot import turns it off, and an import whose name cannot be inferred from its path still counts, because a false alarm would re-prompt a correct answer until its retries ran out. An unknown name rejects the package at load.
 
 The check runs twice. In Phase 5 the validated answer is applied to its files in memory and checked; a failure is a violation like any other, fed back to the model within the retry budget — with the gofmt form of the file when it parses, so the model can bind exactly that — and terminal under replay. In Phase 7 every touched file is checked again before anything is written, so the guarantee holds for every path into injection.
 
