@@ -1,0 +1,29 @@
+id: prov-2026-3d0321d4
+version: 2
+content_hash: sha256:a6a5cf04af03be8e6eb4b95fb263f4a7e50fee241cf49248c5d94f821ce099bf
+parent_hash: sha256:0c3ca1d109027bf8fc8d94a1a213f6ec36938bc65b6732d94672e5118d2c3c35
+reason: hand-edited files cannot be in a grown imprint's scope while growing
+author: calebcowen@gmail.com
+created_at: "2026-10-16T21:06:58Z"
+spec_hashes:
+  - sha256:c47675e3800bbb42846595ae7bd59531f7bd715b4ae3d9e4bbfae6cc94890f39
+content:
+  id: prov-2026-3d0321d4
+  title: 'genpkg: the adopt key in sedum.yaml'
+  type: imprint
+  created_at: "2026-10-16"
+  author: calebcowen@gmail.com
+  intent: |-
+    Implements prov-2026-95d9ae7e: the `adopt:` key in sedum.yaml. Hand-edited already (they edit existing hand-written files): internal/genpkg/schema.go gains `Adopt *Adopt` on the manifest (yaml "adopt") and on Package, and internal/genpkg/load.go copies it and calls `checkAdopt(pkg, r)` after checkTestPaths. New file internal/genpkg/adopt.go (package genpkg), grown, defines:
+
+    - `type Adopt struct` with yaml tags: `Command []string` ("command"), `UnitStart string` ("unit_start"), `UnitEnd string` ("unit_end"), `Header string` ("header"), `AttachAbove []string` ("attach_above"), `Actions map[string]string` ("actions"). Decoding stays strict (the manifest already uses KnownFields).
+    - `const RuleAdoptInvalid = "adopt_invalid"`, documented.
+    - `func checkAdopt(pkg *Package, r *reporter)`: does nothing when pkg.Adopt is nil. Otherwise reports each problem with r.errorf(manifestFile, RuleAdoptInvalid, ...): both `command` and `unit_start` set, or neither; a command whose first element is empty; for the declarative form: `unit_start` that does not compile as a Go regexp (regexp.Compile), or lacks the named groups `kind` and `name` (check Regexp.SubexpNames); `unit_end` not one of `dedent`, `blank`, or a regexp that compiles; `header` or any `attach_above` entry that does not compile; `actions` empty; an actions value naming an action the package does not have (pkg.Actions); an action whose required kwargs are not a subset of {file, name, code} (the declarative adopter supplies exactly those three: file = the path, name = the `name` group, code = the unit text); and `command` combined with any declarative field (header, unit_end, attach_above, actions).
+    Tests (internal/genpkg/adopt_test.go, table-driven using the helpers in genpkg_test.go, each case a one-line mutation of a valid package's sedum.yaml): a valid declarative adopter loads clean and Package.Adopt carries its fields; a valid command adopter loads clean; each error above is reported with RuleAdoptInvalid and a message naming the problem; a package without `adopt:` has Adopt nil.
+  affected_scope:
+    - internal/genpkg/adopt.go
+    - internal/genpkg/adopt_test.go
+  implements: prov-2026-95d9ae7e
+  implements_version: 1
+  associated_specs:
+    - path: internal/genpkg/adopt_test.go

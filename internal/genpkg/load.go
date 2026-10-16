@@ -162,6 +162,7 @@ func loadPackage(dir, dirName string) (*Package, Findings, error) {
 		Variables:       man.Variables,
 		Syntax:          man.Syntax,
 		OptionalAnchors: man.Optional,
+		Adopt:           man.Adopt,
 		Actions:         map[string]*Action{},
 	}
 
@@ -234,6 +235,7 @@ func loadPackage(dir, dirName string) (*Package, Findings, error) {
 	checkMarkersFilled(pkg, fileTemplates.bodies(), r)
 	checkUnmanaged(pkg, r)
 	checkTestPaths(pkg, r)
+	checkAdopt(pkg, r)
 	checkSyntax(pkg, r)
 	checkDeadConfig(pkg, r)
 
