@@ -1,6 +1,6 @@
 id: prov-2026-cc73cf61
 title: Orphans, deprecated records, stamping, and prompt context for grow
-status: open
+status: implemented
 version: 3
 reason: Spec file edited under prov-2026-b5c21813; refresh its hash
 created_at: "2026-10-15"
@@ -99,7 +99,7 @@ related:
   - prov-2026-375f5d4a
   - prov-2026-9621daed
   - prov-2026-dad4d877
-sealed_at_sha: ""
+sealed_at_sha: a097e8b83fd1948c7b3760a0ff38db3d03a536b9
 associated_specs:
   - path: internal/pipeline/orphans_test.go
     run_command: go test ./$(dirname {{path}})
