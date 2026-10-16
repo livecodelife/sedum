@@ -1,6 +1,6 @@
 id: prov-2026-bf01cd6b
 title: sedum regions and a JSON grow report feed provenance evidence
-status: draft
+status: open
 created_at: "2026-10-15"
 author: calebcowen@gmail.com
 intent: |
@@ -79,7 +79,11 @@ related:
   - prov-2026-cc73cf61
   - prov-2026-fc05416c
 sealed_at_sha: ""
-associated_specs: []
+associated_specs:
+  - path: internal/pipeline/regions_test.go
+    run_command: go test ./$(dirname {{path}})
+  - path: internal/cli/report_test.go
+    run_command: go test ./$(dirname {{path}})
 associated_traces: []
 monitors: []
 tags: []
