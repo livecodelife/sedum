@@ -11,6 +11,11 @@
 # exact. PROVENANCE_REAL_REPOS, when set, adds the gen_hash parity run.
 set -euo pipefail
 
+# linespec runs this as a spec from inside a git hook, which exports GIT_DIR,
+# GIT_INDEX_FILE and friends. Nothing here should act on an inherited
+# repository, so drop them all first.
+for v in $(env | sed -n 's/^\(GIT_[A-Z_]*\)=.*/\1/p'); do unset "$v"; done
+
 ROOT=$(git -C "$(dirname "$0")" rev-parse --show-toplevel)
 COMMIT=$(git -C "$ROOT" rev-parse --short HEAD)
 T=$(mktemp -d)
