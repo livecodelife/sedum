@@ -48,6 +48,7 @@ failure. That property is what the harness under `evals/` measures.
 | `sedum resolve` | Working |
 | `sedum actions` | Working |
 | `sedum render` | Working |
+| `sedum generators install` | Working |
 
 Recording and replay are live: `--record` captures what a run resolved and what
 the model decided, and `--execute` replays that with no model involved. A
@@ -131,6 +132,13 @@ go test ./...
 ```
 
 ### Commands you can run today
+
+**Put the `go` generator package into your own module** — `sedum generators install go` copies the package into `./generators/go` and writes `./generators/go.mod`, a module boundary that keeps your own `go build ./...` and `go test ./...` from compiling the template files. It prints what it will do first, never overwrites a file that differs without `--force`, never deletes anything, and `--dry-run` writes nothing. Another package comes from a directory with `--from <dir>`. `sedum validate` warns when a generators directory holds Go templates and no `go.mod`.
+
+```sh
+sedum generators install go
+sedum generators install mypkg --from ../shared-generators --dir tools/generators
+```
 
 **Validate the example generator packages** — runs every load-time check against a generators directory and exits. Requires no records, no model, and no network.
 

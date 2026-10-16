@@ -1,0 +1,50 @@
+id: prov-2026-1da47b75
+version: 3
+content_hash: sha256:64df8b6665c5800bc8766ec558a9620f43c393a827d32bb00ffd19d323aea278
+parent_hash: sha256:bc0018684d0b38d65b7c5694288613c4dbedd218ebfc54aa3c1caeaba7783c79
+reason: 'built-in package travels as a generated zip: go:embed rejects the * directories; embed var hand-written'
+author: calebcowen@gmail.com
+created_at: "2026-10-16T10:28:31Z"
+spec_hashes:
+  - sha256:7a23a9619e7ca6f8869121d5f17a04e295f31672615dde4e5cb4b11f7b9c1278
+  - sha256:c97edf1638282cc265366c77706c8efe995093a2fcdbf6723caf0ea1ee5d0935
+  - sha256:70e3b13db327b5bfc88b0b30f82f9e4a2053a2a029e23f7ca69074925e31e312
+content:
+  id: prov-2026-1da47b75
+  title: sedum generators install vendors a package with a go.mod boundary
+  type: blueprint
+  created_at: "2026-10-16"
+  author: calebcowen@gmail.com
+  intent: |
+    provisio-mgr (#provisio, 2026-10-16), from prov-cli's cold-start walkthrough (F4). A user who copies a generator package into their own module gets templates that `go test ./...` and `go build ./...` try to compile (the template files are named *.go and contain {{...}}). Sedum's own repo avoids this with generators/go.mod, a module boundary the toolchain skips; nothing tells a user to do the same and nothing helps them.
+
+    ## Behaviour
+    1. `sedum generators install <pkg>... [--dir generators] [--from <dir>] [--force]`. Copies each named package into `<dir>/<pkg>/` and writes `<dir>/go.mod` (`module generators`, `go 1.21`, with a comment saying why) unless a go.mod already exists there, which is never overwritten. The built-in package is `go`, carried in the binary. Any other package name is copied from `<from>/<pkg>/` and `--from` is required for it.
+    2. It prints its plan first, one line per file (`create`, `identical`, `differs`) plus the go.mod line, then acts. Dry run is `--dry-run`: print and write nothing.
+    3. A file that already exists and differs is never overwritten silently: without `--force` the command refuses before writing anything and names the first differing files; with `--force` it overwrites the differing files only. It never deletes anything, and files in the target that the source does not have are left alone. A package name containing a path separator or `..` is refused, and nothing is written outside `<dir>`.
+    4. `sedum validate` (and `grow`, which loads the same way) warns when the generators directory contains .go files anywhere below it and has no go.mod directly in it: `<dir> holds Go template files but has no go.mod, so go build/test ./... will try to compile them; run `sedum generators install` or add a go.mod with `module generators``. New genpkg warning rule `generators_go_mod_missing`; it is a warning, so `--strict` turns it into an error as for any warning.
+
+    ## How the built-in package is carried
+    The generators directory is its own Go module (that boundary is the point), so the root module cannot go:embed it, and go:embed refuses some of its file names (the literal `*` directories under files/). The binary carries the package as internal/builtin/packages/go.zip, a deterministic zip that hack/sync-builtin.sh regenerates from generators/go (provisio-mgr: the copy is never hand-maintained). The embed var is declared by hand in internal/builtin/embed.go. A test fails when the archive's contents differ from generators/go, and its message tells you to run the script.
+
+    ## Not in scope
+    A package registry or network fetch, uninstall/update commands, installing anything but packages and go.mod, and changing how packages are loaded.
+
+    ## Generate first
+    internal/builtin (embed accessor and drift test), internal/cli/generators.go (plan, apply, safety checks) and internal/genpkg/gomod.go (the warning), with their tests, are grown with sedum-haiku via the go package. Handwritten: the one-line registration in root.go, the call in genpkg/load.go, the rule constant in diag.go, the go:embed var (gofmt cannot keep a directive directly above a var once a region marker sits above it), hack/sync-builtin.sh (a script, exempt like build files) and the archive it produces, a go.mod for testdata/generators, README and PRD.
+  affected_scope:
+    - internal/builtin/**
+    - hack/sync-builtin.sh
+    - internal/cli/generators.go
+    - internal/cli/generators_test.go
+    - internal/cli/root.go
+    - internal/genpkg/gomod.go
+    - internal/genpkg/gomod_test.go
+    - internal/genpkg/load.go
+    - internal/genpkg/diag.go
+    - README.md
+    - PRD.md
+  associated_specs:
+    - path: internal/builtin/builtin_test.go
+    - path: internal/genpkg/gomod_test.go
+    - path: internal/cli/generators_test.go

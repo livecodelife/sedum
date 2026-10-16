@@ -966,6 +966,16 @@ sedum validate --generators ./generators
 | `--package <name>` | Validate a single package. Repeatable. |
 | `--strict` | Treat warnings as errors. |
 
+### `sedum generators install`
+
+```
+sedum generators install <pkg>... [--dir generators] [--from <dir>] [--force] [--dry-run]
+```
+
+Copies generator packages into a project (`prov-2026-1da47b75`). A generator package's templates are named `*.go` and hold `{{...}}`, so a project that keeps them inside its own Go module would have `go build ./...` and `go test ./...` try to compile them. The command writes `<dir>/go.mod` (`module generators`), a module boundary the toolchain skips, unless one already exists, and never overwrites it. `go` is built in, carried in the binary as an archive generated from `generators/go` by `hack/sync-builtin.sh` (a test fails if the two differ); any other package is copied from `<from>/<pkg>`.
+
+It prints a plan first (`create`, `identical` or `differs` per file). A file that differs is never overwritten silently: without `--force` the command writes nothing and names the differing files; with it, only differing files are overwritten. It never deletes, a package name that is empty, `.`, `..` or contains a path separator is refused, and nothing is written outside `--dir`. `--dry-run` prints the plan and writes nothing. `sedum validate` and `grow` warn (`generators_go_mod_missing`) when the generators directory holds `.go` files and has no `go.mod` of its own.
+
 ### `sedum regions`
 
 ```
