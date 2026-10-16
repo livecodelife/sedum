@@ -1,221 +1,174 @@
 package adopt
 
 // sedum:anchor:imports
-// sedum:addImport {"tier":"owned","record":"prov-2026-856f85eb","gen":"sha256:12e7118d99ed19c20430ed17e0d4592c3ec126f7a93f9e496f349a39e5e89a4d","pkg":"sha256:d6a9443c14d82b7bdf19bb96637f957fd44ad9bfbe8f167c97e6f7699c8b830f","kwargs":{"file":"internal/adopt/declarative.go","path":"fmt"}}
+// sedum:addImport {"tier":"owned","record":"prov-2026-856f85eb","gen":"sha256:e6570a4fd6ea725d919e68451b96892a2f182bf97c341497b36f9681d7725f3a","pkg":"sha256:d6a9443c14d82b7bdf19bb96637f957fd44ad9bfbe8f167c97e6f7699c8b830f","kwargs":{"file":"internal/adopt/declarative.go","path":"fmt"}}
 import "fmt"
 
 // /sedum:addImport
-// sedum:addImport {"tier":"owned","record":"prov-2026-856f85eb","gen":"sha256:12e7118d99ed19c20430ed17e0d4592c3ec126f7a93f9e496f349a39e5e89a4d","pkg":"sha256:d6a9443c14d82b7bdf19bb96637f957fd44ad9bfbe8f167c97e6f7699c8b830f","kwargs":{"file":"internal/adopt/declarative.go","path":"regexp"}}
+// sedum:addImport {"tier":"owned","record":"prov-2026-856f85eb","gen":"sha256:e6570a4fd6ea725d919e68451b96892a2f182bf97c341497b36f9681d7725f3a","pkg":"sha256:d6a9443c14d82b7bdf19bb96637f957fd44ad9bfbe8f167c97e6f7699c8b830f","kwargs":{"file":"internal/adopt/declarative.go","path":"regexp"}}
 import "regexp"
 
 // /sedum:addImport
-// sedum:addImport {"tier":"owned","record":"prov-2026-856f85eb","gen":"sha256:12e7118d99ed19c20430ed17e0d4592c3ec126f7a93f9e496f349a39e5e89a4d","pkg":"sha256:d6a9443c14d82b7bdf19bb96637f957fd44ad9bfbe8f167c97e6f7699c8b830f","kwargs":{"file":"internal/adopt/declarative.go","path":"strings"}}
+// sedum:addImport {"tier":"owned","record":"prov-2026-856f85eb","gen":"sha256:e6570a4fd6ea725d919e68451b96892a2f182bf97c341497b36f9681d7725f3a","pkg":"sha256:d6a9443c14d82b7bdf19bb96637f957fd44ad9bfbe8f167c97e6f7699c8b830f","kwargs":{"file":"internal/adopt/declarative.go","path":"strings"}}
 import "strings"
 
 // /sedum:addImport
-// sedum:addImport {"tier":"owned","record":"prov-2026-856f85eb","gen":"sha256:12e7118d99ed19c20430ed17e0d4592c3ec126f7a93f9e496f349a39e5e89a4d","pkg":"sha256:d6a9443c14d82b7bdf19bb96637f957fd44ad9bfbe8f167c97e6f7699c8b830f","kwargs":{"file":"internal/adopt/declarative.go","path":"github.com/livecodelife/sedum/internal/genpkg"}}
+// sedum:addImport {"tier":"owned","record":"prov-2026-856f85eb","gen":"sha256:e6570a4fd6ea725d919e68451b96892a2f182bf97c341497b36f9681d7725f3a","pkg":"sha256:d6a9443c14d82b7bdf19bb96637f957fd44ad9bfbe8f167c97e6f7699c8b830f","kwargs":{"file":"internal/adopt/declarative.go","path":"github.com/livecodelife/sedum/internal/genpkg"}}
 import "github.com/livecodelife/sedum/internal/genpkg"
 
 // /sedum:addImport
 
 // sedum:anchor:decls
-// sedum:setType {"tier":"owned","record":"prov-2026-856f85eb","gen":"sha256:12e7118d99ed19c20430ed17e0d4592c3ec126f7a93f9e496f349a39e5e89a4d","pkg":"sha256:ebb283283a745fdc09f0294b6e79bd879a830829cb964550ec6b4432fee5bb72","kwargs":{"code":"type Declarative struct {\n\tactions   map[string]string\n\tdeclared  map[string]map[string]bool\n\tunitStart *regexp.Regexp\n\theader    *regexp.Regexp\n\tattach    []*regexp.Regexp\n\tunitEnd   *regexp.Regexp\n\tendMode   string\n}","file":"internal/adopt/declarative.go","name":"Declarative"}}
+// sedum:setType {"tier":"owned","record":"prov-2026-856f85eb","gen":"sha256:e6570a4fd6ea725d919e68451b96892a2f182bf97c341497b36f9681d7725f3a","pkg":"sha256:ebb283283a745fdc09f0294b6e79bd879a830829cb964550ec6b4432fee5bb72","kwargs":{"code":"// Declarative splits files by the rules in a package's adopt section.\ntype Declarative struct {\n\theader    *regexp.Regexp\n\tunitStart *regexp.Regexp\n\tattach    []*regexp.Regexp\n\tunitEnd   *regexp.Regexp\n\tendMode   string\n\tkinds     map[string]string\n\tdeclared  map[string]map[string]bool\n}","file":"internal/adopt/declarative.go","name":"Declarative"}}
+// Declarative splits files by the rules in a package's adopt section.
 type Declarative struct {
-	actions   map[string]string
-	declared  map[string]map[string]bool
-	unitStart *regexp.Regexp
 	header    *regexp.Regexp
+	unitStart *regexp.Regexp
 	attach    []*regexp.Regexp
 	unitEnd   *regexp.Regexp
 	endMode   string
+	kinds     map[string]string
+	declared  map[string]map[string]bool
 }
 
 // /sedum:setType
-// sedum:setType {"tier":"owned","record":"prov-2026-856f85eb","gen":"sha256:12e7118d99ed19c20430ed17e0d4592c3ec126f7a93f9e496f349a39e5e89a4d","pkg":"sha256:ebb283283a745fdc09f0294b6e79bd879a830829cb964550ec6b4432fee5bb72","kwargs":{"code":"type unitSpan struct {\n\tfrom, end int\n\taction    string\n\tname      string\n}","file":"internal/adopt/declarative.go","name":"unitSpan"}}
-type unitSpan struct {
-	from, end int
-	action    string
-	name      string
-}
-
-// /sedum:setType
-// sedum:setFunction {"tier":"owned","record":"prov-2026-856f85eb","gen":"sha256:12e7118d99ed19c20430ed17e0d4592c3ec126f7a93f9e496f349a39e5e89a4d","pkg":"sha256:6589611adfb6618a7920e43f951a79901428192ea95c1084fde9f222aecd9537","kwargs":{"code":"func NewDeclarative(pkg *genpkg.Package) (*Declarative, error) {\n\tif pkg == nil || pkg.Adopt == nil {\n\t\treturn nil, fmt.Errorf(\"declarative adopter: package has no adopt section\")\n\t}\n\ta := pkg.Adopt\n\tif len(a.Command) > 0 {\n\t\treturn nil, fmt.Errorf(\"declarative adopter: package uses a command adopter\")\n\t}\n\td := &Declarative{actions: a.Actions, declared: map[string]map[string]bool{}, endMode: a.UnitEnd}\n\tfor name, act := range pkg.Actions {\n\t\tif act == nil {\n\t\t\tcontinue\n\t\t}\n\t\tset := map[string]bool{}\n\t\tfor k := range act.Kwargs {\n\t\t\tset[k] = true\n\t\t}\n\t\td.declared[name] = set\n\t}\n\tvar err error\n\tif d.unitStart, err = compileRe(\"unit start\", a.UnitStart); err != nil {\n\t\treturn nil, err\n\t}\n\tif a.Header != \"\" {\n\t\tif d.header, err = compileRe(\"header\", a.Header); err != nil {\n\t\t\treturn nil, err\n\t\t}\n\t}\n\tfor _, p := range a.AttachAbove {\n\t\tre, err := compileRe(\"attach above\", p)\n\t\tif err != nil {\n\t\t\treturn nil, err\n\t\t}\n\t\td.attach = append(d.attach, re)\n\t}\n\tif a.UnitEnd != \"dedent\" && a.UnitEnd != \"blank\" {\n\t\tif d.unitEnd, err = compileRe(\"unit end\", a.UnitEnd); err != nil {\n\t\t\treturn nil, err\n\t\t}\n\t}\n\treturn d, nil\n}","file":"internal/adopt/declarative.go","name":"NewDeclarative"}}
+// sedum:setFunction {"tier":"owned","record":"prov-2026-856f85eb","gen":"sha256:e6570a4fd6ea725d919e68451b96892a2f182bf97c341497b36f9681d7725f3a","pkg":"sha256:6589611adfb6618a7920e43f951a79901428192ea95c1084fde9f222aecd9537","kwargs":{"code":"// NewDeclarative builds a Declarative adopter from a declarative package.\nfunc NewDeclarative(pkg *genpkg.Package) (*Declarative, error) {\n\tif pkg.Adopt == nil {\n\t\treturn nil, fmt.Errorf(\"package %s: no adopt section\", pkg.Name)\n\t}\n\tad := pkg.Adopt\n\tif len(ad.Command) > 0 {\n\t\treturn nil, fmt.Errorf(\"package %s: adopt command is not declarative\", pkg.Name)\n\t}\n\tif ad.UnitEnd == \"\" {\n\t\treturn nil, fmt.Errorf(\"package %s: unit_end is required\", pkg.Name)\n\t}\n\td := &Declarative{\n\t\tendMode:  ad.UnitEnd,\n\t\tkinds:    map[string]string{},\n\t\tdeclared: map[string]map[string]bool{},\n\t}\n\tvar err error\n\tif d.unitStart, err = regexp.Compile(ad.UnitStart); err != nil {\n\t\treturn nil, fmt.Errorf(\"package %s: unit_start: %w\", pkg.Name, err)\n\t}\n\tif ad.Header != \"\" {\n\t\tif d.header, err = regexp.Compile(ad.Header); err != nil {\n\t\t\treturn nil, fmt.Errorf(\"package %s: header: %w\", pkg.Name, err)\n\t\t}\n\t}\n\tfor _, pat := range ad.AttachAbove {\n\t\tre, err := regexp.Compile(pat)\n\t\tif err != nil {\n\t\t\treturn nil, fmt.Errorf(\"package %s: attach_above: %w\", pkg.Name, err)\n\t\t}\n\t\td.attach = append(d.attach, re)\n\t}\n\tif ad.UnitEnd != \"dedent\" && ad.UnitEnd != \"blank\" {\n\t\tif d.unitEnd, err = regexp.Compile(ad.UnitEnd); err != nil {\n\t\t\treturn nil, fmt.Errorf(\"package %s: unit_end: %w\", pkg.Name, err)\n\t\t}\n\t}\n\tfor kind, action := range ad.Actions {\n\t\td.kinds[kind] = action\n\t\tset := map[string]bool{}\n\t\tif a, ok := pkg.Actions[action]; ok && a != nil {\n\t\t\tfor _, k := range []string{\"file\", \"name\", \"code\"} {\n\t\t\t\tif _, ok := a.Kwargs[k]; ok {\n\t\t\t\t\tset[k] = true\n\t\t\t\t}\n\t\t\t}\n\t\t}\n\t\td.declared[action] = set\n\t}\n\treturn d, nil\n}","file":"internal/adopt/declarative.go","name":"NewDeclarative"}}
+// NewDeclarative builds a Declarative adopter from a declarative package.
 func NewDeclarative(pkg *genpkg.Package) (*Declarative, error) {
-	if pkg == nil || pkg.Adopt == nil {
-		return nil, fmt.Errorf("declarative adopter: package has no adopt section")
+	if pkg.Adopt == nil {
+		return nil, fmt.Errorf("package %s: no adopt section", pkg.Name)
 	}
-	a := pkg.Adopt
-	if len(a.Command) > 0 {
-		return nil, fmt.Errorf("declarative adopter: package uses a command adopter")
+	ad := pkg.Adopt
+	if len(ad.Command) > 0 {
+		return nil, fmt.Errorf("package %s: adopt command is not declarative", pkg.Name)
 	}
-	d := &Declarative{actions: a.Actions, declared: map[string]map[string]bool{}, endMode: a.UnitEnd}
-	for name, act := range pkg.Actions {
-		if act == nil {
-			continue
-		}
-		set := map[string]bool{}
-		for k := range act.Kwargs {
-			set[k] = true
-		}
-		d.declared[name] = set
+	if ad.UnitEnd == "" {
+		return nil, fmt.Errorf("package %s: unit_end is required", pkg.Name)
+	}
+	d := &Declarative{
+		endMode:  ad.UnitEnd,
+		kinds:    map[string]string{},
+		declared: map[string]map[string]bool{},
 	}
 	var err error
-	if d.unitStart, err = compileRe("unit start", a.UnitStart); err != nil {
-		return nil, err
+	if d.unitStart, err = regexp.Compile(ad.UnitStart); err != nil {
+		return nil, fmt.Errorf("package %s: unit_start: %w", pkg.Name, err)
 	}
-	if a.Header != "" {
-		if d.header, err = compileRe("header", a.Header); err != nil {
-			return nil, err
+	if ad.Header != "" {
+		if d.header, err = regexp.Compile(ad.Header); err != nil {
+			return nil, fmt.Errorf("package %s: header: %w", pkg.Name, err)
 		}
 	}
-	for _, p := range a.AttachAbove {
-		re, err := compileRe("attach above", p)
+	for _, pat := range ad.AttachAbove {
+		re, err := regexp.Compile(pat)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("package %s: attach_above: %w", pkg.Name, err)
 		}
 		d.attach = append(d.attach, re)
 	}
-	if a.UnitEnd != "dedent" && a.UnitEnd != "blank" {
-		if d.unitEnd, err = compileRe("unit end", a.UnitEnd); err != nil {
-			return nil, err
+	if ad.UnitEnd != "dedent" && ad.UnitEnd != "blank" {
+		if d.unitEnd, err = regexp.Compile(ad.UnitEnd); err != nil {
+			return nil, fmt.Errorf("package %s: unit_end: %w", pkg.Name, err)
 		}
+	}
+	for kind, action := range ad.Actions {
+		d.kinds[kind] = action
+		set := map[string]bool{}
+		if a, ok := pkg.Actions[action]; ok && a != nil {
+			for _, k := range []string{"file", "name", "code"} {
+				if _, ok := a.Kwargs[k]; ok {
+					set[k] = true
+				}
+			}
+		}
+		d.declared[action] = set
 	}
 	return d, nil
 }
 
 // /sedum:setFunction
-// sedum:setFunction {"tier":"owned","record":"prov-2026-856f85eb","gen":"sha256:12e7118d99ed19c20430ed17e0d4592c3ec126f7a93f9e496f349a39e5e89a4d","pkg":"sha256:6589611adfb6618a7920e43f951a79901428192ea95c1084fde9f222aecd9537","kwargs":{"code":"func compileRe(what, expr string) (*regexp.Regexp, error) {\n\tre, err := regexp.Compile(expr)\n\tif err != nil {\n\t\treturn nil, fmt.Errorf(\"declarative adopter: %s regexp: %w\", what, err)\n\t}\n\treturn re, nil\n}","file":"internal/adopt/declarative.go","name":"compileRe"}}
-func compileRe(what, expr string) (*regexp.Regexp, error) {
-	re, err := regexp.Compile(expr)
-	if err != nil {
-		return nil, fmt.Errorf("declarative adopter: %s regexp: %w", what, err)
-	}
-	return re, nil
-}
-
-// /sedum:setFunction
-// sedum:setFunction {"tier":"owned","record":"prov-2026-856f85eb","gen":"sha256:12e7118d99ed19c20430ed17e0d4592c3ec126f7a93f9e496f349a39e5e89a4d","pkg":"sha256:6589611adfb6618a7920e43f951a79901428192ea95c1084fde9f222aecd9537","kwargs":{"code":"func splitLines(s string) []string {\n\tparts := strings.SplitAfter(s, \"\\n\")\n\tif len(parts) > 0 && parts[len(parts)-1] == \"\" {\n\t\tparts = parts[:len(parts)-1]\n\t}\n\treturn parts\n}","file":"internal/adopt/declarative.go","name":"splitLines"}}
+// sedum:setFunction {"tier":"owned","record":"prov-2026-856f85eb","gen":"sha256:e6570a4fd6ea725d919e68451b96892a2f182bf97c341497b36f9681d7725f3a","pkg":"sha256:6589611adfb6618a7920e43f951a79901428192ea95c1084fde9f222aecd9537","kwargs":{"code":"// splitLines splits s into lines, keeping each line's newline.\nfunc splitLines(s string) []string {\n\tvar out []string\n\tfor len(s) > 0 {\n\t\ti := strings.IndexByte(s, '\\n')\n\t\tif i < 0 {\n\t\t\tout = append(out, s)\n\t\t\tbreak\n\t\t}\n\t\tout = append(out, s[:i+1])\n\t\ts = s[i+1:]\n\t}\n\treturn out\n}","file":"internal/adopt/declarative.go","name":"splitLines"}}
+// splitLines splits s into lines, keeping each line's newline.
 func splitLines(s string) []string {
-	parts := strings.SplitAfter(s, "\n")
-	if len(parts) > 0 && parts[len(parts)-1] == "" {
-		parts = parts[:len(parts)-1]
+	var out []string
+	for len(s) > 0 {
+		i := strings.IndexByte(s, '\n')
+		if i < 0 {
+			out = append(out, s)
+			break
+		}
+		out = append(out, s[:i+1])
+		s = s[i+1:]
 	}
-	return parts
+	return out
 }
 
 // /sedum:setFunction
-// sedum:setMethod {"tier":"owned","record":"prov-2026-856f85eb","gen":"sha256:12e7118d99ed19c20430ed17e0d4592c3ec126f7a93f9e496f349a39e5e89a4d","pkg":"sha256:8ea07fc52bbc260836983438ef08ad02746b86a1028c8b1a51b60eeb7b83cc2b","kwargs":{"code":"func (d *Declarative) Split(path string, src []byte) ([]Span, error) {\n\ttext := string(src)\n\tspans := []Span{}\n\tstart := 0\n\tif d.header != nil {\n\t\tif loc := d.header.FindStringIndex(text); loc != nil && loc[0] == 0 {\n\t\t\tspans = append(spans, Span{Kind: KindHeader, Text: text[:loc[1]]})\n\t\t\tstart = loc[1]\n\t\t}\n\t}\n\tlines := splitLines(text[start:])\n\tvar units []unitSpan\n\tprevEnd := 0\n\tfor i := 0; i < len(lines); i++ {\n\t\tkind, name, ok := d.startOf(lines[i])\n\t\tif !ok {\n\t\t\tcontinue\n\t\t}\n\t\taction, has := d.actions[kind]\n\t\tif !has {\n\t\t\tcontinue\n\t\t}\n\t\tfrom := i\n\t\tfor from > prevEnd && d.attachable(lines[from-1]) {\n\t\t\tfrom--\n\t\t}\n\t\tend := d.endOf(lines, i)\n\t\tunits = append(units, unitSpan{from: from, end: end, action: action, name: name})\n\t\tprevEnd = end\n\t\ti = end - 1\n\t}\n\tvar resid strings.Builder\n\tflush := func() {\n\t\tif resid.Len() > 0 {\n\t\t\tspans = append(spans, Span{Kind: KindResidual, Text: resid.String()})\n\t\t\tresid.Reset()\n\t\t}\n\t}\n\tpos := 0\n\tfor _, u := range units {\n\t\tfor ; pos < u.from; pos++ {\n\t\t\tresid.WriteString(lines[pos])\n\t\t}\n\t\tflush()\n\t\tbody := strings.Join(lines[u.from:u.end], \"\")\n\t\tspans = append(spans, Span{Kind: KindUnit, Text: body, Action: u.action, Kwargs: d.kwargs(u.action, path, u.name, strings.TrimSuffix(body, \"\\n\"))})\n\t\tpos = u.end\n\t}\n\tfor ; pos < len(lines); pos++ {\n\t\tresid.WriteString(lines[pos])\n\t}\n\tflush()\n\treturn spans, nil\n}","file":"internal/adopt/declarative.go","name":"Split","receiver":"Declarative"}}
+// sedum:setMethod {"tier":"owned","record":"prov-2026-856f85eb","gen":"sha256:e6570a4fd6ea725d919e68451b96892a2f182bf97c341497b36f9681d7725f3a","pkg":"sha256:8ea07fc52bbc260836983438ef08ad02746b86a1028c8b1a51b60eeb7b83cc2b","kwargs":{"code":"// Split divides src into header, unit and residual spans in file order.\nfunc (d *Declarative) Split(path string, src []byte) ([]Span, error) {\n\tout := []Span{}\n\ttext := string(src)\n\tif d.header != nil {\n\t\tif loc := d.header.FindStringIndex(text); loc != nil && loc[0] == 0 && loc[1] > 0 {\n\t\t\tout = append(out, Span{Kind: KindHeader, Text: text[:loc[1]]})\n\t\t\ttext = text[loc[1]:]\n\t\t}\n\t}\n\tlines := splitLines(text)\n\tpending := 0\n\tfor i := 0; i < len(lines); {\n\t\tkind, name, ok := d.matchStart(lines[i])\n\t\taction, known := d.kinds[kind]\n\t\tif !ok || !known {\n\t\t\ti++\n\t\t\tcontinue\n\t\t}\n\t\tb := i\n\t\tfor b > pending && d.attaches(lines[b-1]) {\n\t\t\tb--\n\t\t}\n\t\te := d.endOf(lines, i)\n\t\tif b > pending {\n\t\t\tout = append(out, residualSpan(lines[pending:b]))\n\t\t}\n\t\tout = append(out, d.unitSpan(path, action, name, lines[b:e]))\n\t\tpending = e\n\t\ti = e\n\t}\n\tif pending < len(lines) {\n\t\tout = append(out, residualSpan(lines[pending:]))\n\t}\n\treturn out, nil\n}","file":"internal/adopt/declarative.go","name":"Split","receiver":"Declarative"}}
+// Split divides src into header, unit and residual spans in file order.
 func (d *Declarative) Split(path string, src []byte) ([]Span, error) {
+	out := []Span{}
 	text := string(src)
-	spans := []Span{}
-	start := 0
 	if d.header != nil {
-		if loc := d.header.FindStringIndex(text); loc != nil && loc[0] == 0 {
-			spans = append(spans, Span{Kind: KindHeader, Text: text[:loc[1]]})
-			start = loc[1]
+		if loc := d.header.FindStringIndex(text); loc != nil && loc[0] == 0 && loc[1] > 0 {
+			out = append(out, Span{Kind: KindHeader, Text: text[:loc[1]]})
+			text = text[loc[1]:]
 		}
 	}
-	lines := splitLines(text[start:])
-	var units []unitSpan
-	prevEnd := 0
-	for i := 0; i < len(lines); i++ {
-		kind, name, ok := d.startOf(lines[i])
-		if !ok {
+	lines := splitLines(text)
+	pending := 0
+	for i := 0; i < len(lines); {
+		kind, name, ok := d.matchStart(lines[i])
+		action, known := d.kinds[kind]
+		if !ok || !known {
+			i++
 			continue
 		}
-		action, has := d.actions[kind]
-		if !has {
-			continue
+		b := i
+		for b > pending && d.attaches(lines[b-1]) {
+			b--
 		}
-		from := i
-		for from > prevEnd && d.attachable(lines[from-1]) {
-			from--
+		e := d.endOf(lines, i)
+		if b > pending {
+			out = append(out, residualSpan(lines[pending:b]))
 		}
-		end := d.endOf(lines, i)
-		units = append(units, unitSpan{from: from, end: end, action: action, name: name})
-		prevEnd = end
-		i = end - 1
+		out = append(out, d.unitSpan(path, action, name, lines[b:e]))
+		pending = e
+		i = e
 	}
-	var resid strings.Builder
-	flush := func() {
-		if resid.Len() > 0 {
-			spans = append(spans, Span{Kind: KindResidual, Text: resid.String()})
-			resid.Reset()
-		}
+	if pending < len(lines) {
+		out = append(out, residualSpan(lines[pending:]))
 	}
-	pos := 0
-	for _, u := range units {
-		for ; pos < u.from; pos++ {
-			resid.WriteString(lines[pos])
-		}
-		flush()
-		body := strings.Join(lines[u.from:u.end], "")
-		spans = append(spans, Span{Kind: KindUnit, Text: body, Action: u.action, Kwargs: d.kwargs(u.action, path, u.name, strings.TrimSuffix(body, "\n"))})
-		pos = u.end
-	}
-	for ; pos < len(lines); pos++ {
-		resid.WriteString(lines[pos])
-	}
-	flush()
-	return spans, nil
+	return out, nil
 }
 
 // /sedum:setMethod
-// sedum:setMethod {"tier":"owned","record":"prov-2026-856f85eb","gen":"sha256:12e7118d99ed19c20430ed17e0d4592c3ec126f7a93f9e496f349a39e5e89a4d","pkg":"sha256:8ea07fc52bbc260836983438ef08ad02746b86a1028c8b1a51b60eeb7b83cc2b","kwargs":{"code":"func (d *Declarative) startOf(line string) (string, string, bool) {\n\tm := d.unitStart.FindStringSubmatch(strings.TrimRight(line, \"\\r\\n\"))\n\tif m == nil {\n\t\treturn \"\", \"\", false\n\t}\n\tki := d.unitStart.SubexpIndex(\"kind\")\n\tif ki < 0 {\n\t\treturn \"\", \"\", false\n\t}\n\tname := \"\"\n\tif ni := d.unitStart.SubexpIndex(\"name\"); ni >= 0 {\n\t\tname = m[ni]\n\t}\n\treturn m[ki], name, true\n}","file":"internal/adopt/declarative.go","name":"startOf","receiver":"Declarative"}}
-func (d *Declarative) startOf(line string) (string, string, bool) {
-	m := d.unitStart.FindStringSubmatch(strings.TrimRight(line, "\r\n"))
-	if m == nil {
-		return "", "", false
-	}
-	ki := d.unitStart.SubexpIndex("kind")
-	if ki < 0 {
-		return "", "", false
-	}
-	name := ""
-	if ni := d.unitStart.SubexpIndex("name"); ni >= 0 {
-		name = m[ni]
-	}
-	return m[ki], name, true
-}
-
-// /sedum:setMethod
-// sedum:setMethod {"tier":"owned","record":"prov-2026-856f85eb","gen":"sha256:12e7118d99ed19c20430ed17e0d4592c3ec126f7a93f9e496f349a39e5e89a4d","pkg":"sha256:8ea07fc52bbc260836983438ef08ad02746b86a1028c8b1a51b60eeb7b83cc2b","kwargs":{"code":"func (d *Declarative) attachable(line string) bool {\n\tl := strings.TrimRight(line, \"\\r\\n\")\n\tfor _, re := range d.attach {\n\t\tif re.MatchString(l) {\n\t\t\treturn true\n\t\t}\n\t}\n\treturn false\n}","file":"internal/adopt/declarative.go","name":"attachable","receiver":"Declarative"}}
-func (d *Declarative) attachable(line string) bool {
-	l := strings.TrimRight(line, "\r\n")
-	for _, re := range d.attach {
-		if re.MatchString(l) {
-			return true
-		}
-	}
-	return false
-}
-
-// /sedum:setMethod
-// sedum:setMethod {"tier":"owned","record":"prov-2026-856f85eb","gen":"sha256:12e7118d99ed19c20430ed17e0d4592c3ec126f7a93f9e496f349a39e5e89a4d","pkg":"sha256:8ea07fc52bbc260836983438ef08ad02746b86a1028c8b1a51b60eeb7b83cc2b","kwargs":{"code":"func (d *Declarative) endOf(lines []string, i int) int {\n\tswitch d.endMode {\n\tcase \"dedent\":\n\t\tend := i + 1\n\t\tfor j := i + 1; j < len(lines); j++ {\n\t\t\tl := strings.TrimRight(lines[j], \"\\r\\n\")\n\t\t\tif strings.TrimSpace(l) == \"\" {\n\t\t\t\tcontinue\n\t\t\t}\n\t\t\tif l[0] != ' ' && l[0] != '\\t' {\n\t\t\t\tbreak\n\t\t\t}\n\t\t\tend = j + 1\n\t\t}\n\t\treturn end\n\tcase \"blank\":\n\t\tj := i + 1\n\t\tfor j < len(lines) && strings.TrimSpace(lines[j]) != \"\" {\n\t\t\tj++\n\t\t}\n\t\treturn j\n\t}\n\tfor j := i; j < len(lines); j++ {\n\t\tif d.unitEnd.MatchString(strings.TrimRight(lines[j], \"\\r\\n\")) {\n\t\t\treturn j + 1\n\t\t}\n\t}\n\treturn len(lines)\n}","file":"internal/adopt/declarative.go","name":"endOf","receiver":"Declarative"}}
-func (d *Declarative) endOf(lines []string, i int) int {
+// sedum:setMethod {"tier":"owned","record":"prov-2026-856f85eb","gen":"sha256:e6570a4fd6ea725d919e68451b96892a2f182bf97c341497b36f9681d7725f3a","pkg":"sha256:8ea07fc52bbc260836983438ef08ad02746b86a1028c8b1a51b60eeb7b83cc2b","kwargs":{"code":"// endOf returns the exclusive index where the unit starting at start ends.\nfunc (d *Declarative) endOf(lines []string, start int) int {\n\tswitch d.endMode {\n\tcase \"dedent\":\n\t\te := start + 1\n\t\tfor j := start + 1; j < len(lines); j++ {\n\t\t\tline := lines[j]\n\t\t\tif isBlank(line) {\n\t\t\t\tcontinue\n\t\t\t}\n\t\t\tif line[0] != ' ' && line[0] != '\\t' {\n\t\t\t\tbreak\n\t\t\t}\n\t\t\te = j + 1\n\t\t}\n\t\treturn e\n\tcase \"blank\":\n\t\te := start + 1\n\t\tfor e < len(lines) && !isBlank(lines[e]) {\n\t\t\te++\n\t\t}\n\t\treturn e\n\t}\n\tfor j := start; j < len(lines); j++ {\n\t\tif d.unitEnd.MatchString(stripEOL(lines[j])) {\n\t\t\treturn j + 1\n\t\t}\n\t}\n\treturn len(lines)\n}","file":"internal/adopt/declarative.go","name":"endOf","receiver":"Declarative"}}
+// endOf returns the exclusive index where the unit starting at start ends.
+func (d *Declarative) endOf(lines []string, start int) int {
 	switch d.endMode {
 	case "dedent":
-		end := i + 1
-		for j := i + 1; j < len(lines); j++ {
-			l := strings.TrimRight(lines[j], "\r\n")
-			if strings.TrimSpace(l) == "" {
+		e := start + 1
+		for j := start + 1; j < len(lines); j++ {
+			line := lines[j]
+			if isBlank(line) {
 				continue
 			}
-			if l[0] != ' ' && l[0] != '\t' {
+			if line[0] != ' ' && line[0] != '\t' {
 				break
 			}
-			end = j + 1
+			e = j + 1
 		}
-		return end
+		return e
 	case "blank":
-		j := i + 1
-		for j < len(lines) && strings.TrimSpace(lines[j]) != "" {
-			j++
+		e := start + 1
+		for e < len(lines) && !isBlank(lines[e]) {
+			e++
 		}
-		return j
+		return e
 	}
-	for j := i; j < len(lines); j++ {
-		if d.unitEnd.MatchString(strings.TrimRight(lines[j], "\r\n")) {
+	for j := start; j < len(lines); j++ {
+		if d.unitEnd.MatchString(stripEOL(lines[j])) {
 			return j + 1
 		}
 	}
@@ -223,20 +176,78 @@ func (d *Declarative) endOf(lines []string, i int) int {
 }
 
 // /sedum:setMethod
-// sedum:setMethod {"tier":"owned","record":"prov-2026-856f85eb","gen":"sha256:12e7118d99ed19c20430ed17e0d4592c3ec126f7a93f9e496f349a39e5e89a4d","pkg":"sha256:8ea07fc52bbc260836983438ef08ad02746b86a1028c8b1a51b60eeb7b83cc2b","kwargs":{"code":"func (d *Declarative) kwargs(action, path, name, code string) map[string]any {\n\tout := map[string]any{}\n\tdecl := d.declared[action]\n\tif decl[\"file\"] {\n\t\tout[\"file\"] = path\n\t}\n\tif decl[\"name\"] {\n\t\tout[\"name\"] = name\n\t}\n\tif decl[\"code\"] {\n\t\tout[\"code\"] = code\n\t}\n\treturn out\n}","file":"internal/adopt/declarative.go","name":"kwargs","receiver":"Declarative"}}
-func (d *Declarative) kwargs(action, path, name, code string) map[string]any {
-	out := map[string]any{}
-	decl := d.declared[action]
-	if decl["file"] {
-		out["file"] = path
+// sedum:setMethod {"tier":"owned","record":"prov-2026-856f85eb","gen":"sha256:e6570a4fd6ea725d919e68451b96892a2f182bf97c341497b36f9681d7725f3a","pkg":"sha256:8ea07fc52bbc260836983438ef08ad02746b86a1028c8b1a51b60eeb7b83cc2b","kwargs":{"code":"// matchStart reports the kind and name of a line that starts a unit.\nfunc (d *Declarative) matchStart(line string) (kind, name string, ok bool) {\n\tm := d.unitStart.FindStringSubmatch(stripEOL(line))\n\tif m == nil {\n\t\treturn \"\", \"\", false\n\t}\n\treturn namedGroup(d.unitStart, m, \"kind\"), namedGroup(d.unitStart, m, \"name\"), true\n}","file":"internal/adopt/declarative.go","name":"matchStart","receiver":"Declarative"}}
+// matchStart reports the kind and name of a line that starts a unit.
+func (d *Declarative) matchStart(line string) (kind, name string, ok bool) {
+	m := d.unitStart.FindStringSubmatch(stripEOL(line))
+	if m == nil {
+		return "", "", false
 	}
-	if decl["name"] {
-		out["name"] = name
-	}
-	if decl["code"] {
-		out["code"] = code
-	}
-	return out
+	return namedGroup(d.unitStart, m, "kind"), namedGroup(d.unitStart, m, "name"), true
 }
 
 // /sedum:setMethod
+// sedum:setMethod {"tier":"owned","record":"prov-2026-856f85eb","gen":"sha256:e6570a4fd6ea725d919e68451b96892a2f182bf97c341497b36f9681d7725f3a","pkg":"sha256:8ea07fc52bbc260836983438ef08ad02746b86a1028c8b1a51b60eeb7b83cc2b","kwargs":{"code":"// attaches reports whether a line matches any AttachAbove regexp.\nfunc (d *Declarative) attaches(line string) bool {\n\tbody := stripEOL(line)\n\tfor _, re := range d.attach {\n\t\tif re.MatchString(body) {\n\t\t\treturn true\n\t\t}\n\t}\n\treturn false\n}","file":"internal/adopt/declarative.go","name":"attaches","receiver":"Declarative"}}
+// attaches reports whether a line matches any AttachAbove regexp.
+func (d *Declarative) attaches(line string) bool {
+	body := stripEOL(line)
+	for _, re := range d.attach {
+		if re.MatchString(body) {
+			return true
+		}
+	}
+	return false
+}
+
+// /sedum:setMethod
+// sedum:setMethod {"tier":"owned","record":"prov-2026-856f85eb","gen":"sha256:e6570a4fd6ea725d919e68451b96892a2f182bf97c341497b36f9681d7725f3a","pkg":"sha256:8ea07fc52bbc260836983438ef08ad02746b86a1028c8b1a51b60eeb7b83cc2b","kwargs":{"code":"// unitSpan builds a unit span carrying only the kwargs its action declares.\nfunc (d *Declarative) unitSpan(path, action, name string, lines []string) Span {\n\ttext := strings.Join(lines, \"\")\n\tkwargs := map[string]any{}\n\tfor k := range d.declared[action] {\n\t\tswitch k {\n\t\tcase \"file\":\n\t\t\tkwargs[k] = path\n\t\tcase \"name\":\n\t\t\tkwargs[k] = name\n\t\tcase \"code\":\n\t\t\tkwargs[k] = strings.TrimSuffix(text, \"\\n\")\n\t\t}\n\t}\n\treturn Span{Kind: KindUnit, Text: text, Action: action, Kwargs: kwargs}\n}","file":"internal/adopt/declarative.go","name":"unitSpan","receiver":"Declarative"}}
+// unitSpan builds a unit span carrying only the kwargs its action declares.
+func (d *Declarative) unitSpan(path, action, name string, lines []string) Span {
+	text := strings.Join(lines, "")
+	kwargs := map[string]any{}
+	for k := range d.declared[action] {
+		switch k {
+		case "file":
+			kwargs[k] = path
+		case "name":
+			kwargs[k] = name
+		case "code":
+			kwargs[k] = strings.TrimSuffix(text, "\n")
+		}
+	}
+	return Span{Kind: KindUnit, Text: text, Action: action, Kwargs: kwargs}
+}
+
+// /sedum:setMethod
+// sedum:setFunction {"tier":"owned","record":"prov-2026-856f85eb","gen":"sha256:e6570a4fd6ea725d919e68451b96892a2f182bf97c341497b36f9681d7725f3a","pkg":"sha256:6589611adfb6618a7920e43f951a79901428192ea95c1084fde9f222aecd9537","kwargs":{"code":"// residualSpan builds a residual span from consecutive leftover lines.\nfunc residualSpan(lines []string) Span {\n\treturn Span{Kind: KindResidual, Text: strings.Join(lines, \"\")}\n}","file":"internal/adopt/declarative.go","name":"residualSpan"}}
+// residualSpan builds a residual span from consecutive leftover lines.
+func residualSpan(lines []string) Span {
+	return Span{Kind: KindResidual, Text: strings.Join(lines, "")}
+}
+
+// /sedum:setFunction
+// sedum:setFunction {"tier":"owned","record":"prov-2026-856f85eb","gen":"sha256:e6570a4fd6ea725d919e68451b96892a2f182bf97c341497b36f9681d7725f3a","pkg":"sha256:6589611adfb6618a7920e43f951a79901428192ea95c1084fde9f222aecd9537","kwargs":{"code":"// stripEOL removes a trailing line ending.\nfunc stripEOL(line string) string {\n\treturn strings.TrimRight(line, \"\\r\\n\")\n}","file":"internal/adopt/declarative.go","name":"stripEOL"}}
+// stripEOL removes a trailing line ending.
+func stripEOL(line string) string {
+	return strings.TrimRight(line, "\r\n")
+}
+
+// /sedum:setFunction
+// sedum:setFunction {"tier":"owned","record":"prov-2026-856f85eb","gen":"sha256:e6570a4fd6ea725d919e68451b96892a2f182bf97c341497b36f9681d7725f3a","pkg":"sha256:6589611adfb6618a7920e43f951a79901428192ea95c1084fde9f222aecd9537","kwargs":{"code":"// namedGroup returns the text of a named submatch, or empty when absent.\nfunc namedGroup(re *regexp.Regexp, m []string, name string) string {\n\ti := re.SubexpIndex(name)\n\tif i < 0 || i >= len(m) {\n\t\treturn \"\"\n\t}\n\treturn m[i]\n}","file":"internal/adopt/declarative.go","name":"namedGroup"}}
+// namedGroup returns the text of a named submatch, or empty when absent.
+func namedGroup(re *regexp.Regexp, m []string, name string) string {
+	i := re.SubexpIndex(name)
+	if i < 0 || i >= len(m) {
+		return ""
+	}
+	return m[i]
+}
+
+// /sedum:setFunction
+// sedum:setFunction {"tier":"owned","record":"prov-2026-856f85eb","gen":"sha256:e6570a4fd6ea725d919e68451b96892a2f182bf97c341497b36f9681d7725f3a","pkg":"sha256:6589611adfb6618a7920e43f951a79901428192ea95c1084fde9f222aecd9537","kwargs":{"code":"// isBlank reports whether a line is empty or whitespace only.\nfunc isBlank(line string) bool {\n\treturn strings.TrimSpace(line) == \"\"\n}","file":"internal/adopt/declarative.go","name":"isBlank"}}
+// isBlank reports whether a line is empty or whitespace only.
+func isBlank(line string) bool {
+	return strings.TrimSpace(line) == ""
+}
+
+// /sedum:setFunction
