@@ -428,9 +428,7 @@ func applyOne(inv Invocation, content string, own ownership) (string, Result, er
 
 	where, err := locate(inv.Package, inv.Action, content)
 	if err != nil {
-		return "", result, fmt.Errorf(
-			"action %s cannot be injected into %s: %w; the file is not shaped the way the action assumes",
-			inv.Action.Name, inv.Path, err)
+		return "", result, explainUnmatched(inv, err)
 	}
 
 	rendered, err := renderRegion(inv, marker, where.indent)
