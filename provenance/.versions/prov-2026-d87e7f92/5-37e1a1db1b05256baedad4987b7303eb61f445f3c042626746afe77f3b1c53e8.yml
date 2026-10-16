@@ -1,0 +1,22 @@
+id: prov-2026-d87e7f92
+version: 5
+content_hash: sha256:37e1a1db1b05256baedad4987b7303eb61f445f3c042626746afe77f3b1c53e8
+parent_hash: sha256:61b5dc04c641d7a27aaed86d6245d13e9ba5ebfbdc762bfc9f6bdb0ca96d09d1
+reason: 'revert: header kwargs are not needed; a file''s package comes from its path'
+author: calebcowen@gmail.com
+created_at: "2026-10-16T22:41:44Z"
+spec_hashes:
+  - sha256:28057af24c288b6e3b9e586d63fc91fa8d7ae2412481fc9f3d11210670979824
+content:
+  id: prov-2026-d87e7f92
+  title: 'adopt: the span contract and coverage check'
+  type: imprint
+  created_at: "2026-10-16"
+  author: calebcowen@gmail.com
+  affected_scope:
+    - internal/adopt/span.go
+    - internal/adopt/span_test.go
+  implements: prov-2026-95d9ae7e
+  implements_version: 2
+  associated_specs:
+    - path: internal/adopt/span_test.go
