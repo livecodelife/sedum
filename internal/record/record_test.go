@@ -384,3 +384,25 @@ func containsFragment(list []string, want string) bool {
 	}
 	return false
 }
+
+// A deprecated record is retired: never grown, kept in Known so its id still
+// resolves, and an error when --only names it (prov-2026-cc73cf61).
+func TestADeprecatedRecordIsKnownButNotGrown(t *testing.T) {
+	dir := writeRecords(t, map[string]string{
+		"a.yml": "id: prov-2026-aaaaaaaa\nstatus: deprecated\naffected_scope: [app/models/user.rb]\n",
+		"b.yml": "id: prov-2026-bbbbbbbb\nstatus: implemented\naffected_scope: [app/models/order.rb]\n",
+	})
+	set, _, err := Load(dir, Options{})
+	if err != nil {
+		t.Fatalf("load: %v", err)
+	}
+	if len(set.Records) != 1 || set.Records[0].ID != "prov-2026-bbbbbbbb" {
+		t.Errorf("Records = %v, want only the record that is not deprecated", set.Records)
+	}
+	if len(set.Known) != 2 || !set.Known[0].Deprecated || set.Known[1].Deprecated {
+		t.Errorf("Known should hold both, with only a deprecated")
+	}
+
+	_, _, err = Load(dir, Options{Only: []string{"prov-2026-aaaaaaaa"}})
+	wantErr(t, err, "prov-2026-aaaaaaaa", "deprecated")
+}

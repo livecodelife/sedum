@@ -107,6 +107,7 @@ func Prompt(req Request, cat catalog.Catalog) ([]Message, error) {
 		return nil, err
 	}
 	b.WriteString(supplementary)
+	b.WriteString(presentSection(req.Present))
 
 	writable, unmanaged := partition(req.Files)
 
@@ -228,10 +229,9 @@ func CheckPrior(recordID string, prior []recording.Invocation) error {
 }
 
 // A note on files an earlier run wrote: Phase 7 replaces an owned region whose
-// identity matches an invocation of this run, in place, and leaves seeded
-// regions alone. It does not remove a region the earlier run wrote that this run
-// no longer selects. Showing prior selections therefore does not mean they are
-// overwritten cleanly; they are context and are never applied.
+// identity matches an invocation of this run, in place, leaves seeded regions
+// alone, and prunes this record's owned regions it no longer selects
+// (prov-2026-375f5d4a). Prior selections are context and are never applied.
 //
 // supplementarySection is the one section holding the caller's text and the
 // prior selections. It is advisory: it follows the record's intent and
@@ -263,4 +263,30 @@ func supplementarySection(req Request) (string, error) {
 		}
 	}
 	return b.String(), nil
+}
+
+// presentSection lists the regions other records own in this record's files,
+// as already present and not to be selected (prov-2026-cc73cf61). Selecting
+// one would be refused in Phase 7 as an ownership conflict, so saying so up
+// front saves a run that would otherwise fail after paying for the call.
+func presentSection(present []Present) string {
+	if len(present) == 0 {
+		return ""
+	}
+	var b strings.Builder
+	b.WriteString("\n## Already present\n\n")
+	b.WriteString("These regions already exist in the files below and belong to other changes. " +
+		"Do not select them: an action that resolves to one of them would conflict with the change that owns it.\n\n")
+	for _, p := range present {
+		label := p.Action
+		if p.Variant != "" {
+			label += ":" + p.Variant
+		}
+		kwargs, err := json.Marshal(p.Kwargs)
+		if err != nil {
+			kwargs = []byte("{}")
+		}
+		fmt.Fprintf(&b, "- %s: %s %s (owned by %s; do not select)\n", p.Path, label, kwargs, p.Owner)
+	}
+	return b.String()
 }

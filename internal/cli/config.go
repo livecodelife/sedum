@@ -33,6 +33,14 @@ type GrowConfig struct {
 	// model call and nothing written (prov-2026-9621daed).
 	Check bool
 
+	// PruneOrphans removes regions whose record was removed or deprecated, in
+	// files some current record authorizes (prov-2026-cc73cf61).
+	PruneOrphans bool
+
+	// Stamp writes a missing gen or pkg onto markers whose record exists, and
+	// nothing else (prov-2026-cc73cf61).
+	Stamp bool
+
 	Retries int
 	Model   string
 	LogPath string

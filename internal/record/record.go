@@ -66,6 +66,12 @@ type Record struct {
 	// at a shared anchor are ordered by creation date, then id.
 	CreatedAt string
 	Aliases   []string
+
+	// Deprecated reports a retired record (prov-2026-cc73cf61). It is the one
+	// lifecycle fact Sedum reads, and only the value "deprecated" is: such a
+	// record takes no new versions, is never grown, and owns nothing, so its
+	// regions are orphans.
+	Deprecated bool
 }
 
 // Forbids reports whether the record's forbidden_scope covers path, and returns
@@ -86,7 +92,7 @@ type Set struct {
 	Records []*Record
 
 	// Known is every record read from the directory, sorted by ID, including
-	// those --only left out. A run grows only Records, but the regions it
+	// those --only left out and deprecated ones, which Records never holds. A run grows only Records, but the regions it
 	// meets may belong to any of them, and ownership and anchor order need
 	// their aliases and creation dates (prov-2026-375f5d4a).
 	Known []*Record
@@ -159,6 +165,7 @@ func Load(dir string, opts Options) (*Set, []string, error) {
 	sort.Slice(known, func(i, j int) bool { return known[i].ID < known[j].ID })
 
 	records, err = filterOnly(records, opts.Only)
+	records = slices.DeleteFunc(records, func(r *Record) bool { return r.Deprecated })
 	if err != nil {
 		problems = append(problems, err)
 	}
@@ -194,6 +201,7 @@ type document struct {
 	ForbiddenScope []string `yaml:"forbidden_scope"`
 	CreatedAt      string   `yaml:"created_at"`
 	Aliases        []string `yaml:"aliases"`
+	Status         string   `yaml:"status"`
 }
 
 func readRecord(full, name string) (*Record, error) {
@@ -217,6 +225,7 @@ func readRecord(full, name string) (*Record, error) {
 		Constraints: doc.Constraints,
 		CreatedAt:   doc.CreatedAt,
 		Aliases:     doc.Aliases,
+		Deprecated:  strings.TrimSpace(doc.Status) == "deprecated",
 		Gen: genhash.Of(genhash.Input{
 			Intent:         doc.Intent,
 			Constraints:    doc.Constraints,
@@ -279,10 +288,19 @@ func filterOnly(records []*Record, only []string) ([]*Record, error) {
 	}
 
 	kept := make([]*Record, 0, len(only))
+	var retired []string
 	for _, r := range records {
 		if slices.Contains(only, r.ID) {
+			if r.Deprecated {
+				retired = append(retired, r.ID)
+				continue
+			}
 			kept = append(kept, r)
 		}
+	}
+	if len(retired) > 0 {
+		return kept, fmt.Errorf("--only names %s, which is deprecated: a deprecated record is never grown, and its regions are orphans for --prune-orphans",
+			strings.Join(retired, ", "))
 	}
 
 	// A mistyped --only would otherwise generate nothing and report success,

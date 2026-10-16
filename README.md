@@ -863,6 +863,16 @@ So a second `grow` over unchanged records makes no model call and writes no file
 
 **A limit, by decision.** A marker records every kwarg its region was rendered from, including package defaults and `--var` values bound at the time. Re-rendering replays them verbatim, and neither `gen` nor `pkg` covers them, so a changed kwarg default or `--var` value reaches an existing region only with `--force`.
 
+### Retired records, orphans, and stamping
+
+**Deprecated records are retired** (`prov-2026-cc73cf61`). A record's `status` is the one lifecycle field Sedum reads, and only the value `deprecated`: such a record takes no new versions, is never grown, and owns nothing. `--only` naming one is an error.
+
+**Orphans.** An orphan is an `owned` region whose marker names a record that is not in the records directory, by id or alias, or that is deprecated. Every `grow` reports orphans. `--prune-orphans` removes them, inside Phase 7's all-or-nothing write, but only in files some current record authorizes; Sedum writes nothing else, so an orphan in any other file is reported and left alone. Seeded and unowned regions are never orphans. `--check` lists orphans and fails on them: an orphan is code no current record stands behind.
+
+**`--stamp`** writes the current `gen` onto a record's regions whose marker has none, and the action's current `pkg` onto those with none, where the owning record exists, and changes nothing else — no body, no value already present, no record id. It makes no model call and runs nothing else. Running it asserts that the code is current, so a repository whose markers predate the hashes can skip a full re-select after migration. Because it writes only missing values, it never hides a real change. It cannot be combined with `--check`, `--execute`, `--record` or `--force`; with `--dry-run` it reports what it would stamp. A marker naming an alias keeps it until its region is next written, when the surviving id replaces it.
+
+**Prompt context.** For each file a record may write, the selection prompt lists the regions other records already own there — action, identifying kwargs, owner — under *Already present*, as not to be selected; selecting one would be refused in Phase 7. When a record is re-selected and no `--prior-recording` supplies its earlier selections, they are rebuilt from its own markers as context, keeping exposed actions and declared kwargs only. Hashes never reach the prompt.
+
 ---
 
 ## Recorded Executions
@@ -1034,7 +1044,9 @@ sedum grow --generators ./generators --records ./provenance --output ./build
 | `--execute <path>` | Replay a recording. Skips model invocation. Mutually exclusive with `--record`. |
 | `--dry-run` | Run every phase, write nothing. Reports the files that would be created, the injections that would be applied, and the regions that would be pruned. |
 | `--force` | Re-select every record even when its markers say it is current, and let a record whose selection comes back empty prune every region it owns (without `--force` that is an error). Ignored with `--execute`. |
-| `--check` | Report each record as current, stale, to re-render, or unknown, from its markers. No model call, nothing written; exits non-zero when any record is stale or needs re-rendering. |
+| `--check` | Report each record as current, stale, to re-render, or unknown, and any orphan regions, from markers. No model call, nothing written; exits non-zero when any record is stale or needs re-rendering, or any orphan exists. |
+| `--prune-orphans` | Remove regions whose record was removed or deprecated, in files some current record authorizes; report the rest. Ignored with `--execute`. |
+| `--stamp` | Write the current `gen` and `pkg` onto markers missing them, where the owning record exists, and nothing else. No model call. Cannot be combined with `--check`, `--execute`, `--record` or `--force`. |
 | `--stop-after <phase>` | Halt after the named phase. One of `resolution`, `files`, `invocations`, `expansion`. |
 | `--retries <n>` | Model output validation retry limit. Default 3. Ignored with `--execute`. |
 | `--model <name>` | Model identifier. Endpoint and credentials come from environment. Ignored with `--execute`. |

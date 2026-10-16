@@ -67,6 +67,11 @@ type Classification struct {
 	// person can look.
 	StaleSeeded []RegionRef
 
+	// found is every region in the record's files, whoever owns it: the
+	// record's own feed its rebuilt prior selections, and other records' are
+	// listed in its prompt as already present (prov-2026-cc73cf61).
+	found []inject.OwnedRegion
+
 	// rerendered are the invocations that bring the Rerender regions up to
 	// date, built during classification so that a region which cannot be
 	// re-rendered sends its record to re-select before any model is asked.
@@ -111,9 +116,16 @@ func classify(records *record.Set, files []resolve.File, owners map[string]injec
 			continue
 		}
 
-		owned, err := inject.ScanOwned(rec.ID, targetsOf(mine), owners, output, unwritten)
+		found, err := inject.ScanRegions(targetsOf(mine), output, unwritten)
 		if err != nil {
 			return nil, err
+		}
+		c.found = found
+		var owned []inject.OwnedRegion
+		for _, r := range found {
+			if inject.Owns(owners, rec.ID, r.Region.Marker.Record) {
+				owned = append(owned, r)
+			}
 		}
 
 		var current []inject.OwnedRegion

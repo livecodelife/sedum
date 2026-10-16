@@ -85,6 +85,12 @@ type Options struct {
 	// partial (OPEN_QUESTIONS section 16).
 	Reconcile []Reconcile
 
+	// PruneOrphansIn are the files whose orphans this run removes: owned-tier
+	// regions naming a record Owners does not hold (prov-2026-cc73cf61). Owners
+	// must then hold every current record. Only files some record authorizes
+	// belong here, because Sedum writes nothing else.
+	PruneOrphansIn []Target
+
 	// Force allows a record whose selection is empty to prune every region it
 	// owns. Without it that is an error, because an empty reply is more often
 	// a flaky model than an intent to delete a record's code.
@@ -134,6 +140,9 @@ type Result struct {
 	// Held reports a prune that only --force would carry out: the owner's
 	// selection was empty. Reported by a dry run; a real run fails instead.
 	Held bool
+	// Orphan reports that a pruned region's record is no longer current:
+	// removed from the records directory, or deprecated.
+	Orphan bool
 }
 
 // Apply runs Phase 7 over every invocation.
@@ -235,6 +244,18 @@ func Apply(invocations []Invocation, opts Options) ([]Result, error) {
 					log.Info("pruned region its record no longer selects",
 						"path", r.Path, "action", r.Action, "variant", r.Variant, "record", r.Record)
 				}
+			}
+			results = append(results, pruned...)
+		}
+		for _, target := range opts.PruneOrphansIn {
+			pruned, err := pruneOrphans(target, buffers, &touched, own, opts)
+			if err != nil {
+				problems = append(problems, err)
+				continue
+			}
+			for _, r := range pruned {
+				log.Info("pruned orphan region",
+					"path", r.Path, "action", r.Action, "variant", r.Variant, "record", r.Record)
 			}
 			results = append(results, pruned...)
 		}
@@ -527,6 +548,16 @@ func (o ownership) owns(recordID, owner string) bool {
 	return owner == recordID || o.canonical(owner) == recordID
 }
 
+// orphan reports whether a region is owned-tier and names a record this
+// ownership does not hold.
+func (o ownership) orphan(m Marker) bool {
+	if m.Tier == TierSeeded || m.Record == "" {
+		return false
+	}
+	_, ok := o.byID[o.canonical(m.Record)]
+	return !ok
+}
+
 // key is the sort key of a region's owner at a shared anchor: creation date,
 // then id. A region naming no record sorts first, and an owner the run does
 // not know sorts by id alone, ahead of every dated owner - deterministic
@@ -658,4 +689,39 @@ func readExisting(output string, unwritten map[string]string, path string) (stri
 		return content, true
 	}
 	return "", false
+}
+
+// pruneOrphans removes the orphan regions in one file (prov-2026-cc73cf61).
+func pruneOrphans(target Target, buffers map[string]string, touched *[]string, own ownership, opts Options) ([]Result, error) {
+	content, ok := buffers[target.Path]
+	if !ok {
+		content, ok = readExisting(opts.Output, opts.Unwritten, target.Path)
+		if !ok {
+			return nil, nil
+		}
+	}
+	regions, err := FindRegions(target.Package.Comment(), content)
+	if err != nil {
+		return nil, fmt.Errorf("file %s: %w", target.Path, err)
+	}
+
+	var results []Result
+	for i := len(regions) - 1; i >= 0; i-- {
+		m := regions[i].Marker
+		if !own.orphan(m) {
+			continue
+		}
+		content = content[:regions[i].Start] + content[regions[i].End:]
+		results = append([]Result{{
+			Path: target.Path, Action: m.Action, Variant: m.Variant, Record: m.Record,
+			Pruned: true, Orphan: true,
+		}}, results...)
+	}
+	if len(results) > 0 {
+		if _, seen := buffers[target.Path]; !seen {
+			*touched = append(*touched, target.Path)
+		}
+		buffers[target.Path] = content
+	}
+	return results, nil
 }

@@ -79,6 +79,8 @@ func TestGrowFlagSurface(t *testing.T) {
 		{"dry-run", "", "bool", "false"},
 		{"force", "", "bool", "false"},
 		{"check", "", "bool", "false"},
+		{"prune-orphans", "", "bool", "false"},
+		{"stamp", "", "bool", "false"},
 		{"stop-after", "", "string", ""},
 		{"retries", "", "int", "3"},
 		{"model", "", "string", ""},
@@ -655,5 +657,19 @@ func TestCheckAndForceHelpNameTheReRenderLimit(t *testing.T) {
 				t.Errorf("--%s help does not mention %q: %s", name, want, usage)
 			}
 		}
+	}
+}
+
+// --stamp writes only missing hashes, so it refuses everything that selects,
+// replays, records or checks (prov-2026-cc73cf61).
+func TestStampRefusesWhatContradictsIt(t *testing.T) {
+	for _, extra := range [][]string{
+		{"--check"},
+		{"--execute", "rec.json"},
+		{"--record", "rec.json"},
+		{"--force"},
+	} {
+		_, err := exec(t, growArgs(t, append([]string{"--stamp"}, extra...)...)...)
+		wantErr(t, err, "--stamp", extra[0])
 	}
 }

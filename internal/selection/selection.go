@@ -91,8 +91,27 @@ type Request struct {
 
 	// Prior is this record's invocations from an earlier recording
 	// (--prior-recording), shown in the same section. Context only: it is not
-	// replayed, executed or trusted (prov-2026-8602b702).
+	// replayed, executed or trusted (prov-2026-8602b702). A re-selected record
+	// with no --prior-recording gets them rebuilt from its own markers
+	// (prov-2026-cc73cf61).
 	Prior []recording.Invocation
+
+	// Present are the regions other records already own in this record's
+	// files. The prompt lists them as already present, so the model does not
+	// select a region another record owns - which Phase 7 would refuse
+	// (prov-2026-cc73cf61).
+	Present []Present
+}
+
+// Present is one region another record owns, as the prompt names it: where it
+// is, what action wrote it, the kwargs that identify it, and whose it is. No
+// hash: whether it is current is grow's business, not the model's.
+type Present struct {
+	Path    string
+	Action  string
+	Variant string
+	Kwargs  map[string]any
+	Owner   string
 }
 
 // Options bound and observe the loop.

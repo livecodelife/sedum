@@ -78,6 +78,13 @@ Nothing is created that a provenance record did not authorize.`,
 	f.BoolVar(&cfg.Force, "force", false,
 		"Re-select every record even when its markers say it is current, and let a record whose selection comes back empty "+
 			"remove every region it owns (without --force that is an error). Re-rendering replays the kwargs on each marker verbatim, so a changed kwarg default or --var value reaches an existing region only with --force. Ignored with --execute.")
+	f.BoolVar(&cfg.PruneOrphans, "prune-orphans", false,
+		"Remove regions whose record was removed from the records directory or deprecated, in files some current record "+
+			"authorizes. Orphans in other files are reported and left alone. Ignored with --execute.")
+	f.BoolVar(&cfg.Stamp, "stamp", false,
+		"Write the current gen and pkg onto markers missing them, where the owning record exists, and change nothing else. "+
+			"No model call. Asserts that the code is current, so a migrated repository's next grow skips instead of re-selecting. "+
+			"Cannot be combined with --check, --execute, --record or --force; with --dry-run it reports what it would stamp.")
 	f.BoolVar(&cfg.Check, "check", false,
 		"Report which records are current, stale, need re-rendering, or have no regions yet (unknown), from their markers. "+
 			"No model call, nothing written. Exits non-zero when any record is stale or needs re-rendering; unknown does not fail. "+
@@ -163,7 +170,7 @@ func runGrow(ctx context.Context, out, errOut io.Writer, cfg GrowConfig, respons
 	// and then failing at the call for a reason the user could have been told
 	// first.
 	var client selection.Client
-	if !cfg.Check && (stopAfter == 0 || stopAfter >= pipeline.PhaseSelect) {
+	if !cfg.Check && !cfg.Stamp && (stopAfter == 0 || stopAfter >= pipeline.PhaseSelect) {
 		var localCfg selection.LocalConfig
 		var useLocal bool
 
@@ -244,6 +251,8 @@ func runGrow(ctx context.Context, out, errOut io.Writer, cfg GrowConfig, respons
 		// re-rendered from its markers makes none (prov-2026-9621daed).
 		Reselect:       cfg.RecordTo != "",
 		Check:          cfg.Check,
+		PruneOrphans:   cfg.PruneOrphans,
+		Stamp:          cfg.Stamp,
 		StopAfterPhase: stopAfter,
 		Client:         client,
 		Retries:        cfg.Retries,
@@ -260,9 +269,14 @@ func runGrow(ctx context.Context, out, errOut io.Writer, cfg GrowConfig, respons
 	printWarnings(errOut, result.Warnings)
 	if cfg.Check {
 		printClassifications(out, result)
+		printOrphans(out, result)
 		if result.CheckFailed() {
-			return errors.New("check failed: some records are stale or need re-rendering; run sedum grow to bring them up to date")
+			return errors.New("check failed: some records are stale, need re-rendering, or have left orphan regions; run sedum grow (with --prune-orphans for orphans)")
 		}
+		return nil
+	}
+	if cfg.Stamp {
+		printStamped(out, result, cfg.DryRun)
 		return nil
 	}
 	if cfg.RecordTo != "" {
@@ -441,6 +455,7 @@ func report(out io.Writer, result *pipeline.Result, stopAfter int, dryRun bool) 
 		return
 	}
 	printInjections(out, result, dryRun)
+	printOrphans(out, result)
 }
 
 // printSelections reports what the model chose, grouped by record because a
@@ -589,6 +604,24 @@ func printFiles(out io.Writer, result *pipeline.Result, dryRun bool) {
 // writes nothing and calls no model, so anything that writes, records, replays
 // or forces a selection contradicts it (prov-2026-9621daed).
 func checkCombinations(cfg GrowConfig) error {
+	if cfg.Stamp {
+		// --stamp asserts code is current and writes only hashes, so nothing
+		// that selects, replays, records or checks belongs with it
+		// (prov-2026-cc73cf61).
+		for _, c := range []struct {
+			set  bool
+			flag string
+		}{
+			{cfg.Check, "--check"},
+			{cfg.Execute != "", "--execute"},
+			{cfg.RecordTo != "", "--record"},
+			{cfg.Force, "--force"},
+		} {
+			if c.set {
+				return fmt.Errorf("--stamp cannot be combined with %s: --stamp only writes missing hashes onto markers, with no model call", c.flag)
+			}
+		}
+	}
 	if !cfg.Check {
 		return nil
 	}
@@ -657,4 +690,44 @@ func describeRef(r pipeline.RegionRef) string {
 		return r.Action
 	}
 	return r.Action + ":" + r.Variant
+}
+
+// printOrphans lists regions whose record is no longer current, and what was
+// done with each (prov-2026-cc73cf61).
+func printOrphans(out io.Writer, result *pipeline.Result) {
+	if len(result.Orphans) == 0 {
+		return
+	}
+	fmt.Fprintln(out)
+	for _, o := range result.Orphans {
+		ref := describeRef(pipeline.RegionRef{Path: o.Path, Action: o.Action, Variant: o.Variant})
+		switch {
+		case o.Pruned:
+			fmt.Fprintf(out, "pruned orphan %s  %s (record %s is gone or deprecated)\n", o.Path, ref, o.Record)
+		case !o.Authorized:
+			fmt.Fprintf(out, "orphan        %s  %s (record %s is gone or deprecated; no record authorizes this file, so it is left alone)\n", o.Path, ref, o.Record)
+		default:
+			fmt.Fprintf(out, "orphan        %s  %s (record %s is gone or deprecated; --prune-orphans removes it)\n", o.Path, ref, o.Record)
+		}
+	}
+}
+
+// printStamped is --stamp's report.
+func printStamped(out io.Writer, result *pipeline.Result, dryRun bool) {
+	verb := "stamped"
+	if dryRun {
+		verb = "would stamp"
+	}
+	for _, s := range result.Stamped {
+		var added []string
+		if s.Gen {
+			added = append(added, "gen")
+		}
+		if s.Pkg {
+			added = append(added, "pkg")
+		}
+		ref := describeRef(pipeline.RegionRef{Path: s.Path, Action: s.Action, Variant: s.Variant})
+		fmt.Fprintf(out, "%s %s  %s (%s, record %s)\n", verb, s.Path, ref, strings.Join(added, " and "), s.Record)
+	}
+	fmt.Fprintf(out, "\n%d marker(s) %s\n", len(result.Stamped), verb)
 }
