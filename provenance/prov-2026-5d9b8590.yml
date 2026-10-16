@@ -1,6 +1,6 @@
 id: prov-2026-5d9b8590
 title: Phase 4's catalog is filtered to what a record could legally authorize
-status: open
+status: implemented
 version: 4
 reason: 'merge main (#5, #6) into gen-errors'
 created_at: "2026-09-29"
@@ -136,7 +136,7 @@ related:
   - prov-2026-14c832bf
   - prov-2026-9dcf2658
   - prov-2026-b5465dfa
-sealed_at_sha: ""
+sealed_at_sha: cdbc38b6cb441d0fb88f1ab60928412819b54ed6
 associated_specs:
   - path: internal/catalog/catalog_test.go
     run_command: go test -count=1 ./$(dirname {{path}})
