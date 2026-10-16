@@ -1,0 +1,61 @@
+id: prov-2026-3f83335f
+version: 3
+content_hash: sha256:b9ec9c273d486d3428ac8dfaf0c61ac059e786de96d8090afee501a9c48ddb48
+parent_hash: sha256:6cf9a515c9d2ee8c8187f00f2d81632d75f3398de81a4879b2afbddd7c2cc60e
+reason: Spec file grown; refresh its hash; scope covers the two imprints' records
+author: calebcowen@gmail.com
+created_at: "2026-10-16T05:33:00Z"
+spec_hashes:
+  - sha256:fdb12c00cfc2d05eadc1242d51e2d9cbc83fee9901ff36a3ce74dd8fedfc125b
+content:
+  id: prov-2026-3f83335f
+  title: grow collapses orphan output to a one-line summary; --orphans lists them
+  type: blueprint
+  created_at: "2026-10-16"
+  author: calebcowen@gmail.com
+  intent: |-
+    provisio-mgr (#provisio, 2026-10-16), from sedum-grow's run notes: `sedum grow` prints one `orphan` line per orphan region. On a repo that carries vendored corpora (internal/syntax/testdata/provenance-cli-*), that is thousands of lines that bury the real output. Collapse them to a summary, and keep the full list behind a flag.
+
+    ## Behaviour
+    - By default grow, and `grow --check`, print one block instead of the per-region lines: `N orphan region(s) in M file(s) from K gone or deprecated record(s); top directories: dir (n), dir (n), dir (n)`, up to the top 3 directories by region count (ties by path), followed by `  --orphans lists them`. Nothing is printed when there are none, as today.
+    - `--prune-orphans` reports the same way: `pruned N orphan region(s) in M file(s) ...`; regions left alone because no current record authorizes the file are counted on their own line (`N left alone: no current record authorizes the file`), so the summary never hides that pruning skipped anything.
+    - A new `--orphans` flag prints today's full list, unchanged, in addition to nothing else: summary replaced by the list.
+    - --check still fails on any orphan, and `--json` is untouched (the sedum.grow/1 report keeps every orphan; machines want the whole list).
+    - Directory attribution: the directory of the file, relative to the output root, whole path (not collapsed to the first segment), so `internal/syntax/testdata/provenance-cli-658d54b (412)` names the real culprit.
+
+    ## exclude_paths
+    Sedum has no exclude_paths (that is the provenance CLI's config), and the orphan walk already skips hidden directories and the generators and records directories (prov-2026-fc05416c). Adding a Sedum-side exclude is out of scope here; the summary's top directories tell a reader what to exclude or prune.
+
+    ## Docs
+    README gains a short section for outside users: keep escape-heavy literals (many backslashes, quotes, exotic characters like U+2028) out of intents because models mangle them (use raw strings or Go escapes, or check an exact-bytes corpus into a file); a generator package vendored inside a Go repo (generators/go) needs its own go.mod, or `go build ./...` compiles the templates. Plus the new `--orphans` flag in the CLI table.
+
+    ## Generate first
+    New file internal/cli/orphans.go is grown with sedum-haiku through the go package (printOrphans replaced, plus summary helpers), with its tests in internal/cli/orphans_test.go. The few lines that cannot be grown are handwritten and posted with a reason: grow.go (delete the old printOrphans, thread a `listOrphans bool` through report() and the --check call, register the flag) and config.go (the field). README is documentation.
+  affected_scope:
+    - internal/cli/orphans.go
+    - internal/cli/orphans_test.go
+    - internal/cli/grow.go
+    - internal/cli/config.go
+    - README.md
+    - internal/cli/flags_test.go
+    - PRD.md
+    - provenance/.versions/**
+    - .provenance/**
+    - provenance/prov-2026-59535684.yml
+    - provenance/prov-2026-5d9b8590.yml
+    - provenance/prov-2026-6fc3d13d.yml
+    - provenance/prov-2026-8602b702.yml
+    - provenance/prov-2026-86a21f53.yml
+    - provenance/prov-2026-91c54941.yml
+    - provenance/prov-2026-9621daed.yml
+    - provenance/prov-2026-aa4b736d.yml
+    - provenance/prov-2026-b5465dfa.yml
+    - provenance/prov-2026-cc73cf61.yml
+    - provenance/prov-2026-d2f1bdf2.yml
+    - provenance/prov-2026-e4bab53b.yml
+    - provenance/prov-2026-5cfbb898.yml
+    - provenance/prov-2026-94c524b5.yml
+    - internal/cli/orphans.go
+    - internal/cli/orphans_test.go
+  associated_specs:
+    - path: internal/cli/orphans_test.go

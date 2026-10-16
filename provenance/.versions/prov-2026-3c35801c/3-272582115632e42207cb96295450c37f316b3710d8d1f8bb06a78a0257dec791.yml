@@ -1,0 +1,76 @@
+id: prov-2026-3c35801c
+version: 3
+content_hash: sha256:272582115632e42207cb96295450c37f316b3710d8d1f8bb06a78a0257dec791
+parent_hash: sha256:f15e7a8ed75aab2e9b72b695809c28f8dadde9101765ab528af45bb6d0f455cb
+reason: capture.sh passes --orphans; refresh its hash
+author: calebcowen@gmail.com
+created_at: "2026-10-16T05:34:12Z"
+spec_hashes:
+  - sha256:aa794e3c534d683761489611aa5ce2e6d045e23be5e2a3ddb4e75abc8d5576c2
+content:
+  id: prov-2026-3c35801c
+  title: 'Prepare grow-prep for its PR: standalone build, a proof document, v2 records'
+  type: blueprint
+  created_at: "2026-10-15"
+  author: calebcowen@gmail.com
+  intent: |
+    grow-prep carries Phase 2 (hash-aware grow) and the work that followed it,
+    and provisio-mgr will push it and open a PR against main (#provisio,
+    2026-10-15). Three things stand between the branch and a reviewable PR.
+
+    ## (a) A standalone build
+
+    go.mod requires github.com/livecodelife/provenance through `replace =>
+    ../provenance` (prov-2026-dac49f78), which builds only beside a sibling
+    checkout, so CI and release - which check out sedum alone - fail. The
+    module now has a fetchable home (github.com/livecodelife/provenance, main
+    at 69bef65 when this was written), so the replace goes and go.mod requires
+    a pseudo-version of a pushed commit. go test ./... passes with the replace
+    removed and the module cache cleared of the local copy.
+
+    ## (b) proof/GROW_PREP.md
+
+    One document a reviewer can read instead of 60 commits: what changed
+    against main, and for each feature the command that shows it and the output
+    observed when it ran, captured from the built binary rather than written
+    from memory:
+    - markers carrying gen and pkg
+    - a second grow over unchanged records making 0 model calls and no writes
+    - a template change re-rendering with 0 calls
+    - the ownership error naming both records
+    - --check, --stamp, --prune-orphans
+    - sedum regions --json and grow --json
+    - the go package with syntax checks, and quote
+    - gen_hash parity with the library: 1,100 v1 and 938 v2 records
+    Each section cites its record. It lives outside docs/, which pages.yml
+    publishes, and proof/capture.sh re-runs every captured command against a
+    freshly built binary so a reviewer can reproduce each output (provisio-mgr,
+    #provisio). Its summary is the PR description. It links migrate-dry's lifecycle testbed as
+    the PR's runnable demo once that is pinned to a grow-prep commit.
+
+    ## (c) grow-prep's records on v2
+
+    Once the provenance CLI's part-2 hooks land, grow-prep's own records migrate
+    to v2 on the branch with `provenance migrate`, applying the plan posted in
+    #provisio (162 records to 143, 10 chains, no suggestions or warnings). That
+    step is an imprint of this blueprint, recorded when it happens.
+  constraints:
+    - No replace directive remains in go.mod; the provenance requirement is a pseudo-version of a commit fetchable from github.com/livecodelife/provenance.
+    - Every command output in the proof document is captured from a run of the built binary at a stated grow-prep commit, not paraphrased.
+    - Nothing is pushed and no PR is opened by this worker; provisio-mgr does both.
+  affected_scope:
+    - go.mod
+    - go.sum
+    - proof/**
+    - evals/lifecycle/**
+    - internal/cli/*_test.go
+    - internal/record/*_test.go
+    - .provenance.yml
+    - .provenance/**
+    - .linespec.yml
+    - .linespec/**
+    - provenance/**
+  related:
+    - prov-2026-dac49f78
+  associated_specs:
+    - path: proof/capture.sh
