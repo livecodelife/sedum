@@ -127,7 +127,150 @@ func (goChecker) Check(f File) error {
 			"uses %s as a package qualifier without importing it; import the package each one names",
 			strings.Join(missing, ", "))}
 	}
+	if locals, imports := unused(f); len(locals)+len(imports) > 0 {
+		var parts []string
+		if len(locals) > 0 {
+			parts = append(parts, "declares and never uses "+strings.Join(locals, ", "))
+		}
+		if len(imports) > 0 {
+			parts = append(parts, "imports and never uses "+strings.Join(imports, ", "))
+		}
+		return &Problem{Path: f.Path, Reason: strings.Join(parts, "; ") +
+			"; Go does not compile either, so remove each one or use it"}
+	}
 	return nil
+}
+
+// unused returns the function-local variables the file declares and never
+// uses, and the imports nothing in it uses, each as "name (line N)"
+// (prov-2026-ed9124e1). Both are compile errors in Go and both are visible in
+// the file alone, so go/parser's per-file resolution is enough; like the
+// qualifier check it errs toward silence, so a correct answer is never
+// re-prompted.
+//
+// A local is used when any reference resolves to it other than its own
+// declaration and the bare target of a plain assignment: x = 1 is not a use,
+// while x += 1, x++, s.f = 1 and m[k] = v are, as the compiler counts them.
+// Parameters, named results, the blank identifier and package-level names are
+// never candidates.
+func unused(f File) (locals, imports []string) {
+	fset := token.NewFileSet()
+	file, err := parser.ParseFile(fset, f.Path, f.Content, 0)
+	if err != nil {
+		return nil, nil
+	}
+	at := func(id *ast.Ident) string {
+		return fmt.Sprintf("%s (line %d)", id.Name, fset.Position(id.Pos()).Line)
+	}
+
+	declared := map[*ast.Object]*ast.Ident{}
+	declaring := map[*ast.Ident]bool{}
+	candidate := func(id *ast.Ident, decl any) {
+		if id == nil || id.Name == "_" || id.Obj == nil || id.Obj.Kind != ast.Var {
+			return
+		}
+		if decl != nil && id.Obj.Decl != decl {
+			return // a redeclaration in :=, not a new variable
+		}
+		declared[id.Obj] = id
+		declaring[id] = true
+	}
+	for _, d := range file.Decls {
+		fn, ok := d.(*ast.FuncDecl)
+		if !ok || fn.Body == nil {
+			continue
+		}
+		ast.Inspect(fn.Body, func(n ast.Node) bool {
+			switch s := n.(type) {
+			case *ast.AssignStmt:
+				if s.Tok == token.DEFINE {
+					for _, lhs := range s.Lhs {
+						id, _ := lhs.(*ast.Ident)
+						candidate(id, s)
+					}
+				}
+			case *ast.RangeStmt:
+				if s.Tok == token.DEFINE {
+					for _, e := range []ast.Expr{s.Key, s.Value} {
+						if id, ok := e.(*ast.Ident); ok {
+							candidate(id, nil)
+						}
+					}
+				}
+			case *ast.ValueSpec:
+				for _, id := range s.Names {
+					candidate(id, s)
+				}
+			}
+			return true
+		})
+	}
+
+	assigned := map[*ast.Ident]bool{}
+	ast.Inspect(file, func(n ast.Node) bool {
+		if s, ok := n.(*ast.AssignStmt); ok && s.Tok == token.ASSIGN {
+			for _, lhs := range s.Lhs {
+				if id, ok := lhs.(*ast.Ident); ok {
+					assigned[id] = true
+				}
+			}
+		}
+		return true
+	})
+	used := map[*ast.Object]bool{}
+	qualifiers := map[string]bool{}
+	ast.Inspect(file, func(n ast.Node) bool {
+		switch x := n.(type) {
+		case *ast.Ident:
+			if x.Obj != nil && !declaring[x] && !assigned[x] {
+				used[x.Obj] = true
+			}
+		case *ast.SelectorExpr:
+			if id, ok := x.X.(*ast.Ident); ok && id.Obj == nil {
+				qualifiers[id.Name] = true
+			}
+		}
+		return true
+	})
+	var unusedLocals []*ast.Ident
+	for obj, id := range declared {
+		if !used[obj] {
+			unusedLocals = append(unusedLocals, id)
+		}
+	}
+	sort.Slice(unusedLocals, func(i, j int) bool { return unusedLocals[i].Pos() < unusedLocals[j].Pos() })
+	for _, id := range unusedLocals {
+		locals = append(locals, at(id))
+	}
+
+	for _, imp := range file.Imports {
+		path := strings.Trim(imp.Path.Value, "`\"")
+		var names []string
+		switch {
+		case imp.Name != nil && (imp.Name.Name == "_" || imp.Name.Name == "."):
+			continue
+		case imp.Name != nil:
+			names = []string{imp.Name.Name}
+		case path == "C":
+			continue // cgo
+		default:
+			names = importNames(path)
+		}
+		usedImport, inferable := false, false
+		for _, name := range names {
+			if token.IsIdentifier(name) {
+				inferable = true
+			}
+			if qualifiers[name] {
+				usedImport = true
+			}
+		}
+		if !usedImport && inferable {
+			id := &ast.Ident{Name: names[0], NamePos: imp.Pos()}
+			imports = append(imports, at(id))
+		}
+	}
+	return locals, imports
 }
 
 // unimportedQualifiers returns, sorted, the identifiers used as X in an X.Sel
