@@ -24,7 +24,7 @@ ROOT="$(git -C "$HERE" rev-parse --show-toplevel)"
 
 # ---- pins ------------------------------------------------------------------------
 SEDUM_MAIN_REF="${SEDUM_MAIN_REF:-0571de7de06364e9cbc0076098f96c3a4e9ee7cc}"  # sedum v0.8.0, for step 2'
-PROVENANCE_REF="${PROVENANCE_REF:-afdc4f2d9cf440a0eb79d038de0be88d2f4f3d83}"  # provenance, branch cli
+PROVENANCE_REF="${PROVENANCE_REF:-1b0412309fd28ee59bd61752df3f0c41fca02148}"  # provenance, branch cli
 
 CACHE="$HERE/.demo"
 for tool in go python3 git curl; do command -v "$tool" >/dev/null || { echo "demo: $tool is required" >&2; exit 2; }; done
