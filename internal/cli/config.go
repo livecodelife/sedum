@@ -37,6 +37,10 @@ type GrowConfig struct {
 	// files some current record authorizes (prov-2026-cc73cf61).
 	PruneOrphans bool
 
+	// RestampGen makes a replay stamp each named record's current gen in place
+	// of the one the recording carries (prov-2026-c637c262).
+	RestampGen bool
+
 	// Stamp writes a missing gen or pkg onto markers whose record exists, and
 	// nothing else (prov-2026-cc73cf61).
 	Stamp bool
@@ -92,6 +96,10 @@ func (c *GrowConfig) Replaying() bool { return c.Execute != "" }
 func (c *GrowConfig) Validate() error {
 	if !c.Replaying() && c.Records == "" {
 		return errors.New("--records is required unless --execute names a recording to replay")
+	}
+
+	if c.RestampGen && (!c.Replaying() || c.Records == "") {
+		return errors.New("--restamp-gen needs --execute and --records: it stamps the current record's gen onto a replay")
 	}
 
 	if c.LocalModel == "" && c.LocalModelServer != "" {

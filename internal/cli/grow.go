@@ -81,6 +81,10 @@ Nothing is created that a provenance record did not authorize.`,
 	f.BoolVar(&cfg.PruneOrphans, "prune-orphans", false,
 		"Remove regions whose record was removed from the records directory or deprecated, in files some current record "+
 			"authorizes. Orphans in other files are reported and left alone. Ignored with --execute.")
+	f.BoolVar(&cfg.RestampGen, "restamp-gen", false,
+		"With --execute and --records: stamp each recorded record's current gen onto its regions in place of the gen the recording "+
+			"carries, so a replay after a record edit reads as current. The recorded selection must still pass replay's own checks. "+
+			"Asserts the selection still satisfies the edited record.")
 	f.BoolVar(&cfg.Stamp, "stamp", false,
 		"Write the current gen and pkg onto markers missing them, where the owning record exists, and change nothing else. "+
 			"No model call. Asserts that the code is current, so a migrated repository's next grow skips instead of re-selecting. "+
@@ -278,7 +282,7 @@ func runGrow(ctx context.Context, out, errOut io.Writer, cfg GrowConfig, respons
 			return errors.New("check failed: some records are stale, need re-rendering, or have left orphan regions")
 		}
 		if cfg.RecordTo != "" {
-			return writeRecording(cfg.RecordTo, pipeline.Capture(result))
+			return writeRecording(cfg.RecordTo, capture(result, cfg))
 		}
 		return nil
 	}
@@ -306,7 +310,7 @@ func runGrow(ctx context.Context, out, errOut io.Writer, cfg GrowConfig, respons
 	// still tells the user what it decided. The model call is already paid
 	// for and its output is the thing at risk of being lost.
 	if cfg.RecordTo != "" {
-		if err := writeRecording(cfg.RecordTo, pipeline.Capture(result)); err != nil {
+		if err := writeRecording(cfg.RecordTo, capture(result, cfg)); err != nil {
 			return err
 		}
 		fmt.Fprintf(out, "\nrecording written to %s\n", cfg.RecordTo)
@@ -394,9 +398,11 @@ func runReplay(out, errOut io.Writer, cfg GrowConfig, stopAfter int, name string
 		// Optional under --execute. Supplied, every recorded path is checked
 		// against affected_scope and forbidden_scope; omitted, the recording
 		// executes as written.
-		Records:        cfg.Records,
-		Variables:      variables,
-		DryRun:         cfg.DryRun,
+		Records:    cfg.Records,
+		Variables:  variables,
+		RestampGen: cfg.RestampGen,
+		// --check is a dry replay that fails when it would change anything.
+		DryRun:         cfg.DryRun || cfg.Check,
 		StopAfterPhase: stopAfter,
 		Log:            log,
 	})
@@ -408,11 +414,26 @@ func runReplay(out, errOut io.Writer, cfg GrowConfig, stopAfter int, name string
 	if cfg.JSON {
 		return writeJSON(out, buildGrowReport(result, cfg.DryRun, true, false))
 	}
-	report(out, result, stopAfter, cfg.DryRun)
+	for _, r := range result.Restamps {
+		fmt.Fprintln(out, r)
+	}
+	report(out, result, stopAfter, cfg.DryRun || cfg.Check)
 	if name != "" {
 		fmt.Fprintf(out, "\nstopped after %s\n", name)
 	}
+	if cfg.Check && pipeline.ReplayWouldChange(result.Injections) {
+		return fmt.Errorf("check failed: replaying %s would change the tree (stale gen, a changed region, or a region the recording no longer selects)", cfg.Execute)
+	}
 	return nil
+}
+
+// capture is the recording a run writes. A run that re-selected every record
+// (no --only) writes a complete one, which replay may reconcile against
+// (prov-2026-c637c262).
+func capture(result *pipeline.Result, cfg GrowConfig) recording.Recording {
+	rec := pipeline.Capture(result)
+	rec.Complete = len(cfg.Only) == 0
+	return rec
 }
 
 // readRecording loads a recording, naming the file in anything that goes wrong
@@ -514,12 +535,15 @@ func printInjections(out io.Writer, result *pipeline.Result, dryRun bool) {
 	}
 
 	fmt.Fprintln(out)
-	var replaced, skipped, pruned, held int
+	var replaced, skipped, pruned, held, unselected int
 	for _, r := range result.Injections {
 		switch {
 		case r.Held:
 			held++
 			fmt.Fprintf(out, "held     %s  %s (record %s selected nothing; --force would remove it)\n", r.Path, describeRegion(r), r.Record)
+		case r.Unselected:
+			unselected++
+			fmt.Fprintf(out, "unselected %s  %s (record %s; the recording is partial, so replay leaves it)\n", r.Path, describeRegion(r), r.Record)
 		case r.Orphan:
 			// Reported once, by printOrphans, which says why: its record is
 			// gone or deprecated, not that it stopped selecting the region.
@@ -548,7 +572,10 @@ func printInjections(out io.Writer, result *pipeline.Result, dryRun bool) {
 		}
 	}
 	fmt.Fprintf(out, "\n%d region(s) %s, %d replaced, %d left as seeded\n",
-		len(result.Injections)-pruned-held-orphans, verb, replaced, skipped)
+		len(result.Injections)-pruned-held-orphans-unselected, verb, replaced, skipped)
+	if unselected > 0 {
+		fmt.Fprintf(out, "%d region(s) unselected: owned by a record this partial recording names, and left in place\n", unselected)
+	}
 	if pruned > 0 || held > 0 {
 		fmt.Fprintf(out, "%d region(s) pruned, %d held for --force\n", pruned, held)
 	}
@@ -660,7 +687,6 @@ func checkCombinations(cfg GrowConfig) error {
 		set  bool
 		flag string
 	}{
-		{cfg.Execute != "", "--execute"},
 		{cfg.RecordTo != "", "--record"},
 		{cfg.DryRun, "--dry-run"},
 		{cfg.Force, "--force"},

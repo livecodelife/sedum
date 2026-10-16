@@ -1,0 +1,83 @@
+id: prov-2026-e4bab53b
+version: 2
+content_hash: sha256:53da7d2d0217e9377566cdb6846f15651565586c20557cfd29f21cac55ec509a
+parent_hash: sha256:eae199194c9c664f2788f4d18e13bdb5c3477b0462a8aac8b25547a1342e3643
+reason: Spec file edited under prov-2026-c637c262; refresh its hash
+author: calebcowen@gmail.com
+created_at: "2026-10-16T05:56:01Z"
+spec_hashes:
+  - sha256:e97137c4e4de29b121e3656158492f10a051cd5ab2279f1db197c3a19b1ca982
+  - sha256:27ee7b587e7fd9659bc9a59d1d34bfcbba52d3e559d95a70ad20dcb7d4f1fe63
+  - sha256:42b3f5d0a0f781489b8fd36ce814730de3dca66ee381ce735d610dcfcbceb153
+  - sha256:7df036ff5781140d4faabba6f804bfc12838643f702185ee014dbb9455237d5f
+content:
+  id: prov-2026-e4bab53b
+  title: sedum grow takes caller-supplied supplementary context via --prompt and --prompt-file
+  type: blueprint
+  created_at: "2026-10-06"
+  author: calebcowen@gmail.com
+  intent: |
+    sedum grow gains --prompt and --prompt-file: text the caller supplies that is
+    appended to the Phase 4 prompt for every record the run selects. The use is
+    a loop above Sedum that ran its own validation, got failure output, and wants
+    the next grow run to see it. The convergence loop belongs to a tool above
+    Sedum, so Sedum only accepts text; it never runs, or is told about, the
+    command that produced it. A --validate-command flag was considered and
+    rejected: it would make Sedum execute caller commands and own the loop that
+    the tool boundaries place elsewhere.
+
+    The provenance record stays the authority. The text is advisory, placed after
+    the record's intent and constraints, and labelled as supplementary so the
+    model can tell it from the record. It cannot widen affected_scope or any path
+    authorization; Phase 4 validation and path checks run exactly as before, so a
+    prompt asking for an unauthorized file produces a rejected selection, not a
+    written file.
+
+    The text is bounded at 16 KiB, with an error rather than truncation. Silent
+    truncation would drop the tail of a failure log, usually the part that says
+    what went wrong, and the caller would not know. 16 KiB is a few thousand
+    tokens: enough for a validator's output, small enough not to crowd the catalog
+    out of a small local model's context window.
+
+    The recording carries the text verbatim so a run is auditable. This is an
+    additive, omitted-when-empty field. Read decodes leniently and never consults
+    sedum_version for compatibility, so no schema break exists; the release bump
+    is a separate record, as for prior flags.
+  constraints:
+    - The prompt is advisory. It appears after intent and constraints, is labelled supplementary, and cannot widen affected_scope, forbidden_scope, or path authorization. Validation is unchanged.
+    - --prompt-file takes a path, or "-" for stdin. --prompt and --prompt-file are mutually exclusive; giving both is an error before any phase runs.
+    - The text applies to every record the run selects, so callers combine it with --only to target one record. Nothing per-record is added.
+    - Over 16384 bytes is a clear error naming the limit and the size given. No truncation. Empty or whitespace-only text adds no section.
+    - Without either flag, the prompt Sedum builds is byte-for-byte identical to today's.
+    - The text is recorded verbatim in an omitempty recording field, so recordings from runs without it are unchanged. No schema version exists to bump and none is introduced.
+    - --prompt and --prompt-file are ignored under --execute, listed in the ignored-flags notice with the reason (replay invokes no model), as --model is.
+    - Sedum never executes a caller command and gains no validate-command flag or callback. The integration surface remains a file format and flags.
+  affected_scope:
+    - internal/cli/grow.go
+    - internal/cli/config.go
+    - internal/selection/prompt.go
+    - internal/selection/selection.go
+    - internal/pipeline/pipeline.go
+    - internal/pipeline/capture.go
+    - internal/recording/recording.go
+    - README.md
+  implements: prov-2026-d554bfc3
+  implements_version: 1
+  related:
+    - prov-2026-4bcabb2f
+    - prov-2026-88e36921
+    - prov-2026-91c54941
+    - prov-2026-b5465dfa
+  associated_specs:
+    - path: internal/cli/flags_test.go
+      type: go
+    - path: internal/selection/selection_test.go
+      type: go
+    - path: internal/pipeline/pipeline_test.go
+      type: go
+    - path: internal/recording/recording_test.go
+      type: go
+  tags:
+    - sedum
+    - llm
+    - cli
