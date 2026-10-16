@@ -1,0 +1,40 @@
+id: prov-2026-71ebd3d9
+version: 2
+content_hash: sha256:4790643e743fc7ef6b93c0b196b8cd6efbb8a07932ed917082641e7d9bf22fff
+parent_hash: sha256:e8dbc1fca83502f332563b0f07f5a2933d035a1f8002590694dad13dae1fe7a3
+reason: demo.sh pin moved to cli 1b04123, so the spec hash is refreshed
+author: calebcowen@gmail.com
+created_at: "2026-10-16T02:51:08Z"
+spec_hashes:
+  - sha256:58bc19d13877cdbcfb8a75830403e9e6b84828dd3d7f4fa8146a41fff9735259
+content:
+  id: prov-2026-71ebd3d9
+  title: The lifecycle testbed joins sedum as evals/lifecycle, the PR's runnable demo
+  type: imprint
+  created_at: "2026-10-15"
+  author: calebcowen@gmail.com
+  intent: |
+    migrate-dry's lifecycle testbed exercises the whole Phase 1-2 loop end to
+    end - v1 records, provenance migrate, every grow mode, ownership errors,
+    --check, --stamp, --prune-orphans - against a local stub model, and prints a
+    pass/fail table. provisio-mgr decided it becomes the grow-prep PR's runnable
+    demo inside sedum at evals/lifecycle/ (#provisio, 2026-10-15).
+
+    migrate-dry prepared the export outside this worktree (lifecycle-testbed
+    94daf31, export/evals-lifecycle/), so the branch keeps one writer; it is
+    copied in unchanged. demo.sh builds sedum from the enclosing checkout,
+    sedum v0.8.0 from this repository's own history (0571de7), and the
+    provenance CLI with `go install` at a pinned commit of
+    github.com/livecodelife/provenance (afdc4f2); chi comes from
+    testdata/generators/chi. No local paths outside the checkout are read, and
+    no real model is reachable: the scripts refuse any endpoint but 127.0.0.1.
+  constraints:
+    - The export is copied unchanged; fixes go back through migrate-dry.
+    - evals/lifecycle adds no .go files, and its work/ and .demo/ directories are gitignored, so go build and go test see nothing new.
+    - The demo's provenance CLI pin is bumped by later imprints (see prov-2026-b241b29f); the export otherwise stays unchanged.
+  affected_scope:
+    - evals/lifecycle/**
+  implements: prov-2026-3c35801c
+  implements_version: 1
+  associated_specs:
+    - path: evals/lifecycle/demo.sh
