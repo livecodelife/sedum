@@ -80,6 +80,8 @@ func TestGrowFlagSurface(t *testing.T) {
 		{"force", "", "bool", "false"},
 		{"check", "", "bool", "false"},
 		{"prune-orphans", "", "bool", "false"},
+		{"repair", "", "int", "1"},
+		{"verify", "", "stringArray", "[]"},
 		{"orphans", "", "bool", "false"},
 		{"stamp", "", "bool", "false"},
 		{"json", "", "bool", "false"},

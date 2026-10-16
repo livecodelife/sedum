@@ -1,0 +1,78 @@
+id: prov-2026-8602b702
+version: 3
+content_hash: sha256:d1d9e2a9c78d14fdc1b9d7cb636f82b16c2990a0c32eb191ef94d8c0b4ab7407
+parent_hash: sha256:975d467ca50e9af265e8bbd7ec0001dae27b17906d98e7a7f96a83e91e74186c
+reason: Spec file edited under prov-2026-b5c21813; refresh its hash
+author: calebcowen@gmail.com
+created_at: "2026-10-16T06:44:49Z"
+spec_hashes:
+  - sha256:6346394c933ac40b304c08b753dc9a62a6aa4859e175041c7c024aedd9ad138f
+  - sha256:27ee7b587e7fd9659bc9a59d1d34bfcbba52d3e559d95a70ad20dcb7d4f1fe63
+  - sha256:42b3f5d0a0f781489b8fd36ce814730de3dca66ee381ce735d610dcfcbceb153
+content:
+  id: prov-2026-8602b702
+  title: sedum grow --prior-recording shows the model its own earlier selections on a retry
+  type: blueprint
+  created_at: "2026-10-06"
+  author: calebcowen@gmail.com
+  intent: |
+    sedum grow gains --prior-recording <path>. The invocations from an earlier
+    recording, for the records in this run, are added to the Phase 4 prompt so a
+    retry driven from above Sedum sees what it chose last time. It builds on
+    [[prov-2026-e4bab53b]]: the prior selections go in the same supplementary
+    section, beside any --prompt text, with the same standing - advisory, after
+    the record's intent and constraints, unable to widen authorization.
+
+    The recording is context only. This does not replay: the model is still
+    called, its output still goes through the same Phase 4 and Phase 5
+    validation, and nothing in the prior recording is executed or trusted.
+    Replay (--execute) is the mechanism for running a recording and stays
+    separate; the two are not combined and --prior-recording is ignored under
+    --execute.
+
+    Only invocations whose record_id is in this run are included, so --only
+    narrows the context as it narrows the run. The context is bounded at 8 KiB
+    per record, with an error on overflow rather than truncation, for the reason
+    record 1 gives. A missing, unreadable or malformed recording is an error
+    before any phase runs, since a retry run that silently lacked its context
+    would look like a normal run.
+
+    Rerun idempotency through ownership markers is unchanged.
+
+    Open question for the implementer: what grow does to files already written
+    when a later run replaces them is not settled here. Check how injection
+    treats an existing marker-owned region and state it, in the code and the
+    README, rather than assuming prior output is overwritten cleanly.
+  constraints:
+    - 'Builds on prov-2026-e4bab53b''s supplementary prompt section. Prior selections share it and inherit its rule: advisory, never widening affected_scope or path authorization.'
+    - Only invocations for records selected in this run are included. A prior recording with none of them adds nothing and is not an error.
+    - A missing, unreadable, non-JSON or empty-of-records prior recording is a clear error naming the path, raised before any phase runs. The recording has no schema version and sedum_version is not consulted for compatibility anywhere today, so no version check is added; the implementer states this in the error handling.
+    - Ignored under --execute and listed in the ignored-flags notice.
+    - The run does not replay anything and validation is not changed. The model is called and its output validated as before.
+    - Context is bounded at 8192 bytes of serialized invocations per record. Over that is a clear error, not truncation.
+    - Rerun idempotency via ownership markers is unchanged.
+    - The prior recording's own supplementary prompt field is not fed back in.
+  affected_scope:
+    - internal/cli/grow.go
+    - internal/cli/config.go
+    - internal/selection/prompt.go
+    - internal/selection/selection.go
+    - internal/pipeline/pipeline.go
+    - README.md
+  implements: prov-2026-d554bfc3
+  implements_version: 1
+  related:
+    - prov-2026-e4bab53b
+    - prov-2026-88e36921
+    - prov-2026-4bcabb2f
+  associated_specs:
+    - path: internal/cli/flags_test.go
+      type: go
+    - path: internal/selection/selection_test.go
+      type: go
+    - path: internal/pipeline/pipeline_test.go
+      type: go
+  tags:
+    - sedum
+    - llm
+    - cli

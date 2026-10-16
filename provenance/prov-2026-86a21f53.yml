@@ -1,8 +1,8 @@
 id: prov-2026-86a21f53
 title: Resolve the --stop-after / --execute / --record conflict in the PRD flag rules
-status: implemented
-version: 2
-reason: Spec file edited under prov-2026-3f83335f; refresh its hash
+status: open
+version: 3
+reason: Spec file edited under prov-2026-b5c21813; refresh its hash
 created_at: "2026-08-07"
 author: calebcowen@gmail.com
 intent: |
@@ -75,7 +75,7 @@ type: imprint
 implements: prov-2026-aa4b736d
 implements_version: 1
 related: []
-sealed_at_sha: 2fe536ecd8a386b01993b04aca7cfe01e874e3b4
+sealed_at_sha: ""
 associated_specs:
   - path: internal/cli/flags_test.go
     type: go_test

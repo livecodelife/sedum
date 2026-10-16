@@ -50,6 +50,12 @@ type GrowConfig struct {
 	JSON bool
 
 	Retries int
+
+	// Repair bounds how often a selection that passed Phase 5 is sent back
+	// because the project's verification failed it, and Verify adds commands
+	// to the ones in .sedum/config.yml (prov-2026-b5c21813).
+	Repair  int
+	Verify  []string
 	Model   string
 	LogPath string
 	Verbose bool
@@ -96,6 +102,10 @@ func (c *GrowConfig) Replaying() bool { return c.Execute != "" }
 func (c *GrowConfig) Validate() error {
 	if !c.Replaying() && c.Records == "" {
 		return errors.New("--records is required unless --execute names a recording to replay")
+	}
+
+	if c.Repair < 0 || c.Repair > maxRepair {
+		return fmt.Errorf("--repair %d is out of range: use 0 (off) to %d", c.Repair, maxRepair)
 	}
 
 	if c.LocalModel == "" && c.LocalModelServer != "" {
@@ -148,6 +158,12 @@ func (c *GrowConfig) IgnoredFlags() []string {
 	}
 	if c.LocalModel == "" && c.LocalModelBackend != "" {
 		ignored = append(ignored, "--local-model-backend (replay invokes no model)")
+	}
+	if c.Repair != defaultRepair {
+		ignored = append(ignored, "--repair (replay invokes no model, so nothing is sent back)")
+	}
+	if len(c.Verify) > 0 {
+		ignored = append(ignored, "--verify (replay invokes no model, so nothing is verified)")
 	}
 	if c.Retries != defaultRetries {
 		ignored = append(ignored, "--retries (replay validation is terminal, never re-prompted)")

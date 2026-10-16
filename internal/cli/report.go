@@ -20,10 +20,13 @@ type growReport struct {
 }
 
 type recordReport struct {
-	Record  string         `json:"record"`
-	Mode    string         `json:"mode"`
-	Changed bool           `json:"changed"`
-	Regions []regionChange `json:"regions"`
+	Record  string `json:"record"`
+	Mode    string `json:"mode"`
+	Changed bool   `json:"changed"`
+	// RepairAttempts is how many times the project's verification sent the
+	// record's selection back; omitted when none (prov-2026-b5c21813).
+	RepairAttempts int            `json:"repair_attempts,omitempty"`
+	Regions        []regionChange `json:"regions"`
 }
 
 type regionChange struct {
@@ -79,6 +82,12 @@ func buildGrowReport(result *pipeline.Result, dryRun, replay, check bool) growRe
 	if replay {
 		for _, s := range result.Selections {
 			add(s.RecordID, "replay")
+		}
+	}
+
+	for _, s := range result.Selections {
+		if s.Repairs > 0 {
+			add(s.RecordID, "").RepairAttempts = s.Repairs
 		}
 	}
 

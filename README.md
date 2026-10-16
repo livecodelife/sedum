@@ -1057,6 +1057,8 @@ sedum grow --generators ./generators --records ./provenance --output ./build
 | `--stamp` | Write the current `gen` and `pkg` onto markers missing them, where the owning record exists, and nothing else. No model call. Cannot be combined with `--check`, `--execute`, `--record` or `--force`. |
 | `--stop-after <phase>` | Halt after the named phase. One of `resolution`, `files`, `invocations`, `expansion`. |
 | `--retries <n>` | Model output validation retry limit. Default 3. Ignored with `--execute`. |
+| `--repair <n>` | How many times a selection that passed validation is sent back, with the output, because a verification command failed it (0 turns verification off; at most 3). Default 1. Separate from `--retries`. Ignored with `--execute`. |
+| `--verify <cmd>` | A shell command run in a scratch copy of the tree with a record's selection applied; repeatable, run after the commands in `.sedum/config.yml`. It must exit 0. Ignored with `--execute`. |
 | `--model <name>` | Model identifier. Endpoint and credentials come from environment. Ignored with `--execute`. |
 | `--log <path>` | Run log location. Defaults to `.sedum/run.log`. |
 | `-v, --verbose` | Mirror the run log to stdout. |
@@ -1064,6 +1066,22 @@ sedum grow --generators ./generators --records ./provenance --output ./build
 | `--prompt <text>` | Supplementary text added to every selected record's prompt. Advisory, at most 16384 bytes. Ignored with `--execute`. |
 | `--prompt-file <path>` | The same text read from a file, or from stdin with `-`. Mutually exclusive with `--prompt`. Ignored with `--execute`. |
 | `--prior-recording <path>` | A recording whose selections for this run's records are shown to the model as context. Ignored with `--execute`. |
+
+### Verifying a selection: `--repair`, `--verify`, `.sedum/config.yml`
+
+`--retries` re-prompts an answer that fails Sedum's own checks. A selection can pass all of them and still not compile, fail a test or fail lint. A project can name commands that find that out before anything is written:
+
+```yaml
+# <output>/.sedum/config.yml
+verify:
+  - go build ./...
+  - go vet ./...
+verify_timeout: 120s     # per command; the default
+```
+
+After a record's selection passes validation, Sedum builds the files Phase 7 would write, copies the output tree (without hidden directories or the generators and records directories) into a scratch directory, overlays them, and runs each command there, printing it first. If any command fails, the command, its exit status and the last 4000 bytes of its output are sent back to the model as the next message, up to `--repair` times (default 1, at most 3, `0` turns verification off). Out of attempts, the run fails naming the record and the command, and nothing is written. Every attempt is in the run log; the text report says `repaired after N attempt(s)` and the `--json` report carries `repair_attempts` for the record. `--verify <cmd>` adds commands for one run. With none configured nothing is verified and a run is exactly what it was.
+
+Two things to know. **Commands run as you.** They come only from `.sedum/config.yml` and `--verify`, never from a generator package, but `grow` in a checkout you do not trust executes that file's commands, as `make` executes a Makefile. **Records are verified one at a time**, in the order they are selected, each against the tree plus its own selection; a command that needs a later record's regions can fail on a record that is fine once the run finishes.
 
 ### Supplementary context: `--prompt`, `--prompt-file`, `--prior-recording`
 

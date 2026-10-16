@@ -17,6 +17,7 @@ import (
 	"github.com/livecodelife/sedum/internal/recording"
 	"github.com/livecodelife/sedum/internal/runlog"
 	"github.com/livecodelife/sedum/internal/selection"
+	"github.com/livecodelife/sedum/internal/verify"
 )
 
 func newGrowCommand() *cobra.Command {
@@ -97,6 +98,12 @@ Nothing is created that a provenance record did not authorize.`,
 			"Re-rendering replays the kwargs on each marker verbatim, so a changed kwarg default or --var value reaches an existing region only with --force. Cannot be combined with --execute, --record, --dry-run, --force or --stop-after.")
 	f.StringVar(&cfg.StopAfter, "stop-after", "", "Halt after the named phase. One of: "+stopPointNames()+".")
 	f.IntVar(&cfg.Retries, "retries", defaultRetries, "Model output validation retry limit. Ignored with --execute.")
+	f.IntVar(&cfg.Repair, "repair", defaultRepair,
+		"How many times a selection that passed validation is sent back, with the output, because a verification command failed it "+
+			"(0 turns verification off, at most 3). Commands come from .sedum/config.yml under the output directory and --verify, run in a scratch copy of the tree. Ignored with --execute.")
+	f.StringArrayVar(&cfg.Verify, "verify", nil,
+		"A shell command run in a scratch copy of the tree with a record's selection applied; repeatable, added after .sedum/config.yml's. "+
+			"It must exit 0. Ignored with --execute.")
 	f.StringVar(&cfg.Model, "model", "", "Model identifier. Endpoint and credentials come from environment. Ignored with --execute.")
 	f.StringVar(&cfg.LocalModel, "local-model", "", "Path to a gguf file to serve locally instead of --model. Starts and stops its own server for the run. Ignored with --execute.")
 	f.StringVar(&cfg.LocalModelServer, "local-model-server", "", "Path to the goinfer-serve binary. Defaults to one found on PATH. Requires --local-model.")
@@ -245,6 +252,11 @@ func runGrow(ctx context.Context, out, errOut io.Writer, cfg GrowConfig, respons
 		return err
 	}
 
+	verifyFn, repair, err := verifier(errOut, cfg)
+	if err != nil {
+		return err
+	}
+
 	result, err := pipeline.Run(ctx, pipeline.Config{
 		Generators: cfg.Generators,
 		Records:    cfg.Records,
@@ -262,6 +274,8 @@ func runGrow(ctx context.Context, out, errOut io.Writer, cfg GrowConfig, respons
 		StopAfterPhase: stopAfter,
 		Client:         client,
 		Retries:        cfg.Retries,
+		Repair:         repair,
+		Verify:         verifyFn,
 		Variables:      variables,
 		Log:            log,
 		FullCatalog:    cfg.FullCatalog,
@@ -506,6 +520,9 @@ func printSelections(out io.Writer, result *pipeline.Result) {
 			fmt.Fprintf(out, "  %s %s\n", inv.Action, describeKwargs(inv.Kwargs))
 			total++
 		}
+		if s.Repairs > 0 {
+			fmt.Fprintf(out, "  repaired after %d attempt(s)\n", s.Repairs)
+		}
 	}
 	fmt.Fprintf(out, "\n%d invocation(s) selected across %d record(s)\n", total, len(result.Selections))
 }
@@ -739,4 +756,34 @@ func printStamped(out io.Writer, result *pipeline.Result, dryRun bool) {
 		fmt.Fprintf(out, "%s %s  %s (%s, record %s)\n", verb, s.Path, ref, strings.Join(added, " and "), s.Record)
 	}
 	fmt.Fprintf(out, "\n%d marker(s) %s\n", len(result.Stamped), verb)
+}
+
+// verifier is the project's verification for this run: the commands in
+// .sedum/config.yml under the output directory, then --verify, run by
+// verify.Run in a scratch copy of the tree. It returns a nil function when
+// there is nothing to run or --repair is 0, which is how a run behaves as it
+// always did (prov-2026-b5c21813).
+func verifier(out io.Writer, cfg GrowConfig) (func(context.Context, map[string]string) (string, error), int, error) {
+	if cfg.Repair == 0 || cfg.Check || cfg.Stamp {
+		return nil, 0, nil
+	}
+	loaded, err := verify.LoadConfig(cfg.Output)
+	if err != nil {
+		return nil, 0, err
+	}
+	loaded = loaded.With(cfg.Verify)
+	if !loaded.Enabled() {
+		return nil, 0, nil
+	}
+	loaded.Skip = []string{filepath.Base(cfg.Generators), filepath.Base(cfg.Records)}
+	return func(ctx context.Context, candidate map[string]string) (string, error) {
+		failures, err := verify.Run(ctx, loaded, cfg.Output, candidate, out)
+		if err != nil {
+			return "", err
+		}
+		if len(failures) == 0 {
+			return "", nil
+		}
+		return verify.Message(failures), nil
+	}, cfg.Repair, nil
 }

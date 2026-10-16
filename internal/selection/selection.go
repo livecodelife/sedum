@@ -16,10 +16,13 @@ package selection
 import (
 	"context"
 	"fmt"
+	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/livecodelife/sedum/internal/catalog"
 	"github.com/livecodelife/sedum/internal/expand"
+	"github.com/livecodelife/sedum/internal/inject"
 	"github.com/livecodelife/sedum/internal/recording"
 	"github.com/livecodelife/sedum/internal/resolve"
 	"github.com/livecodelife/sedum/internal/runlog"
@@ -143,6 +146,17 @@ type Options struct {
 	// reads each file from it to apply the answer in memory
 	// (prov-2026-5403d162).
 	Output string
+
+	// Repair is how many times an answer that passed every check may be sent
+	// back because the project's own verification failed on it. It is a budget
+	// apart from Retries: Retries answers "was it valid", Repair answers "did
+	// it work" (prov-2026-b5c21813). Meaningful only with Verify.
+	Repair int
+
+	// Verify, when set, is given the files Phase 7 would write for an answer
+	// that passed every other check. It returns a message describing what
+	// failed, or the empty string when everything passed.
+	Verify func(ctx context.Context, candidate map[string]string) (string, error)
 }
 
 // Answer is what one record's selection produced, and what it cost.
@@ -172,6 +186,10 @@ type Answer struct {
 	// Folding the two together would report a complete answer as a rejected
 	// one.
 	Completeness int
+
+	// Repairs is how many times the project's verification failed an answer
+	// and sent it back (prov-2026-b5c21813).
+	Repairs int
 
 	// PromptTokens and CompletionTokens are what the calls cost, summed across
 	// them, as the server accounted for it.
@@ -393,6 +411,29 @@ func Select(ctx context.Context, client Client, req Request, opts Options) (Answ
 					continue
 				}
 			}
+			if opts.Verify != nil {
+				candidate := candidateOf(req, invocations, opts)
+				if len(candidate) > 0 {
+					failure, err := opts.Verify(ctx, candidate)
+					if err != nil {
+						return Answer{}, fmt.Errorf("record %s: verifying the selection: %w", req.RecordID, err)
+					}
+					if failure != "" {
+						log.Info("selection failed verification", "record", req.RecordID,
+							"attempt", i+1, "repairs", answer.Repairs, "failure", failure)
+						if answer.Repairs >= opts.Repair {
+							return Answer{}, fmt.Errorf("record %s: the selection did not verify after %d repair attempt(s):\n%s",
+								req.RecordID, answer.Repairs, failure)
+						}
+						answer.Repairs++
+						messages = append(messages,
+							Message{Role: RoleAssistant, Content: raw.Content},
+							Message{Role: RoleUser, Content: failure},
+						)
+						continue
+					}
+				}
+			}
 			answer.Invocations = invocations
 			return answer, nil
 		}
@@ -424,4 +465,39 @@ func Select(ctx context.Context, client Client, req Request, opts Options) (Answ
 			Message{Role: RoleUser, Content: rejection(violations)},
 		)
 	}
+}
+
+// candidateOf is every file Phase 7 would write for an answer, keyed by path:
+// the files the invocations touch as they would read, and the files Phase 3
+// created for the record that no invocation touched.
+func candidateOf(req Request, invocations []recording.Invocation, opts Options) map[string]string {
+	if len(invocations) == 0 {
+		return nil
+	}
+	unwritten := map[string]string{}
+	for _, f := range req.Files {
+		if f.Unmanaged || f.Package == nil {
+			continue
+		}
+		if _, err := os.Stat(filepath.Join(opts.Output, filepath.FromSlash(f.Path))); err != nil {
+			unwritten[f.Path] = f.Rendered
+		}
+	}
+	// A selection that cannot be applied at all - an ownership conflict, a
+	// missing anchor - is not verified: Phase 7 reports it with its own
+	// diagnostic, as the syntax check leaves it to do.
+	expanded, err := expand.Expand(req.RecordID, req.Files, invocations, opts.Variables)
+	if err != nil {
+		return nil
+	}
+	buffers, err := inject.Preview(expanded, inject.Options{Output: opts.Output, Unwritten: unwritten})
+	if err != nil {
+		return nil
+	}
+	for path, content := range unwritten {
+		if _, ok := buffers[path]; !ok {
+			buffers[path] = content
+		}
+	}
+	return buffers
 }
