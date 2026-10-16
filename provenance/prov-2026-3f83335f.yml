@@ -1,7 +1,7 @@
 id: prov-2026-3f83335f
 title: grow collapses orphan output to a one-line summary; --orphans lists them
 type: blueprint
-status: open
+status: implemented
 version: 4
 reason: 'scope: the proof script and the lifecycle harness count per-region orphan lines, so they pass --orphans; 3c35801c''s spec (capture.sh) is refreshed in the same commit'
 created_at: "2026-10-16"
@@ -58,7 +58,7 @@ affected_scope:
   - provenance/prov-2026-3c35801c.yml
 forbidden_scope: []
 related: []
-sealed_at_sha: ""
+sealed_at_sha: e25d041a87ea7ebcafc7509dcb7456c7f615350f
 associated_specs:
   - path: internal/cli/orphans_test.go
     run_command: go test ./internal/cli -count=1 -run 'Orphan'
