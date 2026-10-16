@@ -153,7 +153,7 @@ func Replay(rec recording.Recording, cfg ReplayConfig) (*Result, error) {
 	}
 
 	// Phase 5 - validation, identical to model-output validation and terminal.
-	selections, err := validateRecorded(rec, files, log)
+	selections, err := validateRecorded(rec, files, variables, cfg.Output, log)
 	if err != nil {
 		return nil, err
 	}
@@ -287,7 +287,7 @@ func recordedResolutions(rec recording.Recording, packages *genpkg.Set) ([]resol
 // that list serialized. The counts a Selection carries are zero throughout: no
 // call was made, nothing was rejected and re-prompted, and reporting anything
 // else would attribute a cost to a run that did not incur one.
-func validateRecorded(rec recording.Recording, files []resolve.File, log *runlog.Log) ([]Selection, error) {
+func validateRecorded(rec recording.Recording, files []resolve.File, variables map[string]string, output string, log *runlog.Log) ([]Selection, error) {
 	var out []Selection
 
 	for _, r := range rec.Records {
@@ -302,6 +302,11 @@ func validateRecorded(rec recording.Recording, files []resolve.File, log *runlog
 		}
 
 		if violations := selection.Validate(mine, invocations); len(violations) > 0 {
+			return nil, &InvalidRecording{RecordID: r.RecordID, Violations: violations}
+		}
+		// The syntax check is validation too, and terminal here as every
+		// replay rule is (prov-2026-5403d162).
+		if violations := selection.CheckSyntax(r.RecordID, mine, invocations, variables, output); len(violations) > 0 {
 			return nil, &InvalidRecording{RecordID: r.RecordID, Violations: violations}
 		}
 		log.Info("recording validated", "record", r.RecordID, "invocations", len(invocations))

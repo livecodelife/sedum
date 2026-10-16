@@ -120,6 +120,10 @@ func Paths(set *genpkg.Set, records *record.Set, prefer []string) ([]Resolution,
 // Every other property of the path - which directory it sits in, what its name
 // looks like - is opaque here, which is what keeps target knowledge out of the
 // core at the one place it would be easiest to smuggle in.
+//
+// Where packages contest an extension, the path's shape does decide - but only
+// through the file templates the packages themselves declare, never through
+// anything Sedum knows (prov-2026-5403d162).
 func packageFor(set *genpkg.Set, target string, prefer []string) (*genpkg.Package, error) {
 	ext := strings.ToLower(path.Ext(target))
 	if ext == "" {
@@ -151,8 +155,11 @@ func packageFor(set *genpkg.Set, target string, prefer []string) (*genpkg.Packag
 	case 1:
 		return preferred[0], nil
 	case 0:
+		if pkg, ok, err := mostSpecific(candidates, target); err != nil || ok {
+			return pkg, err
+		}
 		return nil, fmt.Errorf(
-			"path %s carries extension %s, which packages %s all claim; pass --lang to name the one to prefer",
+			"path %s carries extension %s, which packages %s all claim, and no one of them has a file template that describes it more closely than the others; pass --lang to name the one to prefer",
 			target, ext, listAnd(names(candidates)))
 	default:
 		return nil, fmt.Errorf(
@@ -261,4 +268,49 @@ func join(items []string, conjunction string) string {
 	default:
 		return strings.Join(items[:len(items)-1], ", ") + ", " + conjunction + " " + items[len(items)-1]
 	}
+}
+
+// mostSpecific breaks a contested extension by file templates: the package
+// whose template matches the path more specifically than every other
+// candidate's wins, by the ranking a package's own templates are ranked by
+// (prov-2026-5403d162). A command package's cmd/{bin}/{name}_cmd.go therefore
+// takes its files from a general package's cmd/{bin}/{name}.go. No match at
+// all, or a tie at the top, decides nothing, and the caller asks for --lang.
+func mostSpecific(candidates []*genpkg.Package, target string) (*genpkg.Package, bool, error) {
+	var (
+		best        *genpkg.Package
+		bestPattern string
+		tied        bool
+	)
+	for _, pkg := range candidates {
+		set, err := filetmpl.NewSet(pkg.FileTemplates)
+		if err != nil {
+			return nil, false, fmt.Errorf("package %s: %w", pkg.Name, err)
+		}
+		result, matched, err := set.Match(target)
+		if err != nil {
+			return nil, false, fmt.Errorf("package %s: %w", pkg.Name, err)
+		}
+		if !matched {
+			continue
+		}
+		if best == nil {
+			best, bestPattern, tied = pkg, result.Pattern, false
+			continue
+		}
+		c, err := filetmpl.Compare(result.Pattern, bestPattern)
+		if err != nil {
+			return nil, false, err
+		}
+		switch {
+		case c < 0:
+			best, bestPattern, tied = pkg, result.Pattern, false
+		case c == 0:
+			tied = true
+		}
+	}
+	if best == nil || tied {
+		return nil, false, nil
+	}
+	return best, true, nil
 }

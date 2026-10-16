@@ -21,6 +21,7 @@ import (
 
 	"github.com/livecodelife/sedum/internal/genpkg"
 	"github.com/livecodelife/sedum/internal/runlog"
+	"github.com/livecodelife/sedum/internal/syntax"
 )
 
 // Invocation is one action resolved to the point where only writing is left:
@@ -90,6 +91,11 @@ type Options struct {
 	// must then hold every current record. Only files some record authorizes
 	// belong here, because Sedum writes nothing else.
 	PruneOrphansIn []Target
+
+	// capture, when set, receives every touched file's content after
+	// application, and the run neither writes nor runs the syntax guard: it is
+	// how Preview lets Phase 5 check what Phase 7 would write.
+	capture *map[string]string
 
 	// Force allows a record whose selection is empty to prune every region it
 	// owns. Without it that is an error, because an empty reply is more often
@@ -263,6 +269,18 @@ func Apply(invocations []Invocation, opts Options) ([]Result, error) {
 
 	if len(problems) > 0 {
 		return nil, errors.Join(problems...)
+	}
+	if opts.capture != nil {
+		*opts.capture = buffers
+		return results, nil
+	}
+
+	// The syntax guard: every touched file of a package that opted into a
+	// built-in checker must pass it, or nothing is written
+	// (prov-2026-5403d162). Phase 5 has already shown the model any failure;
+	// this is what makes the guarantee hold for every path into Phase 7.
+	if err := checkSyntax(touched, buffers, packagesByPath(invocations, opts)); err != nil {
+		return nil, err
 	}
 	if opts.DryRun {
 		return results, nil
@@ -733,4 +751,55 @@ func pruneOrphans(target Target, buffers map[string]string, touched *[]string, o
 		buffers[target.Path] = content
 	}
 	return results, nil
+}
+
+// Preview applies invocations in memory and returns every touched file's
+// content, writing nothing and running no syntax guard. Phase 5 uses it to
+// check, before an answer is accepted, the files Phase 7 would write
+// (prov-2026-5403d162).
+func Preview(invocations []Invocation, opts Options) (map[string]string, error) {
+	var buffers map[string]string
+	opts.capture = &buffers
+	opts.DryRun = true
+	if _, err := Apply(invocations, opts); err != nil {
+		return nil, err
+	}
+	return buffers, nil
+}
+
+// packagesByPath is the package governing each file this run may touch.
+func packagesByPath(invocations []Invocation, opts Options) map[string]*genpkg.Package {
+	out := map[string]*genpkg.Package{}
+	for _, inv := range invocations {
+		out[inv.Path] = inv.Package
+	}
+	for _, rec := range opts.Reconcile {
+		for _, t := range rec.Targets {
+			out[t.Path] = t.Package
+		}
+	}
+	for _, t := range opts.PruneOrphansIn {
+		out[t.Path] = t.Package
+	}
+	return out
+}
+
+// checkSyntax runs each touched file of a package with a syntax: key through
+// that built-in checker.
+func checkSyntax(touched []string, buffers map[string]string, packages map[string]*genpkg.Package) error {
+	var problems []error
+	for _, path := range touched {
+		pkg := packages[path]
+		if pkg == nil || pkg.Syntax == "" {
+			continue
+		}
+		checker, ok := syntax.Lookup(pkg.Syntax)
+		if !ok {
+			continue // rejected at load; unreachable for a loaded package
+		}
+		if err := checker.Check(path, buffers[path]); err != nil {
+			problems = append(problems, fmt.Errorf("file %s would not pass the %s check, so nothing was written: %w", path, pkg.Syntax, err))
+		}
+	}
+	return errors.Join(problems...)
 }

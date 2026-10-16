@@ -138,6 +138,11 @@ type Options struct {
 	// side-by-side comparison, or for the eval harness measuring the filter's
 	// effect - and it changes nothing about validation either way.
 	FullCatalog bool
+
+	// Output is the directory the run's files live under. The syntax check
+	// reads each file from it to apply the answer in memory
+	// (prov-2026-5403d162).
+	Output string
 }
 
 // Answer is what one record's selection produced, and what it cost.
@@ -353,6 +358,12 @@ func Select(ctx context.Context, client Client, req Request, opts Options) (Answ
 		invocations, violations := decode(raw.Content)
 		if len(violations) == 0 {
 			violations = validate(cat, packages, req.Files, invocations)
+		}
+		// Files a package checks with a built-in syntax checker must pass it,
+		// and a failure is put to the model like any other broken rule
+		// (prov-2026-5403d162).
+		if len(violations) == 0 {
+			violations = CheckSyntax(req.RecordID, req.Files, invocations, opts.Variables, opts.Output)
 		}
 		if len(violations) == 0 {
 			log.Info("model output validated", "record", req.RecordID,

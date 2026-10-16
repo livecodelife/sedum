@@ -510,7 +510,7 @@ func selectAll(ctx context.Context, cfg Config, records *record.Set, files []res
 			Prompt:      cfg.Prompt,
 			Prior:       prior[rec.ID],
 			Present:     presentFor(rec.ID, byRecord[rec.ID].found, owners),
-		}, selection.Options{Retries: cfg.Retries, Variables: variables, Log: log, FullCatalog: cfg.FullCatalog})
+		}, selection.Options{Retries: cfg.Retries, Variables: variables, Log: log, FullCatalog: cfg.FullCatalog, Output: cfg.Output})
 		if err != nil {
 			return nil, err
 		}

@@ -291,7 +291,7 @@ func TestValidateReportsOnTheGeneratorsDirectory(t *testing.T) {
 	if err != nil {
 		t.Fatalf("validate on the fixture packages failed: %v\n%s", err, out)
 	}
-	for _, want := range []string{"3 package(s) loaded", "0 error(s)"} {
+	for _, want := range []string{"4 package(s) loaded", "0 error(s)"} {
 		if !strings.Contains(out, want) {
 			t.Errorf("validate output = %q, does not report %q", out, want)
 		}

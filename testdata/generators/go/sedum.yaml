@@ -1,0 +1,11 @@
+name: go
+extensions: [".go"]
+comment_prefix: "//"
+
+# Every file this package touches must parse and be gofmt-clean before it is
+# written (prov-2026-5403d162). The check is Sedum's built-in go checker; no
+# external program runs.
+syntax: go
+
+test_paths:
+  - "**/*_test.go"

@@ -90,6 +90,11 @@ const (
 	// action never earns it: optional is the only thing its shared schema can
 	// say about a value one variant needs and another forbids.
 	RuleKwargRequirementUnderstated = "kwarg_requirement_understated"
+
+	// RuleSyntaxUnknown is a syntax: value the built-in registry does not
+	// hold. The registry is closed, so an unknown name cannot mean anything
+	// (prov-2026-5403d162).
+	RuleSyntaxUnknown = "syntax_unknown"
 )
 
 // Finding is one load-time diagnostic.

@@ -18,7 +18,9 @@ A provenance record declares intent, constraints, and the files a change is auth
 
 **Configuration carries all target knowledge.** Adding a language or framework means authoring a generator package, never modifying Sedum.
 
-**The model does one bounded job.** It selects actions from a closed, declared vocabulary and binds their arguments. It does not write code, choose file paths, or make structural decisions. Selection over a declared schema is machine-checkable; open-ended synthesis is not.
+*Amended by `prov-2026-5403d162`:* Sedum's **pipeline** contains no language-specific knowledge. Where a target language has to be understood — generated Go must parse and be gofmt-clean, because model-written code must never land broken — the knowledge lives only in a closed, built-in **syntax registry**: each checker is named, opted into by a package's `syntax:` key, ships with Sedum, and runs no external program. The pipeline asks the registry by name and never branches on a language. A package-declared formatter command was rejected, because it would let a generator package run an executable on every grow, and nothing from a copied or shared source may run automatically.
+
+**The model does one bounded job.** It selects actions from a closed, declared vocabulary and binds their arguments. It does not choose file paths or make structural decisions, and it writes code only into a `literal` kwarg an action declares, which a package that opts into a syntax checker has checked before anything is written. Selection over a declared schema is machine-checkable; open-ended synthesis is not.
 
 **Everything after the model's response is deterministic.** File creation, template rendering, transform resolution, composite expansion, path resolution, and injection are pure functions of the model's validated output and the generator package.
 
@@ -81,7 +83,7 @@ Sedum builds an extension-to-package map when the generators directory loads. Ev
 
 **Resolution is per file, not per run.** A single record may legitimately touch `app/controllers/users_controller.rb` and `app/javascript/users.ts`; those paths resolve to different packages and each is generated under its own conventions.
 
-If two packages in the directory claim the same extension, that is not an error at load time. It becomes an error only when a path with that extension appears and no `--lang` flag disambiguates it. This keeps multi-package directories legal while failing loudly at the point of real ambiguity.
+If two packages in the directory claim the same extension, that is not an error at load time. Where a path with that extension appears, the package whose file template matches it most specifically wins, by the ranking in *Match specificity* applied across packages (`prov-2026-5403d162`): a command package's `cmd/{bin}/{name}_cmd.go` takes its files from a general package's `cmd/{bin}/{name}.go`. Only a path no candidate's templates describe, or one two candidates describe equally closely, is an error without a `--lang` flag, and `--lang` overrides the tie-break. The path's shape decides only through templates the packages declare, never through anything Sedum knows.
 
 The `--lang` flag names a package to prefer. It may be repeated. Sedum infers which extension each named package resolves; a flag naming a package that claims no extension in the current record set is a warning, not an error.
 
@@ -112,6 +114,14 @@ It is not a step toward structured-document editing. Appending a gem to a `Gemfi
 Two contradictions are load-time errors: a file template whose own path is declared unmanaged, and an action whose literal `injects_into` names one. An `injects_into` carrying placeholders is caught in Phase 6 instead, with a diagnostic that distinguishes *declared unmanaged* from *never created* — the two have different fixes.
 
 Two packages declaring the same path do not conflict; they agree. A path one package disowns and another would claim by extension is unmanaged, because the alternative is behavior that depends on which package was consulted first.
+
+### Syntax checks
+
+`syntax:` names a built-in checker every file the package touches must pass (`prov-2026-5403d162`). The registry is closed and ships with Sedum; today it holds one member, `go`, which accepts a file only if it parses and is exactly what gofmt would write. An unknown name rejects the package at load.
+
+The check runs twice. In Phase 5 the validated answer is applied to its files in memory and checked; a failure is a violation like any other, fed back to the model within the retry budget — with the gofmt form of the file when it parses, so the model can bind exactly that — and terminal under replay. In Phase 7 every touched file is checked again before anything is written, so the guarantee holds for every path into injection.
+
+A package that checks syntax shapes its markers to pass: a template ending in a blank line keeps one before its closing marker (`prov-2026-ab24df5a`), which is what gofmt wants after a top-level declaration. The reference package is `testdata/generators/go`: `setFunction`, `setMethod`, `setType`, `setVar`, `setConst` and `addImport`, each writing one whole declaration the model supplies as a `literal` into the file its `file` kwarg names, with identity file and name (and receiver). It imports with one `import "path"` declaration per region, because no marker layout inside an `import ( )` block is gofmt-clean both before and after the first import.
 
 ### Test paths
 

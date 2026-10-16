@@ -29,6 +29,7 @@ type manifest struct {
 	Unmanaged     []string                     `yaml:"unmanaged"`
 	TestPaths     []string                     `yaml:"test_paths"`
 	Variables     map[string]Variable          `yaml:"variables"`
+	Syntax        string                       `yaml:"syntax"`
 }
 
 // Variable is a project fact this package's templates reference and cannot
@@ -399,6 +400,13 @@ type Package struct {
 	// user.go: same extension, same package, same directory, and nothing
 	// directory-shaped can separate them.
 	TestPaths []string
+
+	// Syntax names the built-in checker every file this package touches must
+	// pass before it is written, from the closed registry in internal/syntax
+	// (prov-2026-5403d162). Empty means none. It is the only way target-language
+	// knowledge reaches a run: opted into here, shipped with Sedum, and never
+	// an external program.
+	Syntax string
 
 	// Variables are the project facts this package's templates reference and
 	// cannot know. The run supplies their values (prov-2026-6fc3d13d).
