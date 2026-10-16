@@ -1,7 +1,7 @@
 id: prov-2026-3e5a05dc
 title: 'sedum generators install: plan, safety checks, apply'
 type: imprint
-status: open
+status: implemented
 version: 2
 reason: tests grown into the placeholder spec file
 created_at: "2026-10-16"
@@ -21,7 +21,7 @@ forbidden_scope: []
 implements: prov-2026-1da47b75
 implements_version: 2
 related: []
-sealed_at_sha: ""
+sealed_at_sha: fd7826ca432282ae00f491b8005cb36ced975723
 associated_specs:
   - path: internal/cli/generators_test.go
     run_command: go test ./internal/cli -count=1
