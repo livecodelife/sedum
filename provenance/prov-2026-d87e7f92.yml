@@ -23,7 +23,7 @@ affected_scope:
   - internal/adopt/span_test.go
 forbidden_scope: []
 implements: prov-2026-95d9ae7e
-implements_version: 1
+implements_version: 2
 related: []
 sealed_at_sha: 340286555b2b2829beafb93d65f348909d2a96d5
 associated_specs:
