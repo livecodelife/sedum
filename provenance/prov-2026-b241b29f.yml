@@ -1,0 +1,23 @@
+id: prov-2026-b241b29f
+title: Re-pin evals/lifecycle demo to provenance cli 1b04123 (v2, merged with main)
+type: imprint
+status: open
+version: 1
+reason: ""
+created_at: "2026-10-15"
+author: calebcowen@gmail.com
+intent: 'prov-cli force-free merged main into the cli branch and migrated it to v2 (tip 1b04123, old SHAs still ancestors). migrate-dry re-pinned the lifecycle testbed (lifecycle-testbed b4099ec, demo 19 pass / 1 skip) and exported it. The only change in evals/lifecycle is demo.sh PROVENANCE_REF afdc4f2d9cf4 -> 1b0412309fd2, copied unchanged from export/evals-lifecycle. Decided by provisio-mgr in #provisio, 2026-10-15.'
+constraints: []
+affected_scope:
+  - evals/lifecycle/**
+forbidden_scope: []
+implements: prov-2026-3c35801c
+implements_version: 2
+related: []
+sealed_at_sha: ""
+associated_specs:
+  - path: evals/lifecycle/demo.sh
+    run_command: bash {{path}}
+associated_traces: []
+monitors: []
+tags: []
