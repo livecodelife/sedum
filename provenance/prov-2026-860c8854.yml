@@ -2,8 +2,8 @@ id: prov-2026-860c8854
 title: 'eval design: the Haiku wrapper call'
 type: imprint
 status: open
-version: 1
-reason: ""
+version: 2
+reason: the hand-written command
 created_at: "2026-10-16"
 author: calebcowen@gmail.com
 intent: |-
@@ -76,6 +76,7 @@ constraints: []
 affected_scope:
   - evals/design/haiku_eval.go
   - evals/design/haiku_eval_test.go
+  - evals/cmd/design/main.go
 forbidden_scope: []
 implements: prov-2026-d694c4c4
 implements_version: 1
