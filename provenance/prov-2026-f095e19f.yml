@@ -1,6 +1,6 @@
 id: prov-2026-f095e19f
 title: M6 - Model invocation and output validation (sedum grow, sedum actions)
-status: open
+status: implemented
 version: 6
 reason: PRD.md / pipeline_test.go changed by prov-2026-8394826c (failed runs remove what they created)
 reason_kind: ""
@@ -125,7 +125,7 @@ type: blueprint
 implements: prov-2026-d554bfc3
 implements_version: 1
 related: []
-sealed_at_sha: ""
+sealed_at_sha: 2fefe7aa12febe57971b166c7978966b83c7d7ba
 associated_specs:
   - path: internal/catalog/catalog_test.go
     run_command: go test -count=1 ./$(dirname {{path}})
