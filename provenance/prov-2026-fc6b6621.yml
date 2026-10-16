@@ -2,8 +2,8 @@ id: prov-2026-fc6b6621
 title: The binary carries the go generator package
 type: imprint
 status: open
-version: 2
-reason: the go:embed var is hand-written in embed.go (marker breaks gofmt directive layout)
+version: 3
+reason: tests grown into the placeholder spec file
 created_at: "2026-10-16"
 author: calebcowen@gmail.com
 intent: |
