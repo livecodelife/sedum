@@ -2,8 +2,8 @@ id: prov-2026-84c8ca99
 title: 'eval design: tasks and variants'
 type: imprint
 status: open
-version: 1
-reason: ""
+version: 3
+reason: tests grown into the placeholder spec file
 created_at: "2026-10-16"
 author: calebcowen@gmail.com
 intent: |-
@@ -303,6 +303,8 @@ sealed_at_sha: ""
 associated_specs:
   - path: evals/design/task_test.go
     run_command: go test ./evals/design -run 'TestLoadTask|TestLoadTasks|TestIntentVariants|TestIsolated' -count=1
+  - path: evals/design/variants_test.go
+    run_command: go test ./evals/design -run 'TestIntentVariants|TestIsolated' -count=1
 associated_traces: []
 monitors: []
 tags: []
