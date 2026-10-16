@@ -1,7 +1,7 @@
 id: prov-2026-1e4a5690
 title: 'adopt: the recording builder'
 type: imprint
-status: open
+status: implemented
 version: 2
 reason: tests grown into the placeholder spec file
 created_at: "2026-10-16"
@@ -20,7 +20,7 @@ forbidden_scope: []
 implements: prov-2026-95d9ae7e
 implements_version: 2
 related: []
-sealed_at_sha: ""
+sealed_at_sha: 2d3eaa1f8191533a890ed575960fd7066147157a
 associated_specs:
   - path: internal/adopt/build_test.go
     run_command: go test ./internal/adopt -run 'TestBuildRecording' -count=1
