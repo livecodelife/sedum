@@ -1,0 +1,30 @@
+id: prov-2026-a15d039a
+title: 'adopt: the round-trip verifier'
+type: imprint
+status: open
+version: 1
+reason: ""
+created_at: "2026-10-16"
+author: calebcowen@gmail.com
+intent: |-
+  Implements prov-2026-95d9ae7e: the round-trip verifier. New file internal/adopt/verify.go (package adopt; imports fmt, strings and github.com/livecodelife/sedum/internal/genpkg for genpkg.Comment{Prefix, Suffix string}). It has no language knowledge.
+
+  - `func StripMarkers(comment genpkg.Comment, content string) string`: splits content into lines (keeping newlines), and drops every line whose text, after trimming leading whitespace, starts with `comment.Prefix + " sedum:"` or `comment.Prefix + " /sedum:"` (opening markers, closing markers and anchor lines all start that way); every other line is kept unchanged, in order. When comment.Prefix is empty it returns content unchanged.
+  - `type VerifyError struct { Line int; Want string; Got string }` with `Error() string` returning `round trip: line <Line> differs: want "<Want>" got "<Got>"`; Line is the 1-based number of the differing non-blank line counted among the NON-BLANK lines of the original, Want and Got are those lines (Got is `<end of file>` when the adopted text ran out, Want is `<end of file>` when the original ran out).
+  - `func Verify(comment genpkg.Comment, original, adopted string) error`: strips markers from adopted, then compares original and the stripped text line by line after discarding blank lines (empty or whitespace-only) from both and trimming trailing whitespace (spaces, tabs, carriage returns) from each remaining line; leading whitespace is significant. Returns nil when identical, otherwise a *VerifyError for the first difference (including one text being longer).
+  Tests (verify_test.go), each its OWN setFunction invocation, comment {Prefix: "//"}: TestStripMarkers (input "package p\n\n// sedum:anchor:decls\n// sedum:setFunction {\"a\":1}\nfunc f() {}\n\n// /sedum:setFunction\n" gives "package p\n\nfunc f() {}\n\n"); TestStripMarkersKeepsIndentedMarkerLookalikes (a line `\tx := \"// sedum:\"` is kept; an indented marker line `\t// sedum:setFunction {}` is dropped); TestVerifyIgnoresBlankLines (original "a\nb\n" vs adopted "a\n\n// sedum:x {}\nb\n// /sedum:x\n\n" passes); TestVerifyReportsFirstDifference (original "a\nb\nc\n" vs adopted "a\nB\nc\n" gives *VerifyError with Line 2, Want "b", Got "B", reachable with errors.As); TestVerifyLengthMismatch (original "a\nb\n" vs adopted "a\n" gives Line 2, Want "b", Got "<end of file>"; and the reverse gives Want "<end of file>"); TestVerifyLeadingWhitespaceMatters ("a\n\tb\n" vs "a\n    b\n" fails).
+constraints: []
+affected_scope:
+  - internal/adopt/verify.go
+  - internal/adopt/verify_test.go
+forbidden_scope: []
+implements: prov-2026-95d9ae7e
+implements_version: 2
+related: []
+sealed_at_sha: ""
+associated_specs:
+  - path: internal/adopt/verify_test.go
+    run_command: go test ./internal/adopt -run 'TestStripMarkers|TestVerify' -count=1
+associated_traces: []
+monitors: []
+tags: []
