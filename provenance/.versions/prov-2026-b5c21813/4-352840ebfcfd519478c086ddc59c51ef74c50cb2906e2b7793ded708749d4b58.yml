@@ -1,0 +1,89 @@
+id: prov-2026-b5c21813
+version: 4
+content_hash: sha256:352840ebfcfd519478c086ddc59c51ef74c50cb2906e2b7793ded708749d4b58
+parent_hash: sha256:35d4bf52db357c0d485ea6a928beb3aaaa86a034089ba4381aed9e3193fe15e0
+reason: 'merge main (#5, #6) into grow-repair'
+author: calebcowen@gmail.com
+created_at: "2026-10-16T13:04:18Z"
+spec_hashes:
+  - sha256:fe4f2f3731476f7f784dd3b8072a03a2917bd073a1eae4573db8a693842fb31c
+content:
+  id: prov-2026-b5c21813
+  title: grow --repair feeds project verification failures back to the model
+  type: blueprint
+  created_at: "2026-10-16"
+  author: calebcowen@gmail.com
+  intent: |
+    provisio-mgr (#provisio, 2026-10-16), from Caleb's bounded-retry idea: a model answer can pass every check sedum has and still not compile, fail a test or fail lint. Today that is found afterwards, by a person or a hook. Let a project name its own verification commands, run them against what the model's selection would write, and feed a failure back to the model, within a small hard bound.
+
+    ## What exists, so this does not duplicate it
+    `--retries` (default 3) already re-prompts Phase 5 rejections: schema, anchor, variant, scope and the built-in syntax checker (go/format) for packages with `syntax:`. It stays as is and keeps its own budget. This adds a second, separate budget for failures only a project's own tools can see.
+
+    ## Configuration
+    Sedum has no project-level config today (sedum.yaml belongs to a generator package). A project config is added: `<output>/.sedum/config.yml`, read when present:
+
+        verify:                  # shell commands, run in the scratch root, in order; all must exit 0
+          - go build ./...
+          - go vet ./internal/...
+        verify_timeout: 120s     # per command; default 120s
+
+    `.sedum/config.yml` is un-ignored in .gitignore like context.md. `--verify <cmd>` (repeatable) adds commands for one run, and `--no-verify` skips verification for one run (it cannot be combined with `--verify`), after the config's. Nothing configured means no verification and today's behaviour exactly. Generator packages never contribute commands: running a third-party package's commands is arbitrary code execution, and the person who owns the project owns the commands.
+
+    ## The loop
+    `grow --repair N` (default 1, hard cap 3, N above 3 is an error; 0 means verify once and fail fast, with no repair). Per record, after Phase 5 accepts a selection:
+    1. Build the candidate with inject.Preview (the files Phase 7 would write; no disk writes).
+    2. Copy the output tree to a scratch directory (skipping hidden directories and the generators and records directories, as the orphan walk does), overlay the candidate, run each verify command there with `sh -c`, `cwd` the scratch root, the timeout above, stdout+stderr captured.
+    3. All pass: the selection is accepted as today. Any fails: with attempts left, the conversation gets the assistant's answer and a user message `These checks failed after applying your selection:` plus, per failing command, `$ <cmd>`, its exit status and the last 4000 bytes of output; the model is called again. The scratch directory is always removed.
+    4. Out of attempts: the run fails naming the record, the command and its output and the model calls it spent, counting answers Phase 5 rejected as well as repairs, and writes no generated region (Phase 7 never ran for any record). A repair attempt is one extra model call, but the total can be higher: a Phase 5 rejection of a repaired answer spends a `--retries` re-prompt, and the failure message says so.
+    A record whose selection is empty or whose files are all unmanaged is not verified. Records are verified one at a time, in the order they are selected, against the tree plus that record's own candidate; a command that depends on a later record's regions can therefore fail on a record that is fine once the run finishes. That is a known limit of verifying one record at a time, stated here and in the README rather than hidden.
+
+    ## Trust and safety (provisio-mgr's conditions)
+    - Commands come only from the project's own `.sedum/config.yml` or `--verify`; never from a generator package. Each command is printed (`verify: <cmd>`) before it runs. The README says plainly that grow in an untrusted checkout executes that file's commands, like a Makefile.
+    - Each command runs with the scratch directory as cwd, in its own process group; a timeout kills the whole group, not just the shell.
+    - The scratch directory is removed on every exit path: success, failure, timeout, error. A test covers the timeout path.
+
+    ## Observability
+    Every attempt is logged: record, attempt number, each command, exit status, duration, the truncated output. The text report prints `record <id>: repaired after N attempt(s)` when a repair was needed. The sedum.grow/1 report gains an additive per-record `repair_attempts` (omitted when 0; conformance/formats updated). Replay (`--execute`), `--check` and `--stamp` ignore verification and say so, like `--retries`.
+
+    ## Not in scope
+    Reordering or batching records, running verification at Phase 7 against the final tree (a project's own CI does that), caching, and any command from a generator package.
+
+    ## Generate first
+    A new package internal/verify (config load, scratch tree, command runner, failure message) and its tests are grown by sedum-haiku via the go package. The hooks in selection.go (an optional Verify callback in selection.Options and the second budget), pipeline.go, grow.go, config.go, flags_test.go, the format doc and README/PRD are handwritten, because those files are not region-owned.
+  affected_scope:
+    - internal/verify/**
+    - internal/selection/selection.go
+    - internal/pipeline/pipeline.go
+    - internal/cli/grow.go
+    - internal/cli/config.go
+    - internal/cli/flags_test.go
+    - internal/cli/report.go
+    - conformance/formats/**
+    - README.md
+    - PRD.md
+    - .gitignore
+    - internal/selection/repair_test.go
+    - internal/cli/root.go
+    - provenance/.versions/**
+    - .provenance/**
+    - provenance/prov-2026-59535684.yml
+    - provenance/prov-2026-5d9b8590.yml
+    - provenance/prov-2026-684148c6.yml
+    - provenance/prov-2026-6fc3d13d.yml
+    - provenance/prov-2026-8602b702.yml
+    - provenance/prov-2026-86a21f53.yml
+    - provenance/prov-2026-91c54941.yml
+    - provenance/prov-2026-9621daed.yml
+    - provenance/prov-2026-aa4b736d.yml
+    - provenance/prov-2026-b5465dfa.yml
+    - provenance/prov-2026-cc73cf61.yml
+    - provenance/prov-2026-d2f1bdf2.yml
+    - provenance/prov-2026-e4bab53b.yml
+    - provenance/prov-2026-aabeac10.yml
+    - provenance/prov-2026-6ab86198.yml
+    - provenance/prov-2026-751790c4.yml
+    - internal/selection/repair_test.go
+    - evals/lifecycle/**
+    - .sedum/context.md
+  associated_specs:
+    - path: internal/verify/verify_test.go

@@ -901,6 +901,9 @@ sedum grow --generators ./generators --records ./provenance --output ./build
 | `--stamp` | Write the current `gen` and `pkg` onto markers missing them, where the owning record exists, and nothing else. No model call. Cannot be combined with `--check`, `--execute`, `--record` or `--force`. |
 | `--stop-after <phase>` | Halt after the named phase. One of `resolution`, `files`, `invocations`, `expansion`. |
 | `--retries <n>` | Model output validation retry limit. Default 3. Ignored with `--execute`. |
+| `--repair <n>` | How many times a selection that passed validation is sent back, with the output, because a verification command failed it (0 verifies once and fails the run on a failure; at most 3). Default 1. Separate from `--retries`. Ignored with `--execute`. |
+| `--no-verify` | Skip verification for this run, whatever `.sedum/config.yml` names. Cannot be combined with `--verify`. Ignored with `--execute`. |
+| `--verify <cmd>` | A shell command run in a scratch copy of the tree with a record's selection applied; repeatable, run after the commands in `.sedum/config.yml`. It must exit 0. Ignored with `--execute`. |
 | `--model <name>` | Model identifier. Endpoint and credentials come from environment. Ignored with `--execute`. Mutually exclusive with `--local-model`. |
 | `--local-model <path>` | Path to a gguf file to serve locally instead of `--model`. Starts a goinfer-serve subprocess for the run and stops it when the run ends. Ignored with `--execute`. Mutually exclusive with `--model`. |
 | `--local-model-server <path>` | Path to the `goinfer-serve` binary. Defaults to one found on `PATH`. Requires `--local-model`. |

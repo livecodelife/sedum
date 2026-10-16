@@ -1,14 +1,14 @@
 id: prov-2026-6fc3d13d
-version: 3
-content_hash: sha256:7b24e57e211b2b221b0f26dab6d17568d0014f3b248871e4c2a3e462d8a68c4f
-parent_hash: sha256:624f7acd5440f70d9257077be7fa5cdb85b500f3c365064f83be3e7754044a43
-reason: Spec files edited by the merge of orphan-summary and replay-restamp; refresh its hash
+version: 5
+content_hash: sha256:25c7f445e58edf9d637f6466c38dd5c7a4e6623702dd1deba65bb080ecac145c
+parent_hash: sha256:63c8785a05c46c1ae91eedc9299a33835e4839098032ae986afe2f626dc63d93
+reason: 'merge main (#5, #6): README/PRD/flags_test.go gained both sides'' hunks'
 author: calebcowen@gmail.com
-created_at: "2026-10-16T06:14:54Z"
+created_at: "2026-10-16T13:05:05Z"
 spec_hashes:
   - sha256:c9ce311c5e3eef8b10e4f296d3e19e0c4feeaae41915839d1901e1f494390def
   - sha256:c2eb18b22e67a2b017fb7ed4a55c5635c6323298bc05e4f6a06d25a1cd330c10
-  - sha256:9471d43da38c58990cb311f6cd0e3c4636337f36a9450900e5b5766eafcea1ce
+  - sha256:7113081ded3b93aae46a83b2133d35c7dddd199a97bc149b397d7297ef963442
 content:
   id: prov-2026-6fc3d13d
   title: A run supplies the project facts a package cannot know

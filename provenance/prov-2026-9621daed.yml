@@ -1,8 +1,8 @@
 id: prov-2026-9621daed
 title: Grow skips, re-renders or re-selects each record by its hashes
 status: implemented
-version: 3
-reason: Spec files edited by the merge of orphan-summary and replay-restamp; refresh its hash
+version: 5
+reason: 'merge main (#5, #6): README/PRD/flags_test.go gained both sides'' hunks'
 created_at: "2026-10-15"
 author: calebcowen@gmail.com
 intent: |
@@ -98,7 +98,7 @@ type: blueprint
 related:
   - prov-2026-66bea9f3
   - prov-2026-375f5d4a
-sealed_at_sha: 1d9034cf6d0274662c491104d2ea3802c023bd9f
+sealed_at_sha: b76175cef07b3fbb96c2e0ee794d933d4157f1cf
 associated_specs:
   - path: internal/pipeline/classify_test.go
     run_command: go test ./$(dirname {{path}})

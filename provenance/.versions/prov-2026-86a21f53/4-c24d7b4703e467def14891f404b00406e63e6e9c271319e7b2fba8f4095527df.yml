@@ -1,12 +1,12 @@
 id: prov-2026-86a21f53
-version: 3
-content_hash: sha256:4ecaba15f3dc57d2131a01ba2c2a9521229311a64d554792979ccbb9e0b3277f
-parent_hash: sha256:7ac5d112b53abe96e400c2e606535891151a9ab2fb5dfaccc313ffc7b778b5d7
-reason: Spec files edited by the merge of orphan-summary and replay-restamp; refresh its hash
+version: 4
+content_hash: sha256:c24d7b4703e467def14891f404b00406e63e6e9c271319e7b2fba8f4095527df
+parent_hash: sha256:ee69e4d7acbd327b3e598f02e21d3b4123ec6b9191acfacf9974fa183ce059c3
+reason: Spec files edited under prov-2026-b5c21813 (--no-verify, --repair 0); refresh its hash
 author: calebcowen@gmail.com
-created_at: "2026-10-16T06:14:55Z"
+created_at: "2026-10-16T07:02:58Z"
 spec_hashes:
-  - sha256:9471d43da38c58990cb311f6cd0e3c4636337f36a9450900e5b5766eafcea1ce
+  - sha256:878f207005f6aa2339b1d9b9a778b41e08e37bf705366a3e1175f7e34798ffb1
 content:
   id: prov-2026-86a21f53
   title: Resolve the --stop-after / --execute / --record conflict in the PRD flag rules

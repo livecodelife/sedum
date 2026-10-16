@@ -1,9 +1,9 @@
 id: prov-2026-8394826c
 title: A path no template matches fails with a clear error and leaves no stray file
 type: blueprint
-status: implemented
-version: 5
-reason: 'merge main: records refreshed on both sides'
+status: open
+version: 6
+reason: merge main (#7) into gen-errors
 created_at: "2026-10-16"
 author: calebcowen@gmail.com
 intent: |
@@ -34,9 +34,29 @@ affected_scope:
   - provenance/prov-2026-8602b702.yml
   - provenance/prov-2026-b5465dfa.yml
   - provenance/prov-2026-e4bab53b.yml
+  - .gitignore
+  - internal/selection/**
+  - internal/verify/**
+  - provenance/prov-2026-59535684.yml
+  - provenance/prov-2026-5d9b8590.yml
+  - provenance/prov-2026-684148c6.yml
+  - provenance/prov-2026-6ab86198.yml
+  - provenance/prov-2026-6fc3d13d.yml
+  - provenance/prov-2026-751790c4.yml
+  - provenance/prov-2026-8602b702.yml
+  - provenance/prov-2026-86a21f53.yml
+  - provenance/prov-2026-91c54941.yml
+  - provenance/prov-2026-9621daed.yml
+  - provenance/prov-2026-aa4b736d.yml
+  - provenance/prov-2026-aabeac10.yml
+  - provenance/prov-2026-b5465dfa.yml
+  - provenance/prov-2026-b5c21813.yml
+  - provenance/prov-2026-cc73cf61.yml
+  - provenance/prov-2026-d2f1bdf2.yml
+  - provenance/prov-2026-e4bab53b.yml
 forbidden_scope: []
 related: []
-sealed_at_sha: bba982eabca42c3a83e5e537b479042bb9617f35
+sealed_at_sha: ""
 associated_specs:
   - path: internal/inject/notemplate_test.go
     run_command: go test ./internal/inject -count=1

@@ -1,0 +1,66 @@
+id: prov-2026-8394826c
+version: 6
+content_hash: sha256:a4c6c7b5004a85bff6dd8d70f5689423de47be7ac2a3080608ef78c0c2fb22a6
+parent_hash: sha256:483d4faf9456dd31056947a4d9e4972a328ad2026bd450f51ad96565ddf9c197
+reason: merge main (#7) into gen-errors
+author: calebcowen@gmail.com
+created_at: "2026-10-16T13:50:05Z"
+spec_hashes:
+  - sha256:013766c51e62b69ac22ae30372c8d65058ace6f77c09bac0b7a1475e0346a6e4
+  - sha256:6ab816087292a9b78bce53642e46c7199094ff2cc6a67df6c6d495cc265e4e40
+content:
+  id: prov-2026-8394826c
+  title: A path no template matches fails with a clear error and leaves no stray file
+  type: blueprint
+  created_at: "2026-10-16"
+  author: calebcowen@gmail.com
+  intent: |
+    provisio-mgr (#provisio, 2026-10-16), from prov-cli's cold-start walkthrough (F2). An authorized path that no file template of its package matches (for the go package, any root-level file such as greet.go) is created empty by Phase 3, as PRD "No match" says it should. If an action then targets it, Phase 7 fails with `marker "decls" is not in the file; the file is not shaped the way the action assumes`, which names neither the cause nor the fix, and the empty file stays on disk.
+
+    ## Behaviour
+    1. A clear error. When Phase 7 cannot place an action in a file because the file's anchor is absent AND the file has no matched template (Phase 3 created it empty, or it already existed and the package ships no template for it), the error says so: `<path>: no file template in package <pkg> matches this path, so the file has no <anchor> marker for action <name>; <pkg>'s templates are: <list of template patterns>`. A root-level go file therefore reads as "no template matches greet.go; templates are {pkg}/{name}.go, cmd/{bin}/{name}.go, ...". Errors for files that do have a template are unchanged. A root template for the go package is NOT added: it cannot know the package name, and a wrong default is worse than a clear error.
+    2. No stray file. A file created by this run (Phase 3, not DryRun, did not exist before) is removed when the run then fails, at any later phase (model error, Phase 5 failure, verify failure, Phase 7 error). Files that existed before the run are never touched, and a successful run is unchanged. The removal is reported in the run log, and empty parent directories this run created are removed with it.
+
+    ## Not in scope
+    Changing the "no match creates an empty file" rule, new template shapes, and any change to other Phase 7 errors.
+
+    ## Generate first
+    New code goes in through sedum-haiku via the go package: the template-listing helper and the error wrapper in internal/inject, the cleanup helper in internal/pipeline, and their tests. Hand-written only where a file isn't region-owned (the hooks in pipeline.go/inject.go call sites, PRD.md "No match" paragraph).
+  affected_scope:
+    - internal/inject/**
+    - internal/pipeline/**
+    - PRD.md
+    - .sedum/context.md
+    - README.md
+    - conformance/formats/**
+    - evals/lifecycle/**
+    - internal/cli/**
+    - internal/recording/**
+    - provenance/prov-2026-59535684.yml
+    - provenance/prov-2026-5d9b8590.yml
+    - provenance/prov-2026-8602b702.yml
+    - provenance/prov-2026-b5465dfa.yml
+    - provenance/prov-2026-e4bab53b.yml
+    - .gitignore
+    - internal/selection/**
+    - internal/verify/**
+    - provenance/prov-2026-59535684.yml
+    - provenance/prov-2026-5d9b8590.yml
+    - provenance/prov-2026-684148c6.yml
+    - provenance/prov-2026-6ab86198.yml
+    - provenance/prov-2026-6fc3d13d.yml
+    - provenance/prov-2026-751790c4.yml
+    - provenance/prov-2026-8602b702.yml
+    - provenance/prov-2026-86a21f53.yml
+    - provenance/prov-2026-91c54941.yml
+    - provenance/prov-2026-9621daed.yml
+    - provenance/prov-2026-aa4b736d.yml
+    - provenance/prov-2026-aabeac10.yml
+    - provenance/prov-2026-b5465dfa.yml
+    - provenance/prov-2026-b5c21813.yml
+    - provenance/prov-2026-cc73cf61.yml
+    - provenance/prov-2026-d2f1bdf2.yml
+    - provenance/prov-2026-e4bab53b.yml
+  associated_specs:
+    - path: internal/inject/notemplate_test.go
+    - path: internal/pipeline/cleanup_test.go
