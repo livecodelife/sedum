@@ -64,7 +64,7 @@ related:
 sealed_at_sha: 009e587616a530cdbad750d9e4a65078666ef046
 associated_specs:
   - path: internal/record/realrepos_test.go
-    run_command: PROVENANCE_REAL_REPOS=/Users/calebcowen/workspace go test -count=1 ./$(dirname {{path}})
+    run_command: PROVENANCE_REAL_REPOS=$HOME/workspace go test -count=1 ./$(dirname {{path}})
 associated_traces: []
 monitors: []
 tags: []
