@@ -1,8 +1,8 @@
 id: prov-2026-37216199
 title: 'adopt: file selection with skip reasons'
 type: imprint
-status: implemented
-version: 4
+status: open
+version: 6
 reason: tests grown into the placeholder spec file
 created_at: "2026-10-16"
 author: calebcowen@gmail.com
@@ -25,6 +25,8 @@ intent: |-
   unmanaged: ["setup.py"]
   py/files/{name}.py:
   # sedum:anchor:decls
+  py/files/*/{name}.py (a literal directory named *; one level of subdirectory):
+  # sedum:anchor:decls
   py/actions/actions.yaml (the actions go HERE, never in sedum.yaml):
   actions:
     setThing:
@@ -45,7 +47,7 @@ forbidden_scope: []
 implements: prov-2026-95d9ae7e
 implements_version: 2
 related: []
-sealed_at_sha: 5fe16ceae374ad292e1d4dffbaa4c7c0db0e9022
+sealed_at_sha: ""
 associated_specs:
   - path: internal/adopt/select_test.go
     run_command: go test ./internal/adopt -run 'TestSelect' -count=1
