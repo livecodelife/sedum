@@ -1,0 +1,76 @@
+id: prov-2026-a88771dd
+title: 'Per-record regeneration moves into grow: TOOL_BOUNDARIES and the record attribute catch up'
+status: draft
+created_at: "2026-10-15"
+author: calebcowen@gmail.com
+intent: |
+  The last item of the hash-aware grow track (provenance DESIGN.md,
+  "Boundary change"): two decision documents no longer describe what Sedum
+  does, and the decisions behind the change have to be on record rather than
+  only in code.
+
+  ## TOOL_BOUNDARIES.md amendment
+
+  TOOL_BOUNDARIES puts the whole convergence loop above Sedum. Since
+  prov-2026-9621daed, deciding per record whether to skip, re-render or
+  re-select - from the gen and pkg hashes on markers - is grow's job, and grow
+  reconciles and prunes a record's own regions (prov-2026-375f5d4a). What stays
+  above Sedum is unchanged: the two-beat lifecycle, repair loops, escalation,
+  failure traceback, test-driven passes. The amendment states that split, with
+  the reason: staleness is a fact about markers Sedum writes and records it
+  reads, so detecting it needs no target knowledge and no harness, while
+  repairing behaviour does.
+
+  It also brings the surface table and the open list up to date:
+  - Markers carry gen, pkg and an owning record; conformance/ gains the pkg
+    hash corpus; gen_hash is the shared library's (prov-2026-66bea9f3,
+    prov-2026-dac49f78).
+  - grow --check joins the supported surface as a command a harness invokes:
+    a staleness report with an exit status, no model call and nothing
+    written. --stamp is listed as a migration aid, not a surface.
+  - The section 6.2 correction and the section 8 question about the
+    duplicate-path check under --execute are closed: the check is gone, and
+    region ownership protects code region by region in grow and replay alike.
+  - Section 5.3's writer field stands; the record attribute it sits beside now
+    means owner.
+  - The syntax registry (prov-2026-5403d162) is recorded as the one place
+    target-language knowledge enters Sedum, and why a harness cannot add to
+    it.
+
+  OPEN_QUESTIONS.md section 16's removal question is answered: grow prunes a
+  record's own unselected regions, replay never prunes, orphans need
+  --prune-orphans.
+
+  ## Replacing prov-2026-36c8a99c's last-writer rule
+
+  prov-2026-36c8a99c decided that a later record selecting a region's identity
+  takes the region over and the marker names the last writer. Region ownership
+  reversed that. An imprint under this blueprint supersedes it, restating
+  what still holds (the record stays out of identity; markers are lenient on
+  read) and what replaced the rest: the record is the owner and another
+  record selecting the region is an error (prov-2026-375f5d4a); unknown keys
+  are preserved (prov-2026-72775ae5); Sedum reads one lifecycle value,
+  deprecated (prov-2026-cc73cf61); a path named by several records is grown
+  in one run.
+constraints:
+  - Documentation and records only; no code changes.
+  - TOOL_BOUNDARIES keeps its structure and voice; amended passages say what changed and cite the record, rather than silently rewriting history.
+  - The supersession uses create --supersedes, so the old record is marked superseded by the tool, not by hand.
+affected_scope:
+  - TOOL_BOUNDARIES.md
+  - OPEN_QUESTIONS.md
+  - PRD.md
+forbidden_scope: []
+type: blueprint
+supersedes: ""
+superseded_by: ""
+related:
+  - prov-2026-36c8a99c
+  - prov-2026-375f5d4a
+  - prov-2026-9621daed
+  - prov-2026-59535684
+sealed_at_sha: ""
+associated_specs: []
+associated_traces: []
+monitors: []
+tags: []
