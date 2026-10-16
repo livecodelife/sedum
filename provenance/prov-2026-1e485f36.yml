@@ -1,7 +1,7 @@
 id: prov-2026-1e485f36
 title: 'go: internal/genpkg/pkgcanonical_test.go, the byte-identity tests for pkg/1'
 type: imprint
-status: open
+status: implemented
 version: 3
 reason: 'Drop the quote, backslash and U+2028 values: models mangle heavily escaped literals, and the library''s own corpus covers escapes'
 created_at: "2026-10-15"
@@ -51,7 +51,7 @@ forbidden_scope: []
 implements: prov-2026-019c616e
 implements_version: 1
 related: []
-sealed_at_sha: ""
+sealed_at_sha: 65e9e6158d7a89b060865221f6d69f7ff47a81b2
 associated_specs:
   - path: conformance/pkghash/cases.json
     run_command: go test ./internal/genpkg -count=1 -run 'PkgCanonical'
