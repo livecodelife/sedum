@@ -347,7 +347,7 @@ step10() {
 	if grow "$SEDUM" "$LEGACY"; then fail "growing a deprecated record should be refused"; fi
 	ok "grow refuses --only for a deprecated record"
 	snapshot s10a; mark_calls
-	grow "$SEDUM" "${IMPRINTS[@]}" || { cat "$W/.stub/last.out"; fail "grow"; }
+	grow "$SEDUM" "${IMPRINTS[@]}" -- --orphans || { cat "$W/.stub/last.out"; fail "grow"; }
 	expect_calls 0
 	[ "$(orphans_in "$LEGACY")" -eq "$n" ] || { cat "$W/.stub/last.out"; fail "expected $n orphans reported"; }
 	snapshot s10b; expect_changed s10a s10b

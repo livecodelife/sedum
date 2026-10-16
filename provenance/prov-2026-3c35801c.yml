@@ -1,8 +1,8 @@
 id: prov-2026-3c35801c
 title: 'Prepare grow-prep for its PR: standalone build, a proof document, v2 records'
-status: implemented
-version: 2
-reason: 'Cover the v2 migration of this repository''s records: config, version manifest, snapshots'
+status: open
+version: 3
+reason: capture.sh passes --orphans; refresh its hash
 created_at: "2026-10-15"
 author: calebcowen@gmail.com
 intent: |
@@ -66,7 +66,7 @@ forbidden_scope: []
 type: blueprint
 related:
   - prov-2026-dac49f78
-sealed_at_sha: 0deda02ec53ddf78408ef7123445214f3519f756
+sealed_at_sha: ""
 associated_specs:
   - path: proof/capture.sh
     run_command: bash {{path}} --check

@@ -1,5 +1,5 @@
-# grow-prep 12432f9
-$ sedum grow --generators generators --records provenance --model stub --log run.log --prune-orphans
+# grow-prep f7b8da4
+$ sedum grow --generators generators --records provenance --model stub --log run.log --prune-orphans --orphans
 
 exists   app/controllers/users_controller.rb  (left as it is)
 
