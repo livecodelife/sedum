@@ -1,6 +1,6 @@
 id: prov-2026-ab24df5a
 title: A template ending in a blank line keeps one before its closing marker
-status: open
+status: implemented
 created_at: "2026-10-15"
 author: calebcowen@gmail.com
 intent: |
@@ -38,7 +38,7 @@ implements: prov-2026-cc73cf61
 supersedes: ""
 superseded_by: ""
 related: []
-sealed_at_sha: ""
+sealed_at_sha: 9d0b8a3a52d9cf7744d319352c9d2f7e353297e7
 associated_specs:
   - path: internal/pipeline/gofmt_test.go
     run_command: go test ./$(dirname {{path}})
