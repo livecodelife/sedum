@@ -1,0 +1,38 @@
+id: prov-2026-d87e7f92
+version: 3
+content_hash: sha256:08383c648e372768d896a66be2d33c2cc5dc735f42c5fe7577cc6fc3da9a6345
+parent_hash: sha256:f69e66b2b5ab683b65850d7b51e6dd86b0e0ec35661c377d07318707c2540a79
+reason: 'stage 2: a header span may carry kwargs'
+author: calebcowen@gmail.com
+created_at: "2026-10-16T22:39:18Z"
+spec_hashes:
+  - sha256:bb095b4995f6671e8736ea05e4f5cf36832b39bc0b81fb6b24fee974204fc902
+  - sha256:0e045e0e8dd17e09290477bc2dd1a58487f8e54782d9bc837b8277b402e5091f
+content:
+  id: prov-2026-d87e7f92
+  title: 'adopt: the span contract and coverage check'
+  type: imprint
+  created_at: "2026-10-16"
+  author: calebcowen@gmail.com
+  intent: |-
+    Implements prov-2026-95d9ae7e: the span contract. New file internal/adopt/span.go (package adopt) defines, exactly:
+
+    - `type Kind string` with constants `KindHeader Kind = "header"`, `KindUnit Kind = "unit"`, `KindResidual Kind = "residual"`.
+    - `type Span struct { Kind Kind; Text string; Action string; Kwargs map[string]any }` with JSON tags `kind`, `text`, `action,omitempty`, `kwargs,omitempty`.
+    - `type Adopter interface { Split(path string, src []byte) ([]Span, error) }`.
+    - `func Coverage(src []byte, spans []Span) error`: returns nil when the concatenation of every span's Text, in order, equals src byte for byte. Otherwise it returns a *CoverageError (exported struct, implements error) with fields `Offset int` (the first byte offset where the concatenation and src differ, or the length of the shorter one when one is a prefix of the other), `Line int` (1-based line of that offset in src), `Want string` and `Got string` (up to 40 bytes of src and of the concatenation starting at Offset). Error() reads like `coverage: spans differ from the file at byte 120 (line 7): want "func b" got "func c"`.
+    - `func (s Span) Valid() error`: a KindUnit span must have a non-empty Action and non-empty Text; a KindResidual span must have empty Action and nil Kwargs; a KindHeader span must have an empty Action but MAY carry Kwargs (they become captures of the file's template, e.g. the Go adopter's pkg), so the error text for a header is `header span must not carry an action` and the residual text stays `residual span must not carry an action or kwargs` (write the two messages as `%s span must not carry an action` for header and `%s span must not carry an action or kwargs` for residual, as two separate cases of the switch); an unknown Kind is an error.
+    - `func CheckSpans(src []byte, spans []Span) error`: calls Valid on every span (wrapping the error with the span index), then Coverage; also errors when no span is given for a non-empty src.
+    - `func ResidualIsBlank(s Span) bool`: true for a KindResidual span whose Text is only whitespace; false for any other kind.
+    Tests (internal/adopt/span_test.go, table-driven): exact coverage passes; a missing byte, an extra byte, a changed byte, a prefix and an empty spans list each fail with the right Offset and Line; Valid rejects each malformed span; CheckSpans reports the span index; ResidualIsBlank.
+
+    Stage 2 (prov-2026-36809902) test, in the NEW file internal/adopt/span_header_test.go (package adopt, import testing), its OWN setFunction TestValidHeaderKwargs: a KindHeader span with Text "package x\n" and Kwargs map[string]any{"pkg": "x"} is valid (Valid returns nil); a KindHeader span with Action "setFunction" is invalid; a KindResidual span with Kwargs is invalid.
+  affected_scope:
+    - internal/adopt/span.go
+    - internal/adopt/span_test.go
+    - internal/adopt/span_header_test.go
+  implements: prov-2026-95d9ae7e
+  implements_version: 2
+  associated_specs:
+    - path: internal/adopt/span_test.go
+    - path: internal/adopt/span_header_test.go
