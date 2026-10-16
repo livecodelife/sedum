@@ -1,0 +1,197 @@
+id: prov-2026-3576b512
+version: 1
+content_hash: sha256:7903f472ab03552cd2e0fc781cefba29d0fbce0cc29aff405d9f002baafa3dba
+parent_hash: ""
+reason: ""
+author: calebcowen@gmail.com
+created_at: "2026-10-16T23:44:22Z"
+spec_hashes:
+  - sha256:53f769047590f2f1855f6174695baa2ccffc4a57550e046548214590390254d5
+content:
+  id: prov-2026-3576b512
+  title: 'eval design: prepare and grade'
+  type: imprint
+  created_at: "2026-10-16"
+  author: calebcowen@gmail.com
+  intent: |-
+    Preparing a sample project and grading it for the behaviour-only-intent eval (prov-2026-d694c4c4): Prepare writes go.mod, context files, a copy of the generator packages, PROMPT.md and one open v1 record with the variant's intent; Grade builds, copies the hidden tests in and runs go test. Task, Variant, Intent and Isolated exist; writeTask and validTask are test helpers in task_test.go.
+
+    New file evals/design/prepare.go (package design); TRANSCRIBE, do not design: write exactly the code below. Imports (fmt, io/fs, os, path/filepath, gopkg.in/yaml.v3): one addImport each. Declarations: one invocation per declaration (type -> setType, const -> setConst, func -> setFunction, method -> setMethod with the receiver type name), code = the whole declaration including its doc comment, exactly as written, tabs for indentation, no changes of any kind.
+
+    // growPrompt is the same advisory text for every variant, so the variants
+    // differ only in the intent.
+    const growPrompt = "# Context\n\nA small Go package. Standard library only (plus what the context files import). Write each target file in full, gofmt-clean, with a doc comment on every exported identifier.\n"
+
+    // record is the v1 record a sample's intent is written into.
+    type record struct {
+    	ID            string   `yaml:"id"`
+    	Title         string   `yaml:"title"`
+    	Status        string   `yaml:"status"`
+    	CreatedAt     string   `yaml:"created_at"`
+    	Author        string   `yaml:"author"`
+    	Intent        string   `yaml:"intent"`
+    	Constraints   []string `yaml:"constraints"`
+    	AffectedScope []string `yaml:"affected_scope"`
+    	Forbidden     []string `yaml:"forbidden_scope"`
+    	Type          string   `yaml:"type"`
+    }
+
+    // copyTree copies the directory src into dst.
+    func copyTree(src, dst string) error {
+    	return filepath.WalkDir(src, func(p string, d fs.DirEntry, err error) error {
+    		if err != nil {
+    			return err
+    		}
+    		rel, err := filepath.Rel(src, p)
+    		if err != nil {
+    			return err
+    		}
+    		target := filepath.Join(dst, rel)
+    		if d.IsDir() {
+    			return os.MkdirAll(target, 0o755)
+    		}
+    		data, err := os.ReadFile(p)
+    		if err != nil {
+    			return err
+    		}
+    		return os.WriteFile(target, data, 0o644)
+    	})
+    }
+
+    // Prepare writes the project for one sample into dir: a go.mod, the task's
+    // context files, a copy of the generator packages, the grow prompt, and one
+    // open record whose intent is the variant's text and whose scope is the target
+    // files. The hidden tests are not written; Grade adds them after the grow.
+    func Prepare(t Task, v Variant, generators, dir string) error {
+    	intent, err := t.Intent(v)
+    	if err != nil {
+    		return err
+    	}
+    	if err := t.Isolated(); err != nil {
+    		return err
+    	}
+    	mod := fmt.Sprintf("module design/%s\n\ngo 1.25\n", t.ID)
+    	if err := os.WriteFile(filepath.Join(dir, "go.mod"), []byte(mod), 0o644); err != nil {
+    		return err
+    	}
+    	for _, f := range t.Context {
+    		data, err := os.ReadFile(filepath.Join(t.Dir, "context", f))
+    		if err != nil {
+    			return err
+    		}
+    		if err := os.WriteFile(filepath.Join(dir, f), data, 0o644); err != nil {
+    			return err
+    		}
+    	}
+    	if err := copyTree(generators, filepath.Join(dir, "generators")); err != nil {
+    		return fmt.Errorf("copy generators: %w", err)
+    	}
+    	if err := os.WriteFile(filepath.Join(dir, "PROMPT.md"), []byte(growPrompt), 0o644); err != nil {
+    		return err
+    	}
+    	rec := record{
+    		ID:            fmt.Sprintf("design-%s-%s", t.ID, v),
+    		Title:         fmt.Sprintf("design eval: %s (%s)", t.ID, v),
+    		Status:        "open",
+    		CreatedAt:     "2026-10-16",
+    		Author:        "eval@example.com",
+    		Intent:        intent,
+    		Constraints:   []string{},
+    		AffectedScope: t.Target,
+    		Forbidden:     []string{},
+    		Type:          "blueprint",
+    	}
+    	data, err := yaml.Marshal(rec)
+    	if err != nil {
+    		return err
+    	}
+    	if err := os.MkdirAll(filepath.Join(dir, "provenance"), 0o755); err != nil {
+    		return err
+    	}
+    	return os.WriteFile(filepath.Join(dir, "provenance", rec.ID+".yml"), data, 0o644)
+    }
+
+    Tests: the NEW file evals/design/prepare_test.go (a spec of this imprint; it exists as a one-line placeholder). Transcribe exactly this test file; imports (os, path/filepath, strings, testing): one addImport each; each function and const -> its own invocation. Use the fixture text exactly (tabs, ASCII quotes).
+
+    func TestPrepare(t *testing.T) {
+    	task, err := LoadTask(writeTask(t, t.TempDir(), "ok", validTask))
+    	if err != nil {
+    		t.Fatal(err)
+    	}
+    	dir := t.TempDir()
+    	if err := Prepare(task, VariantSignatures, "../../generators", dir); err != nil {
+    		t.Fatal(err)
+    	}
+    	mod, err := os.ReadFile(filepath.Join(dir, "go.mod"))
+    	if err != nil || !strings.Contains(string(mod), "module design/ok") {
+    		t.Fatalf("go.mod = %q, %v", mod, err)
+    	}
+    	for _, f := range []string{"ctx.go", "PROMPT.md", "generators/go/sedum.yaml", "provenance/design-ok-signatures.yml"} {
+    		if _, err := os.Stat(filepath.Join(dir, f)); err != nil {
+    			t.Errorf("missing %s: %v", f, err)
+    		}
+    	}
+    	rec, err := os.ReadFile(filepath.Join(dir, "provenance", "design-ok-signatures.yml"))
+    	if err != nil {
+    		t.Fatal(err)
+    	}
+    	for _, want := range []string{"status: open", "intent: s", "- a.go"} {
+    		if !strings.Contains(string(rec), want) {
+    			t.Errorf("record lacks %q:\n%s", want, rec)
+    		}
+    	}
+    	if _, err := os.Stat(filepath.Join(dir, "a_test.go")); err == nil {
+    		t.Fatal("the hidden test must not be written before grading")
+    	}
+    	if err := Prepare(task, "nope", "../../generators", t.TempDir()); err == nil {
+    		t.Fatal("an unknown variant must be an error")
+    	}
+    }
+
+    New file evals/design/grade.go (package design); TRANSCRIBE, do not design: write exactly the code below. Imports (os, os/exec, path/filepath): one addImport each. Declarations: one invocation per declaration (type -> setType, const -> setConst, func -> setFunction, method -> setMethod with the receiver type name), code = the whole declaration including its doc comment, exactly as written, tabs for indentation, no changes of any kind.
+
+    // tail keeps the last n bytes of s.
+    func tail(s string, n int) string {
+    	if len(s) <= n {
+    		return s
+    	}
+    	return s[len(s)-n:]
+    }
+
+    // Grade checks what a grow left in dir. It runs go build, which is
+    // "compiled"; then copies the task's hidden tests in and runs go test, which
+    // is "passed". The returned output is the tail of whatever failed.
+    func Grade(t Task, dir string) (compiled, passed bool, output string, err error) {
+    	run := func(args ...string) (string, error) {
+    		cmd := exec.Command("go", args...)
+    		cmd.Dir = dir
+    		out, err := cmd.CombinedOutput()
+    		return string(out), err
+    	}
+    	if out, err := run("build", "./..."); err != nil {
+    		return false, false, tail(out, 2000), nil
+    	}
+    	compiled = true
+    	for _, f := range t.Hidden {
+    		data, err := os.ReadFile(filepath.Join(t.Dir, "hidden", f))
+    		if err != nil {
+    			return compiled, false, "", err
+    		}
+    		if err := os.WriteFile(filepath.Join(dir, f), data, 0o644); err != nil {
+    			return compiled, false, "", err
+    		}
+    	}
+    	out, testErr := run("test", "-count=1", "./...")
+    	if testErr != nil {
+    		return compiled, false, tail(out, 2000), nil
+    	}
+    	return compiled, true, "", nil
+    }
+  affected_scope:
+    - evals/design/prepare.go
+    - evals/design/grade.go
+    - evals/design/prepare_test.go
+  implements: prov-2026-d694c4c4
+  implements_version: 1
+  associated_specs:
+    - path: evals/design/prepare_test.go
