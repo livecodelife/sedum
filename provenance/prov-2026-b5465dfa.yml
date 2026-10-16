@@ -1,6 +1,6 @@
 id: prov-2026-b5465dfa
 title: The integration surface must be sufficient without linking
-status: open
+status: implemented
 version: 3
 reason: Spec files edited by the merge of orphan-summary and replay-restamp; refresh its hash
 created_at: "2026-08-14"
@@ -223,7 +223,7 @@ related:
   - prov-2026-59535684
   - prov-2026-72775ae5
   - prov-2026-dc227be7
-sealed_at_sha: ""
+sealed_at_sha: d86e436703a8be1d66224582caafc0aa74bd535e
 associated_specs:
   # Two halves. The doc specs follow prov-2026-59535684: the proof asserts the
   # claims landed rather than that the files exist, so a rewording that drops
