@@ -1,0 +1,61 @@
+id: prov-2026-1e485f36
+version: 2
+content_hash: sha256:8812dd87a04be6adb2d2e2970c3cbefe53f4415176602930ebdb34aafe087e66
+parent_hash: sha256:52611658a5622ef5f6f9476c7eac82585e351b0e8dd75a3dd77ce8d552e5157e
+reason: Write the non-ASCII test bytes as Go escapes; a literal U+2028 in the intent was turned into a newline
+author: calebcowen@gmail.com
+created_at: "2026-10-16T03:45:34Z"
+spec_hashes:
+  - sha256:10bc1c4d85d0c931a2fed6f2e5fa96edebf1d26b29125f0af5dc069b207a01e9
+content:
+  id: prov-2026-1e485f36
+  title: 'go: internal/genpkg/pkgcanonical_test.go, the byte-identity tests for pkg/1'
+  type: imprint
+  created_at: "2026-10-15"
+  author: calebcowen@gmail.com
+  intent: |-
+    The tests of internal/genpkg/pkgcanonical_test.go (go package, package genpkg): the bytes record.Canonical writes for every kind of kwarg default, and the error for an unhashable one.
+
+    Imports, each its own addImport, exactly: strings, testing, github.com/livecodelife/provenance/record.
+
+    Declarations, in this order, each exactly one set* call whose code kwarg is the code below verbatim (gofmt-formatted, comments kept). Do not alter, reorder or add anything.
+
+      - setFunction name TestPkgCanonicalBytes, code exactly:
+          // TestPkgCanonicalBytes pins the bytes record.Canonical writes for every kind
+          // of value a kwarg default can carry. The want string is what Sedum's own
+          // encoder wrote before pkg/1 moved to the library's, captured while both
+          // existed, so a difference here is a change to every pkg hash.
+          func TestPkgCanonicalBytes(t *testing.T) {
+          	value := map[string]any{
+          		"s": "plain", "e": "", "n": nil, "t": true, "f": false,
+          		"i": 3, "neg": -7, "i64": int64(9007199254740993), "u": uint64(18446744073709551615),
+          		"l":      []any{"a", "", nil, true, 0, -1, []any{}},
+          		"q":      "quote\" back\\ ctl\x01 nl\n uni\u00e9 \u2028",
+          		"m":      map[string]any{"z": 1, "a": map[string]any{}},
+          		"emptyl": []any{},
+          	}
+          	want := "{\"e\":\"\",\"emptyl\":[],\"f\":false,\"i\":3,\"i64\":9007199254740993,\"l\":[\"a\",\"\",null,true,0,-1,[]],\"m\":{\"a\":{},\"z\":1},\"n\":null,\"neg\":-7,\"q\":\"quote\\\" back\\\\ ctl\\u0001 nl\\u000a uni\u00e9 \u2028\",\"s\":\"plain\",\"t\":true,\"u\":18446744073709551615}"
+          	if got := record.Canonical(value); got != want {
+          		t.Errorf("record.Canonical differs from the pkg/1 bytes\n got: %s\nwant: %s", got, want)
+          	}
+          }
+
+      - setFunction name TestPkgCanonicalUnhashable, code exactly:
+          // TestPkgCanonicalUnhashable checks that a default the library cannot encode
+          // comes back as an error naming the package and action, never as a panic.
+          func TestPkgCanonicalUnhashable(t *testing.T) {
+          	pkg := &Package{Name: "p"}
+          	action := &Action{Name: "a", Kwargs: map[string]Kwarg{"x": {Type: "int", Default: 1.5}}}
+          	_, err := pkgCanonical(pkg, action)
+          	if err == nil || !strings.Contains(err.Error(), "package p: action a: cannot be hashed") {
+          		t.Fatalf("pkgCanonical error = %v, want one naming package p, action a and cannot be hashed", err)
+          	}
+          }
+  affected_scope:
+    - internal/genpkg/pkgcanonical_test.go
+  implements: prov-2026-019c616e
+  implements_version: 1
+  associated_specs:
+    - path: conformance/pkghash/cases.json
+  tags:
+    - canonical

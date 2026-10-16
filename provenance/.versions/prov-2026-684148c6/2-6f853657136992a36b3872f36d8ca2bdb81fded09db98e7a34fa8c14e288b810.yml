@@ -1,0 +1,60 @@
+id: prov-2026-684148c6
+version: 2
+content_hash: sha256:6f853657136992a36b3872f36d8ca2bdb81fded09db98e7a34fa8c14e288b810
+parent_hash: sha256:5d59fc83637990cc90cb30c888031c25819eee092b8937ed7773e2f3b5fe43d7
+reason: Spec file edited under prov-2026-019c616e (exclude_paths, .gitignore); refresh its hash
+author: calebcowen@gmail.com
+created_at: "2026-10-16T03:43:49Z"
+spec_hashes:
+  - sha256:f03bfd4587a862125f25700bf709b6e4101561872ed29ceb47d96dbbdd56e295
+content:
+  id: prov-2026-684148c6
+  title: The scope index is derived state, not a tracked artifact
+  type: blueprint
+  created_at: "2026-08-15"
+  author: calebcowen@gmail.com
+  intent: |
+    `.linespec/scope-index.json` was tracked, and it is a cache. LineSpec
+    re-derives it on every `provenance next` and on `reconcile`, so it changed
+    under every command that read it and arrived in `git status` as a modification
+    nobody made - it showed up dirty in the middle of the sample-size work
+    ([[prov-2026-3039750e]]) for exactly that reason.
+
+    ## Why it is not just noise
+
+    A derived file that is tracked conflicts on every branch that touches
+    different files, and the merge is meaningless in both directions: whichever
+    side wins, the next command rewrites it. It also makes an eval entry's `clean`
+    flag lie. The harness records whether the tree was dirty because that is what
+    says a number is re-runnable from its commit
+    ([[prov-2026-eb283c56]]), and a cache that dirties itself makes every entry
+    read as not re-runnable whether or not anything real was edited.
+
+    ## The rule this states
+
+    The provenance graph is the tracked thing. `provenance/*.yml` is the source,
+    and `.linespec/hash_manifest.json` stays tracked because it is a checked-in
+    attestation over that source rather than a scan result. Anything LineSpec can
+    rebuild from the records without asking is not committed.
+
+    The ignore rule already existed and named `.linespec/scope-index.yml`, a file
+    this repository has never had - so it matched nothing, and the JSON form was
+    tracked by omission rather than by decision.
+  constraints:
+    - Derived LineSpec state is ignored, never tracked. The records under provenance/ are the source, and anything rebuilt from them by next, reconcile or compile is a cache.
+    - The hash manifest stays tracked. It is an attestation over the records rather than a scan of the working tree, and untracking it would remove the check rather than the noise.
+    - An ignore rule names a path that exists. The rule this replaces named a .yml file that was never written here, so it silently covered nothing.
+  affected_scope:
+    - .gitignore
+    - .linespec/**
+  implements: prov-2026-d554bfc3
+  implements_version: 1
+  related:
+    - prov-2026-3039750e
+    - prov-2026-eb283c56
+  associated_specs:
+    - path: .gitignore
+  tags:
+    - sedum
+    - provenance
+    - repo

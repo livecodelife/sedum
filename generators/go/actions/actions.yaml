@@ -1,0 +1,71 @@
+actions:
+  # A generic Go package for one-off code: each action writes one whole
+  # top-level declaration the model supplies as Go source, into the file its
+  # `file` kwarg names. Identity is the file and the declared name, so a record
+  # that revises a function replaces it in place (prov-2026-5403d162).
+  #
+  # Every kwarg is required. An optional kwarg invites a model to fill what
+  # nobody asked for, and nothing here has a sensible default.
+  setFunction:
+    description: Defines one top-level function, replacing an earlier version of it.
+    kwargs:
+      file: { type: string, required: true, description: "The Go file to write into. It must be one of the authorized files." }
+      name: { type: string, required: true, description: "The function's name." }
+      code: { type: literal, required: true, description: "The whole function declaration, signature and body, as gofmt-formatted Go." }
+    injects_into: "{{file}}"
+    anchor: decls
+    identity: [file, name]
+
+  setMethod:
+    description: Defines one method, replacing an earlier version of it.
+    kwargs:
+      file: { type: string, required: true, description: "The Go file to write into. It must be one of the authorized files." }
+      receiver: { type: string, required: true, description: "The receiver's type name, without a pointer star." }
+      name: { type: string, required: true, description: "The method's name." }
+      code: { type: literal, required: true, description: "The whole method declaration, receiver, signature and body, as gofmt-formatted Go." }
+    injects_into: "{{file}}"
+    anchor: decls
+    identity: [file, receiver, name]
+
+  setType:
+    description: Defines one named type, replacing an earlier version of it.
+    kwargs:
+      file: { type: string, required: true, description: "The Go file to write into. It must be one of the authorized files." }
+      name: { type: string, required: true, description: "The type's name." }
+      code: { type: literal, required: true, description: "The whole type declaration, as gofmt-formatted Go." }
+    injects_into: "{{file}}"
+    anchor: decls
+    identity: [file, name]
+
+  setVar:
+    description: Defines one package-level variable, replacing an earlier version of it.
+    kwargs:
+      file: { type: string, required: true, description: "The Go file to write into. It must be one of the authorized files." }
+      name: { type: string, required: true, description: "The variable's name." }
+      code: { type: literal, required: true, description: "The whole var declaration, as gofmt-formatted Go." }
+    injects_into: "{{file}}"
+    anchor: decls
+    identity: [file, name]
+
+  setConst:
+    description: Defines one package-level constant, replacing an earlier version of it.
+    kwargs:
+      file: { type: string, required: true, description: "The Go file to write into. It must be one of the authorized files." }
+      name: { type: string, required: true, description: "The constant's name." }
+      code: { type: literal, required: true, description: "The whole const declaration, as gofmt-formatted Go." }
+    injects_into: "{{file}}"
+    anchor: decls
+    identity: [file, name]
+
+  # One import declaration per region rather than a line inside an import
+  # block: gofmt indents a comment inside a block differently depending on
+  # whether the block holds an import, so no marker layout inside one is
+  # gofmt-clean both before and after the first import.
+  addImport:
+    description: Imports one package.
+    kwargs:
+      file: { type: string, required: true, description: "The Go file to write into. It must be one of the authorized files." }
+      path: { type: string, required: true, description: "The import path." }
+    injects_into: "{{file}}"
+    anchor: imports
+    identity: [file, path]

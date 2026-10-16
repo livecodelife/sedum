@@ -1,0 +1,38 @@
+id: prov-2026-019c616e
+version: 1
+content_hash: sha256:bd85ea9acf8ce2a7062eb98bc21dae39a078300c0ed62d05f4c7dd42b971ba61
+parent_hash: ""
+reason: ""
+author: calebcowen@gmail.com
+created_at: "2026-10-16T03:42:45Z"
+spec_hashes:
+  - sha256:10bc1c4d85d0c931a2fed6f2e5fa96edebf1d26b29125f0af5dc069b207a01e9
+content:
+  id: prov-2026-019c616e
+  title: genpkg's pkg encoder is the library's record.Canonical
+  type: blueprint
+  created_at: "2026-10-15"
+  author: calebcowen@gmail.com
+  intent: |-
+    Phase 2 of DESIGN made gen_hash the library's. pkg/1 still carries its own ~80-line encoder (writeCanonical, writeCanonicalString in internal/genpkg/pkghash.go) because the library's Canonical lacked bool and ints. prov-lib added both (provenance 3cb3faf: bool in a97dbeb, int/int64/uint64 in 3cb3faf, floats still rejected). Caleb/provisio-mgr (#provisio, 2026-10-15): switch genpkg to the library's encoder and drop the copy, grown with sedum.
+
+    ## Change
+    - pkgCanonical hands its object to record.Canonical instead of writeCanonical; stampPkgHashes is otherwise unchanged. writeCanonical and writeCanonicalString are removed, along with the imports they alone used.
+    - record.Canonical panics on a value it cannot encode where writeCanonical returned an error. pkgCanonical recovers that panic and returns it as the same kind of error ("a value of type ... cannot be hashed"), so a load never panics. Load validation already limits kwarg defaults to string, int, bool and list (defaultTypeOf), so the error stays unreachable for a valid package.
+    - go.mod/go.sum move the library to 3cb3faf.
+    - .provenance.yml gains `testdata/generators/**` in exclude_paths (Caleb: generator packages are exempt from provenance).
+
+    ## Behaviour: none
+    pkg/1 hashes stay byte-identical. Proof: the conformance/pkghash corpus (canonical bytes and pkg hash per case) passes unchanged, plus one new test that encodes kwarg defaults of every legal type (string, empty string, nil, bool, int, negative int, list mixing them) through the library and compares to the old encoder's bytes, captured as literals before the encoder is deleted. pkgFormat stays "sedum.pkg/1" because nothing about the encoding changes.
+
+    ## Generate first
+    The edits are grown with sedum's go package (setFunction for pkgCanonical, a deletion by pruning the region that owned each removed function), context from .sedum/context.md via --prompt-file. pkghash.go is handwritten today, so the file is first brought under records (anchors reconciled as Phase 3 does) and its remaining functions are reproduced verbatim. Model calls go through ~/workspace/.herd/sedum-haiku only.
+  affected_scope:
+    - internal/genpkg/pkghash.go
+    - internal/genpkg/pkghash_test.go
+    - go.mod
+    - go.sum
+    - testdata/generators/**
+    - internal/genpkg/pkgcanonical_test.go
+  associated_specs:
+    - path: conformance/pkghash/cases.json

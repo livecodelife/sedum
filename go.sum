@@ -5,6 +5,8 @@ github.com/inconshreveable/mousetrap v1.1.0 h1:wN+x4NVGpMsO7ErUn/mUI3vEoE6Jt13X2
 github.com/inconshreveable/mousetrap v1.1.0/go.mod h1:vpF70FUmC8bwa3OWnCshd2FqLfsEA9PFc4w1p2J65bw=
 github.com/livecodelife/provenance v0.0.0-20261016004733-69bef6526acd h1:j2troFeb9G03pbHFRv7ZnsgIq3Ndz8aqAt04YO9tNTA=
 github.com/livecodelife/provenance v0.0.0-20261016004733-69bef6526acd/go.mod h1:fnceOQE6HA2sohFCYhlOXLj2vbbDOB0eHm++DCbJ5oU=
+github.com/livecodelife/provenance v0.0.0-20261016034035-3cb3faf4a887 h1:I9tquoR/XMSuW3B+XN5A6he9U2uDVGt8vhWAkpMj+yM=
+github.com/livecodelife/provenance v0.0.0-20261016034035-3cb3faf4a887/go.mod h1:fnceOQE6HA2sohFCYhlOXLj2vbbDOB0eHm++DCbJ5oU=
 github.com/russross/blackfriday/v2 v2.1.0/go.mod h1:+Rmxgy9KzJVeS9/2gXHxylqXiyQDYRxCVz55jmeOWTM=
 github.com/sashabaranov/go-openai v1.42.0 h1:fgeZx7/D8dRT//PwXAGe9ylOMtj6vrs999uWF71K+f8=
 github.com/sashabaranov/go-openai v1.42.0/go.mod h1:lj5b/K+zjTSFxVLijLSTDZuP7adOgerWeFyZLUhAKRg=
