@@ -2,8 +2,8 @@ id: prov-2026-36809902
 title: 'Sedum adopt stage 2: built-in Go adopter'
 type: blueprint
 status: open
-version: 1
-reason: ""
+version: 2
+reason: 'lint: glob scopes, a spec, and no implements on a blueprint'
 created_at: "2026-10-16"
 author: unknown@example.com
 intent: |-
@@ -44,15 +44,15 @@ intent: |-
   normalize, build tags and package docs as headers (a later setHeader), the skill/plugin (stage 3), the grow log.
 constraints: []
 affected_scope:
-  - internal/adopt/
-  - internal/genpkg/
-  - internal/builtin/
+  - internal/adopt/**
+  - internal/genpkg/**
+  - internal/builtin/**
 forbidden_scope: []
-implements: prov-2026-95d9ae7e
-implements_version: 2
 related: []
 sealed_at_sha: ""
-associated_specs: []
+associated_specs:
+  - path: internal/adopt/go_blueprint_test.go
+    run_command: go test ./internal/adopt -count=1
 associated_traces: []
 monitors: []
 tags: []
