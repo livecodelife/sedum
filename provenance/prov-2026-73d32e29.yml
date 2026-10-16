@@ -1,6 +1,6 @@
 id: prov-2026-73d32e29
 title: A package can declare anchors completeness never asks about
-status: open
+status: implemented
 created_at: "2026-10-15"
 author: calebcowen@gmail.com
 intent: |
@@ -36,7 +36,7 @@ implements: prov-2026-5403d162
 supersedes: ""
 superseded_by: ""
 related: []
-sealed_at_sha: ""
+sealed_at_sha: 66e8d942a886c2554bee172af098c8d7a092d72d
 associated_specs:
   - path: internal/pipeline/gopkg_test.go
     run_command: go test ./$(dirname {{path}})
