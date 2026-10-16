@@ -2,8 +2,8 @@ id: prov-2026-8394826c
 title: A path no template matches fails with a clear error and leaves no stray file
 type: blueprint
 status: open
-version: 2
-reason: imprint 7a9b82ae grew tests into the placeholder spec
+version: 3
+reason: imprint 2558649d grew its tests into the placeholder spec
 created_at: "2026-10-16"
 author: calebcowen@gmail.com
 intent: |
