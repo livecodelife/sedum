@@ -38,8 +38,10 @@ constraints:
   - go/parser and go/ast only; no go/types, no build, no external program.
   - Never flag what the compiler accepts - blank identifiers, parameters, named results, package-level names, blank and dot imports, an import whose name cannot be inferred - so a correct answer is never re-prompted.
   - A violation names the identifier and its line.
+  - "Guard, from provisio-mgr: the provenance CLI's grown cmd/provenance files at provenance@658d54b, which compile, are a fixture the full go checker must accept without a single finding."
 affected_scope:
   - internal/syntax/*.go
+  - internal/syntax/testdata/**
   - internal/pipeline/*_test.go
   - PRD.md
 forbidden_scope: []
@@ -50,7 +52,9 @@ related:
   - prov-2026-5403d162
   - prov-2026-0ce03d1c
 sealed_at_sha: ""
-associated_specs: []
+associated_specs:
+  - path: internal/syntax/syntax_test.go
+    run_command: go test -count=1 ./$(dirname {{path}})
 associated_traces: []
 monitors: []
 tags: []
