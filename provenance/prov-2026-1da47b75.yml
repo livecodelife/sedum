@@ -1,7 +1,7 @@
 id: prov-2026-1da47b75
 title: sedum generators install vendors a package with a go.mod boundary
 type: blueprint
-status: open
+status: implemented
 version: 6
 reason: the go package gains setImports, a root template and the builtin adopt key; go.zip is regenerated from generators/go
 created_at: "2026-10-16"
@@ -86,7 +86,7 @@ affected_scope:
   - generators/go/
 forbidden_scope: []
 related: []
-sealed_at_sha: ""
+sealed_at_sha: 4386a213c26663f72fb5bf786824ed0651afd206
 associated_specs:
   - path: internal/builtin/builtin_test.go
     run_command: go test ./internal/builtin -count=1
