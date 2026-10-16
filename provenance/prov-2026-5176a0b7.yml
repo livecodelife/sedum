@@ -1,0 +1,243 @@
+id: prov-2026-5176a0b7
+title: 'go: internal/pipeline/restamp_test.go, tests for replay restamp and reconcile'
+type: imprint
+status: implemented
+version: 2
+reason: Spec file edited under prov-2026-c637c262; refresh its hash
+created_at: "2026-10-16"
+author: calebcowen@gmail.com
+intent: |
+  The tests of internal/pipeline/restamp_test.go (go package, package pipeline): --restamp-gen, complete and partial recording reconcile, and the replay check verdict. The file already exists holding only its package clause.
+
+  Imports, each its own addImport, exactly: path/filepath, strings, testing, github.com/livecodelife/sedum/internal/inject.
+
+  Declarations, in this order, each exactly one set* call whose code kwarg is the code below verbatim (gofmt-formatted, comments kept). Do not alter, reorder or add anything.
+
+    - setFunction name editedRecords, code exactly:
+        // editedRecords is the record the recordings below were made from, edited
+        // since: same id and scope, a new intent, so a new gen.
+        func editedRecords(t *testing.T) string {
+        	t.Helper()
+        	return writeTree(t, map[string]string{
+        		"prov-2026-aaaaaaaa.yml": "id: prov-2026-aaaaaaaa\nintent: |\n  Something else.\naffected_scope:\n  - app/models/user.rb\n",
+        	})
+        }
+
+    - setFunction name userFile, code exactly:
+        // userFile is the one file every recording below writes.
+        func userFile(t *testing.T, output string) string {
+        	t.Helper()
+        	return readFile(t, filepath.Join(output, "app", "models", "user.rb"))
+        }
+
+    - setFunction name TestRestampGenTakesTheCurrentGen, code exactly:
+        func TestRestampGenTakesTheCurrentGen(t *testing.T) {
+        	cfg := config(t)
+        	cfg.Client = &stub{response: withField}
+        	rec, grown := recorded(t, cfg)
+        	recordedGen := markerGen(t, grown)
+
+        	rcfg := replayConfig(t, cfg)
+        	rcfg.Records = editedRecords(t)
+        	rcfg.RestampGen = true
+        	result, err := Replay(rec, rcfg)
+        	if err != nil {
+        		t.Fatalf("Replay: %v", err)
+        	}
+        	current := result.Records.Records[0].Gen
+        	if current == recordedGen {
+        		t.Fatal("the edited record hashes the same as the original")
+        	}
+        	if got := markerGen(t, rcfg.Output); got != current {
+        		t.Errorf("gen = %q, want the current record's %q", got, current)
+        	}
+        	if len(result.Restamps) != 1 || result.Restamps[0].Old != recordedGen || result.Restamps[0].New != current {
+        		t.Errorf("Restamps = %+v, want one from %q to %q", result.Restamps, recordedGen, current)
+        	}
+
+        	plain := replayConfig(t, cfg)
+        	plain.Records = rcfg.Records
+        	if _, err := Replay(rec, plain); err != nil {
+        		t.Fatalf("Replay without the flag: %v", err)
+        	}
+        	if got := markerGen(t, plain.Output); got != recordedGen {
+        		t.Errorf("without --restamp-gen the gen = %q, want the recorded %q", got, recordedGen)
+        	}
+        }
+
+    - setFunction name TestRestampGenNeedsRecords, code exactly:
+        func TestRestampGenNeedsRecords(t *testing.T) {
+        	cfg := config(t)
+        	cfg.Client = &stub{response: withField}
+        	rec, _ := recorded(t, cfg)
+
+        	rcfg := replayConfig(t, cfg)
+        	rcfg.RestampGen = true
+        	if _, err := Replay(rec, rcfg); err == nil || !strings.Contains(err.Error(), "--records") {
+        		t.Fatalf("Replay error = %v, want one naming --records", err)
+        	}
+        }
+
+    - setFunction name TestRestampGenSkipsARecordThatIsNotCurrent, code exactly:
+        func TestRestampGenSkipsARecordThatIsNotCurrent(t *testing.T) {
+        	cfg := config(t)
+        	cfg.Client = &stub{response: withField}
+        	rec, grown := recorded(t, cfg)
+
+        	rcfg := replayConfig(t, cfg)
+        	rcfg.RestampGen = true
+        	rcfg.Records = writeTree(t, map[string]string{
+        		"prov-2026-bbbbbbbb.yml": "id: prov-2026-bbbbbbbb\nintent: |\n  Another record.\naffected_scope:\n  - app/models/user.rb\n",
+        	})
+        	result, err := Replay(rec, rcfg)
+        	if err != nil {
+        		t.Fatalf("Replay: %v", err)
+        	}
+        	if len(result.Restamps) != 0 {
+        		t.Errorf("Restamps = %+v, want none for a record the records directory lacks", result.Restamps)
+        	}
+        	if got, want := markerGen(t, rcfg.Output), markerGen(t, grown); got != want {
+        		t.Errorf("gen = %q, want the recorded %q", got, want)
+        	}
+        }
+
+    - setFunction name TestRestampCompleteRecordingPrunesWhatItNoLongerSelects, code exactly:
+        func TestRestampCompleteRecordingPrunesWhatItNoLongerSelects(t *testing.T) {
+        	cfg := config(t)
+        	cfg.Client = &stub{response: withField}
+        	rec, _ := recorded(t, cfg)
+
+        	rcfg := replayConfig(t, cfg)
+        	if _, err := Replay(rec, rcfg); err != nil {
+        		t.Fatalf("first Replay: %v", err)
+        	}
+        	if !strings.Contains(userFile(t, rcfg.Output), "email") {
+        		t.Fatalf("the first replay wrote no email region:\n%s", userFile(t, rcfg.Output))
+        	}
+
+        	rec.Complete = true
+        	rec.Records[0].Phases[0].Invocations[0].Kwargs["field"] = "name"
+        	result, err := Replay(rec, rcfg)
+        	if err != nil {
+        		t.Fatalf("second Replay: %v", err)
+        	}
+        	content := userFile(t, rcfg.Output)
+        	if strings.Contains(content, "email") || !strings.Contains(content, "name") {
+        		t.Errorf("a complete recording should leave only the name region:\n%s", content)
+        	}
+        	var pruned int
+        	for _, r := range result.Injections {
+        		if r.Pruned {
+        			pruned++
+        		}
+        	}
+        	if pruned != 1 {
+        		t.Errorf("%d region(s) pruned, want 1", pruned)
+        	}
+        }
+
+    - setFunction name TestRestampPartialRecordingReportsWhatItNoLongerSelects, code exactly:
+        func TestRestampPartialRecordingReportsWhatItNoLongerSelects(t *testing.T) {
+        	cfg := config(t)
+        	cfg.Client = &stub{response: withField}
+        	rec, _ := recorded(t, cfg)
+
+        	rcfg := replayConfig(t, cfg)
+        	if _, err := Replay(rec, rcfg); err != nil {
+        		t.Fatalf("first Replay: %v", err)
+        	}
+
+        	rec.Records[0].Phases[0].Invocations[0].Kwargs["field"] = "name"
+        	result, err := Replay(rec, rcfg)
+        	if err != nil {
+        		t.Fatalf("second Replay: %v", err)
+        	}
+        	content := userFile(t, rcfg.Output)
+        	if !strings.Contains(content, "email") || !strings.Contains(content, "name") {
+        		t.Errorf("a partial recording must prune nothing:\n%s", content)
+        	}
+        	var unselected int
+        	for _, r := range result.Injections {
+        		if r.Unselected {
+        			unselected++
+        		}
+        	}
+        	if unselected != 1 {
+        		t.Errorf("%d region(s) unselected, want 1", unselected)
+        	}
+        }
+
+    - setFunction name TestRestampReplayWouldChangeSeesAStaleGenAndAStrayRegion, code exactly:
+        func TestRestampReplayWouldChangeSeesAStaleGenAndAStrayRegion(t *testing.T) {
+        	cfg := config(t)
+        	cfg.Client = &stub{response: withField}
+        	rec, _ := recorded(t, cfg)
+
+        	rcfg := replayConfig(t, cfg)
+        	if _, err := Replay(rec, rcfg); err != nil {
+        		t.Fatalf("first Replay: %v", err)
+        	}
+        	before := userFile(t, rcfg.Output)
+
+        	dry := rcfg
+        	dry.DryRun = true
+        	same, err := Replay(rec, dry)
+        	if err != nil {
+        		t.Fatalf("dry Replay: %v", err)
+        	}
+        	if ReplayWouldChange(same.Injections) {
+        		t.Error("replaying the recording over its own output should change nothing")
+        	}
+
+        	restamp := dry
+        	restamp.Records = editedRecords(t)
+        	restamp.RestampGen = true
+        	moved, err := Replay(rec, restamp)
+        	if err != nil {
+        		t.Fatalf("dry restamping Replay: %v", err)
+        	}
+        	if !ReplayWouldChange(moved.Injections) {
+        		t.Error("a restamp to a new gen should be a change")
+        	}
+
+        	rec.Records[0].Phases[0].Invocations[0].Kwargs["field"] = "name"
+        	stray, err := Replay(rec, dry)
+        	if err != nil {
+        		t.Fatalf("dry Replay of the edited recording: %v", err)
+        	}
+        	if !ReplayWouldChange(stray.Injections) {
+        		t.Error("a new region beside the old one should be a change")
+        	}
+        	if userFile(t, rcfg.Output) != before {
+        		t.Error("a dry replay wrote to the tree")
+        	}
+        	if got := ReplayWouldChange([]inject.Result{{Skipped: true}}); got {
+        		t.Error("a seeded region left as it is is not a change")
+        	}
+        }
+
+    - setFunction name TestRestampStringShortensBothGens, code exactly:
+        func TestRestampStringShortensBothGens(t *testing.T) {
+        	r := Restamp{RecordID: "prov-2026-aaaaaaaa", Old: "sha256:0123456789abcdef", New: "sha256:fedcba9876543210"}
+        	if got, want := r.String(), "restamped prov-2026-aaaaaaaa: gen 01234567 -> fedcba98"; got != want {
+        		t.Errorf("String() = %q, want %q", got, want)
+        	}
+        	if got := (Restamp{RecordID: "x", New: "sha256:abcdef0123"}).String(); !strings.Contains(got, "none -> abcdef01") {
+        		t.Errorf("String() = %q, want the empty old gen shown as none", got)
+        	}
+        }
+constraints: []
+affected_scope:
+  - internal/pipeline/restamp_test.go
+forbidden_scope: []
+implements: prov-2026-c637c262
+implements_version: 1
+related: []
+sealed_at_sha: 70f6d728dd2f489a95af6905e9a2706bbf357323
+associated_specs:
+  - path: internal/pipeline/restamp_test.go
+    run_command: go test ./internal/pipeline -count=1 -run 'Restamp'
+associated_traces: []
+monitors: []
+tags:
+  - restamp
