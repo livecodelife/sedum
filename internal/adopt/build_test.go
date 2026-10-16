@@ -27,137 +27,124 @@ import "github.com/livecodelife/sedum/internal/recording"
 // /sedum:addImport
 
 // sedum:anchor:decls
-// sedum:setFunction {"tier":"owned","record":"prov-2026-1e4a5690","gen":"sha256:dbab15369269c23a1776e610ab2bf128764a026cc1647f1f7b74bc855cc4a4c7","pkg":"sha256:6589611adfb6618a7920e43f951a79901428192ea95c1084fde9f222aecd9537","kwargs":{"code":"func TestBuildRecordingTwoFiles(t *testing.T) {\n\tpkg := &genpkg.Package{Name: \"py\", Extensions: []string{\".py\"}}\n\trec := &record.Record{ID: \"imp-1\", Gen: \"sha256:aa\", CreatedAt: \"2026-10-16\"}\n\titems := []Adopted{\n\t\t{Candidate: Candidate{Path: \"b.py\", Package: pkg, Template: \"t\", Record: rec}, Spans: []Span{\n\t\t\t{Kind: KindHeader, Text: \"# b\\n\"},\n\t\t\t{Kind: KindUnit, Text: \"b1\", Action: \"b1\", Kwargs: map[string]any{\"name\": \"b1\"}},\n\t\t\t{Kind: KindUnit, Text: \"b2\", Action: \"b2\", Kwargs: map[string]any{\"name\": \"b2\"}},\n\t\t}},\n\t\t{Candidate: Candidate{Path: \"a.py\", Package: pkg, Template: \"t\", Record: rec}, Spans: []Span{\n\t\t\t{Kind: KindHeader, Text: \"# a\\n\"},\n\t\t\t{Kind: KindUnit, Text: \"a1\", Action: \"a1\", Kwargs: map[string]any{\"name\": \"a1\"}},\n\t\t\t{Kind: KindUnit, Text: \"a2\", Action: \"a2\", Kwargs: map[string]any{\"name\": \"a2\"}},\n\t\t}},\n\t}\n\tgot, err := BuildRecording(items)\n\tif err != nil {\n\t\tt.Fatalf(\"BuildRecording: %v\", err)\n\t}\n\tif got.SedumVersion != recording.Version {\n\t\tt.Errorf(\"SedumVersion = %q, want %q\", got.SedumVersion, recording.Version)\n\t}\n\tif !reflect.DeepEqual(got.Packages[\"py\"].Extensions, []string{\".py\"}) {\n\t\tt.Errorf(\"Packages[py].Extensions = %v\", got.Packages[\"py\"].Extensions)\n\t}\n\tif len(got.Records) != 1 {\n\t\tt.Fatalf(\"got %d records, want 1\", len(got.Records))\n\t}\n\tr := got.Records[0]\n\tif r.RecordID != \"imp-1\" || r.Gen != \"sha256:aa\" || r.CreatedAt != \"2026-10-16\" {\n\t\tt.Errorf(\"record = %+v\", r)\n\t}\n\tif len(r.Files) != 2 || r.Files[0].Path != \"a.py\" || r.Files[1].Path != \"b.py\" {\n\t\tt.Fatalf(\"files = %+v, want a.py then b.py\", r.Files)\n\t}\n\tif len(r.Phases) != 1 || r.Phases[0].Name != recording.DefaultPhase {\n\t\tt.Fatalf(\"phases = %+v\", r.Phases)\n\t}\n\tvar acts []string\n\tfor _, inv := range r.Phases[0].Invocations {\n\t\tacts = append(acts, inv.Action)\n\t}\n\tif !reflect.DeepEqual(acts, []string{\"a1\", \"a2\", \"b1\", \"b2\"}) {\n\t\tt.Errorf(\"actions = %v\", acts)\n\t}\n}","file":"internal/adopt/build_test.go","name":"TestBuildRecordingTwoFiles"}}
+// sedum:setFunction {"tier":"owned","record":"prov-2026-1e4a5690","gen":"sha256:dbab15369269c23a1776e610ab2bf128764a026cc1647f1f7b74bc855cc4a4c7","pkg":"sha256:6589611adfb6618a7920e43f951a79901428192ea95c1084fde9f222aecd9537","kwargs":{"code":"func TestBuildRecordingTwoFiles(t *testing.T) {\n\tpkg := &genpkg.Package{Name: \"py\", Extensions: []string{\".py\"}}\n\trec := &record.Record{ID: \"imp-1\", Gen: \"sha256:aa\", CreatedAt: \"2026-10-16\"}\n\tmk := func(path string) Adopted {\n\t\treturn Adopted{\n\t\t\tCandidate: Candidate{Path: path, Package: pkg, Template: \"t\", Record: rec},\n\t\t\tSpans: []Span{\n\t\t\t\t{Kind: KindHeader, Text: \"# header\\n\"},\n\t\t\t\t{Kind: KindUnit, Text: \"a\", Action: \"one\", Kwargs: map[string]any{\"path\": path}},\n\t\t\t\t{Kind: KindUnit, Text: \"b\", Action: \"two\", Kwargs: map[string]any{\"path\": path}},\n\t\t\t},\n\t\t}\n\t}\n\tgot, err := BuildRecording([]Adopted{mk(\"b.py\"), mk(\"a.py\")})\n\tif err != nil {\n\t\tt.Fatal(err)\n\t}\n\tif got.SedumVersion != recording.Version {\n\t\tt.Errorf(\"version = %q\", got.SedumVersion)\n\t}\n\tif !reflect.DeepEqual(got.Packages[\"py\"].Extensions, []string{\".py\"}) {\n\t\tt.Errorf(\"extensions = %v\", got.Packages[\"py\"].Extensions)\n\t}\n\tif len(got.Records) != 1 {\n\t\tt.Fatalf(\"records = %d, want 1\", len(got.Records))\n\t}\n\tr := got.Records[0]\n\tif r.RecordID != \"imp-1\" || r.Gen != \"sha256:aa\" || r.CreatedAt != \"2026-10-16\" {\n\t\tt.Errorf(\"record = %+v\", r)\n\t}\n\tif len(r.Files) != 2 || r.Files[0].Path != \"a.py\" || r.Files[1].Path != \"b.py\" {\n\t\tt.Fatalf(\"files = %+v\", r.Files)\n\t}\n\tinv := r.Phases[0].Invocations\n\tif len(inv) != 4 {\n\t\tt.Fatalf(\"invocations = %d, want 4\", len(inv))\n\t}\n\twant := []struct{ path, action string }{{\"a.py\", \"one\"}, {\"a.py\", \"two\"}, {\"b.py\", \"one\"}, {\"b.py\", \"two\"}}\n\tfor i, w := range want {\n\t\tif inv[i].Action != w.action || inv[i].Kwargs[\"path\"] != w.path {\n\t\t\tt.Errorf(\"invocation %d = %+v\", i, inv[i])\n\t\t}\n\t}\n}","file":"internal/adopt/build_test.go","name":"TestBuildRecordingTwoFiles"}}
 func TestBuildRecordingTwoFiles(t *testing.T) {
 	pkg := &genpkg.Package{Name: "py", Extensions: []string{".py"}}
 	rec := &record.Record{ID: "imp-1", Gen: "sha256:aa", CreatedAt: "2026-10-16"}
-	items := []Adopted{
-		{Candidate: Candidate{Path: "b.py", Package: pkg, Template: "t", Record: rec}, Spans: []Span{
-			{Kind: KindHeader, Text: "# b\n"},
-			{Kind: KindUnit, Text: "b1", Action: "b1", Kwargs: map[string]any{"name": "b1"}},
-			{Kind: KindUnit, Text: "b2", Action: "b2", Kwargs: map[string]any{"name": "b2"}},
-		}},
-		{Candidate: Candidate{Path: "a.py", Package: pkg, Template: "t", Record: rec}, Spans: []Span{
-			{Kind: KindHeader, Text: "# a\n"},
-			{Kind: KindUnit, Text: "a1", Action: "a1", Kwargs: map[string]any{"name": "a1"}},
-			{Kind: KindUnit, Text: "a2", Action: "a2", Kwargs: map[string]any{"name": "a2"}},
-		}},
+	mk := func(path string) Adopted {
+		return Adopted{
+			Candidate: Candidate{Path: path, Package: pkg, Template: "t", Record: rec},
+			Spans: []Span{
+				{Kind: KindHeader, Text: "# header\n"},
+				{Kind: KindUnit, Text: "a", Action: "one", Kwargs: map[string]any{"path": path}},
+				{Kind: KindUnit, Text: "b", Action: "two", Kwargs: map[string]any{"path": path}},
+			},
+		}
 	}
-	got, err := BuildRecording(items)
+	got, err := BuildRecording([]Adopted{mk("b.py"), mk("a.py")})
 	if err != nil {
-		t.Fatalf("BuildRecording: %v", err)
+		t.Fatal(err)
 	}
 	if got.SedumVersion != recording.Version {
-		t.Errorf("SedumVersion = %q, want %q", got.SedumVersion, recording.Version)
+		t.Errorf("version = %q", got.SedumVersion)
 	}
 	if !reflect.DeepEqual(got.Packages["py"].Extensions, []string{".py"}) {
-		t.Errorf("Packages[py].Extensions = %v", got.Packages["py"].Extensions)
+		t.Errorf("extensions = %v", got.Packages["py"].Extensions)
 	}
 	if len(got.Records) != 1 {
-		t.Fatalf("got %d records, want 1", len(got.Records))
+		t.Fatalf("records = %d, want 1", len(got.Records))
 	}
 	r := got.Records[0]
 	if r.RecordID != "imp-1" || r.Gen != "sha256:aa" || r.CreatedAt != "2026-10-16" {
 		t.Errorf("record = %+v", r)
 	}
 	if len(r.Files) != 2 || r.Files[0].Path != "a.py" || r.Files[1].Path != "b.py" {
-		t.Fatalf("files = %+v, want a.py then b.py", r.Files)
+		t.Fatalf("files = %+v", r.Files)
 	}
-	if len(r.Phases) != 1 || r.Phases[0].Name != recording.DefaultPhase {
-		t.Fatalf("phases = %+v", r.Phases)
+	inv := r.Phases[0].Invocations
+	if len(inv) != 4 {
+		t.Fatalf("invocations = %d, want 4", len(inv))
 	}
-	var acts []string
-	for _, inv := range r.Phases[0].Invocations {
-		acts = append(acts, inv.Action)
-	}
-	if !reflect.DeepEqual(acts, []string{"a1", "a2", "b1", "b2"}) {
-		t.Errorf("actions = %v", acts)
-	}
-}
-
-// /sedum:setFunction
-// sedum:setFunction {"tier":"owned","record":"prov-2026-1e4a5690","gen":"sha256:dbab15369269c23a1776e610ab2bf128764a026cc1647f1f7b74bc855cc4a4c7","pkg":"sha256:6589611adfb6618a7920e43f951a79901428192ea95c1084fde9f222aecd9537","kwargs":{"code":"func TestBuildRecordingTwoRecords(t *testing.T) {\n\tpkg := &genpkg.Package{Name: \"py\", Extensions: []string{\".py\"}}\n\tr1 := &record.Record{ID: \"imp-1\"}\n\tr2 := &record.Record{ID: \"imp-2\"}\n\titems := []Adopted{\n\t\t{Candidate: Candidate{Path: \"z.py\", Package: pkg, Record: r2}, Spans: []Span{{Kind: KindUnit, Action: \"z\"}}},\n\t\t{Candidate: Candidate{Path: \"a.py\", Package: pkg, Record: r1}, Spans: []Span{{Kind: KindUnit, Action: \"a\"}}},\n\t}\n\tgot, err := BuildRecording(items)\n\tif err != nil {\n\t\tt.Fatalf(\"BuildRecording: %v\", err)\n\t}\n\tif len(got.Records) != 2 {\n\t\tt.Fatalf(\"got %d records, want 2\", len(got.Records))\n\t}\n\tif got.Records[0].RecordID != \"imp-1\" || got.Records[1].RecordID != \"imp-2\" {\n\t\tt.Errorf(\"record order = %s, %s\", got.Records[0].RecordID, got.Records[1].RecordID)\n\t}\n}","file":"internal/adopt/build_test.go","name":"TestBuildRecordingTwoRecords"}}
-func TestBuildRecordingTwoRecords(t *testing.T) {
-	pkg := &genpkg.Package{Name: "py", Extensions: []string{".py"}}
-	r1 := &record.Record{ID: "imp-1"}
-	r2 := &record.Record{ID: "imp-2"}
-	items := []Adopted{
-		{Candidate: Candidate{Path: "z.py", Package: pkg, Record: r2}, Spans: []Span{{Kind: KindUnit, Action: "z"}}},
-		{Candidate: Candidate{Path: "a.py", Package: pkg, Record: r1}, Spans: []Span{{Kind: KindUnit, Action: "a"}}},
-	}
-	got, err := BuildRecording(items)
-	if err != nil {
-		t.Fatalf("BuildRecording: %v", err)
-	}
-	if len(got.Records) != 2 {
-		t.Fatalf("got %d records, want 2", len(got.Records))
-	}
-	if got.Records[0].RecordID != "imp-1" || got.Records[1].RecordID != "imp-2" {
-		t.Errorf("record order = %s, %s", got.Records[0].RecordID, got.Records[1].RecordID)
-	}
-}
-
-// /sedum:setFunction
-// sedum:setFunction {"tier":"owned","record":"prov-2026-1e4a5690","gen":"sha256:dbab15369269c23a1776e610ab2bf128764a026cc1647f1f7b74bc855cc4a4c7","pkg":"sha256:6589611adfb6618a7920e43f951a79901428192ea95c1084fde9f222aecd9537","kwargs":{"code":"func TestBuildRecordingErrors(t *testing.T) {\n\tpkg := &genpkg.Package{Name: \"py\", Extensions: []string{\".py\"}}\n\trec := &record.Record{ID: \"imp-1\"}\n\ttests := []struct {\n\t\tname  string\n\t\titems []Adopted\n\t}{\n\t\t{\n\t\t\tname: \"no unit spans\",\n\t\t\titems: []Adopted{\n\t\t\t\t{Candidate: Candidate{Path: \"a.py\", Package: pkg, Record: rec}, Spans: []Span{{Kind: KindHeader, Text: \"x\"}}},\n\t\t\t},\n\t\t},\n\t\t{\n\t\t\tname: \"duplicate path\",\n\t\t\titems: []Adopted{\n\t\t\t\t{Candidate: Candidate{Path: \"a.py\", Package: pkg, Record: rec}, Spans: []Span{{Kind: KindUnit, Action: \"a\"}}},\n\t\t\t\t{Candidate: Candidate{Path: \"a.py\", Package: pkg, Record: rec}, Spans: []Span{{Kind: KindUnit, Action: \"a\"}}},\n\t\t\t},\n\t\t},\n\t}\n\tfor _, tc := range tests {\n\t\tif _, err := BuildRecording(tc.items); err == nil {\n\t\t\tt.Errorf(\"%s: want error, got nil\", tc.name)\n\t\t}\n\t}\n}","file":"internal/adopt/build_test.go","name":"TestBuildRecordingErrors"}}
-func TestBuildRecordingErrors(t *testing.T) {
-	pkg := &genpkg.Package{Name: "py", Extensions: []string{".py"}}
-	rec := &record.Record{ID: "imp-1"}
-	tests := []struct {
-		name  string
-		items []Adopted
-	}{
-		{
-			name: "no unit spans",
-			items: []Adopted{
-				{Candidate: Candidate{Path: "a.py", Package: pkg, Record: rec}, Spans: []Span{{Kind: KindHeader, Text: "x"}}},
-			},
-		},
-		{
-			name: "duplicate path",
-			items: []Adopted{
-				{Candidate: Candidate{Path: "a.py", Package: pkg, Record: rec}, Spans: []Span{{Kind: KindUnit, Action: "a"}}},
-				{Candidate: Candidate{Path: "a.py", Package: pkg, Record: rec}, Spans: []Span{{Kind: KindUnit, Action: "a"}}},
-			},
-		},
-	}
-	for _, tc := range tests {
-		if _, err := BuildRecording(tc.items); err == nil {
-			t.Errorf("%s: want error, got nil", tc.name)
+	want := []struct{ path, action string }{{"a.py", "one"}, {"a.py", "two"}, {"b.py", "one"}, {"b.py", "two"}}
+	for i, w := range want {
+		if inv[i].Action != w.action || inv[i].Kwargs["path"] != w.path {
+			t.Errorf("invocation %d = %+v", i, inv[i])
 		}
 	}
 }
 
 // /sedum:setFunction
-// sedum:setFunction {"tier":"owned","record":"prov-2026-1e4a5690","gen":"sha256:dbab15369269c23a1776e610ab2bf128764a026cc1647f1f7b74bc855cc4a4c7","pkg":"sha256:6589611adfb6618a7920e43f951a79901428192ea95c1084fde9f222aecd9537","kwargs":{"code":"func TestBuildRecordingRoundTripsThroughWrite(t *testing.T) {\n\tpkg := &genpkg.Package{Name: \"py\", Extensions: []string{\".py\"}}\n\trec := &record.Record{ID: \"imp-1\", Gen: \"sha256:aa\", CreatedAt: \"2026-10-16\"}\n\titems := []Adopted{\n\t\t{Candidate: Candidate{Path: \"b.py\", Package: pkg, Template: \"t\", Record: rec}, Spans: []Span{\n\t\t\t{Kind: KindHeader, Text: \"# b\\n\"},\n\t\t\t{Kind: KindUnit, Text: \"b1\", Action: \"b1\", Kwargs: map[string]any{\"name\": \"b1\"}},\n\t\t\t{Kind: KindUnit, Text: \"b2\", Action: \"b2\", Kwargs: map[string]any{\"name\": \"b2\"}},\n\t\t}},\n\t\t{Candidate: Candidate{Path: \"a.py\", Package: pkg, Template: \"t\", Record: rec}, Spans: []Span{\n\t\t\t{Kind: KindHeader, Text: \"# a\\n\"},\n\t\t\t{Kind: KindUnit, Text: \"a1\", Action: \"a1\", Kwargs: map[string]any{\"name\": \"a1\"}},\n\t\t\t{Kind: KindUnit, Text: \"a2\", Action: \"a2\", Kwargs: map[string]any{\"name\": \"a2\"}},\n\t\t}},\n\t}\n\twant, err := BuildRecording(items)\n\tif err != nil {\n\t\tt.Fatalf(\"BuildRecording: %v\", err)\n\t}\n\tvar buf bytes.Buffer\n\tif err := recording.Write(&buf, want); err != nil {\n\t\tt.Fatalf(\"Write: %v\", err)\n\t}\n\tgot, err := recording.Read(&buf)\n\tif err != nil {\n\t\tt.Fatalf(\"Read: %v\", err)\n\t}\n\tif !reflect.DeepEqual(got, want) {\n\t\tt.Errorf(\"round trip mismatch:\\n got %+v\\nwant %+v\", got, want)\n\t}\n}","file":"internal/adopt/build_test.go","name":"TestBuildRecordingRoundTripsThroughWrite"}}
+// sedum:setFunction {"tier":"owned","record":"prov-2026-1e4a5690","gen":"sha256:dbab15369269c23a1776e610ab2bf128764a026cc1647f1f7b74bc855cc4a4c7","pkg":"sha256:6589611adfb6618a7920e43f951a79901428192ea95c1084fde9f222aecd9537","kwargs":{"code":"func TestBuildRecordingTwoRecords(t *testing.T) {\n\tpkg := &genpkg.Package{Name: \"py\", Extensions: []string{\".py\"}}\n\tunit := []Span{{Kind: KindUnit, Text: \"x\", Action: \"one\"}}\n\titems := []Adopted{\n\t\t{Candidate: Candidate{Path: \"z.py\", Package: pkg, Record: &record.Record{ID: \"imp-2\"}}, Spans: unit},\n\t\t{Candidate: Candidate{Path: \"a.py\", Package: pkg, Record: &record.Record{ID: \"imp-1\"}}, Spans: unit},\n\t}\n\tgot, err := BuildRecording(items)\n\tif err != nil {\n\t\tt.Fatal(err)\n\t}\n\tif len(got.Records) != 2 || got.Records[0].RecordID != \"imp-1\" || got.Records[1].RecordID != \"imp-2\" {\n\t\tt.Errorf(\"records = %+v\", got.Records)\n\t}\n}","file":"internal/adopt/build_test.go","name":"TestBuildRecordingTwoRecords"}}
+func TestBuildRecordingTwoRecords(t *testing.T) {
+	pkg := &genpkg.Package{Name: "py", Extensions: []string{".py"}}
+	unit := []Span{{Kind: KindUnit, Text: "x", Action: "one"}}
+	items := []Adopted{
+		{Candidate: Candidate{Path: "z.py", Package: pkg, Record: &record.Record{ID: "imp-2"}}, Spans: unit},
+		{Candidate: Candidate{Path: "a.py", Package: pkg, Record: &record.Record{ID: "imp-1"}}, Spans: unit},
+	}
+	got, err := BuildRecording(items)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(got.Records) != 2 || got.Records[0].RecordID != "imp-1" || got.Records[1].RecordID != "imp-2" {
+		t.Errorf("records = %+v", got.Records)
+	}
+}
+
+// /sedum:setFunction
+// sedum:setFunction {"tier":"owned","record":"prov-2026-1e4a5690","gen":"sha256:dbab15369269c23a1776e610ab2bf128764a026cc1647f1f7b74bc855cc4a4c7","pkg":"sha256:6589611adfb6618a7920e43f951a79901428192ea95c1084fde9f222aecd9537","kwargs":{"code":"func TestBuildRecordingErrors(t *testing.T) {\n\tpkg := &genpkg.Package{Name: \"py\", Extensions: []string{\".py\"}}\n\trec := &record.Record{ID: \"imp-1\"}\n\tunit := Span{Kind: KindUnit, Text: \"x\", Action: \"one\"}\n\ttests := []struct {\n\t\tname  string\n\t\titems []Adopted\n\t}{\n\t\t{\"no unit spans\", []Adopted{{Candidate: Candidate{Path: \"a.py\", Package: pkg, Record: rec}, Spans: []Span{{Kind: KindHeader, Text: \"h\"}}}}},\n\t\t{\"duplicate path\", []Adopted{\n\t\t\t{Candidate: Candidate{Path: \"a.py\", Package: pkg, Record: rec}, Spans: []Span{unit}},\n\t\t\t{Candidate: Candidate{Path: \"a.py\", Package: pkg, Record: rec}, Spans: []Span{unit}},\n\t\t}},\n\t}\n\tfor _, tt := range tests {\n\t\tt.Run(tt.name, func(t *testing.T) {\n\t\t\tif _, err := BuildRecording(tt.items); err == nil {\n\t\t\t\tt.Fatal(\"want error\")\n\t\t\t}\n\t\t})\n\t}\n}","file":"internal/adopt/build_test.go","name":"TestBuildRecordingErrors"}}
+func TestBuildRecordingErrors(t *testing.T) {
+	pkg := &genpkg.Package{Name: "py", Extensions: []string{".py"}}
+	rec := &record.Record{ID: "imp-1"}
+	unit := Span{Kind: KindUnit, Text: "x", Action: "one"}
+	tests := []struct {
+		name  string
+		items []Adopted
+	}{
+		{"no unit spans", []Adopted{{Candidate: Candidate{Path: "a.py", Package: pkg, Record: rec}, Spans: []Span{{Kind: KindHeader, Text: "h"}}}}},
+		{"duplicate path", []Adopted{
+			{Candidate: Candidate{Path: "a.py", Package: pkg, Record: rec}, Spans: []Span{unit}},
+			{Candidate: Candidate{Path: "a.py", Package: pkg, Record: rec}, Spans: []Span{unit}},
+		}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if _, err := BuildRecording(tt.items); err == nil {
+				t.Fatal("want error")
+			}
+		})
+	}
+}
+
+// /sedum:setFunction
+// sedum:setFunction {"tier":"owned","record":"prov-2026-1e4a5690","gen":"sha256:dbab15369269c23a1776e610ab2bf128764a026cc1647f1f7b74bc855cc4a4c7","pkg":"sha256:6589611adfb6618a7920e43f951a79901428192ea95c1084fde9f222aecd9537","kwargs":{"code":"func TestBuildRecordingRoundTripsThroughWrite(t *testing.T) {\n\tpkg := &genpkg.Package{Name: \"py\", Extensions: []string{\".py\"}}\n\trec := &record.Record{ID: \"imp-1\", Gen: \"sha256:aa\", CreatedAt: \"2026-10-16\"}\n\tmk := func(path string) Adopted {\n\t\treturn Adopted{\n\t\t\tCandidate: Candidate{Path: path, Package: pkg, Template: \"t\", Record: rec},\n\t\t\tSpans: []Span{\n\t\t\t\t{Kind: KindHeader, Text: \"# header\\n\"},\n\t\t\t\t{Kind: KindUnit, Text: \"a\", Action: \"one\", Kwargs: map[string]any{\"path\": path}},\n\t\t\t\t{Kind: KindUnit, Text: \"b\", Action: \"two\", Kwargs: map[string]any{\"path\": path}},\n\t\t\t},\n\t\t}\n\t}\n\tgot, err := BuildRecording([]Adopted{mk(\"b.py\"), mk(\"a.py\")})\n\tif err != nil {\n\t\tt.Fatal(err)\n\t}\n\tvar buf bytes.Buffer\n\tif err := recording.Write(&buf, got); err != nil {\n\t\tt.Fatal(err)\n\t}\n\tback, err := recording.Read(&buf)\n\tif err != nil {\n\t\tt.Fatal(err)\n\t}\n\tif !reflect.DeepEqual(back, got) {\n\t\tt.Errorf(\"round trip differs:\\n got %+v\\nwant %+v\", back, got)\n\t}\n}","file":"internal/adopt/build_test.go","name":"TestBuildRecordingRoundTripsThroughWrite"}}
 func TestBuildRecordingRoundTripsThroughWrite(t *testing.T) {
 	pkg := &genpkg.Package{Name: "py", Extensions: []string{".py"}}
 	rec := &record.Record{ID: "imp-1", Gen: "sha256:aa", CreatedAt: "2026-10-16"}
-	items := []Adopted{
-		{Candidate: Candidate{Path: "b.py", Package: pkg, Template: "t", Record: rec}, Spans: []Span{
-			{Kind: KindHeader, Text: "# b\n"},
-			{Kind: KindUnit, Text: "b1", Action: "b1", Kwargs: map[string]any{"name": "b1"}},
-			{Kind: KindUnit, Text: "b2", Action: "b2", Kwargs: map[string]any{"name": "b2"}},
-		}},
-		{Candidate: Candidate{Path: "a.py", Package: pkg, Template: "t", Record: rec}, Spans: []Span{
-			{Kind: KindHeader, Text: "# a\n"},
-			{Kind: KindUnit, Text: "a1", Action: "a1", Kwargs: map[string]any{"name": "a1"}},
-			{Kind: KindUnit, Text: "a2", Action: "a2", Kwargs: map[string]any{"name": "a2"}},
-		}},
+	mk := func(path string) Adopted {
+		return Adopted{
+			Candidate: Candidate{Path: path, Package: pkg, Template: "t", Record: rec},
+			Spans: []Span{
+				{Kind: KindHeader, Text: "# header\n"},
+				{Kind: KindUnit, Text: "a", Action: "one", Kwargs: map[string]any{"path": path}},
+				{Kind: KindUnit, Text: "b", Action: "two", Kwargs: map[string]any{"path": path}},
+			},
+		}
 	}
-	want, err := BuildRecording(items)
+	got, err := BuildRecording([]Adopted{mk("b.py"), mk("a.py")})
 	if err != nil {
-		t.Fatalf("BuildRecording: %v", err)
+		t.Fatal(err)
 	}
 	var buf bytes.Buffer
-	if err := recording.Write(&buf, want); err != nil {
-		t.Fatalf("Write: %v", err)
+	if err := recording.Write(&buf, got); err != nil {
+		t.Fatal(err)
 	}
-	got, err := recording.Read(&buf)
+	back, err := recording.Read(&buf)
 	if err != nil {
-		t.Fatalf("Read: %v", err)
+		t.Fatal(err)
 	}
-	if !reflect.DeepEqual(got, want) {
-		t.Errorf("round trip mismatch:\n got %+v\nwant %+v", got, want)
+	if !reflect.DeepEqual(back, got) {
+		t.Errorf("round trip differs:\n got %+v\nwant %+v", back, got)
 	}
 }
 

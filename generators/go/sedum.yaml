@@ -20,5 +20,9 @@ unmanaged:
   - "**/go.mod"
   - "**/go.sum"
 
+# Go files are split by the compiled-in go adopter (prov-2026-36809902).
+adopt:
+  builtin: go
+
 test_paths:
   - "**/*_test.go"

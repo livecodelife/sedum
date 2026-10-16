@@ -1,0 +1,360 @@
+id: prov-2026-9bc22cf7
+version: 7
+content_hash: sha256:51a5bc33fd65a18a28e53ef6899680282075f40fe909506b0a3872f2e7c2a6b5
+parent_hash: sha256:2ef89f290e47b8951d02c4746603e9560c06d7d94a82a4e291eb9bef8fdc768b
+reason: a non-main root package is skipped with a named reason, not a failed round trip
+author: calebcowen@gmail.com
+created_at: "2026-10-16T22:54:19Z"
+spec_hashes:
+  - sha256:ab23a27733a98195758247edc8555a5932297982ddd591288ccdf8068780096c
+  - sha256:4edbd5a1f62b727ee2b69a0675cc43223010946c1df7fa30eb2e6e00e332105b
+  - sha256:0e045e0e8dd17e09290477bc2dd1a58487f8e54782d9bc837b8277b402e5091f
+content:
+  id: prov-2026-9bc22cf7
+  title: 'adopt: the built-in Go adopter'
+  type: imprint
+  created_at: "2026-10-16"
+  author: calebcowen@gmail.com
+  intent: |-
+    Implements prov-2026-36809902: the built-in Go adopter, in the NEW file internal/adopt/goadopter.go (package adopt). It is the one file in the package that may import go/ast, go/format, go/parser and go/token; it needs gofmt-clean input and splits a file with go/parser into a header (the `package X` line), a residual for anything before it, one unit per declaration (doc comment attached) and residuals for every gap (blank lines and anything that is not a declaration, so floating comments make the core skip the file). Units: func -> setFunction, method -> setMethod (receiver = base type name, no star or type parameters), `init` -> setFunction named init#N, type/var/const -> setType/setVar/setConst named by the first name of the first spec (a repeated name becomes name#2, name#3), one plain ungrouped, unaliased, uncommented import -> addImport {file,path}, any other import declaration -> setImports {file,name=imports#N,code}; `import "C"` is a residual. kwargs code is the unit text without its final newline.
+
+    TRANSCRIBE, do not design: write exactly the code below. Imports: bytes, fmt, go/ast, go/format, go/parser, go/token, strconv, strings (one addImport each). The type GoAdopter -> setType (name GoAdopter); each func -> setFunction (goRecvName, goGenName, goLineEnd, goPlainImport); Split -> setMethod (receiver GoAdopter, name Split). Each code kwarg is the whole declaration including its doc comment, exactly as written, tabs for indentation.
+
+    // GoAdopter is the built-in adopter for Go source (adopt: {builtin: go}). It
+    // needs gofmt-clean input and splits a file with go/parser into a header, one
+    // unit per declaration, and residual spans for everything else.
+    type GoAdopter struct{}
+
+    // goRecvName returns the receiver's base type name: no star, parentheses or type parameters.
+    func goRecvName(e ast.Expr) string {
+    	switch t := e.(type) {
+    	case *ast.StarExpr:
+    		return goRecvName(t.X)
+    	case *ast.ParenExpr:
+    		return goRecvName(t.X)
+    	case *ast.IndexExpr:
+    		return goRecvName(t.X)
+    	case *ast.IndexListExpr:
+    		return goRecvName(t.X)
+    	case *ast.Ident:
+    		return t.Name
+    	}
+    	return ""
+    }
+
+    // goGenName returns the name of a type, var or const declaration: the first
+    // name of its first spec. It returns "" for a declaration with no specs.
+    func goGenName(d *ast.GenDecl) string {
+    	if len(d.Specs) == 0 {
+    		return ""
+    	}
+    	switch s := d.Specs[0].(type) {
+    	case *ast.TypeSpec:
+    		return s.Name.Name
+    	case *ast.ValueSpec:
+    		return s.Names[0].Name
+    	}
+    	return ""
+    }
+
+    // goLineEnd returns the offset just past the line that contains offset off.
+    func goLineEnd(src []byte, off int) int {
+    	if i := bytes.IndexByte(src[off:], '\n'); i >= 0 {
+    		return off + i + 1
+    	}
+    	return len(src)
+    }
+
+    // goPlainImport reports whether d is one ungrouped, unaliased, uncommented
+    // import that is not cgo, and returns its path.
+    func goPlainImport(d *ast.GenDecl) (string, bool) {
+    	if d.Lparen.IsValid() || len(d.Specs) != 1 || d.Doc != nil {
+    		return "", false
+    	}
+    	s := d.Specs[0].(*ast.ImportSpec)
+    	if s.Name != nil || s.Doc != nil || s.Comment != nil {
+    		return "", false
+    	}
+    	p, err := strconv.Unquote(s.Path.Value)
+    	if err != nil || p == "C" {
+    		return "", false
+    	}
+    	return p, true
+    }
+
+    // Split implements Adopter.
+    func (GoAdopter) Split(path string, src []byte) ([]Span, error) {
+    	formatted, err := format.Source(src)
+    	if err != nil {
+    		return nil, fmt.Errorf("parse %s: %w", path, err)
+    	}
+    	if !bytes.Equal(formatted, src) {
+    		return nil, fmt.Errorf("%s: not gofmt-clean", path)
+    	}
+    	fset := token.NewFileSet()
+    	file, err := parser.ParseFile(fset, path, src, parser.ParseComments)
+    	if err != nil {
+    		return nil, fmt.Errorf("parse %s: %w", path, err)
+    	}
+    	off := func(p token.Pos) int { return fset.Position(p).Offset }
+    	var spans []Span
+    	pos := 0
+    	gap := func(to int) {
+    		if to > pos {
+    			spans = append(spans, Span{Kind: KindResidual, Text: string(src[pos:to])})
+    			pos = to
+    		}
+    	}
+    	gap(off(file.Package))
+    	headerEnd := goLineEnd(src, off(file.Name.End()))
+    	headerKind := KindHeader
+    	if !strings.Contains(path, "/") && file.Name.Name != "main" {
+    		headerKind = KindResidual
+    	}
+    	spans = append(spans, Span{Kind: headerKind, Text: string(src[pos:headerEnd])})
+    	pos = headerEnd
+    	seen := map[string]int{}
+    	imports := 0
+    	for _, decl := range file.Decls {
+    		start := off(decl.Pos())
+    		var doc *ast.CommentGroup
+    		var action, name string
+    		kwargs := map[string]any{"file": path}
+    		switch d := decl.(type) {
+    		case *ast.FuncDecl:
+    			doc = d.Doc
+    			name = d.Name.Name
+    			action = "setFunction"
+    			if d.Recv != nil && len(d.Recv.List) == 1 {
+    				action = "setMethod"
+    				kwargs["receiver"] = goRecvName(d.Recv.List[0].Type)
+    			}
+    			if d.Recv == nil && name == "init" {
+    				seen["init"]++
+    				name = fmt.Sprintf("init#%d", seen["init"])
+    			}
+    		case *ast.GenDecl:
+    			doc = d.Doc
+    			switch d.Tok {
+    			case token.IMPORT:
+    				if p, ok := goPlainImport(d); ok {
+    					action = "addImport"
+    					kwargs["path"] = p
+    				} else if len(d.Specs) == 1 && d.Specs[0].(*ast.ImportSpec).Path.Value == `"C"` {
+    					action = ""
+    				} else {
+    					imports++
+    					action = "setImports"
+    					name = fmt.Sprintf("imports#%d", imports)
+    				}
+    			case token.TYPE:
+    				action, name = "setType", goGenName(d)
+    			case token.VAR:
+    				action, name = "setVar", goGenName(d)
+    			case token.CONST:
+    				action, name = "setConst", goGenName(d)
+    			}
+    			if d.Tok != token.IMPORT && name == "" {
+    				action = ""
+    			}
+    		}
+    		if doc != nil {
+    			start = off(doc.Pos())
+    		}
+    		end := goLineEnd(src, off(decl.End()))
+    		gap(start)
+    		text := string(src[start:end])
+    		if action == "" {
+    			spans = append(spans, Span{Kind: KindResidual, Text: text})
+    			pos = end
+    			continue
+    		}
+    		if action != "addImport" && !(action == "setFunction" && len(name) > 5 && name[:5] == "init#") {
+    			key := action + "/" + name
+    			if r, ok := kwargs["receiver"].(string); ok {
+    				key += "/" + r
+    			}
+    			seen[key]++
+    			if seen[key] > 1 {
+    				name = fmt.Sprintf("%s#%d", name, seen[key])
+    			}
+    		}
+    		if action != "addImport" {
+    			kwargs["name"] = name
+    		}
+    		if action != "addImport" {
+    			kwargs["code"] = strings.TrimSuffix(text, "\n")
+    		}
+    		spans = append(spans, Span{Kind: KindUnit, Text: text, Action: action, Kwargs: kwargs})
+    		pos = end
+    	}
+    	gap(len(src))
+    	return spans, nil
+    }
+
+    Tests: the NEW file internal/adopt/goadopter_test.go (the imprint's spec; it already exists as a one-line placeholder). Transcribe exactly this test file; imports fmt, strings, testing (addImport each); the helper goSummary -> setFunction; each Test function -> setFunction. Use the exact fixture text below (tabs, ASCII quotes).
+
+    // goSummary renders spans as one line each: kind, then action and name for units.
+    func goSummary(spans []Span) string {
+    	var lines []string
+    	for _, s := range spans {
+    		line := string(s.Kind)
+    		if s.Kind == KindUnit {
+    			line += " " + s.Action
+    			if n, ok := s.Kwargs["name"]; ok {
+    				line += " " + fmt.Sprint(n)
+    			}
+    			if r, ok := s.Kwargs["receiver"]; ok {
+    				line += " recv=" + fmt.Sprint(r)
+    			}
+    			if p, ok := s.Kwargs["path"]; ok {
+    				line += " path=" + fmt.Sprint(p)
+    			}
+    		}
+    		lines = append(lines, line)
+    	}
+    	return strings.Join(lines, "\n")
+    }
+
+    func TestGoAdopterSplit(t *testing.T) {
+    	cases := []struct {
+    		name, src, want string
+    	}{
+    		{"declarations",
+    			"package x\n\nimport \"b\"\n\n// F doc.\nfunc F() {}\n\nfunc (t *T[K]) M() {}\n\ntype T struct{}\n",
+    			"header\nresidual\nunit addImport path=b\nresidual\nunit setFunction F\nresidual\nunit setMethod M recv=T\nresidual\nunit setType T"},
+    		{"grouped import and block",
+    			"package x\n\nimport (\n\t\"a\"\n\t\"b\"\n)\n\nconst (\n\tA = iota\n\tB\n)\n",
+    			"header\nresidual\nunit setImports imports#1\nresidual\nunit setConst A"},
+    		{"aliased import",
+    			"package x\n\nimport f \"fmt\"\n",
+    			"header\nresidual\nunit setImports imports#1"},
+    		{"repeated names",
+    			"package x\n\nfunc init() {}\n\nfunc init() {}\n\nvar _ = 1\nvar _ = 2\n",
+    			"header\nresidual\nunit setFunction init#1\nresidual\nunit setFunction init#2\nresidual\nunit setVar _\nunit setVar _#2"},
+    		{"package doc is a residual before the header",
+    			"// Package x does things.\npackage x\n",
+    			"residual\nheader"},
+    		{"floating comment",
+    			"package x\n\n// floating\n\nfunc F() {}\n",
+    			"header\nresidual\nunit setFunction F"},
+    		{"cgo import",
+    			"package x\n\n// #include <stdio.h>\nimport \"C\"\n",
+    			"header\nresidual\nresidual"},
+    	}
+    	for _, tc := range cases {
+    		t.Run(tc.name, func(t *testing.T) {
+    			spans, err := GoAdopter{}.Split("x.go", []byte(tc.src))
+    			if err != nil {
+    				t.Fatal(err)
+    			}
+    			if err := Coverage([]byte(tc.src), spans); err != nil {
+    				t.Fatal(err)
+    			}
+    			if got := goSummary(spans); got != tc.want {
+    				t.Fatalf("spans:\n%s\nwant:\n%s", got, tc.want)
+    			}
+    		})
+    	}
+    }
+
+    func TestGoAdopterKwargs(t *testing.T) {
+    	src := "package x\n\n// F doc.\nfunc F() {}\n"
+    	spans, err := GoAdopter{}.Split("p/x.go", []byte(src))
+    	if err != nil {
+    		t.Fatal(err)
+    	}
+    	if spans[0].Kind != KindHeader || spans[0].Text != "package x\n" {
+    		t.Fatalf("header = %+v", spans[0])
+    	}
+    	u := spans[2]
+    	if u.Kwargs["file"] != "p/x.go" || u.Kwargs["code"] != "// F doc.\nfunc F() {}" || u.Text != "// F doc.\nfunc F() {}\n" {
+    		t.Fatalf("unit = %+v", u)
+    	}
+    }
+
+    func TestGoAdopterRejects(t *testing.T) {
+    	for name, src := range map[string]string{
+    		"not gofmt-clean": "package x\nfunc  F() {}\n",
+    		"parse error":     "package x\nfunc (",
+    	} {
+    		t.Run(name, func(t *testing.T) {
+    			if _, err := (GoAdopter{}).Split("x.go", []byte(src)); err == nil {
+    				t.Fatal("want an error")
+    			}
+    		})
+    	}
+    	_, err := GoAdopter{}.Split("x.go", []byte("package x\nfunc  F() {}\n"))
+    	if err == nil || !strings.Contains(err.Error(), "not gofmt-clean") {
+    		t.Fatalf("err = %v, want not gofmt-clean", err)
+    	}
+    }
+
+    Stage 2 addition (blueprint constraint: round trip over this repository's own Go files). New test in the NEW file internal/adopt/goadopter_repo_test.go (package adopt; imports io/fs, os, path/filepath, strings, testing; one addImport each), its OWN setFunction, exactly:
+    func TestGoAdopterCoversRepoFiles(t *testing.T) {
+    	n := 0
+    	err := filepath.WalkDir("../../internal", func(p string, d fs.DirEntry, err error) error {
+    		if err != nil || d.IsDir() || !strings.HasSuffix(p, ".go") {
+    			return err
+    		}
+    		src, err := os.ReadFile(p)
+    		if err != nil {
+    			return err
+    		}
+    		if strings.Contains(string(src), "sedum:") {
+    			return nil
+    		}
+    		spans, err := GoAdopter{}.Split(p, src)
+    		if err != nil {
+    			return nil
+    		}
+    		if err := CheckSpans(src, spans); err != nil {
+    			t.Errorf("%s: %v", p, err)
+    		}
+    		n++
+    		return nil
+    	})
+    	if err != nil {
+    		t.Fatal(err)
+    	}
+    	if n == 0 {
+    		t.Fatal("no Go files were split")
+    	}
+    }
+
+    Root-level files: the go package's root template is `package main`, so a file directly in the project root (path without a "/") whose package is not main cannot be adopted. For it the `package X` line is a KindResidual span instead of the header (the code above), so the core reports the file as skipped (other_residual, first line `package X`) rather than failing its round trip. New test in the NEW file internal/adopt/goadopter_root_test.go (package adopt; import testing), its OWN setFunction, exactly:
+    func TestGoAdopterRootPackages(t *testing.T) {
+    	cases := []struct {
+    		path, src string
+    		want      Kind
+    	}{
+    		{"main.go", "package main\n\nfunc F() {}\n", KindHeader},
+    		{"lib.go", "package lib\n\nfunc F() {}\n", KindResidual},
+    		{"sub/lib.go", "package lib\n\nfunc F() {}\n", KindHeader},
+    	}
+    	for _, tc := range cases {
+    		spans, err := GoAdopter{}.Split(tc.path, []byte(tc.src))
+    		if err != nil {
+    			t.Fatal(err)
+    		}
+    		if spans[0].Kind != tc.want {
+    			t.Errorf("%s: first span is %s, want %s", tc.path, spans[0].Kind, tc.want)
+    		}
+    	}
+    	spans, _ := GoAdopter{}.Split("lib.go", []byte("package lib\n\nfunc F() {}\n"))
+    	res := ResidualsOf([]byte("package lib\n\nfunc F() {}\n"), spans, genpkg.Comment{Prefix: "//"})
+    	if len(res) != 1 || res[0].Reason != ReasonOtherResidual || res[0].FirstLine != "package lib" {
+    		t.Errorf("residuals = %+v", res)
+    	}
+    }
+  affected_scope:
+    - internal/adopt/goadopter.go
+    - internal/adopt/goadopter_test.go
+    - internal/adopt/goadopter_repo_test.go
+    - internal/adopt/goadopter_root_test.go
+  implements: prov-2026-36809902
+  implements_version: 2
+  associated_specs:
+    - path: internal/adopt/goadopter_test.go
+    - path: internal/adopt/goadopter_repo_test.go
+    - path: internal/adopt/goadopter_root_test.go

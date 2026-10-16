@@ -2,8 +2,8 @@ id: prov-2026-1da47b75
 title: sedum generators install vendors a package with a go.mod boundary
 type: blueprint
 status: implemented
-version: 5
-reason: 'merge gen-errors (main #7) into generators-install'
+version: 7
+reason: root-level template is package main
 created_at: "2026-10-16"
 author: calebcowen@gmail.com
 intent: |
@@ -23,7 +23,8 @@ intent: |
 
   ## Generate first
   internal/builtin (embed accessor and drift test), internal/cli/generators.go (plan, apply, safety checks) and internal/genpkg/gomod.go (the warning), with their tests, are grown with sedum-haiku via the go package. Handwritten: the one-line registration in root.go, the call in genpkg/load.go, the rule constant in diag.go, the go:embed var (gofmt cannot keep a directive directly above a var once a region marker sits above it), hack/sync-builtin.sh (a script, exempt like build files) and the archive it produces, a go.mod for testdata/generators, README and PRD.
-constraints: []
+constraints:
+  - 'The root-level Go template is package main: a template can only bind captures from the path, so a root file in another package is not adoptable'
 affected_scope:
   - internal/builtin/**
   - hack/sync-builtin.sh
@@ -83,9 +84,10 @@ affected_scope:
   - provenance/prov-2026-cc73cf61.yml
   - provenance/prov-2026-d2f1bdf2.yml
   - provenance/prov-2026-e4bab53b.yml
+  - generators/go/
 forbidden_scope: []
 related: []
-sealed_at_sha: 5c8d8e4cfd9c2381c700320d91c600712b015de4
+sealed_at_sha: f131aa2cdb1591900589e85c813fd78cf187d8fe
 associated_specs:
   - path: internal/builtin/builtin_test.go
     run_command: go test ./internal/builtin -count=1
