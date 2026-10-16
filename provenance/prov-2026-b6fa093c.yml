@@ -1,8 +1,26 @@
 id: prov-2026-b6fa093c
 title: M4 - Action rendering and anchored injection with ownership markers
 status: implemented
+version: 2
+reason: |-
+  internal/inject/inject_test.go landed from M4 with one struct literal whose
+  field values gofmt aligns differently, so `gofmt -l ./internal` names the file.
+  Nothing about the tests is wrong and they pass; the file is simply not in the
+  form the toolchain writes.
+
+  It is recorded rather than folded into whatever milestone touched the file next
+  because M5's scope is internal/expand and testdata, and widening a milestone's
+  scope to reach a formatting fix in a neighbouring package would make that
+  record's affected_scope a poorer description of what it did. A one-line
+  correction to delivered work is what a bug record extending that work is for.
+
+  The fix is `gofmt -w` and nothing else. No test is added, renamed, or changed
+  in what it asserts.
+reason_kind: fix
 created_at: "2026-08-07"
 author: calebcowen@gmail.com
+aliases:
+  - prov-2026-b73cb4b1
 intent: |
   Implement Phases 6 and 7 for simple actions, driven by hand-written invocation
   lists with no model involved. This is the deterministic half of the system and
@@ -66,73 +84,36 @@ intent: |
   anchor halts naming the action, the file, and the anchor; each anchor kind
   places text where expected; a seeded region is left untouched on rerun.
 constraints:
-  - >-
-    A missing anchor is a hard error. It means the file is not shaped the way the
-    action assumed - a disagreement between configuration and reality the author
-    must resolve. Auto-creating an anchor would paper over exactly the mistake
-    worth surfacing.
-  - >-
-    injects_into must resolve to exactly one file. Zero matches and multiple
-    matches are both errors naming the action and the rendered pattern.
-  - >-
-    Injection is textual. No language parser, no AST, and no syntax awareness of
-    any kind. Anchors are found by marker comment or by declared regex, and
-    nothing else.
-  - >-
-    Marker comments are rendered with the package's declared comment_prefix. The
-    prefix is never hardcoded and never inferred from a file extension.
-  - >-
-    Idempotency state lives only in the ownership markers in generated files. No
-    sidecar cache, no manifest, no lockfile, and nothing read back from the run
-    log.
-  - >-
-    Re-running replaces an owned region in place rather than appending beside it.
-    A seeded region is skipped on every run after the first.
-  - >-
-    The marker format is a durable on-disk artifact. Tier and recorded kwargs are
-    written from the first generated file even though nothing reads them back
-    yet, because changing marker shape after generated codebases exist is a
-    migration.
-  - >-
-    No action's template may depend on a value produced by another action. Every
-    value comes from bound kwargs or from transforms over them. If this becomes
-    limiting it signals a planning layer is warranted - a different architecture,
-    not an increment on this one.
-  - >-
-    No model is involved in this milestone. Invocation lists are hand-written
-    fixtures shaped exactly like a recording.
-  - >-
-    Multiple records injecting into the same file is out of scope for what this
-    milestone exercises, but the marker carries the record ID from the first
-    generated file, as an attribute rather than as part of a region's identity
-    (prov-2026-36c8a99c). Marker shape is the one thing this milestone cannot
-    change afterwards without a migration.
+  - A missing anchor is a hard error. It means the file is not shaped the way the action assumed - a disagreement between configuration and reality the author must resolve. Auto-creating an anchor would paper over exactly the mistake worth surfacing.
+  - injects_into must resolve to exactly one file. Zero matches and multiple matches are both errors naming the action and the rendered pattern.
+  - Injection is textual. No language parser, no AST, and no syntax awareness of any kind. Anchors are found by marker comment or by declared regex, and nothing else.
+  - Marker comments are rendered with the package's declared comment_prefix. The prefix is never hardcoded and never inferred from a file extension.
+  - Idempotency state lives only in the ownership markers in generated files. No sidecar cache, no manifest, no lockfile, and nothing read back from the run log.
+  - Re-running replaces an owned region in place rather than appending beside it. A seeded region is skipped on every run after the first.
+  - The marker format is a durable on-disk artifact. Tier and recorded kwargs are written from the first generated file even though nothing reads them back yet, because changing marker shape after generated codebases exist is a migration.
+  - No action's template may depend on a value produced by another action. Every value comes from bound kwargs or from transforms over them. If this becomes limiting it signals a planning layer is warranted - a different architecture, not an increment on this one.
+  - No model is involved in this milestone. Invocation lists are hand-written fixtures shaped exactly like a recording.
+  - Multiple records injecting into the same file is out of scope for what this milestone exercises, but the marker carries the record ID from the first generated file, as an attribute rather than as part of a region's identity (prov-2026-36c8a99c). Marker shape is the one thing this milestone cannot change afterwards without a migration.
+  - Formatting only. If the diff changes what any test asserts, it is the wrong diff.
+  - gofmt -l over internal/ reports nothing afterwards. The testdata action templates stay unparseable on purpose - they are bare function bodies with no package clause, which is what the target's convention is.
 affected_scope:
   - internal/inject/**
   - internal/expand/**
   - internal/recording/**
   - testdata/**
-  # Phase 6 renders action templates, and loading already reads every one of
-  # them to check the transforms they reference but keeps only the file
-  # template contents. Re-reading them at generation time would let a package
-  # change shape between the point it was declared valid and the point it was
-  # used, which is the hazard fileContents exists to close. These two files
-  # gain the symmetric accessor and nothing else.
   - internal/genpkg/load.go
   - internal/genpkg/schema.go
-  # Anchor defects Phase 0 can catch and does not, including one that fails
-  # silently rather than loudly (prov-2026-42f5eedd).
   - internal/genpkg/validate.go
   - internal/genpkg/diag.go
   - internal/genpkg/anchors_test.go
+  - internal/inject/inject_test.go
 forbidden_scope: []
 type: blueprint
 implements: prov-2026-d554bfc3
-supersedes: ""
-superseded_by: ""
+implements_version: 1
 related:
   - prov-2026-36c8a99c
-sealed_at_sha: cc457765945213ee4d269c3b19e3650f05088927
+sealed_at_sha: 50dfc3e52481163cb2786964c3e92a525821f7d0
 associated_specs:
   - path: internal/expand/expand_test.go
     run_command: go test -count=1 ./$(dirname {{path}})

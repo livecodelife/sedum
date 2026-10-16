@@ -1,0 +1,48 @@
+id: prov-2026-73d32e29
+version: 1
+content_hash: sha256:570ad8e9ef853cb2eb2cc674ae1afa7befeae76bb403700175d0259bfb36a9a3
+parent_hash: ""
+reason: ""
+author: calebcowen@gmail.com
+created_at: "2026-10-16T00:25:04Z"
+spec_hashes:
+  - sha256:24324f27243efe1f97215d586202c0ec16864b87200628c890ca1dd4de306d16
+  - sha256:94a9e200e07d657cd44734888219b48b2f6f001caf88461f7a22df431e6ba638
+content:
+  id: prov-2026-73d32e29
+  title: A package can declare anchors completeness never asks about
+  type: imprint
+  created_at: "2026-10-15"
+  author: calebcowen@gmail.com
+  intent: |
+    The go package plants an imports anchor in every file, and most
+    declarations need no new import. Phase 5's completeness check
+    (prov-2026-6d87dc11) asks the model about every planted anchor its answer
+    leaves empty that some action could fill, so every such answer costs one
+    extra model call whose right reply is almost always "no change". provisio-mgr
+    asked for the fix (#provisio, 2026-10-15): +1 call per record adds up.
+
+    sedum.yaml gains `optional_anchors`: anchor names this package's templates
+    plant that completeness never asks about. They are still injection points;
+    they are simply not work a file expects. A name no template of the package
+    plants is a load error, so the list cannot silently go stale. The go package
+    declares `imports` optional; `decls` stays, because a file with no
+    declarations is worth a question.
+  constraints:
+    - Optional anchors are skipped by completeness only; injection, ordering and every other rule are unchanged.
+    - An optional_anchors entry no file template of the package plants rejects the package at load.
+  affected_scope:
+    - internal/genpkg/schema.go
+    - internal/genpkg/load.go
+    - internal/genpkg/validate.go
+    - internal/genpkg/diag.go
+    - internal/genpkg/*_test.go
+    - internal/expand/*.go
+    - internal/pipeline/*_test.go
+    - testdata/generators/go/**
+    - PRD.md
+  implements: prov-2026-5403d162
+  implements_version: 1
+  associated_specs:
+    - path: internal/pipeline/gopkg_test.go
+    - path: internal/genpkg/syntax_test.go

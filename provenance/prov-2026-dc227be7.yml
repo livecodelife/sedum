@@ -1,8 +1,36 @@
 id: prov-2026-dc227be7
 title: M7 - Recording and replay
 status: implemented
+version: 2
+reason: |-
+  `typeOf` recognised `float64` and not `json.Number`, so an int kwarg passed
+  validation when a model bound it and failed when a recording replayed it:
+
+      [kwarg_type] addCountElementsRule: kwarg "count" is declared int but was
+      bound to 1
+
+  A model response is decoded plainly, so a number arrives as `float64`. A
+  recording is decoded with `UseNumber` (prov-2026-88e36921), deliberately, so
+  that a kwarg written as 1000000 does not render as 1e+06 — and `json.Number`
+  is a named string type, so it matched neither `case string` nor `case
+  float64` and fell to the default. The bare "bound to 1", with no type named,
+  is `describe` hitting that same default.
+
+  prov-2026-6903db40 exported the validator precisely so replay and the model
+  path could not diverge. They diverged anyway, one layer below where it was
+  looking: identical validation over differently decoded values is not
+  identical validation. So the fix is in `typeOf` and `describe`, where the two
+  representations meet, rather than in either caller — normalising at the
+  decoder would give back the `1e+06` that `UseNumber` exists to prevent.
+
+  Found from outside: a recording of a run whose output was reviewed and correct
+  could not be executed, so a recording was not the reproducibility surface it
+  is meant to be.
+reason_kind: fix
 created_at: "2026-08-07"
 author: calebcowen@gmail.com
+aliases:
+  - prov-2026-6d9ccb92
 intent: |
   Serialize what a run resolved and what the model decided, and replay it without
   a model. Delivers --record, --execute, and --stop-after invocations|expansion.
@@ -89,90 +117,51 @@ intent: |
   unauthorized path fails scope validation when records are supplied and succeeds
   when they are not; a package whose extensions changed since recording halts.
 constraints:
-  - >-
-    Recordings carry no timestamps, run identifiers, or other volatile fields.
-    Two recordings of equivalent runs must diff cleanly.
-  - >-
-    Invocations are recorded pre-expansion. Composites are stored as composites,
-    never as their expanded children.
-  - >-
-    Invocations are grouped under phases even though this implementation emits
-    exactly one, named default. Recordings are committed artifacts and schema
-    changes after they exist are migrations.
-  - >-
-    Replay validation is identical to model-output validation but terminal.
-    There is no re-prompt loop and no partial application - the run halts and
-    reports.
-  - >-
-    A recording is not a lockfile. It captures decisions, not templates.
-    Replaying after a package change picks up the new templates by design.
-  - >-
-    Package identity is verified on replay - every recorded package must be
-    present and still claim the extensions recorded against it, or the run halts.
-  - >-
-    --record and --execute are mutually exclusive. Both compose with --dry-run.
-  - >-
-    --stop-after invocations and --stop-after expansion require --record. Without
-    it the model output is discarded and there is nothing to resume from, having
-    already paid for the call, so Sedum rejects the combination rather than
-    running it.
-  - >-
-    Under --execute, --lang is ignored because package resolution is recorded per
-    file, and --records becomes optional, enabling scope validation only when
-    supplied.
-  - >-
-    The recording is an input format, not only a capture artifact. Replay's
-    terminal validation is a submission protocol's semantics, so a recording
-    Sedum never produced is a first-class input and its diagnostics must be
-    good enough to author against, not merely good enough to debug a
-    hand-edit with.
-  - >-
-    The duplicate-path check moves from ingestion to Phase 4's entry, where its
-    justification lives. A caller supplying records purely for scope validation is
-    never forced into one invocation per record, and the grow path's behavior is
-    unchanged - two records naming one file still halt, now before the model call
-    rather than before records are read.
-  - >-
-    Replay must support concurrent single-invocation recordings with scope
-    validation enabled. That combination is how a caller driving Sedum uses it,
-    and no check may forbid it for a reason belonging to a phase replay skips.
+  - Recordings carry no timestamps, run identifiers, or other volatile fields. Two recordings of equivalent runs must diff cleanly.
+  - Invocations are recorded pre-expansion. Composites are stored as composites, never as their expanded children.
+  - Invocations are grouped under phases even though this implementation emits exactly one, named default. Recordings are committed artifacts and schema changes after they exist are migrations.
+  - Replay validation is identical to model-output validation but terminal. There is no re-prompt loop and no partial application - the run halts and reports.
+  - A recording is not a lockfile. It captures decisions, not templates. Replaying after a package change picks up the new templates by design.
+  - Package identity is verified on replay - every recorded package must be present and still claim the extensions recorded against it, or the run halts.
+  - --record and --execute are mutually exclusive. Both compose with --dry-run.
+  - --stop-after invocations and --stop-after expansion require --record. Without it the model output is discarded and there is nothing to resume from, having already paid for the call, so Sedum rejects the combination rather than running it.
+  - Under --execute, --lang is ignored because package resolution is recorded per file, and --records becomes optional, enabling scope validation only when supplied.
+  - The recording is an input format, not only a capture artifact. Replay's terminal validation is a submission protocol's semantics, so a recording Sedum never produced is a first-class input and its diagnostics must be good enough to author against, not merely good enough to debug a hand-edit with.
+  - The duplicate-path check moves from ingestion to Phase 4's entry, where its justification lives. A caller supplying records purely for scope validation is never forced into one invocation per record, and the grow path's behavior is unchanged - two records naming one file still halt, now before the model call rather than before records are read.
+  - Replay must support concurrent single-invocation recordings with scope validation enabled. That combination is how a caller driving Sedum uses it, and no check may forbid it for a reason belonging to a phase replay skips.
+  - A number satisfies the same declared types whether it arrived as float64 or json.Number.
+  - An integral value satisfies int; a fractional one does not, on both representations.
+  - A diagnostic about a number names what it was, never a bare value.
+  - Recordings keep decoding with UseNumber; nothing normalises numbers at the decoder.
+  - A recording of a valid run replays.
 affected_scope:
-  # Widened during implementation: replay's validation must be the selection
-  # package's own, not a second copy of it (prov-2026-6903db40).
   - internal/selection/**
   - internal/recording/**
   - internal/pipeline/**
   - internal/record/**
   - internal/cli/grow.go
-  # M7 is the last milestone, so implementing --execute removes the final
-  # caller of notImplemented and retires the test that asserted a command was
-  # still waiting on a milestone.
   - internal/cli/config.go
   - internal/cli/flags_test.go
   - testdata/**
-  # Two README statements say the recording and --execute are still to come.
-  # Landing them makes both false.
   - README.md
+  - internal/selection/validate.go
+  - internal/selection/selection_test.go
+  - internal/recording/version.go
 forbidden_scope: []
 type: blueprint
 implements: prov-2026-d554bfc3
-supersedes: ""
-superseded_by: ""
+implements_version: 1
 related:
   - prov-2026-59535684
   - prov-2026-b5465dfa
   - prov-2026-36c8a99c
-sealed_at_sha: f42d7e9e5fe7cb10a4bc20659a14f015c86ec3fb
+sealed_at_sha: 0cfeb0c36d338b910d2e56525389f427c72abf32
 associated_specs:
-  # The schema half and the behaviour half. The recording spec asserts the
-  # properties a committed artifact has to keep - clean diffs, the reserved
-  # phase level, pre-expansion invocations - because those are the decisions a
-  # later migration would cost the most. The pipeline spec asserts replay
-  # itself: identical output, terminal validation, package identity, and the
-  # duplicate-path check now living at Phase 4's entry.
   - path: internal/recording/recording_test.go
     run_command: go test -count=1 ./$(dirname {{path}})
   - path: internal/pipeline/replay_test.go
+    run_command: go test -count=1 ./$(dirname {{path}})
+  - path: internal/selection/selection_test.go
     run_command: go test -count=1 ./$(dirname {{path}})
 associated_traces: []
 monitors: []

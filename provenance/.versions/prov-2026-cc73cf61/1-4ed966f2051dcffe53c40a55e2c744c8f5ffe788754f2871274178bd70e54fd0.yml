@@ -1,0 +1,115 @@
+id: prov-2026-cc73cf61
+version: 1
+content_hash: sha256:4ed966f2051dcffe53c40a55e2c744c8f5ffe788754f2871274178bd70e54fd0
+parent_hash: ""
+reason: ""
+author: calebcowen@gmail.com
+created_at: "2026-10-15T23:59:05Z"
+spec_hashes:
+  - sha256:b69fed63bdc4ec6cc1c13dd60dab39d12973b62e8a943e16998ef41aaf13ea48
+  - sha256:b1f77f082abbc5d9a81b551deb359b4682f0e96319b4afe5f8a83825de7880ed
+  - sha256:aa15ef56c4589ab5cee49f57e06e394db13a48ea5f94ad8dd7d30d2d2f62c1dd
+  - sha256:3c3c04fae58061dbc0c0adb03f69b0c35b4b8fd9680d4c6dcd5713d7293d28d6
+content:
+  id: prov-2026-cc73cf61
+  title: Orphans, deprecated records, stamping, and prompt context for grow
+  type: blueprint
+  created_at: "2026-10-15"
+  author: calebcowen@gmail.com
+  intent: |
+    Fourth step of hash-aware grow: the parts of DESIGN.md's "Sedum: hash-aware
+    grow" left after prov-2026-9621daed, plus the migration aid provisio-mgr
+    asked for in #provisio (2026-10-15).
+
+    ## Deprecated records are retired
+
+    DESIGN.md makes deprecated a terminal status: a deprecated record takes no
+    new versions and its regions become orphans. Sedum otherwise reads no
+    lifecycle field (prov-2026-dad4d877); this is the one exception, and only
+    the value "deprecated" is read. A deprecated record is never grown (--only
+    naming one is an error saying so) and owns nothing.
+
+    ## --prune-orphans
+
+    An orphan is an owned-tier region whose marker names a record that is not in
+    the records directory, by id or alias, or that is deprecated. With
+    --prune-orphans, grow removes orphans in every file some record in the
+    directory authorizes, inside Phase 7's all-or-nothing write. Orphans in
+    files no record authorizes are reported and left alone, because Sedum writes
+    only authorized paths. Seeded and unowned regions are never orphans.
+
+    ## --check reports orphans
+
+    --check lists orphans and fails on them, as it fails on stale regions: an
+    orphan is code that no current record stands behind.
+
+    ## grow --stamp
+
+    Opt-in, no model call. For each record grown, writes the record's current
+    gen onto its owned regions whose marker has no gen, and the action's current
+    pkg onto those with no pkg, where the owning record exists. It changes
+    nothing else: not a body, not a value already present, not the record id.
+    Running it asserts that this code is current, so a repository migrated from
+    markers written before gen and pkg existed can skip a full re-select. Only
+    missing values are written, so stamping never hides real staleness. It
+    cannot be combined with --check, --execute, --record or --force; with
+    --dry-run it reports what it would stamp. Nothing else in the run happens
+    under --stamp.
+
+    ## Alias markers move to the surviving id when next written
+
+    A region whose marker names an alias is rewritten with the surviving id
+    whenever its region is next written (already true since
+    prov-2026-375f5d4a, and pinned by a test here). Untouched regions keep the
+    alias, which still resolves to the owner; --stamp does not rename.
+
+    ## Selection-prompt context (DESIGN.md "Steering the model away from
+    conflicts", and "Re-selection is not deterministic")
+
+    - For each file a record may write, the prompt lists the regions other
+      records already own there - action, selecting kwargs, owner - marked
+      already present, do not select. Hashes stay out of the prompt.
+    - When a record is re-selected and no --prior-recording supplies its prior
+      selections, they are rebuilt from its own markers as context: action and
+      the kwargs the action declares, for exposed actions only (a composite's
+      regions name unexposed children the model cannot select, and recorded
+      defaults and variables are not the model's to bind). The existing
+      MaxPriorBytes bound applies.
+  constraints:
+    - Sedum reads status only to recognize "deprecated"; every other value means nothing to it.
+    - A deprecated record is never grown and owns no regions; --only naming one is an error that says it is deprecated.
+    - --prune-orphans removes only owned-tier orphans, only in files some record in the directory authorizes, only inside Phase 7's all-or-nothing write; orphans elsewhere are reported, not touched.
+    - --check reports orphans and exits non-zero when there are any.
+    - --stamp makes no model call, writes only a missing gen or pkg onto markers owned by an existing, non-deprecated record, and changes no other byte; it is refused with --check, --execute, --record and --force, and with --dry-run reports without writing.
+    - The steering list and the rebuilt prior name no hash, and the steering list names only regions owned by other records in this record's files.
+    - Rebuilt priors include only exposed actions and only declared kwargs, and respect MaxPriorBytes; an explicit --prior-recording still wins.
+    - The PRD and README describe orphans, deprecated records, --prune-orphans, --stamp, and the prompt context; the flag-surface test lists the new flags.
+  affected_scope:
+    - internal/record/record.go
+    - internal/record/*_test.go
+    - internal/inject/inject.go
+    - internal/inject/scan.go
+    - internal/inject/stamp.go
+    - internal/inject/*_test.go
+    - internal/pipeline/pipeline.go
+    - internal/pipeline/classify.go
+    - internal/pipeline/orphans.go
+    - internal/pipeline/*_test.go
+    - internal/selection/selection.go
+    - internal/selection/prompt.go
+    - internal/selection/*_test.go
+    - internal/selection/completeness.go
+    - testdata/generators/chi/**
+    - internal/cli/grow.go
+    - internal/cli/config.go
+    - internal/cli/*_test.go
+    - PRD.md
+  related:
+    - prov-2026-375f5d4a
+    - prov-2026-9621daed
+    - prov-2026-dad4d877
+  associated_specs:
+    - path: internal/pipeline/orphans_test.go
+    - path: internal/selection/present_test.go
+    - path: internal/record/record_test.go
+    - path: internal/cli/flags_test.go

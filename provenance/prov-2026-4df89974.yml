@@ -1,8 +1,12 @@
 id: prov-2026-4df89974
 title: A region's record is its owner, not its last writer
 status: implemented
+version: 2
+reason: 'Supersedes prov-2026-36c8a99c: A region''s record is its owner, not its last writer'
 created_at: "2026-10-15"
 author: calebcowen@gmail.com
+aliases:
+  - prov-2026-36c8a99c
 intent: |
   Supersedes prov-2026-36c8a99c, under the same M4 blueprint it implemented,
   as part of the boundary catch-up in prov-2026-a88771dd. Its central rule - a later record selecting
@@ -41,8 +45,7 @@ affected_scope:
 forbidden_scope: []
 type: imprint
 implements: prov-2026-b6fa093c
-supersedes: prov-2026-36c8a99c
-superseded_by: ""
+implements_version: 1
 related: []
 sealed_at_sha: 1ef10631c1c7bab49fd6b1186364c89c70474c7a
 associated_specs:

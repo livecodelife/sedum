@@ -1,6 +1,7 @@
 id: prov-2026-98ab639c
 title: The matrix covers more models, frameworks, and generator variants
 status: draft
+version: 1
 created_at: "2026-08-15"
 author: calebcowen@gmail.com
 intent: |
@@ -113,8 +114,7 @@ forbidden_scope:
   - cmd/**
 type: blueprint
 implements: prov-2026-b6059aa7
-supersedes: ""
-superseded_by: ""
+implements_version: 1
 related:
   - prov-2026-e6969eb3
   - prov-2026-d61010a4

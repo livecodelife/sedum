@@ -1,0 +1,32 @@
+id: prov-2026-7a704b59
+version: 1
+content_hash: sha256:c4e1fecb9256f03169ce587f91829f23add88c6c394635e0d8693c14f2810c80
+parent_hash: ""
+reason: ""
+author: calebcowen@gmail.com
+created_at: "2026-10-16T00:34:09Z"
+spec_hashes:
+  - sha256:24324f27243efe1f97215d586202c0ec16864b87200628c890ca1dd4de306d16
+content:
+  id: prov-2026-7a704b59
+  title: The go package leaves go.mod and go.sum to go mod
+  type: imprint
+  created_at: "2026-10-15"
+  author: calebcowen@gmail.com
+  intent: |
+    A record that adds a dependency names go.mod and go.sum in its
+    affected_scope, and grow halts because no package claims .mod or .sum
+    (prov-cli, #provisio 2026-10-15). Those files belong to `go mod`, never to a
+    template, and that is true of every Go repository, so the go package
+    declares them unmanaged at any depth: authorized, reported as the run's
+    handoff, and never created, rendered or injected into. Approved by
+    provisio-mgr under Caleb's exemption for config and build files.
+  constraints:
+    - The entries cover go.mod and go.sum at the root and at any depth, and nothing else.
+  affected_scope:
+    - testdata/generators/go/**
+    - internal/pipeline/*_test.go
+  implements: prov-2026-bf01cd6b
+  implements_version: 1
+  associated_specs:
+    - path: internal/pipeline/gopkg_test.go

@@ -1,0 +1,123 @@
+id: prov-2026-0cc65e62
+version: 1
+content_hash: sha256:efe18c3437041c663e83002f146f4ab3a36f23e48f18d5febd44298441ba79ae
+parent_hash: ""
+reason: ""
+author: calebcowen@gmail.com
+created_at: "2026-08-19T04:04:30Z"
+spec_hashes:
+  - sha256:d6938cabffffc30dc7bbbfbb67b3923dc5ee58f106c57a28ff45e97e952fc71d
+  - sha256:709f239365e16f5a7508324780957de3e41ae7c8c2021172763cc0857c34bf76
+content:
+  id: prov-2026-0cc65e62
+  title: Bind a field name once and transform it once, everywhere it appears
+  type: blueprint
+  created_at: "2026-08-19"
+  author: calebcowen@gmail.com
+  intent: |
+    The Chi package asks the model to write a field name twice: once as
+    addModelField's `name`, which the template renders through `exported`, and
+    again inside createQuery's `insert_values`, `update_values` and `scan_targets`,
+    which are literals and are rendered verbatim. A model that binds `quantity`
+    and then writes `in.quantity` is being faithful to its own answer, and the
+    service does not compile, because the first appearance became `Quantity` and
+    the second did not.
+
+    ## The measurement
+
+    Five of ten Chi samples in a coarse run died in `build`, and three of them
+    died this way:
+
+        db/groceries.go:48:15: in.quantity undefined
+          (type Grocery has no field or method quantity, but does have field Quantity)
+
+    The five grocery samples separate cleanly:
+
+    | sample | addModelField.name | insert_values | outcome |
+    |---|---|---|---|
+    | s0, s2, s4 | name, quantity | in.name, in.quantity | build failed |
+    | s1 | Name, Quantity | in.Name, in.Quantity | ok |
+    | s3 | name, quantity | in.Name, in.Quantity | built |
+
+    The three failures are the internally consistent answers. s3 builds because it
+    contradicted itself and happened to land on what the template produces. The
+    package rewards a model for disagreeing with its own binding, which is not
+    something a description can fix and not something the model did wrong.
+
+    No retry budget reaches this. All five samples validated on the first call and
+    were never rejected, because every rule in Phase 5 is structural - unknown
+    action, missing kwarg, kwarg type, variant, unauthorized path - and none of
+    them can see that a literal names a field that does not exist. The thing that
+    knows is the Go compiler, which Sedum does not run and must not
+    (TOOL_BOUNDARIES.md 2-3).
+
+    ## What changes
+
+    The file template stops describing a resource only as a struct, and starts
+    describing it as a struct plus the three lists every query needs: its column
+    names, its insert arguments, and its scan targets. Each is a region an action
+    fills.
+
+        var todoColumns = []string{ /* anchor:columns */ }
+        func todoColumnList() string { ... }
+        func todoPlaceholders(offset int) string { ... }
+        func todoAssignments(offset int) string { ... }
+        func (r Todo) insertArgs() []any { return []any{ /* anchor:insert_args */ } }
+        func (r *Todo) scanTargets() []any { return []any{ &r.ID, /* anchor:scan_targets */ } }
+
+    addModelField becomes a composite filling four regions from one binding - the
+    struct field, the column name, the insert argument and the scan target - so
+    every appearance of a field name comes from the same value through the same
+    transform, and desync stops being representable.
+
+    createQuery keeps resource and operation and loses all seven literals. Its
+    templates build their SQL from the column list rather than from strings the
+    model wrote. It still says which operations a resource has, which is the
+    record's decision and the part worth measuring; it no longer says anything
+    about fields, which the record already decided through addModelField.
+
+    The helpers are named from the resource rather than shared, because every
+    resource in a service compiles into one db package and a shared helper would
+    be redeclared once per file.
+
+    ## What this deliberately does not do
+
+    It does not move the queries into the file template. Five CRUD bodies are
+    invariant given the operation set, so a template could write them - but the
+    operation set is the record's decision, and a template writes the same five
+    whether a record authorized five or two. An action is how a record's decision
+    reaches the code, so createQuery stays an action even though nothing about
+    its body varies.
+  constraints:
+    - A field name is bound once. No kwarg asks the model to restate a name that another action already binds, so no answer can be internally consistent and still wrong about it.
+    - Every anchor these actions target is planted by a file template, never by another action's template. Injection applies invocations in the order the model listed them, so an anchor planted by an action is reachable only when the model happens to order two actions correctly, and that is not a property a package may depend on.
+    - createQuery no longer declares insert_values, update_values or scan_targets. Three of its seven literals go away, and the measurement says literals are where this package loses samples.
+    - createQuery binds resource and operation and nothing else. A literal that names a field is the defect this record exists for, and leaving one behind would leave the defect behind with it.
+    - The column list, the insert arguments and the scan targets are one invocation's three consequences, so they cannot disagree about order or about spelling. Position desync between a column list and an argument list stops being representable rather than being made less likely.
+    - No rule is added that would require Sedum to know what a file declares. A duplicate field is a compile error and belongs to whatever builds the code, which is above Sedum rather than inside it.
+    - 'grocery-chi-defined stops measuring binding, and that is a cost rather than a tidy-up. Its createQuery expectations were the point of the case - values derivable from the record and the templates and from nothing else - and the kwargs they scored are gone. Nothing on the reduced action can replace them: an operation is a variant name, not a value a model gets subtly wrong. The description experiment continues on the Rails pair, which keeps its addColumn expectations.'
+    - Both Chi cases draw on this one package set, so grocery-chi-defined and todo-chi-defined are both affected by one change and neither is measured against the other's fixture.
+    - The package validates clean under `sedum validate --strict`, and the Chi behaviour target builds and boots what a corrected selection produces.
+  affected_scope:
+    - evals/testdata/todo-api/generators/defined/chi/actions/actions.yaml
+    - evals/testdata/todo-api/generators/defined/chi/actions/addModelField.go
+    - evals/testdata/todo-api/generators/defined/chi/actions/addStructField.go
+    - evals/testdata/todo-api/generators/defined/chi/actions/addColumnName.go
+    - evals/testdata/todo-api/generators/defined/chi/actions/addInsertArg.go
+    - evals/testdata/todo-api/generators/defined/chi/actions/addScanTarget.go
+    - evals/testdata/todo-api/generators/defined/chi/files/db/{name}.go
+    - evals/testdata/todo-api/generators/defined/chi/actions/createQuery/insert.go
+    - evals/testdata/todo-api/generators/defined/chi/actions/createQuery/selectAll.go
+    - evals/testdata/todo-api/generators/defined/chi/actions/createQuery/selectByID.go
+    - evals/testdata/todo-api/generators/defined/chi/actions/createQuery/update.go
+    - evals/testdata/todo-api/generators/defined/chi/actions/createQuery/delete.go
+    - evals/testdata/todo-api/generators/defined/chi/actions/createQuery/_default.go
+    - evals/behavior/targets/todo-chi/answer.json
+    - evals/behavior/targets/grocery-chi/answer.json
+    - evals/cases/grocery-chi-defined.yaml
+  forbidden_scope:
+    - internal/**
+    - cmd/**
+  associated_specs:
+    - path: evals/behavior/targets/todo-chi/answer.json
+    - path: evals/behavior/targets/grocery-chi/answer.json

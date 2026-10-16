@@ -1,0 +1,41 @@
+id: prov-2026-53f4f82b
+version: 1
+content_hash: sha256:3b96a178c6fa93355d8fc0ac91706b8daf5428fb022cd231a11843dc1ba3b19a
+parent_hash: ""
+reason: ""
+author: calebcowen@gmail.com
+created_at: "2026-10-16T00:06:35Z"
+spec_hashes:
+  - sha256:b1f77f082abbc5d9a81b551deb359b4682f0e96319b4afe5f8a83825de7880ed
+content:
+  id: prov-2026-53f4f82b
+  title: Completeness ignores anchors other records already fill
+  type: imprint
+  created_at: "2026-10-15"
+  author: calebcowen@gmail.com
+  intent: |
+    Finding F2 from migrate-dry's lifecycle testbed (2026-10-15): Phase 5's
+    completeness follow-up (prov-2026-6d87dc11) asks the model about every
+    planted anchor its selection leaves empty - including anchors a region owned
+    by another record already fills - and says "This run created <file>" of a
+    file that already existed. With records sharing files since
+    prov-2026-375f5d4a, that costs one extra model call per shared-file record,
+    and the honest answer (select something for that anchor) would hit the
+    ownership error.
+
+    An anchor counts as filled when a region another record owns in that file
+    was written by an action anchored there: the same already-present regions
+    the prompt now lists. And the note no longer claims the run created the file;
+    it names the file and the anchor only. provisio-mgr asked for this fold-in to
+    prov-2026-cc73cf61 in #provisio.
+  constraints:
+    - Only regions owned by other records count; this record's own regions on disk do not, because a re-selection prunes what it does not select again.
+    - The note's wording makes no claim about who created a file.
+  affected_scope:
+    - internal/selection/completeness.go
+    - internal/selection/selection.go
+    - internal/selection/*_test.go
+  implements: prov-2026-cc73cf61
+  implements_version: 1
+  associated_specs:
+    - path: internal/selection/present_test.go

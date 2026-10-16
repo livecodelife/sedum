@@ -1,6 +1,8 @@
 id: prov-2026-3c35801c
 title: 'Prepare grow-prep for its PR: standalone build, a proof document, v2 records'
 status: open
+version: 2
+reason: 'Cover the v2 migration of this repository''s records: config, version manifest, snapshots'
 created_at: "2026-10-15"
 author: calebcowen@gmail.com
 intent: |
@@ -55,10 +57,13 @@ affected_scope:
   - evals/lifecycle/**
   - internal/cli/*_test.go
   - internal/record/*_test.go
+  - .provenance.yml
+  - .provenance/**
+  - .linespec.yml
+  - .linespec/**
+  - provenance/**
 forbidden_scope: []
 type: blueprint
-supersedes: ""
-superseded_by: ""
 related:
   - prov-2026-dac49f78
 sealed_at_sha: ""

@@ -1,0 +1,216 @@
+id: prov-2026-f095e19f
+version: 2
+content_hash: sha256:2bc594f40ce30405387aaad6729c3fe38a985dee7a153899ee8dfe30461ad5a9
+parent_hash: sha256:df54918a23820701a091d56f5d8e719548f82c8e5601f13e13a960d204a85d2a
+reason: |-
+  A kwarg an action's template renders is required for that template, and Sedum
+  already knows which those are. Derive the requirement from the template rather
+  than asking an author to restate it, check it in Phase 5, and show it in the
+  catalog so the model binds it the first time.
+
+  The gap, found by running M6 against two real packages. A discriminated
+  action declares one kwarg schema shared by every variant, so a kwarg that one
+  variant needs and another forbids can only be declared optional. todo-api's
+  chi package says so in a comment beside the declaration:
+
+    # Optional because a delete needs none of them - one kwarg schema covers
+    # every variant, so per-variant requirements cannot be declared here.
+
+  What follows is the failure this design most wants to avoid. The catalog tells
+  the model the kwarg is optional, so it omits it. Phase 5 passes, because by
+  the schema it really is optional. Phase 6 then fails rendering the template,
+  and the run halts with a diagnostic about a template file - after the retry
+  loop was skipped, because nothing was wrong with the selection. That is
+  precisely the shape [[prov-2026-9dcf2658]] named: Phase 5 accepting what a
+  later phase rejects, so the loop that could have fixed it is never entered.
+  That record closed the hole for paths by having Phase 5 resolve them through
+  Phase 6's own resolver. This is the same disease in a different organ.
+
+  It is not confined to discriminated actions. The PRD's own
+  createControllerMethod declared collection optional while every variant
+  template rendered it unconditionally, and that example had been in the
+  document since before any model ran. An author cannot reliably keep a
+  declaration and a template agreeing by hand, which is the argument for not
+  asking them to.
+
+  ## Derivation, not declaration
+
+  The rejected alternative is per-variant requirements in actions.yaml -
+  variants becoming a map of variant to a requires list. It is explicit and
+  machine-checkable, and it is wrong here for two reasons. It restates what the
+  template already says, in a second place, where the two drift the first time
+  a template is edited. And actions.yaml is an artifact users author and commit,
+  so changing its shape is a migration for every package that exists, to add
+  information Sedum can already read.
+
+  Derivation is exact rather than approximate, and that is a property of the
+  template grammar rather than a hope. Sedum's syntax has no conditionals, no
+  loops, and no field access - {{name}} and {{name|op}} are the whole of it - so
+  a value a template references is a value that template unconditionally needs.
+  There is no shape of template for which "referenced" and "required" differ.
+
+  The parsing is already done. Phase 0 reads every file and action template to
+  check the transforms they reference (prov-2026-4675cebe) and already holds the
+  expression list. This blueprint spends that information rather than gathering
+  it.
+
+  ## What changes
+
+  **The effective requirement** for an invocation is the union of the action's
+  declared required kwargs and the values referenced by the template the
+  invocation selects. A declared requirement holds for every variant; a
+  template's holds when that template is chosen. Neither replaces the other.
+
+  **Phase 5** checks the union rather than the declaration, so an omitted kwarg
+  is a re-promptable violation naming the kwarg and the variant that needs it,
+  instead of a Phase 6 halt naming a template file.
+
+  **The catalog** carries each variant's needs, so the model binds them on the
+  first call rather than discovering them through a rejection. This is the same
+  argument the variant list and the injects_into pattern were added under: the
+  retry loop is a backstop, and information the model needed all along belongs
+  in the catalog.
+
+  **Phase 0** errors when a template references a value the action does not
+  declare at all. Today that is a render-time failure, which is late for a
+  typo, and it becomes reachable for free once the references are being read.
+
+  **A load-time warning**, and this is the one debatable piece, when an action
+  with a single template declares a kwarg optional that its template always
+  renders. Such an action could have declared it required and the derivation
+  now covers it either way, so the warning says the declaration understates
+  itself rather than failing the package. A discriminated action never warns:
+  optional is the only thing its schema can say.
+
+  ## What does not change
+
+  No durable artifact changes shape. actions.yaml is authored as it is today,
+  markers are untouched, and recordings are untouched - so there is no
+  migration, and both packages that exposed this gap work correctly without
+  being edited.
+
+  Replay inherits the check unchanged, which is worth stating because it is
+  where the value compounds: a hand-authored recording omitting a kwarg fails
+  in Phase 5 with a diagnostic naming it, terminally and before anything is
+  written, rather than part-way through injection.
+
+  That is no longer a hypothetical about hand-editing. Under
+  [[prov-2026-59535684]] the recording is a submission protocol, and a caller
+  doing its own selection submits invocations Sedum never chose. Such a caller
+  reads the same catalog and needs the same fact: that a variant requires a kwarg
+  the shared schema had to call optional. Without the derivation it binds by the
+  declaration, submits, and gets a Phase 6 halt naming a template file - the same
+  failure this record was written from, arriving through a different door and
+  landing on a caller with no retry loop at all.
+
+  So per-variant needs are additive to sedum actions --json as well as to the
+  prompt. The catalog is the contract and each consumer's view is a rendering of
+  it ([[prov-2026-14c832bf]]); this is a field both consumers read.
+reason_kind: fix
+author: calebcowen@gmail.com
+created_at: "2026-08-14T18:27:36Z"
+spec_hashes:
+  - sha256:0369e879548b4c3d8502143797c84ba4bb2705ac3de82e025b537584b9b9aaac
+  - sha256:27ee7b587e7fd9659bc9a59d1d34bfcbba52d3e559d95a70ad20dcb7d4f1fe63
+  - sha256:42b3f5d0a0f781489b8fd36ce814730de3dca66ee381ce735d610dcfcbceb153
+  - sha256:8610736d9d6ccedd935988c879d098e482acf556d6411451bb93c8fb5b380a02
+  - sha256:c9ce311c5e3eef8b10e4f296d3e19e0c4feeaae41915839d1901e1f494390def
+content:
+  id: prov-2026-f095e19f
+  title: M6 - Model invocation and output validation (sedum grow, sedum actions)
+  type: blueprint
+  created_at: "2026-08-07"
+  author: calebcowen@gmail.com
+  intent: |
+    Implement Phases 4 and 5, closing the loop. Delivers `sedum grow` end to end
+    and `sedum actions`.
+
+    Phase 4 - one model call per provenance record. The prompt carries the record's
+    intent, its constraints, the paths created for it in Phase 3, and the action
+    catalog: the union of exposed actions across every package the record's paths
+    resolved to, with kwarg schemas and variant lists.
+
+    Variant lists are included deliberately. Without them there is an invisible
+    cliff - name: index gets a full implementation while name: search falls to
+    _default, and the model has no way to know it fell off. Exposing the list lets
+    it prefer covered values where intent maps cleanly and take the fallback
+    knowingly where it does not.
+
+    The response is structured output, not tool calls: a JSON array of
+    {action, kwargs} objects. This keeps the mechanism working with models that
+    lack tool-calling support, which is most of the open-weight range worth
+    evaluating. The client is sashabaranov/go-openai against an OpenAI-compatible
+    endpoint, so a local server (LM Studio, vLLM, Ollama) and a hosted API are the
+    same code path; --model names the model and endpoint plus credentials come from
+    the environment.
+
+    Phase 5 - deterministic validation, each check producing a specific
+    re-promptable error: the action name exists and is exposed in this record's
+    catalog; all required kwargs are present; no unknown kwargs; every value
+    matches its declared type; the discriminator value is a declared variant or
+    _default exists; the rendered injects_into path was created in Phase 3. On
+    failure, re-prompt with the specific violations appended, up to --retries.
+    The loop costs one model call - no compilation, no service startup, no test
+    execution.
+
+    `sedum actions` prints a package's catalog exactly as the model would receive
+    it, with --all to include unexposed actions marked as such and --json to emit
+    the raw payload. It is the authoring feedback loop for exposure and catalog
+    clarity, and it shares the catalog builder with Phase 4 rather than
+    reimplementing it - if the two could drift, the command stops being evidence.
+
+    Testable: end-to-end generation from a Rails provenance record with no
+    hand-written invocation list; each validation rule demonstrably triggers a
+    correct re-prompt against a recorded/stubbed model response; retry exhaustion
+    halts with the accumulated violations; `sedum actions --json` output is
+    byte-identical to the catalog embedded in the Phase 4 prompt.
+  constraints:
+    - The model selects actions from a closed vocabulary and binds their arguments. It does not write code, choose file paths, name files, or make structural decisions. Anything it returns outside the declared schema is rejected, never interpreted.
+    - Structured JSON output, not tool calls. Tool-calling support must not be a requirement for a model to work with Sedum.
+    - The catalog contains only exposed actions from the packages this record's paths resolved to. An unexposed action is not merely rejected if selected - it is absent from the option set, making that invalidity unrepresentable.
+    - Every Phase 5 check produces an error specific enough to re-prompt with. A generic "invalid output" is a defect, because the retry loop's whole value is that the model is told exactly what was wrong.
+    - Retries are bounded by --retries (default 3). Exhaustion halts the run and reports every accumulated violation.
+    - Nothing downstream of Phase 5 consults the model. Once output validates, the remainder of the run is a pure function of that output and the packages.
+    - sedum actions and the Phase 4 prompt build the catalog through the same code path. Divergence between them would make the authoring feedback loop lie.
+    - Model configuration comes from --model plus the environment. No credentials, endpoints, or model names are read from a generator package or a provenance record.
+    - A model call is made only when --execute is absent. Under replay Phase 4 is skipped entirely and --retries and --model are ignored.
+    - Requirements are derived from templates, never declared per variant. actions.yaml's shape does not change, so no existing package needs editing and no committed artifact needs migrating.
+    - The effective requirement is the union of the declared required kwargs and the selected template's referenced values. A declared requirement applies to every variant; a derived one applies when its template is selected.
+    - Derivation is exact because the template grammar has no conditionals, loops, or field access. If that grammar ever gains one, this derivation becomes an approximation and this record has to be revisited before it does.
+    - Phase 5 reports a missing derived kwarg as a re-promptable violation naming the kwarg and the variant that needs it. It must not be discovered in Phase 6, which is the failure mode this record exists to close.
+    - The catalog states each variant's needs, so the first call has what it needs. The retry loop is a backstop for mistakes, not a channel for information the catalog could have carried.
+    - A template referencing a value its action does not declare is a load-time error. A single-template action declaring an always-rendered kwarg optional is a load-time warning, never an error.
+    - A composite's derived requirements are the union of its children's, resolved per child against the template that child selects.
+    - Derived requirements are additive to sedum actions --json, not to the prompt alone. A caller doing its own selection submits invocations through replay's terminal validation and has no retry loop, so it needs the fact at least as much as the model does.
+  affected_scope:
+    - internal/selection/**
+    - internal/catalog/**
+    - internal/cli/grow.go
+    - internal/cli/grow_test.go
+    - internal/cli/actions.go
+    - internal/cli/actions_test.go
+    - internal/cli/flags_test.go
+    - internal/pipeline/**
+    - internal/expand/**
+    - internal/inject/**
+    - internal/cli/resolve.go
+    - internal/cli/resolve_test.go
+    - internal/cli/config.go
+    - internal/cli/config_test.go
+    - testdata/**
+    - PRD.md
+    - go.mod
+    - go.sum
+    - internal/genpkg/**
+  implements: prov-2026-d554bfc3
+  implements_version: 1
+  associated_specs:
+    - path: internal/catalog/catalog_test.go
+    - path: internal/selection/selection_test.go
+    - path: internal/pipeline/pipeline_test.go
+    - path: internal/cli/actions_test.go
+    - path: internal/genpkg/genpkg_test.go
+  tags:
+    - sedum
+    - m6
+    - model

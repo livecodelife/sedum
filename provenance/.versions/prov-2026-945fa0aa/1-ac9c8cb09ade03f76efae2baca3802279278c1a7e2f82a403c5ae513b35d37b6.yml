@@ -1,0 +1,133 @@
+id: prov-2026-945fa0aa
+version: 1
+content_hash: sha256:ac9c8cb09ade03f76efae2baca3802279278c1a7e2f82a403c5ae513b35d37b6
+parent_hash: ""
+reason: ""
+author: calebcowen@gmail.com
+created_at: "2026-08-15T18:04:39Z"
+spec_hashes:
+  - sha256:654df446d8403cf37e7c3b9113a5859a3372491b48b9316af7c3981d84e32b47
+  - sha256:1979b197cc80b3697c2b87195e78aa43b63b6b105d6a2c50dcc8213a7e5a2265
+content:
+  id: prov-2026-945fa0aa
+  title: Throughput is a property of how the server is run, and the harness says which
+  type: imprint
+  created_at: "2026-08-15"
+  author: calebcowen@gmail.com
+  intent: |
+    Every measurement so far has been bounded by the model server rather than by
+    anything in this repository, and the repository records almost nothing about
+    how that server was run. An entry carries the endpoint URL and the concurrency
+    the harness asked for. It does not carry how many slots the server was serving,
+    whether it reused a cached prompt prefix, or what batch size it decided on -
+    and those decide the wall clock.
+
+    This is not an argument for the harness configuring the server. The endpoint is
+    a variable on purpose ([[prov-2026-2f131ba6]]), and a run against a server
+    someone else tuned is still a valid run. It is an argument for the two cheap
+    local wins being *found and written down*, so that a wall-clock figure means
+    something to the next person who reads it.
+
+    ## The prefix is identical and is being paid for every time
+
+    A case's prompt is the record plus the catalog, and it is byte-identical across
+    every sample of that case - the samples differ only in the model's sampling.
+    [[prov-2026-096a4d4b]] makes the size of that prefix measurable for the first
+    time, so the waste is now a number rather than a suspicion.
+
+    llama.cpp can reuse a cached prefix across requests. Nothing in this repository
+    has to change for that; what has to change is that the invocation known to work
+    is written down beside the numbers it produced, because a throughput claim
+    measured against a server run one way is not evidence about a server run
+    another way.
+
+    ## Concurrency has never been swept
+
+    The default is 1 and every run so far has used 2, chosen by hand, reporting
+    about 1.9x over sequential. Nobody has measured where that stops paying on this
+    hardware. It is one flag and a few runs, and the answer is worth a line in the
+    README rather than a habit.
+
+    A sweep is also the first use of the harness to measure the harness, which is
+    worth noting: samples at concurrency 1, 2, 4 and 8 over one case, recorded as
+    ordinary entries, differing only in the concurrency field they already carry.
+
+    ## Measured
+
+    Six runs of todo-rails-defined, four samples each, at commits 42a426f and
+    b37709c. Rows 5 and 6 repeat earlier levels as controls:
+
+    | Order | Concurrency | Wall | Per-sample | tok/s |
+    |---|---|---|---|---|
+    | 1 | 1 | 4m24.4s | 1m06.1s | 36.4 |
+    | 2 | 2 | 4m15.2s | 2m07.4s | 37.7 |
+    | 3 | 4 | 4m01.7s | 4m00.9s | 39.8 |
+    | 4 | 8 | 3m16.8s | 3m16.4s | 48.8 |
+    | 5 | 4 | 3m04.8s | 3m04.6s | 52.0 |
+    | 6 | 1 | 5m06.9s | 1m16.7s | 31.3 |
+
+    **The sweep as designed could not answer its own question.** Rows 1 to 4 read
+    as a clean monotonic gain and are confounded with run order; the obvious
+    reading, that the server warms up, is then falsified by row 6, which is the
+    warmest run and the slowest of all six. Two identical c=4 runs differ by 31%.
+    The noise floor is the size of the effect.
+
+    What survives is weaker and worth stating as such: every parallel run finished
+    faster than every sequential one, ranges disjoint, which arises by chance
+    about 7% of the time at this sample size. Per-sample latency tracks
+    concurrency almost exactly - at c=4 a sample takes essentially the whole wall
+    clock - so raising it trades time-to-first-result for a possible improvement
+    in total.
+
+    ## The finding that outlives the question
+
+    Across those same six runs, tokens per call moved by 0.2% and calls per sample
+    did not move at all, while wall clock moved 31% and throughput 25%.
+
+    **The selection measurements are reproducible on this hardware and the timing
+    measurements are not.** That is the argument for [[prov-2026-0811425c]] and
+    [[prov-2026-096a4d4b]] having denominated cost in calls and tokens rather than
+    seconds, made by measurement rather than by assertion - those counts held
+    steady through a 31% swing in the clock beside them.
+
+    It also bounds what the timing numbers may be used for. A comparison inside
+    about 30% is not a result on this box; the chi arm running at 2.7 times the
+    rails arm is.
+
+    ## What an entry can and cannot claim
+
+    It cannot claim the server's configuration, because it cannot see it. So a
+    throughput comparison across two entries is only a comparison when the server
+    was run the same way both times, and that fact belongs beside the numbers.
+    Tokens per second is now derivable from the token counts and the wall clock,
+    which makes the claim precise enough to be worth guarding.
+
+    ## Not the hosted endpoint
+
+    Deliberately out of scope here. [[prov-2026-98ab639c]] already carries hosted
+    rows, with the rate limit and the data-egress property that travel with them,
+    and an entry measured on borrowed silicon answers a different question than one
+    measured on the machine Sedum is meant to run on.
+  constraints:
+    - The harness does not configure the model server. The endpoint stays a variable, and a run against a differently-tuned server is a valid run that costs differently.
+    - A server invocation that a throughput number was measured against is written down beside the number. An entry cannot record the server's configuration, so the claim is only a comparison when that configuration is stated.
+    - The concurrency sweep is recorded as ordinary entries, differing only in the concurrency field they already carry. The harness measures itself with the same instrument it measures everything else with.
+    - Tokens per second is derived from the token counts and the wall clock, never estimated from a model's advertised rate.
+    - Hosted endpoints are out of scope here and stay with prov-2026-98ab639c, which carries their rate limit and data-egress properties.
+    - A configuration measured once is not measured. Two identical runs differed by 31%, so a throughput or wall-clock claim needs repeats of each condition, and a difference inside that band is reported as no result rather than as a small one.
+    - The concurrency default stays 1. Time-to-first-result is what a person iterating needs, and the evidence that raising it helps total time is suggestive rather than established.
+  affected_scope:
+    - evals/**
+  implements: prov-2026-e6969eb3
+  implements_version: 1
+  related:
+    - prov-2026-096a4d4b
+    - prov-2026-98ab639c
+    - prov-2026-0baaa119
+  associated_specs:
+    - path: evals/README.md
+    - path: evals/run_test.go
+  tags:
+    - sedum
+    - evals
+    - measurement

@@ -1,0 +1,137 @@
+id: prov-2026-8e6dac6c
+version: 3
+content_hash: sha256:9fdd560c225918b23f7c160affdc62dcc5253c4033d7ee03c877cabac1fc4325
+parent_hash: sha256:1a5f9c54c928e1fedeb6c2a45dec57642147e90d65961382bf7f9a034bcd56f7
+reason: |-
+  Phase 0 warns when an action is anchored to a marker no file template in its
+  package plants (prov-2026-42f5eedd). It says nothing about the reverse: a
+  marker a file template plants that no action targets. That marker is an
+  injection point nothing can reach, and the file it opens is generated with a
+  hole in it.
+
+  The failure is not theoretical and it is not cheap. A Go package in a real
+  project planted an imports anchor in three file templates and shipped no
+  action that filled it. Every service generated from it referenced packages it
+  never imported, so the output did not compile at all - and the package
+  validated clean, because the only anchor check runs the other way. It was
+  found by building the generated service, which is the most expensive place to
+  find it and the one place Sedum promises not to make you look.
+
+  Sedum's own fixtures carry two of these: chi plants imports and rails plants
+  start_of_body, and no action in either package names them.
+
+  The fix is the mirror check, and it is the same defect the linter already
+  reports about actions. An action that is neither exposed nor composed is dead
+  configuration: nothing can invoke it, warn at load. A marker no action
+  targets is dead configuration on the other side of the same relationship:
+  nothing can fill it, warn at load. Same category, same severity, same
+  reasoning.
+
+  Warning rather than error, and with no suppression list, for the reason the
+  dead-action warning has neither: a package carrying one is usable, the author
+  may be mid-edit, and --strict already exists for a team that wants it
+  enforced. A marker deliberately reserved for a future action costs one warning
+  line, and the way to silence it is to write the action - which is the same
+  answer Sedum gives everywhere else it asks for a declaration rather than
+  inferring one.
+
+  Unlike the check it mirrors, this one is complete. Verifying that an action's
+  marker exists cannot be complete because template selection is path-dependent,
+  and the action may target a file whose template was never chosen. Verifying
+  that a marker is targeted is a comparison of two sets that are both fully
+  known at load: every marker every file template plants, and every marker every
+  action names. No path is involved.
+
+  Scope note: region anchors reference their markers through anchor_start and
+  anchor_end rather than anchor, so both count as targeting. Missing that would
+  make the check report every region anchor's endpoints as unfilled.
+reason_kind: fix
+author: calebcowen@gmail.com
+created_at: "2026-08-14T14:51:33Z"
+spec_hashes:
+  - sha256:c9ce311c5e3eef8b10e4f296d3e19e0c4feeaae41915839d1901e1f494390def
+  - sha256:bada3e57ac702a34f6b54d7bb9420726b580409ed0564ae85be999771abdc3c3
+content:
+  id: prov-2026-8e6dac6c
+  title: M1 - Generator package loading and load-time validation (sedum validate)
+  type: blueprint
+  created_at: "2026-08-07"
+  author: calebcowen@gmail.com
+  intent: |
+    Implement Phase 0: discover generator packages under the generators directory,
+    parse both YAML schemas, resolve every action to its template artifact, and run
+    every load-time check. Delivers `sedum validate`.
+
+    A generators directory's top-level subdirectories are generator packages. Each
+    declares its name, the extensions it claims, its comment prefix, and its
+    transform pipelines in sedum.yaml; its actions in actions/actions.yaml; its
+    file templates as a literal mirror of the target project's structure under
+    files/; and its action templates under actions/.
+
+    Loading builds the extension-to-package map. A contested extension is not an
+    error at load - it becomes one only when a path with that extension appears and
+    no --lang flag disambiguates it, so multi-package directories stay legal and
+    fail at the point of real ambiguity.
+
+    Action shape is determined by the schema, not by what is on disk. An action
+    with no discriminator resolves to a single template file named for the action;
+    an action with a discriminator resolves to a directory named for the action
+    containing one file per declared variant plus an optional _default. A composite
+    has no template and triggers no filesystem lookup at all - searching for one is
+    a bug, not a fallback. Sedum resolves the declared shape and errors when the
+    filesystem disagrees.
+
+    Errors (reject the package):
+      - sedum.yaml or actions.yaml missing, malformed, or carrying unknown keys
+      - a kwarg type outside the closed set string|int|bool|list
+      - an action's declared shape absent from disk, or present in the wrong form
+      - a declared variant with no template file
+      - a template or path pattern referencing an undefined transform pipeline
+      - a composite composing another composite, or an action in another package
+      - a composite whose children declare the same kwarg name with different types
+      - two file templates that tie under the specificity ranking (the ranking
+        itself lives in M1a, prov-2026-f51f04b2; M1 walks files/ to collect the
+        pattern set and rejects the package on a reported tie)
+      - a package whose declared name disagrees with its directory name
+
+    Warnings:
+      - an action whose marker anchor appears in no file template in its package
+      - an action that is unexposed and referenced by no composite (dead config)
+      - a --lang flag naming a package that claims no extension in the record set
+
+    Testable: a deliberately malformed package produces the correct specific error
+    for each rule above; `--strict` promotes every warning to an error; a valid
+    package loads clean with no records, no model, and no network.
+  constraints:
+    - Packages are wholly valid or rejected. There are no partial loads and no "load what parses" fallback - a package with one broken action does not contribute its working actions to a run.
+    - YAML decoding is strict (KnownFields). An unrecognized key in sedum.yaml or actions.yaml is an error naming the key and its file, not a silently ignored field, because a typo in a key is otherwise invisible until generation.
+    - Every diagnostic names the package, the file, and the rule violated, and validation reports all findings for a package rather than halting on the first, so an author fixes a package in one pass.
+    - An action's kind is read from the schema. Sedum never infers whether an action is simple, discriminated, or composite from the filesystem, and never performs a filesystem lookup for a composite.
+    - Composite rules are enforced here, not at generation - nesting is exactly one level, children stay within the package, the composite's kwarg schema is the union of its children's names and required flags, and same-name different- type children reject the package.
+    - exposed defaults to true. Only exposed actions ever reach a catalog. Hiding is the deliberate act, so that authoring an action is enough to make it usable.
+    - File templates are not part of the action catalog and are never loaded as actions. They are matched by path during file creation and are invisible to the model.
+    - Marker-anchor checking is a warning, not an error - template selection is path-dependent, so complete verification is impossible and a false hard error would block legitimate packages.
+    - Load-time validation runs with no records, no model, and no network access.
+    - File template contents are keyed by their pattern. No code pairs the pattern list and the content list by index, because the two are produced by different orderings.
+    - A load-time finding about a file template names the file that contains the problem. This is what the regression test asserts, using a package where walk order and sort order provably differ.
+    - A marker planted by a file template that no action in the package targets is a warning, never an error. The package is usable and the author may be mid-edit.
+    - anchor, anchor_start and anchor_end all count as targeting a marker. A region anchor names its endpoints through the latter two.
+    - No suppression mechanism, matching the dead-action warning. A reserved marker is silenced by writing the action that fills it, and --strict is the existing answer for a team that wants warnings to fail.
+    - The fixture packages are corrected rather than exempted. A worked example that trips a rule the linter reports is not a worked example.
+  affected_scope:
+    - internal/genpkg/**
+    - internal/cli/validate.go
+    - internal/cli/flags_test.go
+    - testdata/generators/**
+    - go.mod
+    - go.sum
+    - testdata/**
+  implements: prov-2026-d554bfc3
+  implements_version: 1
+  associated_specs:
+    - path: internal/genpkg/genpkg_test.go
+    - path: internal/genpkg/anchors_test.go
+  tags:
+    - sedum
+    - m1
+    - validation

@@ -1,6 +1,7 @@
 id: prov-2026-de71f29b
 title: A smaller model row, because the 14B rejects too rarely to measure recovery
 status: implemented
+version: 1
 created_at: "2026-08-17"
 author: calebcowen@gmail.com
 intent: |
@@ -130,8 +131,7 @@ forbidden_scope:
   - cmd/**
 type: blueprint
 implements: prov-2026-d554bfc3
-supersedes: ""
-superseded_by: ""
+implements_version: 1
 related:
   - prov-2026-8d4146de
   - prov-2026-b43799a0
