@@ -554,11 +554,14 @@ func printInjections(out io.Writer, result *pipeline.Result, dryRun bool) {
 	}
 }
 
-func describeRegion(r inject.Result) string {
-	if r.Variant == "" {
-		return r.Action
+func describeRegion(r inject.Result) string { return label(r.Action, r.Variant) }
+
+// label is action, or action:variant for a discriminated one.
+func label(action, variant string) string {
+	if variant == "" {
+		return action
 	}
-	return r.Action + ":" + r.Variant
+	return action + ":" + variant
 }
 
 // describeKwargs renders bound arguments in name order, so that one run's
@@ -713,12 +716,7 @@ func printStaleSeeded(out io.Writer, result *pipeline.Result) {
 	}
 }
 
-func describeRef(r pipeline.RegionRef) string {
-	if r.Variant == "" {
-		return r.Action
-	}
-	return r.Action + ":" + r.Variant
-}
+func describeRef(r pipeline.RegionRef) string { return label(r.Action, r.Variant) }
 
 // printOrphans lists regions whose record is no longer current, and what was
 // done with each (prov-2026-cc73cf61).

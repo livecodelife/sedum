@@ -13,30 +13,6 @@ type OwnedRegion struct {
 	Region  Region
 }
 
-// ScanOwned returns the regions recordID owns in its targets: those whose
-// marker names its id or one of its aliases (prov-2026-375f5d4a). Seeded
-// regions are included and say so on their marker; a caller deciding what to
-// regenerate filters them.
-//
-// It reads the files from disk or, in a dry run, from what Phase 3 would have
-// written, and writes nothing. A target that does not exist owns nothing yet.
-// This is what lets grow decide per record whether to skip, re-render or
-// re-select from markers alone, with no manifest (prov-2026-9621daed).
-func ScanOwned(recordID string, targets []Target, owners map[string]Owner, output string, unwritten map[string]string) ([]OwnedRegion, error) {
-	all, err := ScanRegions(targets, output, unwritten)
-	if err != nil {
-		return nil, err
-	}
-	own := newOwnership(owners)
-	var out []OwnedRegion
-	for _, r := range all {
-		if r.Region.Marker.Record != "" && own.owns(recordID, r.Region.Marker.Record) {
-			out = append(out, r)
-		}
-	}
-	return out, nil
-}
-
 // ScanRegions returns every marked region in the targets, whoever owns it.
 func ScanRegions(targets []Target, output string, unwritten map[string]string) ([]OwnedRegion, error) {
 	var out []OwnedRegion
