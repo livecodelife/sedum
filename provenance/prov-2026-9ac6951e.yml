@@ -1,9 +1,9 @@
 id: prov-2026-9ac6951e
 title: 'adopt: the adoption report'
 type: imprint
-status: implemented
-version: 3
-reason: tests grown into the placeholder spec file
+status: open
+version: 5
+reason: 'stage 2: Text prints the scope lines'
 created_at: "2026-10-16"
 author: calebcowen@gmail.com
 intent: |-
@@ -21,18 +21,65 @@ intent: |-
   - `func ResidualsOf(src []byte, spans []Span, comment genpkg.Comment) []ResidualInfo`: for each KindResidual span whose Text is not blank (ResidualIsBlank false), in order: StartLine is the 1-based line in src of the first non-blank line of its Text (1 plus the number of newlines in the Text of all spans before it, plus the number of leading blank lines of its own Text), EndLine the line of its last non-blank line, FirstLine its first non-blank line with surrounding whitespace trimmed, and Reason: ReasonHeader when it is the first non-header span of the file and no KindUnit span precedes it and every non-blank line starts (after trimming leading whitespace) with comment.Prefix; ReasonFloatingComment when every non-blank line starts with comment.Prefix and the previous condition does not hold; otherwise ReasonOtherResidual. A KindHeader span is never reported. If comment.Prefix is empty every residual is ReasonOtherResidual.
   - `func (r *Report) Text() string`: a plain-text report, built with strings.Builder, exactly: a first line `adopt: N file(s): A adopted, S skipped, X rejected, U unit(s)`; then, when any file was skipped or rejected, a line `skipped by reason:` followed by one line `  <reason>: <count>` per reason in alphabetical order; then for each such reason in the same order a line `<reason>:` followed by one line `  <path>` per file with that reason (with ` (lines <start>-<end>: <first line>)` appended for each of its residuals, one per line instead when it has several: `  <path> lines <start>-<end>: <first line>`), in the order the files were added; finally, when Recording is not empty, `recording: <path>`.
   Tests (report_test.go), each its OWN setFunction invocation: TestReportTotals (Add three files: one adopted with Units 3, one skipped with ReasonHeader, one skipped with ReasonHeader and one rejected with ReasonOtherResidual; assert every Totals field including SkippedByReason {header: 2, other_residual: 1}); TestReportJSONKeys (Marshal of a report with one adopted file contains the substrings `"skipped_by_reason": {}` and `"status": "adopted"` and ends with a newline, and has no field called timestamp); TestResidualsOf (comment prefix "#", src "# licence\nimport os\n\ndef f():\n    pass\n\n# note\nx = 1\n" built from spans: residual "# licence\nimport os\n\n" ... exact spans: [{residual, "# licence\n"}, {residual, "import os\n\n"}, {unit setFunction, "def f():\n    pass\n"}, {residual, "\n# note\n"}, {residual, "x = 1\n"}] but note consecutive residual spans are separate here; expected ResidualInfo: line 1 header "# licence"; line 2 other_residual "import os"; line 7 floating_comment "# note"; line 8 other_residual "x = 1"); TestResidualsOfEmptyPrefix; TestReportText (a report with a skipped header file carrying one residual at lines 1-2, and Recording ".sedum/adopt/x.json": assert the exact full text).
+
+  Stage 2 (prov-2026-36809902): Text() also tells the user which scope lines make `grow --check` see the adopted files. In Text(), immediately BEFORE the `if r.Recording != ""` block, insert exactly this code (the rest of Text is unchanged):
+  	var order []string
+  	byRecord := map[string][]string{}
+  	for _, f := range r.Files {
+  		if f.Status != StatusAdopted || f.Record == "" {
+  			continue
+  		}
+  		if _, ok := byRecord[f.Record]; !ok {
+  			order = append(order, f.Record)
+  		}
+  		byRecord[f.Record] = append(byRecord[f.Record], f.Path)
+  	}
+  	if len(order) > 0 {
+  		b.WriteString("list the adopted files in their imprints so grow --check sees them:\n")
+  		for _, id := range order {
+  			fmt.Fprintf(&b, "  provenance edit %s", id)
+  			for _, p := range byRecord[id] {
+  				fmt.Fprintf(&b, " --add-scope %s", p)
+  			}
+  			b.WriteString("\n")
+  		}
+  	}
+  New test in the NEW file report_scope_test.go (package adopt, import testing), its OWN setFunction TestReportTextScopeLines, exactly:
+  func TestReportTextScopeLines(t *testing.T) {
+  	r := NewReport()
+  	r.Add(FileReport{Path: "a.go", Record: "imp-1", Status: StatusAdopted, Units: 1})
+  	r.Add(FileReport{Path: "b.go", Record: "imp-1", Status: StatusAdopted, Units: 2})
+  	r.Add(FileReport{Path: "c.go", Record: "imp-2", Status: StatusAdopted, Units: 1})
+  	r.Add(FileReport{Path: "d.go", Record: "imp-2", Status: StatusSkipped, Reason: ReasonNoUnits})
+  	r.Recording = "rec.json"
+  	want := "adopt: 4 file(s): 3 adopted, 1 skipped, 0 rejected, 4 unit(s)\n" +
+  		"skipped by reason:\n" +
+  		"  no_units: 1\n" +
+  		"no_units:\n" +
+  		"  d.go\n" +
+  		"list the adopted files in their imprints so grow --check sees them:\n" +
+  		"  provenance edit imp-1 --add-scope a.go --add-scope b.go\n" +
+  		"  provenance edit imp-2 --add-scope c.go\n" +
+  		"recording: rec.json\n"
+  	if got := r.Text(); got != want {
+  		t.Errorf("Text() =\n%s\nwant\n%s", got, want)
+  	}
+  }
 constraints: []
 affected_scope:
   - internal/adopt/report.go
   - internal/adopt/report_test.go
+  - internal/adopt/report_scope_test.go
 forbidden_scope: []
 implements: prov-2026-95d9ae7e
 implements_version: 2
 related: []
-sealed_at_sha: 243ed2a541d83928ff70c6e058d58a50ddfd8c7d
+sealed_at_sha: ""
 associated_specs:
   - path: internal/adopt/report_test.go
     run_command: go test ./internal/adopt -run 'TestReport|TestResiduals' -count=1
+  - path: internal/adopt/report_scope_test.go
+    run_command: go test ./internal/adopt -run 'ReportTextScopeLines' -count=1
 associated_traces: []
 monitors: []
 tags: []
