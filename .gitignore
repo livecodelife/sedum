@@ -1,4 +1,5 @@
-.sedum/
+.sedum/*
+!.sedum/context.md
 /sedum
 .linespec/scope-index.json
 .linespec/scope-index.yml
