@@ -1,9 +1,9 @@
 id: prov-2026-9bc22cf7
 title: 'adopt: the built-in Go adopter'
 type: imprint
-status: implemented
-version: 6
-reason: 'stage 2: the repository round trip test'
+status: open
+version: 10
+reason: a non-main root package is skipped with a named reason
 created_at: "2026-10-16"
 author: calebcowen@gmail.com
 intent: |-
@@ -98,7 +98,11 @@ intent: |-
   	}
   	gap(off(file.Package))
   	headerEnd := goLineEnd(src, off(file.Name.End()))
-  	spans = append(spans, Span{Kind: KindHeader, Text: string(src[pos:headerEnd])})
+  	headerKind := KindHeader
+  	if !strings.Contains(path, "/") && file.Name.Name != "main" {
+  		headerKind = KindResidual
+  	}
+  	spans = append(spans, Span{Kind: headerKind, Text: string(src[pos:headerEnd])})
   	pos = headerEnd
   	seen := map[string]int{}
   	imports := 0
@@ -231,7 +235,7 @@ intent: |-
   	}
   	for _, tc := range cases {
   		t.Run(tc.name, func(t *testing.T) {
-  			spans, err := GoAdopter{}.Split("x.go", []byte(tc.src))
+  			spans, err := GoAdopter{}.Split("p/x.go", []byte(tc.src))
   			if err != nil {
   				t.Fatal(err)
   			}
@@ -266,12 +270,12 @@ intent: |-
   		"parse error":     "package x\nfunc (",
   	} {
   		t.Run(name, func(t *testing.T) {
-  			if _, err := (GoAdopter{}).Split("x.go", []byte(src)); err == nil {
+  			if _, err := (GoAdopter{}).Split("p/x.go", []byte(src)); err == nil {
   				t.Fatal("want an error")
   			}
   		})
   	}
-  	_, err := GoAdopter{}.Split("x.go", []byte("package x\nfunc  F() {}\n"))
+  	_, err := GoAdopter{}.Split("p/x.go", []byte("package x\nfunc  F() {}\n"))
   	if err == nil || !strings.Contains(err.Error(), "not gofmt-clean") {
   		t.Fatalf("err = %v, want not gofmt-clean", err)
   	}
@@ -308,21 +312,50 @@ intent: |-
   		t.Fatal("no Go files were split")
   	}
   }
+
+  Root-level files: the go package's root template is `package main`, so a file directly in the project root (path without a "/") whose package is not main cannot be adopted. For it the `package X` line is a KindResidual span instead of the header (the code above), so the core reports the file as skipped (other_residual, first line `package X`) rather than failing its round trip. New test in the NEW file internal/adopt/goadopter_root_test.go (package adopt; imports testing and github.com/livecodelife/sedum/internal/genpkg, one addImport each), its OWN setFunction, exactly:
+  func TestGoAdopterRootPackages(t *testing.T) {
+  	cases := []struct {
+  		path, src string
+  		want      Kind
+  	}{
+  		{"main.go", "package main\n\nfunc F() {}\n", KindHeader},
+  		{"lib.go", "package lib\n\nfunc F() {}\n", KindResidual},
+  		{"sub/lib.go", "package lib\n\nfunc F() {}\n", KindHeader},
+  	}
+  	for _, tc := range cases {
+  		spans, err := GoAdopter{}.Split(tc.path, []byte(tc.src))
+  		if err != nil {
+  			t.Fatal(err)
+  		}
+  		if spans[0].Kind != tc.want {
+  			t.Errorf("%s: first span is %s, want %s", tc.path, spans[0].Kind, tc.want)
+  		}
+  	}
+  	spans, _ := GoAdopter{}.Split("lib.go", []byte("package lib\n\nfunc F() {}\n"))
+  	res := ResidualsOf([]byte("package lib\n\nfunc F() {}\n"), spans, genpkg.Comment{Prefix: "//"})
+  	if len(res) != 1 || res[0].Reason != ReasonOtherResidual || res[0].FirstLine != "package lib" {
+  		t.Errorf("residuals = %+v", res)
+  	}
+  }
 constraints: []
 affected_scope:
   - internal/adopt/goadopter.go
   - internal/adopt/goadopter_test.go
   - internal/adopt/goadopter_repo_test.go
+  - internal/adopt/goadopter_root_test.go
 forbidden_scope: []
 implements: prov-2026-36809902
 implements_version: 2
 related: []
-sealed_at_sha: a3dafd704e5fd39fd254a23048e29443214e5e8b
+sealed_at_sha: ""
 associated_specs:
   - path: internal/adopt/goadopter_test.go
     run_command: go test ./internal/adopt -run 'GoAdopter' -count=1
   - path: internal/adopt/goadopter_repo_test.go
     run_command: go test ./internal/adopt -run 'GoAdopterCoversRepoFiles' -count=1
+  - path: internal/adopt/goadopter_root_test.go
+    run_command: go test ./internal/adopt -run 'GoAdopterRootPackages' -count=1
 associated_traces: []
 monitors: []
 tags: []
