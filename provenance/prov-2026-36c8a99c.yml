@@ -1,6 +1,6 @@
 id: prov-2026-36c8a99c
 title: The record ID is an attribute of a region, not part of its identity
-status: implemented
+status: superseded
 created_at: "2026-08-13"
 author: calebcowen@gmail.com
 intent: |
@@ -133,7 +133,7 @@ forbidden_scope: []
 type: imprint
 implements: prov-2026-b6fa093c
 supersedes: ""
-superseded_by: ""
+superseded_by: prov-2026-4df89974
 related:
   - prov-2026-dad4d877
   - prov-2026-e8671c88
