@@ -69,3 +69,16 @@ actions:
     injects_into: "{{file}}"
     anchor: imports
     identity: [file, path]
+
+  # A whole import declaration as written in an adopted file: a grouped
+  # `import (...)` block, an aliased or dot import, or a lone import the
+  # file keeps as is. addImport stays the action for a plain new import.
+  setImports:
+    description: Defines one whole import declaration, replacing an earlier version of it.
+    kwargs:
+      file: { type: string, required: true, description: "The Go file to write into. It must be one of the authorized files." }
+      name: { type: string, required: true, description: "A name for this declaration, unique in the file, such as imports#1." }
+      code: { type: literal, required: true, description: "The whole import declaration, as gofmt-formatted Go." }
+    injects_into: "{{file}}"
+    anchor: imports
+    identity: [file, name]

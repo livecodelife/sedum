@@ -1,0 +1,76 @@
+id: prov-2026-3d0321d4
+version: 10
+content_hash: sha256:af7df400dca43d609212b5fad7a1db5d1de42dfb50cea3327f11ab8401c7fd9d
+parent_hash: sha256:ddcaf97c8ece984ecf2a5c7ccb3b1ede92be86130cca8ababf54d4f2c7b1ddd2
+reason: tests and markers regrown for the builtin form
+author: calebcowen@gmail.com
+created_at: "2026-10-16T22:21:56Z"
+spec_hashes:
+  - sha256:086d447d00666f80991e7580eb25ddd9ad08a0dde89453bb389faa35f184e0da
+  - sha256:74fcf660fee1897f4bdf6a74520bde4705152c1f02239ad04587f82f0ee32d1a
+content:
+  id: prov-2026-3d0321d4
+  title: 'genpkg: the adopt key in sedum.yaml'
+  type: imprint
+  created_at: "2026-10-16"
+  author: calebcowen@gmail.com
+  intent: |-
+    Implements prov-2026-95d9ae7e: the `adopt:` key in sedum.yaml. Hand-edited already (they edit existing hand-written files): internal/genpkg/schema.go gains `Adopt *Adopt` on the manifest (yaml "adopt") and on Package, and internal/genpkg/load.go copies it and calls `checkAdopt(pkg, r)` after checkTestPaths. New file internal/genpkg/adopt.go (package genpkg), grown, defines:
+
+    - `type Adopt struct` with yaml tags: `Command []string` ("command"), `UnitStart string` ("unit_start"), `UnitEnd string` ("unit_end"), `Header string` ("header"), `AttachAbove []string` ("attach_above"), `Actions map[string]string` ("actions"). Decoding stays strict (the manifest already uses KnownFields).
+    - `const RuleAdoptInvalid = "adopt_invalid"`, documented.
+    - `func checkAdopt(pkg *Package, r *reporter)`: does nothing when pkg.Adopt is nil. Otherwise reports each problem with r.errorf(manifestFile, RuleAdoptInvalid, ...): both `command` and `unit_start` set, or neither; a command whose first element is empty; for the declarative form: `unit_start` that does not compile as a Go regexp (regexp.Compile), or lacks the named groups `kind` and `name` (check Regexp.SubexpNames); `unit_end` empty (it is required for the declarative form: an empty regexp would match every line), or not one of `dedent`, `blank`, or a regexp that compiles; `header` or any `attach_above` entry that does not compile; `actions` empty; an actions value naming an action the package does not have (pkg.Actions); an action whose required kwargs are not a subset of {file, name, code} (the declarative adopter supplies exactly those three: file = the path, name = the `name` group, code = the unit text); and `command` combined with any declarative field (header, unit_end, attach_above, actions).
+    Tests (internal/genpkg/adopt_test.go, table-driven using the helpers in genpkg_test.go, each case a one-line mutation of a valid package's sedum.yaml): a valid declarative adopter loads clean and Package.Adopt carries its fields; a valid command adopter loads clean; each error above is reported with RuleAdoptInvalid and a message naming the problem; a package without `adopt:` has Adopt nil.
+    Test fixture notes (the rails package from validPackage has no action whose required kwargs are within file/name/code, so each test that needs one builds its own): append to files["rails/actions/actions.yaml"] an action `setThing` with kwargs `file`, `name` and `code`, each `{ type: string, required: true }`, `injects_into: "{{file}}"` and `anchor: class_body`, and add files["rails/actions/setThing.rb"] = "{{code}}\n"; the valid declarative case maps `kind` value `def` to `setThing`. Append the `adopt:` block to files["rails/sedum.yaml"] with plain ASCII quotes only: an empty command element is written `command: [""]` (two ASCII double quotes inside the brackets). Write the declarative adopter's unit_start as `^(?P<kind>def) (?P<name>\w+)`.
+    The setThing text to append to rails/actions/actions.yaml must be exactly these lines, with the two-space indentation (it goes under the existing top-level `actions:` key; the existing file ends with a newline), as one Go raw string constant:
+      setThing:
+        kwargs:
+          file: { type: string, required: true }
+          name: { type: string, required: true }
+          code: { type: string, required: true }
+        injects_into: "{{file}}"
+        anchor: class_body
+    One more case in the table: `unit_end` missing from an otherwise valid declarative block is reported with RuleAdoptInvalid and a message containing "unit_end" (its fixture block has unit_start and actions but no unit_end line).
+
+    Stage 2 (prov-2026-36809902) adds a third form, `builtin: <name>`: an adopter compiled into sedum. In internal/genpkg/adopt.go:
+    - `Adopt` gains the field `Builtin string` with yaml tag "builtin" (put it first, before Command); its doc comment now names three forms: a command, a declarative description, or the name of a built-in adopter.
+    - New documented package-level var `BuiltinAdopters = map[string]bool{"go": true}`: the names of the adopters compiled into sedum (internal/adopt holds their implementations).
+    - checkAdopt: replace the "exactly one of command or unit_start" check at the top with this code, keeping every later check as it is:
+          hasCommand := len(a.Command) > 0
+          forms := 0
+          for _, set := range []bool{hasCommand, a.UnitStart != "", a.Builtin != ""} {
+          	if set {
+          		forms++
+          	}
+          }
+          if forms != 1 {
+          	r.errorf(manifestFile, RuleAdoptInvalid, "adopt: set exactly one of command, unit_start or builtin")
+          }
+          if a.Builtin != "" {
+          	if !BuiltinAdopters[a.Builtin] {
+          		r.errorf(manifestFile, RuleAdoptInvalid, "adopt: builtin %q is not a built-in adopter", a.Builtin)
+          	}
+          	if hasCommand || a.UnitStart != "" || a.Header != "" || a.UnitEnd != "" || len(a.AttachAbove) > 0 || len(a.Actions) > 0 {
+          		r.errorf(manifestFile, RuleAdoptInvalid, "adopt: builtin cannot be combined with command, unit_start, header, unit_end, attach_above or actions")
+          	}
+          	return
+          }
+      (the existing `hasCommand := ...` line and `if hasCommand == (a.UnitStart != "")` block are replaced by the code above; the later `if hasCommand {` block stays.)
+    - The existing test table in adopt_test.go is unchanged. New tests go in the NEW file internal/genpkg/adopt_builtin_test.go (package genpkg, import "strings" and "testing"), one function `TestAdoptBuiltin`, table-driven like TestAdopt with this exact table (name, block, msg) and the same loop body as TestAdopt (copy it: files := validPackage(); files["rails/sedum.yaml"] += tc.block; set, findings := loadTree(t, files); collect messages of findings whose Rule is RuleAdoptInvalid; empty msg means no such finding and Packages[0].Adopt.Builtin must equal "go"; otherwise some message must contain msg). The rails fixture needs no setThing action here. Cases:
+        {"go", "adopt:\n  builtin: go\n", ""},
+        {"unknown", "adopt:\n  builtin: cobol\n", "not a built-in adopter"},
+        {"with command", "adopt:\n  builtin: go\n  command: [\"x\"]\n", "cannot be combined"},
+        {"with unit_start", "adopt:\n  builtin: go\n  unit_start: '^(?P<kind>def) (?P<name>\\w+)'\n", "cannot be combined"},
+        {"with header", "adopt:\n  builtin: go\n  header: '^//'\n", "cannot be combined"},
+        {"empty adopt", "adopt: {}\n", "exactly one"},
+  affected_scope:
+    - internal/genpkg/adopt.go
+    - internal/genpkg/adopt_test.go
+    - internal/genpkg/adopt_builtin_test.go
+    - internal/genpkg/schema.go
+    - internal/genpkg/load.go
+  implements: prov-2026-95d9ae7e
+  implements_version: 2
+  associated_specs:
+    - path: internal/genpkg/adopt_test.go
+    - path: internal/genpkg/adopt_builtin_test.go
