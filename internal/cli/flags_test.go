@@ -83,6 +83,7 @@ func TestGrowFlagSurface(t *testing.T) {
 		{"repair", "", "int", "1"},
 		{"no-verify", "", "bool", "false"},
 		{"verify", "", "stringArray", "[]"},
+		{"restamp-gen", "", "bool", "false"},
 		{"orphans", "", "bool", "false"},
 		{"stamp", "", "bool", "false"},
 		{"json", "", "bool", "false"},
@@ -647,11 +648,12 @@ func TestModelFlagsOverrideTheBundledDefault(t *testing.T) {
 	}
 }
 
-// --check only reports, so every flag that writes, records, replays or forces a
+// --check only reports, so every flag that writes, records or forces a
 // selection is refused with it, naming both flags (prov-2026-9621daed).
+// --execute is the exception: with it --check is a dry replay that fails when
+// replaying would change the tree (prov-2026-c637c262).
 func TestCheckRefusesWhatContradictsIt(t *testing.T) {
 	for _, extra := range [][]string{
-		{"--execute", "rec.json"},
 		{"--record", "rec.json"},
 		{"--dry-run"},
 		{"--force"},

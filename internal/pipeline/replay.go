@@ -36,6 +36,10 @@ type ReplayConfig struct {
 	// recording's, then to the packages' declared defaults.
 	Variables map[string]string
 
+	// RestampGen stamps each named record's current gen, taken from Records,
+	// in place of the gen the recording carries (prov-2026-c637c262).
+	RestampGen bool
+
 	DryRun         bool
 	StopAfterPhase int
 	Log            *runlog.Log
@@ -110,6 +114,9 @@ func Replay(rec recording.Recording, cfg ReplayConfig) (*Result, error) {
 	// record shape and replay never reaches Phase 4, so two records
 	// legitimately refining regions in one file replay without complaint
 	// (prov-2026-dc227be7).
+	if cfg.RestampGen && cfg.Records == "" {
+		return nil, fmt.Errorf("--restamp-gen needs --records: the current gen comes from the records")
+	}
 	if cfg.Records != "" {
 		loaded, warnings, err := record.Load(cfg.Records, record.Options{})
 		result.Warnings = append(result.Warnings, warnings...)
@@ -172,7 +179,12 @@ func Replay(rec recording.Recording, cfg ReplayConfig) (*Result, error) {
 		if err != nil {
 			return nil, fmt.Errorf("record %s: %w", s.RecordID, err)
 		}
-		stampGen(expanded, replayGen(rec, result.Records, s.RecordID))
+		gen, restamp := replayGenFor(rec, result.Records, s.RecordID, cfg.RestampGen)
+		if restamp != nil {
+			result.Restamps = append(result.Restamps, *restamp)
+			log.Info("restamped gen from the current record", "record", s.RecordID, "from", restamp.Old, "to", restamp.New)
+		}
+		stampGen(expanded, gen)
 		log.Info("expanded invocations", "record", s.RecordID,
 			"selected", len(s.Invocations), "resolved", len(expanded))
 		resolved = append(resolved, expanded...)
@@ -184,14 +196,19 @@ func Replay(rec recording.Recording, cfg ReplayConfig) (*Result, error) {
 	}
 
 	// Phase 7 - inject, unchanged.
-	// Ownership applies to replay as to grow; reconciliation does not, since a
-	// recording may be partial and replay never prunes (prov-2026-375f5d4a).
+	// Ownership applies to replay as to grow. Reconciliation depends on whether
+	// the recording is complete (prov-2026-375f5d4a, prov-2026-c637c262).
 	applied, err := inject.Apply(resolved, inject.Options{
 		Output:    cfg.Output,
 		DryRun:    cfg.DryRun,
 		Unwritten: unwrittenFiles(cfg.DryRun, files),
 		Log:       log,
 		Owners:    replayOwners(rec, result.Records),
+		// A complete recording holds the whole selection of every record it
+		// names, so replay prunes what it no longer selects; a partial one
+		// only reports it (prov-2026-c637c262).
+		Reconcile:       replayReconcile(selections),
+		ReconcileReport: !rec.Complete,
 	})
 	if err != nil {
 		return nil, err

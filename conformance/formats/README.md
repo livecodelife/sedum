@@ -45,7 +45,7 @@ The run's report, in place of the text report.
 | `records[].repair_attempts` | How many times the project's verification sent the record's selection back to the model (`--repair`); omitted when none. |
 | `records[].regions` | What happened to each region the run touched for the record. |
 | `records[].regions[].file`, `.action`, `.variant` | Which region. |
-| `records[].regions[].change` | `"inserted"`, `"replaced"` (bytes differ), `"unchanged"` (rewritten identically), `"pruned"`, `"held"` (a prune only `--force` would make), `"seeded"` (left alone). |
+| `records[].regions[].change` | `"inserted"`, `"replaced"` (bytes differ), `"unchanged"` (rewritten identically), `"pruned"`, `"held"` (a prune only `--force` would make), `"unselected"` (a partial recording's replay left a region of a named record it no longer selects), `"seeded"` (left alone). |
 | `orphans` | Regions whose record is gone or deprecated: `file`, `action`, `variant`, `record`, `authorized`, `pruned`. |
 | `stamped` | Markers `--stamp` wrote a hash onto: `file`, `action`, `variant`, `record`, `gen`, `pkg` (booleans: which hash was added). |
 | `check_failed` | Under `--check`: some record is stale, needs re-rendering, or has left orphans. Always false otherwise. |

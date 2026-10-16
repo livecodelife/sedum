@@ -128,6 +128,10 @@ type Config struct {
 
 // Result is what a run decided and what it did.
 type Result struct {
+	// Restamps is each record whose gen a replay restamped from the current
+	// record (prov-2026-c637c262).
+	Restamps []Restamp
+
 	Packages    *genpkg.Set
 	Records     *record.Set
 	Resolutions []resolve.Resolution

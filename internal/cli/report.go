@@ -100,6 +100,8 @@ func buildGrowReport(result *pipeline.Result, dryRun, replay, check bool) growRe
 		switch {
 		case inj.Held:
 			change = "held"
+		case inj.Unselected:
+			change = "unselected"
 		case inj.Pruned:
 			change = "pruned"
 		case inj.Skipped:

@@ -40,6 +40,9 @@ IMPRINTS=("${V1_IMPRINTS[@]}")                  # the imprints that grow now; st
 export OPENAI_BASE_URL="http://127.0.0.1:$PORT/v1" OPENAI_API_KEY=stub
 case "$OPENAI_BASE_URL" in http://127.0.0.1:*) ;; *) echo "refusing: model endpoint is not the local stub" >&2; exit 1 ;; esac
 
+# Newer sedum prints one summary line per orphan fate and lists each region only with --orphans.
+ORPHANS_FLAG=(); "$SEDUM" grow --help 2>/dev/null | grep -q -- '--orphans' && ORPHANS_FLAG=(--orphans)
+
 # ---- helpers -------------------------------------------------------------------
 
 say()  { printf '\n== %s\n' "$*"; }
@@ -52,7 +55,8 @@ fail() {
 
 add_records() {  # add_records <stepN>: fixtures are stored as <hex>.yml (see make_records.py)
 	local f
-	for f in "$TB/fixtures/$1/records/"*.yml; do cp "$f" "$W/provenance/prov-2026-$(basename "$f")"; done
+	# cp keeps the source mode; inside a sedum checkout under the v2 hooks tracked files are 0444
+	for f in "$TB/fixtures/$1/records/"*.yml; do cp "$f" "$W/provenance/prov-2026-$(basename "$f")"; chmod u+w "$W/provenance/prov-2026-$(basename "$f")"; done
 }
 
 v1_lint() {  # the v1 records are valid v1; linespec is optional so the demo runs without it
@@ -347,7 +351,7 @@ step10() {
 	if grow "$SEDUM" "$LEGACY"; then fail "growing a deprecated record should be refused"; fi
 	ok "grow refuses --only for a deprecated record"
 	snapshot s10a; mark_calls
-	grow "$SEDUM" "${IMPRINTS[@]}" -- --orphans || { cat "$W/.stub/last.out"; fail "grow"; }
+	grow "$SEDUM" "${IMPRINTS[@]}" -- ${ORPHANS_FLAG[@]+"${ORPHANS_FLAG[@]}"} || { cat "$W/.stub/last.out"; fail "grow"; }
 	expect_calls 0
 	[ "$(orphans_in "$LEGACY")" -eq "$n" ] || { cat "$W/.stub/last.out"; fail "expected $n orphans reported"; }
 	snapshot s10b; expect_changed s10a s10b
@@ -372,7 +376,7 @@ step10() {
 	mark_calls; grow "$SEDUM" "${IMPRINTS[@]}" "$LEGACY" || { cat "$W/.stub/last.out"; fail "regrow $LEGACY"; }
 	expect_calls 1
 	rm "$W/provenance/$LEGACY.yml"
-	grow "$SEDUM" "${IMPRINTS[@]}" -- --orphans || { cat "$W/.stub/last.out"; fail "grow"; }
+	grow "$SEDUM" "${IMPRINTS[@]}" -- ${ORPHANS_FLAG[@]+"${ORPHANS_FLAG[@]}"} || { cat "$W/.stub/last.out"; fail "grow"; }
 	[ "$(orphans_in "$LEGACY")" -eq "$n" ] || { cat "$W/.stub/last.out"; fail "removed record: expected $n orphans"; }
 	grow "$SEDUM" "${IMPRINTS[@]}" -- --prune-orphans || { cat "$W/.stub/last.out"; fail "prune"; }
 	! grep -q '"record":"'"$LEGACY"'"' "$W/internal/handlers/legacy.go" || fail "$LEGACY regions remain after removal"
@@ -474,7 +478,184 @@ step5() {
 	grow "$SEDUM" "${IMPRINTS[@]}" || { cat "$W/.stub/last.out"; fail "grow"; }
 	expect_calls 0; snapshot s5d; expect_changed s5c s5d
 }
-step8()  { pending "8. stale / repin" "staleness + repin (Phase 3)"; }
+step8() {
+	say "8. stale children and repin"
+	[ -x "$PROVENANCE" ] || fail "bin/provenance missing (tools/build.sh)"
+	"$PROVENANCE" stale --help >/dev/null 2>&1 && "$PROVENANCE" repin --help >/dev/null 2>&1 ||
+		{ pending "8. stale / repin" "this provenance CLI has no stale/repin (needs cli 5ca39a7 or later)"; return; }
+	local lines0 st
+	(cd "$W" && "$PROVENANCE" edit "$BP_API" --reason "clarify error shape" \
+		--add-constraint "Error bodies are JSON with a message field.") >"$W/.stub/last.out" 2>&1 ||
+		{ cat "$W/.stub/last.out"; fail "edit $BP_API"; }
+	[ "$(yget "$BP_API" version)" = 3 ] || fail "$BP_API should be at v3"
+	commit "step 8: $BP_API v3"
+	st=$(cd "$W" && "$PROVENANCE" stale 2>&1) || fail "stale"
+	for id in "$HEALTH" "$LEGACY" "$NOTES"; do
+		echo "$st" | grep -q "$id@[0-9]* *pinned to $BP_API@1, parent is at 3 *(direct)" ||
+			{ echo "$st"; fail "stale should list $id as directly stale (pin 1, parent 3)"; }
+	done
+	ok "stale: all three imprints directly stale (pin v1, $BP_API at v3)"
+	if (cd "$W" && "$PROVENANCE" stale --exit-code) >/dev/null 2>&1; then fail "stale --exit-code should exit non-zero"; fi
+	ok "stale --exit-code exits non-zero"
+	if (cd "$W" && "$PROVENANCE" repin "$HEALTH" --to 3) >/dev/null 2>&1; then fail "repin without --reason should fail"; fi
+	ok "repin without --reason is refused"
+	lines0=$(wc -l <"$W/.provenance/versions.jsonl" | tr -d ' ')
+	(cd "$W" && "$PROVENANCE" repin "$HEALTH" --to 3 --reason "still correct") >"$W/.stub/last.out" 2>&1 ||
+		{ cat "$W/.stub/last.out"; fail "repin $HEALTH"; }
+	[ "$(yget "$HEALTH" implements_version)" = 3 ] || fail "$HEALTH should pin $BP_API v3"
+	[ "$(yget "$HEALTH" version)" = 1 ] || fail "repin must not change $HEALTH's version"
+	[ "$(wc -l <"$W/.provenance/versions.jsonl" | tr -d ' ')" -eq "$lines0" ] || fail "repin wrote a version"
+	[ "$(find "$W/provenance/.versions/$HEALTH" -name '*.yml' | wc -l | tr -d ' ')" -eq 1 ] || fail "repin wrote a snapshot"
+	[ -s "$W/provenance/.versions/$HEALTH/pins.jsonl" ] || fail "repin should log to pins.jsonl"
+	ok "repin: $HEALTH pin 1 -> 3; version unchanged, no snapshot, no new version line; pins.jsonl logged"
+	st=$(cd "$W" && "$PROVENANCE" stale 2>&1)
+	echo "$st" | grep -q "$HEALTH@" && { echo "$st"; fail "$HEALTH should no longer be stale"; }
+	echo "$st" | grep -q "$LEGACY@" && echo "$st" | grep -q "$NOTES@" || { echo "$st"; fail "stale should still list $LEGACY and $NOTES"; }
+	ok "stale now lists only $LEGACY and $NOTES"
+	commit "step 8: repin $HEALTH"
+	snapshot s8a; mark_calls
+	grow "$SEDUM" "${IMPRINTS[@]}" || { cat "$W/.stub/last.out"; fail "grow"; }
+	expect_calls 0
+	snapshot s8b; expect_changed s8a s8b
+	check "${IMPRINTS[@]}"
+	[ "$CHECK_RC" -eq 0 ] || { cat "$W/.stub/last.out"; fail "--check should be clean: implements_version is not part of gen_hash"; }
+	ok "grow after repin: 0 calls, no file touched; --check clean (a pin is not a content change)"
+}
+
+ev_state() {  # ev_state <id>: the state column of `provenance check --evidence` (plus [reason]) for the record
+	(cd "$W" && SEDUM_BIN="$SEDUM" "$PROVENANCE" check --evidence 2>/dev/null || true) |
+		awk -v id="$1" '$1 ~ "^" id "@" {$1=""; sub(/^ +/,""); print; exit}' | tr -s ' '
+}
+stale_ids() {  # ids `provenance stale` lists, sorted
+	(cd "$W" && "$PROVENANCE" stale 2>/dev/null) | awk '/@[0-9]+ .*pinned to/ {sub(/@.*/,"",$1); print $1}' | sort
+}
+
+step13() {
+	say "13. evidence flow (DESIGN Phase 3 done-check)"
+	"$PROVENANCE" check --help 2>&1 | grep -q -- '--evidence' ||
+		{ pending "13. evidence" "this provenance CLI has no check --evidence (needs cli aae06e5 or later)"; return; }
+	local child spec=specs/ping.sh want got
+	printf 'exclude_paths: ["generators/**"]\nrun_associated_specs_on_complete: true\ncommit_on_status_change: true\n' >>"$W/.provenance.yml"
+	mkdir -p "$W/specs"
+	printf '#!/bin/sh\ntest -f internal/handlers/ping.go && go build ./internal/...\n' >"$W/$spec"
+	commit "step 13: config + spec"
+	# a new imprint of BP-API that sedum grows (so it owns regions and has a code hash)
+	(cd "$W" && "$PROVENANCE" create --type imprint --implements "$BP_API" --title "Ping endpoint" \
+		--intent "Serve the ping resource: GET /ping answers 200 with pong." \
+		--scope internal/handlers/ping.go --no-edit) >"$W/.stub/last.out" 2>&1 || { cat "$W/.stub/last.out"; fail "create"; }
+	child=$(sed -n 's|.*provenance/\(prov-[0-9]*-[0-9a-f]*\)\.yml.*|\1|p' "$W/.stub/last.out" | head -1)
+	CHILD13=$child
+	[ -n "$child" ] || { cat "$W/.stub/last.out"; fail "could not read the new record id"; }
+	python3 -I - "$W/provenance/$child.yml" "$spec" <<'EOF2'
+import sys
+p, spec = sys.argv[1], sys.argv[2]
+s = open(p).read()
+assert "associated_specs: []\n" in s
+open(p, "w").write(s.replace("associated_specs: []\n", "associated_specs:\n  - path: %s\n    type: code\n    run_command: sh\n" % spec))
+EOF2
+	commit "step 13: draft $child"
+	(cd "$W" && "$PROVENANCE" open --record "$child") >"$W/.stub/last.out" 2>&1 || { cat "$W/.stub/last.out"; fail "open"; }
+	mark_calls; grow "$SEDUM" "$child" || { cat "$W/.stub/last.out"; fail "grow $child"; }
+	expect_calls 1
+	[ -f "$W/internal/handlers/ping.go" ] || fail "ping.go missing"
+	commit "step 13: grow $child"
+	(cd "$W" && SEDUM_BIN="$SEDUM" "$PROVENANCE" complete --record "$child") >"$W/.stub/last.out" 2>&1 ||
+		{ cat "$W/.stub/last.out"; fail "complete $child"; }
+	[ -n "$(ls "$W/provenance/.evidence/$child" 2>/dev/null)" ] || fail "complete wrote no evidence"
+	[ -z "$(git -C "$W" status --porcelain)" ] || fail "complete left the tree dirty (evidence not committed with the record)"
+	[ "$(ev_state "$child")" = "fresh" ] || { ev_state "$child"; fail "$child evidence should be fresh after complete"; }
+	ok "complete: spec ran, evidence committed with the record; check --evidence: fresh"
+
+	# bump the parent: the evidence goes stale for the parent, and stale lists exactly BP-API's direct children
+	(cd "$W" && "$PROVENANCE" edit "$BP_API" --reason "name the error body" \
+		--add-constraint "Error bodies name the failing field.") >"$W/.stub/last.out" 2>&1 || { cat "$W/.stub/last.out"; fail "edit $BP_API"; }
+	commit "step 13: $BP_API bump"
+	[ "$(ev_state "$child")" = "stale [parent]" ] || { ev_state "$child"; fail "$child evidence should be stale [parent]"; }
+	want=$(for f in "$W"/provenance/prov-*.yml; do id=$(basename "$f" .yml)
+		[ "$(yget "$id" implements)" = "$BP_API" ] && echo "$id"; done | sort)
+	got=$(stale_ids)
+	[ "$got" = "$want" ] && [ "$(echo "$got" | wc -l | tr -d ' ')" -eq 4 ] ||
+		{ echo "want: $want"; echo "got: $got"; fail "stale should list exactly $BP_API's 4 descendants"; }
+	ok "parent bump: $child evidence stale [parent]; stale lists exactly the 4 descendants of $BP_API"
+	if (cd "$W" && SEDUM_BIN="$SEDUM" "$PROVENANCE" check --evidence) >/dev/null 2>&1; then fail "check --evidence should exit non-zero with stale evidence"; fi
+	ok "check --evidence exits non-zero while evidence is stale"
+
+	# repin: fresh again, and only that record leaves the stale list
+	(cd "$W" && "$PROVENANCE" repin "$child" --reason "still correct") >"$W/.stub/last.out" 2>&1 || { cat "$W/.stub/last.out"; fail "repin"; }
+	commit "step 13: repin $child"
+	[ "$(ev_state "$child")" = "fresh" ] || { ev_state "$child"; fail "$child evidence should be fresh after repin"; }
+	[ "$(stale_ids)" = "$(echo "$want" | grep -v "^$child\$")" ] || fail "stale should now list the other 3"
+	ok "repin: $child fresh again; the other 3 still stale"
+
+	# edit the spec: evidence stale for specs
+	printf '# edited\n' >>"$W/$spec"
+	case "$(ev_state "$child")" in stale*specs*) ;; *) ev_state "$child"; fail "spec edit should make evidence stale (specs)" ;; esac
+	ok "spec edit: evidence stale [$(ev_state "$child" | sed 's/.*\[\(.*\)\]/\1/')]"
+	git -C "$W" checkout -q -- "$spec"
+	[ "$(ev_state "$child")" = "fresh" ] || fail "restoring the spec should make evidence fresh again"
+
+	# check --commit on the tagged complete commit
+	local sha; sha=$(git -C "$W" log --format=%H --grep "Complete provenance record \[$child@1\]" -1)
+	[ -n "$sha" ] || fail "no tagged complete commit"
+	(cd "$W" && "$PROVENANCE" check --commit "$sha") >"$W/.stub/last.out" 2>&1 || { cat "$W/.stub/last.out"; fail "check --commit $sha"; }
+	ok "check --commit ${sha:0:7} (tagged $child@1): passes"
+}
+
+replay() {  # replay <recording>: sedum grow --execute (no model); output in $W/.stub/last.out
+	(cd "$W" && "$SEDUM" grow --execute "$1" --generators generators --records provenance) >"$W/.stub/last.out" 2>&1
+}
+
+step14() {
+	say "14. template edit + replay: what keeps the hashes right, and where the gap is"
+	[ -n "${CHILD13:-}" ] || { pending "14. template replay" "needs step 13's child (this CLI has no check --evidence)"; return; }
+	local c=$CHILD13 tpl=generators/chi/actions/addHandlerFunc.go rec="$W/.stub/rec14.json" rec2="$W/.stub/rec14b.json"
+	mark_calls; grow "$SEDUM" "$c" -- --force --record "$rec"; expect_calls 1
+	[ -z "$(git -C "$W" status --porcelain)" ] || fail "recording the current run should change nothing"
+	[ "$(ev_state "$c")" = "fresh" ] || fail "$c should start fresh"
+
+	# A. edit the generator template; replay the recording with no model
+	printf '// handled by the template v2\n%s' "$(cat "$W/$tpl")" >"$W/$tpl"
+	check "$c"
+	[ "$CHECK_RC" -eq 1 ] && grep -q "1 to re-render" "$W/.stub/last.out" || { cat "$W/.stub/last.out"; fail "--check should want a re-render after a template edit"; }
+	ok "A: template edit: grow --check exits 1 (1 to re-render)"
+	mark_calls; replay "$rec" || { cat "$W/.stub/last.out"; fail "replay"; }; expect_calls 0
+	grep -q "handled by the template v2" "$W/internal/handlers/ping.go" || fail "replay should re-render the handler"
+	expect_build
+	check "$c"; [ "$CHECK_RC" -eq 0 ] || { cat "$W/.stub/last.out"; fail "--check should be clean after replay (pkg re-stamped by sedum)"; }
+	ok "A: replay (0 calls) re-renders and re-stamps the markers: grow --check clean, no restamp command needed"
+	case "$(ev_state "$c")" in "stale [code]") ;; *) ev_state "$c"; fail "evidence should be stale [code] after the code moved" ;; esac
+	ok "A: check --evidence: stale [code] (the code moved; the spec evidence did not)"
+	commit "step 14: template v2 + replay"
+	(cd "$W" && "$PROVENANCE" run-specs --record "$c") >/dev/null 2>&1 || fail "run-specs"
+	[ "$(ev_state "$c")" = "stale [code]" ] || fail "run-specs must not refresh evidence"
+	if (cd "$W" && SEDUM_BIN="$SEDUM" "$PROVENANCE" complete --record "$c") >/dev/null 2>&1; then fail "complete on an implemented record should be refused"; fi
+	ok "A: GAP: run-specs does not refresh evidence and complete refuses an implemented record: no sanctioned re-evidence without a new version"
+
+	# B. the sanctioned path today: edit (new version, reopened) -> grow -> complete
+	(cd "$W" && "$PROVENANCE" edit "$c" --reason "template v2 regenerated" \
+		--add-constraint "Handler bodies carry the template comment.") >"$W/.stub/last.out" 2>&1 || { cat "$W/.stub/last.out"; fail "edit $c"; }
+	commit "step 14: $c v2"
+	check "$c"; [ "$CHECK_RC" -eq 1 ] || fail "--check should be stale after the record edit (gen_hash moved)"
+	mark_calls; replay "$rec" || { cat "$W/.stub/last.out"; fail "replay (old recording)"; }; expect_calls 0
+	check "$c"; [ "$CHECK_RC" -eq 1 ] || { cat "$W/.stub/last.out"; fail "replaying the OLD recording should leave --check stale: it stamps the recording's gen"; }
+	ok "B: record edit: --check stale; replay of the old recording (0 calls) re-stamps the OLD gen, so it stays stale"
+	mark_calls; grow "$SEDUM" "$c" -- --force --record "$rec2"; expect_calls 1
+	check "$c"; [ "$CHECK_RC" -eq 0 ] || fail "--check should be clean after a fresh grow"
+	commit "step 14: regrow $c"
+	(cd "$W" && SEDUM_BIN="$SEDUM" "$PROVENANCE" complete --record "$c") >"$W/.stub/last.out" 2>&1 || { cat "$W/.stub/last.out"; fail "complete v2"; }
+	[ "$(ev_state "$c")" = "fresh" ] || { ev_state "$c"; fail "evidence should be fresh after complete @2"; }
+	ok "B: fresh recording (1 call) + complete @2: --check clean, evidence fresh"
+
+	# C. edit the recorded invocation (kwargs) and replay the fresh recording
+	mark_calls; sed -i.bak 's/"verb": "get"/"verb": "post"/' "$rec2"
+	replay "$rec2" || { cat "$W/.stub/last.out"; fail "replay (edited recording)"; }; expect_calls 0
+	grep -q 'func PostPing' "$W/internal/handlers/ping.go" && grep -q 'func GetPing' "$W/internal/handlers/ping.go" || fail "kwargs edit should add PostPing beside GetPing"
+	expect_build
+	check "$c"; [ "$CHECK_RC" -eq 0 ] || fail "--check should be clean after the kwargs replay"
+	case "$(ev_state "$c")" in "stale [code]") ;; *) ev_state "$c"; fail "evidence should be stale [code] after the kwargs replay" ;; esac
+	ok "C: kwargs edit + replay (0 calls): adds PostPing beside GetPing (new region, old kept); --check clean; evidence stale [code]"
+	git -C "$W" checkout -q -- . ; rm -f "$rec2.bak"
+}
 
 run_step() {  # run_step <step function>: run it and record pass / skipped
 	CURRENT="$1"; SKIPPED=""
@@ -487,7 +668,7 @@ run_steps() { local s; for s in "$@"; do run_step "$s"; done; }
 
 # Three independent sequences, each from a fresh work/
 seq_sedum()   { IMPRINTS=("${V1_IMPRINTS[@]}"); run_steps step0 step1 step2 step6 step7v1 step7b step9 step11 step12 step10; }
-seq_migrate() { IMPRINTS=("${V1_IMPRINTS[@]}"); run_steps step0 step1 step2 step3 step3grow step4 step5 step8; }
+seq_migrate() { IMPRINTS=("${V1_IMPRINTS[@]}"); run_steps step0 step1 step2 step3 step3grow step4 step5 step8 step13 step14; }
 seq_pregen()  { IMPRINTS=("${V1_IMPRINTS[@]}"); run_steps step2prime step4b; }
 
 today() {

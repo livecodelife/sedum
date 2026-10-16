@@ -32,6 +32,14 @@ type Recording struct {
 	Packages     map[string]Package `json:"packages"`
 	Records      []Record           `json:"records"`
 
+	// Complete reports that the run re-selected every record in its records
+	// directory, so the recording holds the whole of each record's selection.
+	// Replay reconciles the records a complete recording names, pruning the
+	// regions it no longer selects; a partial recording prunes nothing and
+	// only reports them (prov-2026-c637c262). Additive and omitted when false,
+	// so every earlier recording and every foreign writer reads as partial.
+	Complete bool `json:"complete,omitempty"`
+
 	// Variables are the run's values for the project facts its packages
 	// declare. A recording carries them because replay renders the same
 	// invocations against the same packages, and a recording that rendered

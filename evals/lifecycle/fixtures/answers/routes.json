@@ -5,5 +5,6 @@
   {"match": "lists notes and POST /note creates one", "answer": "notes_old.json"},
   {"match": "HEAD /health", "answer": "health_v2.json"},
   {"match": "GET /health", "answer": "health.json"},
-  {"match": "GET /legacy", "answer": "legacy.json"}
+  {"match": "GET /legacy", "answer": "legacy.json"},
+  {"match": "GET /ping", "answer": "ping.json"}
 ]
