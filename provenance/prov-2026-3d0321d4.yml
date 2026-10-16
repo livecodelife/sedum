@@ -1,0 +1,42 @@
+id: prov-2026-3d0321d4
+title: 'genpkg: the adopt key in sedum.yaml'
+type: imprint
+status: implemented
+version: 8
+reason: the hand-written wiring lines
+created_at: "2026-10-16"
+author: calebcowen@gmail.com
+intent: |-
+  Implements prov-2026-95d9ae7e: the `adopt:` key in sedum.yaml. Hand-edited already (they edit existing hand-written files): internal/genpkg/schema.go gains `Adopt *Adopt` on the manifest (yaml "adopt") and on Package, and internal/genpkg/load.go copies it and calls `checkAdopt(pkg, r)` after checkTestPaths. New file internal/genpkg/adopt.go (package genpkg), grown, defines:
+
+  - `type Adopt struct` with yaml tags: `Command []string` ("command"), `UnitStart string` ("unit_start"), `UnitEnd string` ("unit_end"), `Header string` ("header"), `AttachAbove []string` ("attach_above"), `Actions map[string]string` ("actions"). Decoding stays strict (the manifest already uses KnownFields).
+  - `const RuleAdoptInvalid = "adopt_invalid"`, documented.
+  - `func checkAdopt(pkg *Package, r *reporter)`: does nothing when pkg.Adopt is nil. Otherwise reports each problem with r.errorf(manifestFile, RuleAdoptInvalid, ...): both `command` and `unit_start` set, or neither; a command whose first element is empty; for the declarative form: `unit_start` that does not compile as a Go regexp (regexp.Compile), or lacks the named groups `kind` and `name` (check Regexp.SubexpNames); `unit_end` empty (it is required for the declarative form: an empty regexp would match every line), or not one of `dedent`, `blank`, or a regexp that compiles; `header` or any `attach_above` entry that does not compile; `actions` empty; an actions value naming an action the package does not have (pkg.Actions); an action whose required kwargs are not a subset of {file, name, code} (the declarative adopter supplies exactly those three: file = the path, name = the `name` group, code = the unit text); and `command` combined with any declarative field (header, unit_end, attach_above, actions).
+  Tests (internal/genpkg/adopt_test.go, table-driven using the helpers in genpkg_test.go, each case a one-line mutation of a valid package's sedum.yaml): a valid declarative adopter loads clean and Package.Adopt carries its fields; a valid command adopter loads clean; each error above is reported with RuleAdoptInvalid and a message naming the problem; a package without `adopt:` has Adopt nil.
+  Test fixture notes (the rails package from validPackage has no action whose required kwargs are within file/name/code, so each test that needs one builds its own): append to files["rails/actions/actions.yaml"] an action `setThing` with kwargs `file`, `name` and `code`, each `{ type: string, required: true }`, `injects_into: "{{file}}"` and `anchor: class_body`, and add files["rails/actions/setThing.rb"] = "{{code}}\n"; the valid declarative case maps `kind` value `def` to `setThing`. Append the `adopt:` block to files["rails/sedum.yaml"] with plain ASCII quotes only: an empty command element is written `command: [""]` (two ASCII double quotes inside the brackets). Write the declarative adopter's unit_start as `^(?P<kind>def) (?P<name>\w+)`.
+  The setThing text to append to rails/actions/actions.yaml must be exactly these lines, with the two-space indentation (it goes under the existing top-level `actions:` key; the existing file ends with a newline), as one Go raw string constant:
+    setThing:
+      kwargs:
+        file: { type: string, required: true }
+        name: { type: string, required: true }
+        code: { type: string, required: true }
+      injects_into: "{{file}}"
+      anchor: class_body
+  One more case in the table: `unit_end` missing from an otherwise valid declarative block is reported with RuleAdoptInvalid and a message containing "unit_end" (its fixture block has unit_start and actions but no unit_end line).
+constraints: []
+affected_scope:
+  - internal/genpkg/adopt.go
+  - internal/genpkg/adopt_test.go
+  - internal/genpkg/schema.go
+  - internal/genpkg/load.go
+forbidden_scope: []
+implements: prov-2026-95d9ae7e
+implements_version: 2
+related: []
+sealed_at_sha: 5b65f12e79090db2dc56cc4d4881792beaa1f11b
+associated_specs:
+  - path: internal/genpkg/adopt_test.go
+    run_command: go test ./internal/genpkg -run 'Adopt' -count=1
+associated_traces: []
+monitors: []
+tags: []

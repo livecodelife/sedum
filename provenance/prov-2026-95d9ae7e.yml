@@ -1,0 +1,106 @@
+id: prov-2026-95d9ae7e
+title: 'Sedum adopt core: language-agnostic adoption with a coverage report'
+type: blueprint
+status: implemented
+version: 2
+reason: the adopt key's validation lives in a new genpkg file
+created_at: "2026-10-16"
+author: calebcowen@gmail.com
+intent: |-
+  Stage 1 of `sedum adopt` (docs/ADOPT.md, merged in PR #11): the language-agnostic
+  core, with a machine-readable coverage report. No language adopter ships in this
+  stage; the tests drive it with a declarative adopter and a stub command adopter.
+
+  ## Schema
+
+  A generator package's sedum.yaml gains an optional `adopt:` key (decoded strictly
+  like the rest). Exactly one of two forms:
+  - declarative: `header` (regex for the file head the template renders), `unit_start`
+    (regex with a named group `name`), `unit_end` (`dedent` | `blank` | regex),
+    `attach_above` (regexes for lines that belong to the next unit), `action`
+    (map from a unit_start alternative to an action name), `normalize` (command or
+    built-in name, or empty for an exact compare).
+  - command: `command: [argv...]`, run as `<argv> <file>`, with the same optional
+    `normalize`.
+  Validation rejects both or neither, a bad regex, an action the package lacks, and
+  a declarative action whose kwargs cannot be derived (name only).
+
+  ## Adopter output (the contract the core checks)
+
+  Either form yields an ordered list of spans for one file: `{kind: header|unit|residual,
+  text, action?, kwargs?}`. A command adopter prints it as JSON on stdout. The core
+  never looks inside a unit. Coverage: the span texts concatenated in order must equal
+  the file byte for byte, else the file is rejected with the first differing offset.
+
+  ## sedum adopt
+
+  `sedum adopt [--generators DIR] [--records DIR] [--record ID] [--output DIR]
+  [--dry-run] [--allow-command-adopters] [--tests] [--json] <path>...`
+  1. Select files: expand paths; skip unmanaged paths, test files (unless --tests),
+     files that carry `Code generated ... DO NOT EDIT`, and files already carrying
+     sedum markers; report each skip with its reason.
+  2. Resolve each file to its package, template and capture (as grow does) and to the
+     one open imprint that authorizes it (an error if none or several).
+  3. Run the package's adopter (a command adopter only with --allow-command-adopters,
+     and the command is printed first). Check coverage.
+  4. v1 policy for residuals: a file whose residual spans are anything other than
+     whitespace is NOT adopted; it is reported with file, line range and the residual
+     text's first line. (A later stage adds a setHeader action.)
+  5. Build a recording: one record per imprint, one `default` phase, invocations in
+     source order, files with their template and captures.
+  6. --dry-run stops here: it writes only the recording (to `.sedum/adopt/<id>.json`)
+     and the report.
+  7. Otherwise replay it through the existing replay path, scope-validated against
+     the records. gen comes from the record and pkg from the package, so markers are
+     stamped correctly with no model. All-or-nothing: the existing Phase 7 write.
+  8. Verify: for each written file, strip every sedum marker line and the lines the
+     markers add, normalize, and compare to the normalized original. Any mismatch
+     restores the tree and fails with the first differing line. Then print the report.
+
+  ## Report
+
+  Text by default, `--json` for the machine-readable form the future skill reads:
+  `{files: [{path, package, record, status: adopted|skipped|rejected|residual,
+  reason, units, residuals: [{start_line, end_line, first_line}]}], totals: {...},
+  recording: path}`. Stable key order, no timestamps.
+
+  Skips are counted and named, because v1 excludes real-world files (license
+  headers, floating comments, generated code, tests) and we need to see how much
+  a later setHeader action would unlock. `totals.skipped_by_reason` maps each
+  reason (`header`, `floating_comment`, `other_residual`, `generated`, `test`,
+  `already_adopted`, `unmanaged`, `no_template`, `no_imprint`) to a count, and
+  every skipped file appears in `files` with its reason and, for residuals, the
+  line range and first line of each residual span. The text report prints the
+  same table, then the skipped file names grouped by reason.
+
+  ## Constraints
+
+  - The core contains no language knowledge: no parser, no gofmt call. The normalizer
+    and the splitter are package declarations.
+  - No model call, ever. Adopt uses no flag that names a model.
+  - Adoption writes nothing outside the output dir's managed files, `.sedum/adopt/`,
+    and (never) records. It does not create provenance records.
+  - A skipped or rejected file is never partly written.
+  - Adopting an adopted tree is a no-op (files with markers are skipped).
+  - Existing grow/replay behaviour is unchanged; no flag or hash changes.
+  - Generate first: the new code is grown with sedum-haiku through the go package
+    (context via --prompt-file); hand-written only what cannot be grown, with a reason.
+constraints: []
+affected_scope:
+  - internal/adopt/**
+  - internal/cli/adopt*.go
+  - internal/cli/root.go
+  - internal/genpkg/schema.go
+  - internal/genpkg/load.go
+  - internal/genpkg/validate.go
+  - internal/genpkg/adopt.go
+  - internal/genpkg/adopt_test.go
+forbidden_scope: []
+related: []
+sealed_at_sha: 972788abc9c76b3f1c242a299f06a344c5d69ea0
+associated_specs:
+  - path: internal/adopt/adopt_test.go
+    run_command: go test ./internal/adopt -count=1
+associated_traces: []
+monitors: []
+tags: []

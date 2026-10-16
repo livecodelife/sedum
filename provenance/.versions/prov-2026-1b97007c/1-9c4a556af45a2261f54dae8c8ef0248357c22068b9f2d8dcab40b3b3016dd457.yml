@@ -1,0 +1,26 @@
+id: prov-2026-1b97007c
+version: 1
+content_hash: sha256:9c4a556af45a2261f54dae8c8ef0248357c22068b9f2d8dcab40b3b3016dd457
+parent_hash: ""
+reason: ""
+author: calebcowen@gmail.com
+created_at: "2026-10-16T21:26:21Z"
+spec_hashes:
+  - sha256:0e045e0e8dd17e09290477bc2dd1a58487f8e54782d9bc837b8277b402e5091f
+content:
+  id: prov-2026-1b97007c
+  title: 'adopt: choosing the adopter form for a package'
+  type: imprint
+  created_at: "2026-10-16"
+  author: calebcowen@gmail.com
+  intent: |-
+    Implements prov-2026-95d9ae7e: choosing the adopter form for a package. New file internal/adopt/forpackage.go (package adopt). Span, Kind, Adopter, CommandAdopter (field Argv []string, method String()) exist in span.go and command.go; NewDeclarative(pkg *genpkg.Package) (*Declarative, error) exists in declarative.go and *Declarative implements Adopter; genpkg.Package has Name string and Adopt *genpkg.Adopt whose Command []string is set for the command form.
+    - `func ForPackage(pkg *genpkg.Package, allowCommand bool) (Adopter, error)`: nil Adopt is an error `package <name> declares no adopter`; a `command` adopter returns a CommandAdopter{Argv: pkg.Adopt.Command} when allowCommand, otherwise the error `package <name> declares a command adopter (<command line>); rerun with --allow-command-adopters to run it`; a declarative one returns NewDeclarative(pkg).
+    Tests in forpackage_test.go, each its OWN setFunction invocation: TestForPackageDeclarative (a genpkg.Package literal with Adopt{UnitStart: `^(?P<kind>def) (?P<name>\w+)`, UnitEnd: "dedent", Actions: {"def": "setFunction"}} and an Actions map holding setFunction; ForPackage returns a *Declarative); TestForPackageCommandNeedsPermission (exact error text `package py declares a command adopter (splitter -x); rerun with --allow-command-adopters to run it`); TestForPackageCommandAllowed (returns CommandAdopter whose Argv equals the command); TestForPackageNoAdopter (exact error text `package py declares no adopter`).
+  affected_scope:
+    - internal/adopt/forpackage.go
+    - internal/adopt/forpackage_test.go
+  implements: prov-2026-95d9ae7e
+  implements_version: 2
+  associated_specs:
+    - path: internal/adopt/forpackage_test.go

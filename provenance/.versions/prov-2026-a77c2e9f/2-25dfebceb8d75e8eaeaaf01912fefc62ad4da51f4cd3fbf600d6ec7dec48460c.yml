@@ -1,0 +1,60 @@
+id: prov-2026-a77c2e9f
+version: 2
+content_hash: sha256:25dfebceb8d75e8eaeaaf01912fefc62ad4da51f4cd3fbf600d6ec7dec48460c
+parent_hash: sha256:802eba98203f2d3312972dd8b26bbfe1166abc38a2a1987a1df4be4718db420e
+reason: the one hand-written line registering the command
+author: calebcowen@gmail.com
+created_at: "2026-10-16T21:51:44Z"
+spec_hashes:
+  - sha256:32da720a8e6af67799e759e8d1b95d75c63609db115404e0f52001f32a26288d
+content:
+  id: prov-2026-a77c2e9f
+  title: 'adopt: the sedum adopt command'
+  type: imprint
+  created_at: "2026-10-16"
+  author: calebcowen@gmail.com
+  intent: |-
+    Implements prov-2026-95d9ae7e: the `sedum adopt` command. New file internal/cli/adopt.go (package cli). root.go registers it with one hand-written line (`newAdoptCommand(),` in root.AddCommand) outside this imprint's grown scope. It uses `adopt.Run(adopt.Config{Root, Generators, Records string; Paths []string; Tests, AllowCommand, DryRun bool; RecordingPath string}) (*adopt.Report, error)` and `(*adopt.Report)`: methods `Text() string` and `JSON() ([]byte, error)`, field `Totals` with `Rejected int`. In package cli already exist: `defaultOutput` (the constant "."), `mustMarkRequired(cmd *cobra.Command, names ...string)` and `writeJSON(out io.Writer, v any) error`. github.com/spf13/cobra is the CLI library.
+    Define:
+    - `type AdoptConfig struct { Generators, Records, Output, Recording string; Tests, AllowCommandAdopters, DryRun, JSON bool }`.
+    - `func newAdoptCommand() *cobra.Command`: Use "adopt <path>...", Short "Bring existing files under Sedum without a model", a Long text of a few sentences saying: it splits each file with the adopter its generator package declares, builds a recording, replays it, and keeps a file only if stripping the markers gives back the original; files it cannot adopt are skipped and named with the reason; --dry-run writes only the recording; no model is called. Args cobra.MinimumNArgs(1). Flags: `--generators` (required, via mustMarkRequired), `--records` (required), `--output` (default defaultOutput; the project root the paths are relative to), `--recording` (where to write the recording; default empty meaning .sedum/adopt/adopt.json under --output), `--tests` (also adopt test files), `--allow-command-adopters`, `--dry-run`, `--json`. RunE calls runAdopt(cmd.OutOrStdout(), cfg, args).
+    - `func runAdopt(out io.Writer, cfg AdoptConfig, paths []string) error`: calls adopt.Run with Root = cfg.Output, AllowCommand = cfg.AllowCommandAdopters and the rest mapped; on error returns it. Prints the report: with cfg.JSON the bytes of Report.JSON(), otherwise Report.Text() (always ending in a newline). After printing, when the report has Totals.Rejected > 0 it returns an error `adopt: N file(s) rejected` (N the count), so the exit status is non-zero; skipped files alone are not an error.
+    Tests (adopt_test.go, package cli), each its OWN setFunction invocation; first a helper `newAdoptCLIFixture(t *testing.T) (gen, prov, proj string)` as its own invocation that writes under t.TempDir(): the generators tree gen/ with exactly
+    gen/py/sedum.yaml:
+    name: py
+    extensions: [".py"]
+    comment_prefix: "#"
+    adopt:
+      unit_start: '^(?P<kind>def) (?P<name>\w+)'
+      unit_end: dedent
+      actions:
+        def: setThing
+    gen/py/files/{name}.py:
+    # sedum:anchor:decls
+    gen/py/actions/actions.yaml:
+    actions:
+      setThing:
+        kwargs:
+          file: { type: string, required: true }
+          name: { type: string, required: true }
+          code: { type: string, required: true }
+        injects_into: "{{file}}"
+        anchor: decls
+    gen/py/actions/setThing.py:
+    {{code}}
+    a records directory prov/ with one file imp.yml:
+    id: prov-2026-aaaaaaaa
+    type: imprint
+    status: open
+    intent: adopt py files
+    created_at: "2026-10-16"
+    affected_scope: ["*.py"]
+    and a project directory proj/ containing a.py = "def f():\n    return 1\n" and b.py = "import os\n\ndef g():\n    return 1\n". A tests runs the CLI with `root := NewRootCommand(); var buf bytes.Buffer; root.SetOut(&buf); root.SetErr(&buf); root.SetArgs(args); err := root.Execute()`. Tests: TestAdoptCommandText (args adopt --generators gen --records prov --output proj --dry-run . : no error; output contains "adopt: 2 file(s): 1 adopted, 1 skipped, 0 rejected" and "other_residual"; a.py unchanged on disk); TestAdoptCommandJSON (same args plus --json: the output unmarshals into a map with a "totals" key whose "adopted" is 1); TestAdoptCommandWritesTheFile (no --dry-run: a.py on disk now contains "# sedum:setThing" and b.py is unchanged); TestAdoptCommandRequiresGeneratorsAndRecords (running `adopt .` with neither flag returns an error mentioning the missing flag).
+  affected_scope:
+    - internal/cli/adopt.go
+    - internal/cli/adopt_test.go
+    - internal/cli/root.go
+  implements: prov-2026-95d9ae7e
+  implements_version: 2
+  associated_specs:
+    - path: internal/cli/adopt_test.go

@@ -31,6 +31,7 @@ type manifest struct {
 	Variables     map[string]Variable          `yaml:"variables"`
 	Syntax        string                       `yaml:"syntax"`
 	Optional      []string                     `yaml:"optional_anchors"`
+	Adopt         *Adopt                       `yaml:"adopt"`
 }
 
 // Variable is a project fact this package's templates reference and cannot
@@ -401,6 +402,10 @@ type Package struct {
 	// user.go: same extension, same package, same directory, and nothing
 	// directory-shaped can separate them.
 	TestPaths []string
+
+	// Adopt is how `sedum adopt` splits this package's files into units, or nil
+	// when the package declares no adopter (prov-2026-95d9ae7e).
+	Adopt *Adopt
 
 	// Syntax names the built-in checker every file this package touches must
 	// pass before it is written, from the closed registry in internal/syntax

@@ -1,0 +1,28 @@
+id: prov-2026-1e4a5690
+version: 1
+content_hash: sha256:e746c7291c61fad93324b4d53c7ffb46a961741a9c0a112a47f6102cfa525414
+parent_hash: ""
+reason: ""
+author: calebcowen@gmail.com
+created_at: "2026-10-16T21:41:56Z"
+spec_hashes:
+  - sha256:0e045e0e8dd17e09290477bc2dd1a58487f8e54782d9bc837b8277b402e5091f
+content:
+  id: prov-2026-1e4a5690
+  title: 'adopt: the recording builder'
+  type: imprint
+  created_at: "2026-10-16"
+  author: calebcowen@gmail.com
+  intent: |-
+    Implements prov-2026-95d9ae7e: the adoption recording builder. New file internal/adopt/build.go (package adopt). It uses Candidate (select.go: Path string; Package *genpkg.Package; Template string; Captures map[string]string; Record *record.Record; Src []byte), Span and KindUnit (span.go), record.Record (ID, Gen, CreatedAt string), and the recording package (internal/recording): `recording.Recording{SedumVersion string; Packages map[string]recording.Package; Records []recording.Record; ...}`, `recording.Package{Extensions []string}`, `recording.Record{RecordID, Gen, CreatedAt string; Files []recording.File; Phases []recording.Phase}`, `recording.File{Path, Package, Template string; Captures map[string]string}`, `recording.Phase{Name string; Invocations []recording.Invocation}`, `recording.Invocation{Action string; Kwargs map[string]any}`, `recording.DefaultPhase` and `recording.Version`; genpkg.Package has Name and Extensions.
+    Define:
+    - `type Adopted struct { Candidate Candidate; Spans []Span }`.
+    - `func BuildRecording(items []Adopted) (recording.Recording, error)`: SedumVersion is recording.Version; Packages holds, for every package used, its Name mapped to recording.Package{Extensions: copy of the package's Extensions}; Records has one recording.Record per distinct Candidate.Record.ID, in order of first appearance of that ID after sorting items by Candidate.Path; each carries RecordID, Gen and CreatedAt from the record (empty strings stay empty), Files (one recording.File per item of that record, in path order, Captures copied; nil/empty Captures stay nil) and exactly one Phase named recording.DefaultPhase whose Invocations are, file by file in path order, one recording.Invocation per KindUnit span of that file in span order with Action and a copy of Kwargs (a nil Kwargs becomes an empty non-nil map). An item with no unit spans is an error naming the path. Two items with the same Path are an error. The result has Complete false.
+    Tests (build_test.go), each its OWN setFunction invocation, building Candidate values with &genpkg.Package{Name: "py", Extensions: []string{".py"}} and &record.Record{ID: "imp-1", Gen: "sha256:aa", CreatedAt: "2026-10-16"}: TestBuildRecordingTwoFiles (items for b.py and a.py given in that order, each with a header span and two unit spans: Files sorted a.py then b.py, Invocations a's two then b's two, Packages["py"].Extensions equals [".py"], one Record, Gen and CreatedAt carried, SedumVersion equals recording.Version); TestBuildRecordingTwoRecords (a.py under imp-1 and z.py under imp-2: two Records in that order); TestBuildRecordingErrors (no unit spans, and a duplicate path); TestBuildRecordingRoundTripsThroughWrite (recording.Write then recording.Read gives a recording that reflect.DeepEqual's the original for the two-file case).
+  affected_scope:
+    - internal/adopt/build.go
+    - internal/adopt/build_test.go
+  implements: prov-2026-95d9ae7e
+  implements_version: 2
+  associated_specs:
+    - path: internal/adopt/build_test.go

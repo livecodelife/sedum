@@ -1,0 +1,34 @@
+id: prov-2026-856f85eb
+version: 7
+content_hash: sha256:e384faf323ae61f13f5f6800056625c14107aaf1127014368bd1e9782ad1b6b3
+parent_hash: sha256:0ecab26e0ce91c73a09eada69c7b9f8d95d15ff64c8d72c47b8981db86409567
+reason: unit_end is required for a declarative adopter
+author: calebcowen@gmail.com
+created_at: "2026-10-16T21:57:32Z"
+spec_hashes:
+  - sha256:815b49739dcbafd0df4404dd4e31436e648b20bb7fb211100b2bf7336298b0a4
+content:
+  id: prov-2026-856f85eb
+  title: 'adopt: the declarative adopter'
+  type: imprint
+  created_at: "2026-10-16"
+  author: calebcowen@gmail.com
+  intent: |-
+    Implements prov-2026-95d9ae7e: the declarative adopter. New file internal/adopt/declarative.go (package adopt; Span, Kind, Adopter, CommandAdopter exist in span.go and command.go; genpkg.Adopt, genpkg.Package and genpkg.Action are in internal/genpkg: `Adopt{Command []string; UnitStart, UnitEnd, Header string; AttachAbove []string; Actions map[string]string}`, `Package.Adopt *Adopt`, `Package.Actions map[string]*Action`, `Action.Kwargs map[string]Kwarg`).
+
+    - `type Declarative struct` (unexported fields) implementing Adopter, built by `func NewDeclarative(pkg *genpkg.Package) (*Declarative, error)`. It errors when pkg.Adopt is nil or uses `command`, or when UnitEnd is empty (message `package <name>: unit_end is required`), and when a regexp does not compile (the same checks genpkg already makes, repeated because this package must not trust its caller). It compiles `UnitStart`, `Header` (if set), `AttachAbove` (each) and `UnitEnd` (when not `dedent` or `blank`).
+    - `Split(path string, src []byte) ([]Span, error)` works on lines (split keeping each line's newline; the last line may have none):
+      1. Header: when Header is set and its regexp matches at byte offset 0 of src, the matched text is a KindHeader span; otherwise there is no header span.
+      2. Units: a unit starts at a line, after the header, that the UnitStart regexp matches (the regexp is applied to the line without its newline; the named groups `kind` and `name` give the action key and the unit's name). The unit's action is `Adopt.Actions[kind]`; a kind with no entry makes the line start no unit (it stays residual).
+      3. A unit also takes the lines directly above its start line (no blank line in between) that match any AttachAbove regexp, as many consecutive ones as match.
+      4. A unit's end: `dedent`: the unit continues over following lines that are blank or begin with a space or tab, and ends before the first non-blank line that begins at column 0; trailing blank lines are not part of the unit. `blank`: the unit ends before the first blank line (a line that is empty or whitespace only). Any other value is a regexp: the unit ends after (and includes) the first line, starting at the start line itself, that matches it; with no match the unit runs to the end of the file.
+      5. A unit span has Kind KindUnit, Text = its lines exactly as in the file, Action from the map, and Kwargs containing only the kwargs the action declares among `file` (the path argument), `name` (the named group) and `code` (the unit's Text without its final newline).
+      6. Everything else, between spans and after the last, is KindResidual, with consecutive leftover lines merged into one span. The spans, in order, always concatenate to src exactly. Empty input returns an empty (non-nil) slice with no error.
+    Tests in declarative_test.go: exactly three, each its OWN setFunction invocation: TestDeclarativePythonModuleCoverage (a Go struct-literal genpkg.Package with Adopt{Header: `\A# [a-z]+\n`, UnitStart: `^(?P<kind>def|class) (?P<name>\w+)`, UnitEnd: "dedent", Actions: {"def": "setFunction", "class": "setType"}} and Actions setFunction and setType each declaring kwargs file, name, code; the source "# doc\nimport os\n\n@dec\ndef f(x):\n    return x\n\nclass C:\n    pass\n\n" yields the header, 2 units, the residual spans, concatenates back to the source and passes CheckSpans); TestDeclarativeBlankEnd (the same Adopt literal as the first test, with the named groups kind and name in UnitStart, but UnitEnd "blank" and no Header; source "def a():\n    return 1\n\ndef b():\n    return 2\n" yields 2 units, and the spans concatenate back to the source); TestDeclarativeEmptyInput.
+  affected_scope:
+    - internal/adopt/declarative.go
+    - internal/adopt/declarative_test.go
+  implements: prov-2026-95d9ae7e
+  implements_version: 2
+  associated_specs:
+    - path: internal/adopt/declarative_test.go

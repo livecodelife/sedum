@@ -1,0 +1,30 @@
+id: prov-2026-1d15d075
+title: 'adopt: the command adopter'
+type: imprint
+status: implemented
+version: 4
+reason: tests grown into the placeholder spec file
+created_at: "2026-10-16"
+author: calebcowen@gmail.com
+intent: |-
+  Implements prov-2026-95d9ae7e: the command adopter. New file internal/adopt/command.go (package adopt; Span, Kind and Adopter are defined in span.go).
+
+  - `func ParseSpans(r io.Reader) ([]Span, error)`: reads one JSON document of the form `{"spans":[{"kind":"header","text":"..."},{"kind":"unit","text":"...","action":"setFunction","kwargs":{...}}]}` with json.Decoder.DisallowUnknownFields; trailing data after the document is an error; an empty or missing "spans" is an error ("adopter returned no spans"). It does not validate span contents (CheckSpans does).
+  - `type CommandAdopter struct { Argv []string; Dir string }` implementing Adopter. `Split(path string, src []byte)` runs `Argv[0]` with `Argv[1:]` plus `path` appended, via exec.CommandContext with a 60 second timeout, no shell, the process's own environment, working directory Dir (the process's own when Dir is empty), no stdin, stdout captured (at most 64 MiB; more is an error), stderr captured. Then ParseSpans on stdout. src is not passed (the command reads the file itself). A non-zero exit is an error that includes the exit status and the first line of stderr. An empty Argv is an error.
+  - `func (c CommandAdopter) String() string`: the command line, Argv joined by single spaces, for printing before it runs.
+  Tests (internal/adopt/command_test.go, table-driven, no network): ParseSpans accepts a valid document and rejects unknown fields, trailing data, empty spans and invalid JSON; CommandAdopter against a small `sh` script written into t.TempDir() (Argv `sh script`): success returns the spans and receives the path as its argument; non-zero exit reports status and stderr; malformed stdout is an error; empty Argv is an error; String joins Argv. One more test: TestCommandAdopterRunsInDir (Dir set to a t.TempDir() containing a file x.txt, Argv `sh script` where the script prints a spans document whose single unit's text is the output of `cat x.txt`... simplest: the script writes `$(pwd)` into the span text; assert it ends with the temp dir's base name).
+constraints: []
+affected_scope:
+  - internal/adopt/command.go
+  - internal/adopt/command_test.go
+forbidden_scope: []
+implements: prov-2026-95d9ae7e
+implements_version: 2
+related: []
+sealed_at_sha: 37214949dc0ad407d1c569dc342b205e86e66fd3
+associated_specs:
+  - path: internal/adopt/command_test.go
+    run_command: go test ./internal/adopt -run 'ParseSpans|CommandAdopter' -count=1
+associated_traces: []
+monitors: []
+tags: []

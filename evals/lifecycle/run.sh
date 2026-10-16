@@ -103,7 +103,7 @@ expect_calls() {
 
 # content hash + mtime of every app file
 snapshot() { (cd "$W" && find internal -type f | sort | while read -r f; do
-	printf '%s %s %s\n' "$(shasum -a 256 "$f" | cut -c1-16)" "$(stat -f %m "$f")" "$f"; done) >"$W/.stub/$1"; }
+	printf '%s %s %s\n' "$(shasum -a 256 "$f" | cut -c1-16)" "$(stat -c %Y "$f" 2>/dev/null || stat -f %m "$f")" "$f"; done) >"$W/.stub/$1"; }
 changed_files() {  # files whose content changed between two snapshots
 	join -j 3 -o 1.1,2.1,0 <(sort -k3 "$W/.stub/$1") <(sort -k3 "$W/.stub/$2") | awk '$1 != $2 {print $3}'
 }
@@ -332,7 +332,7 @@ step3grow() {
 
 pending() { say "$1"; printf '   skipped: waiting on %s\n' "$2"; SKIPPED="waiting on $2"; }
 set_status() {  # set_status <id> <status>
-	sed -i '' "s/^status: .*/status: $2/" "$W/provenance/$1.yml"
+	sed -i.bak "s/^status: .*/status: $2/" "$W/provenance/$1.yml" && rm -f "$W/provenance/$1.yml.bak"
 }
 
 drop_imprint() { local keep=() id; for id in "${IMPRINTS[@]}"; do [ "$id" = "$1" ] || keep+=("$id"); done; IMPRINTS=("${keep[@]}"); }

@@ -1,0 +1,55 @@
+id: prov-2026-37216199
+version: 5
+content_hash: sha256:472b04dbbf479bc9c63f5ba5e61742ccc283ae48e42a8dff088d31a96e2903cd
+parent_hash: sha256:9a5e80c10773d75cee86ff3857d81d0694db736ca4396e5a220f2a371739ad5b
+reason: fixture gains a one-level subdirectory template
+author: calebcowen@gmail.com
+created_at: "2026-10-16T21:33:46Z"
+spec_hashes:
+  - sha256:6893c7d027bc0a09066d7c68e7becf7b039752239e92802acee9ba79a6bf22ac
+content:
+  id: prov-2026-37216199
+  title: 'adopt: file selection with skip reasons'
+  type: imprint
+  created_at: "2026-10-16"
+  author: calebcowen@gmail.com
+  intent: |-
+    Implements prov-2026-95d9ae7e: file selection for adoption, with the skip reasons the report counts. New file internal/adopt/select.go (package adopt). Uses genpkg.Set (ForExtension, Unmanaged), genpkg.Package (Comment() genpkg.Comment, TestPaths []string, Name), pathpat.MatchAny(entries []string, target string) (string, bool), record.Set / record.Record (ID, Type, Paths, Patterns, Authorizes(target) bool, Forbids(target) (string, bool), Deprecated), and resolve.Paths(set *genpkg.Set, records *record.Set, prefer []string) ([]resolve.Resolution, []string, error), where a Resolution has Package *genpkg.Package, Template string, Captures map[string]string, Unmanaged bool.
+
+    Define, with doc comments:
+    - `type Reason string` and constants: ReasonNoPackage "no_package", ReasonUnmanaged "unmanaged", ReasonTest "test", ReasonGenerated "generated", ReasonAlreadyAdopted "already_adopted", ReasonNoTemplate "no_template", ReasonNoImprint "no_imprint", ReasonAmbiguousImprint "ambiguous_imprint", ReasonHeader "header", ReasonFloatingComment "floating_comment", ReasonOtherResidual "other_residual", ReasonUnresolved "unresolved".
+    - `type Skip struct { Path string; Reason Reason; Detail string }`.
+    - `type Candidate struct { Path string; Package *genpkg.Package; Template string; Captures map[string]string; Record *record.Record; Src []byte }`.
+    - `type SelectConfig struct { Root string; Set *genpkg.Set; Records *record.Set; Tests bool }`.
+    - `func Select(cfg SelectConfig, paths []string) ([]Candidate, []Skip, error)`: each entry of paths is a file or directory relative to cfg.Root (slash-separated, cleaned; one escaping Root is an error). A directory is walked recursively in lexical order; directories whose name starts with "." are not entered. For each regular file found: (1) no package claims its extension (cfg.Set.ForExtension(filepath.Ext(path)) empty) -> skip ReasonNoPackage; (2) cfg.Set.Unmanaged(path) says unmanaged -> ReasonUnmanaged with Detail naming the package and entry; (3) the file is read; a test path (pathpat.MatchAny on the first package's TestPaths) is skipped with ReasonTest unless cfg.Tests; (4) generated: any of the first 20 lines contains "DO NOT EDIT" or "@generated" -> ReasonGenerated; (5) already adopted: the content contains the package's comment prefix followed by " sedum:" (Comment().Prefix + " sedum:") -> ReasonAlreadyAdopted; (6) the imprint: the records in cfg.Records.Records that are not deprecated, whose Type is "imprint" and that Authorizes the path and do not Forbid it; none -> ReasonNoImprint, more than one -> ReasonAmbiguousImprint with their ids in Detail; (7) resolve.Paths with a record.Set{Records: []*record.Record{{ID: imprint.ID, Paths: []string{path}}}}; an error -> ReasonUnresolved with the error text; a Resolution with Unmanaged -> ReasonUnmanaged; an empty Template -> ReasonNoTemplate. Otherwise append a Candidate. Candidates and skips are each in walk order, and a path named twice on the command line is processed once. Select never writes.
+    Tests (select_test.go): write a helper `newSelectFixture(t *testing.T) (root string, set *genpkg.Set, records *record.Set)` as its own setFunction invocation, then exactly two tests, each its OWN setFunction invocation. The fixture: the genpkg.Set is built by writing a tiny generators tree into t.TempDir() and calling genpkg.Load; one package "py" with extension ".py", comment_prefix "#", test_paths ["test_*.py"], unmanaged ["setup.py"], a file template `{name}.py` containing "# sedum:anchor:decls\n", and one action `setThing` (kwargs file, name, code: type string, required; injects_into "{{file}}"; anchor decls; template actions/setThing.py containing "{{code}}\n"); records: one non-deprecated imprint "imp-1" with Type "imprint" and Patterns ["*.py"], plus Paths none. Tests: TestSelectCandidate (a plain file a.py in root yields exactly one Candidate with Template "{name}.py", Record.ID "imp-1", Captures name=a, Src equal to the file); TestSelectSkipReasons (a table-driven test over files created in the root: setup.py -> ReasonUnmanaged, test_a.py -> ReasonTest, gen.py whose first line is "# DO NOT EDIT" -> ReasonGenerated, done.py containing "# sedum:setThing {}" -> ReasonAlreadyAdopted, notes.txt -> ReasonNoPackage; each asserting its Reason).
+    Exact generators tree the fixture writes (paths relative to a `gen` dir inside t.TempDir(); the root for the files under test is another temp dir):
+    py/sedum.yaml:
+    name: py
+    extensions: [".py"]
+    comment_prefix: "#"
+    test_paths: ["test_*.py"]
+    unmanaged: ["setup.py"]
+    py/files/{name}.py:
+    # sedum:anchor:decls
+    py/files/*/{name}.py (a literal directory named *; one level of subdirectory):
+    # sedum:anchor:decls
+    py/actions/actions.yaml (the actions go HERE, never in sedum.yaml):
+    actions:
+      setThing:
+        kwargs:
+          file: { type: string, required: true }
+          name: { type: string, required: true }
+          code: { type: string, required: true }
+        injects_into: "{{file}}"
+        anchor: decls
+    py/actions/setThing.py:
+    {{code}}
+    The records are built in Go: &record.Set{Records: []*record.Record{{ID: "imp-1", Type: "imprint", Patterns: []string{"*.py"}}}}.
+  affected_scope:
+    - internal/adopt/select.go
+    - internal/adopt/select_test.go
+  implements: prov-2026-95d9ae7e
+  implements_version: 2
+  associated_specs:
+    - path: internal/adopt/select_test.go

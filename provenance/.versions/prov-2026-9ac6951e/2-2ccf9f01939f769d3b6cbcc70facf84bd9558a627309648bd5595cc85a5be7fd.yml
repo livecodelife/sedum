@@ -1,0 +1,37 @@
+id: prov-2026-9ac6951e
+version: 2
+content_hash: sha256:2ccf9f01939f769d3b6cbcc70facf84bd9558a627309648bd5595cc85a5be7fd
+parent_hash: sha256:13415dadfe5483cf27a1b410b71d6bbc9bd1b90cbcfa07b7d8e86f070b6dd15c
+reason: line numbers refer to the first and last non-blank lines
+author: calebcowen@gmail.com
+created_at: "2026-10-16T21:38:28Z"
+spec_hashes:
+  - sha256:0e045e0e8dd17e09290477bc2dd1a58487f8e54782d9bc837b8277b402e5091f
+content:
+  id: prov-2026-9ac6951e
+  title: 'adopt: the adoption report'
+  type: imprint
+  created_at: "2026-10-16"
+  author: calebcowen@gmail.com
+  intent: |-
+    Implements prov-2026-95d9ae7e: the adoption report. New file internal/adopt/report.go (package adopt). Span, Kind (KindHeader, KindUnit, KindResidual), ResidualIsBlank(Span) bool and Reason (string type with constants ReasonHeader "header", ReasonFloatingComment "floating_comment", ReasonOtherResidual "other_residual", plus the skip reasons) exist in span.go and select.go; genpkg.Comment{Prefix, Suffix string} is in internal/genpkg. encoding/json, fmt, sort, strings are the only other imports.
+
+    Define, each with a doc comment:
+    - `type FileStatus string` with constants StatusAdopted "adopted", StatusSkipped "skipped", StatusRejected "rejected".
+    - `type ResidualInfo struct { StartLine int `json:"start_line"`; EndLine int `json:"end_line"`; FirstLine string `json:"first_line"`; Reason Reason `json:"reason"` }`.
+    - `type FileReport struct { Path string `json:"path"`; Package string `json:"package,omitempty"`; Record string `json:"record,omitempty"`; Status FileStatus `json:"status"`; Reason Reason `json:"reason,omitempty"`; Detail string `json:"detail,omitempty"`; Units int `json:"units"`; Residuals []ResidualInfo `json:"residuals,omitempty"` }`.
+    - `type Totals struct { Files int `json:"files"`; Adopted int `json:"adopted"`; Skipped int `json:"skipped"`; Rejected int `json:"rejected"`; Units int `json:"units"`; SkippedByReason map[Reason]int `json:"skipped_by_reason"` }`.
+    - `type Report struct { Files []FileReport `json:"files"`; Totals Totals `json:"totals"`; Recording string `json:"recording,omitempty"` }`.
+    - `func NewReport() *Report`: Files is an empty non-nil slice and SkippedByReason an empty non-nil map.
+    - `func (r *Report) Add(f FileReport)`: appends f and updates Totals: Files++, Units += f.Units, Adopted/Skipped/Rejected by status; for StatusSkipped and StatusRejected, SkippedByReason[f.Reason]++ when f.Reason is not empty.
+    - `func (r *Report) JSON() ([]byte, error)`: json.MarshalIndent with two-space indent and a trailing newline, files in the order added.
+    - `func ResidualsOf(src []byte, spans []Span, comment genpkg.Comment) []ResidualInfo`: for each KindResidual span whose Text is not blank (ResidualIsBlank false), in order: StartLine is the 1-based line in src of the first non-blank line of its Text (1 plus the number of newlines in the Text of all spans before it, plus the number of leading blank lines of its own Text), EndLine the line of its last non-blank line, FirstLine its first non-blank line with surrounding whitespace trimmed, and Reason: ReasonHeader when it is the first non-header span of the file and no KindUnit span precedes it and every non-blank line starts (after trimming leading whitespace) with comment.Prefix; ReasonFloatingComment when every non-blank line starts with comment.Prefix and the previous condition does not hold; otherwise ReasonOtherResidual. A KindHeader span is never reported. If comment.Prefix is empty every residual is ReasonOtherResidual.
+    - `func (r *Report) Text() string`: a plain-text report, built with strings.Builder, exactly: a first line `adopt: N file(s): A adopted, S skipped, X rejected, U unit(s)`; then, when any file was skipped or rejected, a line `skipped by reason:` followed by one line `  <reason>: <count>` per reason in alphabetical order; then for each such reason in the same order a line `<reason>:` followed by one line `  <path>` per file with that reason (with ` (lines <start>-<end>: <first line>)` appended for each of its residuals, one per line instead when it has several: `  <path> lines <start>-<end>: <first line>`), in the order the files were added; finally, when Recording is not empty, `recording: <path>`.
+    Tests (report_test.go), each its OWN setFunction invocation: TestReportTotals (Add three files: one adopted with Units 3, one skipped with ReasonHeader, one skipped with ReasonHeader and one rejected with ReasonOtherResidual; assert every Totals field including SkippedByReason {header: 2, other_residual: 1}); TestReportJSONKeys (Marshal of a report with one adopted file contains the substrings `"skipped_by_reason": {}` and `"status": "adopted"` and ends with a newline, and has no field called timestamp); TestResidualsOf (comment prefix "#", src "# licence\nimport os\n\ndef f():\n    pass\n\n# note\nx = 1\n" built from spans: residual "# licence\nimport os\n\n" ... exact spans: [{residual, "# licence\n"}, {residual, "import os\n\n"}, {unit setFunction, "def f():\n    pass\n"}, {residual, "\n# note\n"}, {residual, "x = 1\n"}] but note consecutive residual spans are separate here; expected ResidualInfo: line 1 header "# licence"; line 2 other_residual "import os"; line 7 floating_comment "# note"; line 8 other_residual "x = 1"); TestResidualsOfEmptyPrefix; TestReportText (a report with a skipped header file carrying one residual at lines 1-2, and Recording ".sedum/adopt/x.json": assert the exact full text).
+  affected_scope:
+    - internal/adopt/report.go
+    - internal/adopt/report_test.go
+  implements: prov-2026-95d9ae7e
+  implements_version: 2
+  associated_specs:
+    - path: internal/adopt/report_test.go

@@ -67,6 +67,7 @@ framework means authoring a generator package, never modifying Sedum.`,
 		newRenderCommand(),
 		newRegionsCommand(),
 		newGeneratorsCommand(),
+		newAdoptCommand(),
 	)
 
 	return root
