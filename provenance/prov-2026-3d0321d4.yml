@@ -1,9 +1,9 @@
 id: prov-2026-3d0321d4
 title: 'genpkg: the adopt key in sedum.yaml'
 type: imprint
-status: implemented
-version: 8
-reason: the hand-written wiring lines
+status: open
+version: 10
+reason: tests and markers regrown for the builtin form
 created_at: "2026-10-16"
 author: calebcowen@gmail.com
 intent: |-
@@ -23,20 +23,55 @@ intent: |-
       injects_into: "{{file}}"
       anchor: class_body
   One more case in the table: `unit_end` missing from an otherwise valid declarative block is reported with RuleAdoptInvalid and a message containing "unit_end" (its fixture block has unit_start and actions but no unit_end line).
+
+  Stage 2 (prov-2026-36809902) adds a third form, `builtin: <name>`: an adopter compiled into sedum. In internal/genpkg/adopt.go:
+  - `Adopt` gains the field `Builtin string` with yaml tag "builtin" (put it first, before Command); its doc comment now names three forms: a command, a declarative description, or the name of a built-in adopter.
+  - New documented package-level var `BuiltinAdopters = map[string]bool{"go": true}`: the names of the adopters compiled into sedum (internal/adopt holds their implementations).
+  - checkAdopt: replace the "exactly one of command or unit_start" check at the top with this code, keeping every later check as it is:
+        hasCommand := len(a.Command) > 0
+        forms := 0
+        for _, set := range []bool{hasCommand, a.UnitStart != "", a.Builtin != ""} {
+        	if set {
+        		forms++
+        	}
+        }
+        if forms != 1 {
+        	r.errorf(manifestFile, RuleAdoptInvalid, "adopt: set exactly one of command, unit_start or builtin")
+        }
+        if a.Builtin != "" {
+        	if !BuiltinAdopters[a.Builtin] {
+        		r.errorf(manifestFile, RuleAdoptInvalid, "adopt: builtin %q is not a built-in adopter", a.Builtin)
+        	}
+        	if hasCommand || a.UnitStart != "" || a.Header != "" || a.UnitEnd != "" || len(a.AttachAbove) > 0 || len(a.Actions) > 0 {
+        		r.errorf(manifestFile, RuleAdoptInvalid, "adopt: builtin cannot be combined with command, unit_start, header, unit_end, attach_above or actions")
+        	}
+        	return
+        }
+    (the existing `hasCommand := ...` line and `if hasCommand == (a.UnitStart != "")` block are replaced by the code above; the later `if hasCommand {` block stays.)
+  - The existing test table in adopt_test.go is unchanged. New tests go in the NEW file internal/genpkg/adopt_builtin_test.go (package genpkg, import "strings" and "testing"), one function `TestAdoptBuiltin`, table-driven like TestAdopt with this exact table (name, block, msg) and the same loop body as TestAdopt (copy it: files := validPackage(); files["rails/sedum.yaml"] += tc.block; set, findings := loadTree(t, files); collect messages of findings whose Rule is RuleAdoptInvalid; empty msg means no such finding and Packages[0].Adopt.Builtin must equal "go"; otherwise some message must contain msg). The rails fixture needs no setThing action here. Cases:
+      {"go", "adopt:\n  builtin: go\n", ""},
+      {"unknown", "adopt:\n  builtin: cobol\n", "not a built-in adopter"},
+      {"with command", "adopt:\n  builtin: go\n  command: [\"x\"]\n", "cannot be combined"},
+      {"with unit_start", "adopt:\n  builtin: go\n  unit_start: '^(?P<kind>def) (?P<name>\\w+)'\n", "cannot be combined"},
+      {"with header", "adopt:\n  builtin: go\n  header: '^//'\n", "cannot be combined"},
+      {"empty adopt", "adopt: {}\n", "exactly one"},
 constraints: []
 affected_scope:
   - internal/genpkg/adopt.go
   - internal/genpkg/adopt_test.go
+  - internal/genpkg/adopt_builtin_test.go
   - internal/genpkg/schema.go
   - internal/genpkg/load.go
 forbidden_scope: []
 implements: prov-2026-95d9ae7e
 implements_version: 2
 related: []
-sealed_at_sha: 5b65f12e79090db2dc56cc4d4881792beaa1f11b
+sealed_at_sha: ""
 associated_specs:
   - path: internal/genpkg/adopt_test.go
     run_command: go test ./internal/genpkg -run 'Adopt' -count=1
+  - path: internal/genpkg/adopt_builtin_test.go
+    run_command: go test ./internal/genpkg -run 'AdoptBuiltin' -count=1
 associated_traces: []
 monitors: []
 tags: []
