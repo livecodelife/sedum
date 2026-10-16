@@ -91,7 +91,7 @@ calls() { [ -f "$T/calls.log" ] && wc -l <"$T/calls.log" | tr -d ' ' || echo 0; 
 reset_calls() { : >"$T/calls.log"; }
 grows() { capture "$1" "$SEDUM" grow --generators generators --records provenance --model stub --log "$T/run.log" "${@:2}"; }
 seen() { grep -q -- "$1" "$OUT/$2.txt" || fail "$2: expected to see: $1"; }
-snapshot() { (cd "$W" && find app -type f -exec sh -c 'printf "%s %s %s\n" "$(shasum -a 256 "$1" | cut -c1-16)" "$(stat -f %m "$1" 2>/dev/null || stat -c %Y "$1")" "$1"' _ {} \;) | sort; }
+snapshot() { (cd "$W" && find app -type f -exec sh -c 'printf "%s %s %s\n" "$(shasum -a 256 "$1" | cut -c1-16)" "$(stat -c %Y "$1" 2>/dev/null || stat -f %m "$1")" "$1"' _ {} \;) | sort; }
 
 # 01 - first grow: both records select; markers carry gen and pkg.
 reset_calls
