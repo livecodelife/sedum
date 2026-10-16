@@ -31,7 +31,7 @@ affected_scope:
   - internal/genpkg/load.go
 forbidden_scope: []
 implements: prov-2026-95d9ae7e
-implements_version: 1
+implements_version: 2
 related: []
 sealed_at_sha: 5b65f12e79090db2dc56cc4d4881792beaa1f11b
 associated_specs:
