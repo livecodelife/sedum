@@ -1,0 +1,251 @@
+id: prov-2026-aabeac10
+title: 'go: internal/verify/verify.go, project verification in a scratch tree'
+type: imprint
+status: open
+version: 1
+reason: ""
+created_at: "2026-10-16"
+author: calebcowen@gmail.com
+intent: |
+  The Go logic of internal/verify/verify.go (go package, package verify): a project's verification commands, run in a scratch copy of the tree with a record's selection applied (prov-2026-b5c21813).
+
+  Imports, each its own addImport, exactly: bytes, context, errors, fmt, io, io/fs, os, os/exec, path/filepath, strings, syscall, time, gopkg.in/yaml.v3.
+
+  Declarations, in this order, each exactly one set* call whose code kwarg is the code below verbatim (gofmt-formatted, comments kept). Do not alter, reorder or add anything.
+
+    - setConst name ConfigPath, code exactly:
+        // ConfigPath is where a project names its verification commands, relative to
+        // the output directory (prov-2026-b5c21813).
+        const ConfigPath = ".sedum/config.yml"
+
+    - setConst name DefaultTimeout, code exactly:
+        // DefaultTimeout bounds each command when the project names none.
+        const DefaultTimeout = 120 * time.Second
+
+    - setConst name MaxOutput, code exactly:
+        // MaxOutput is how much of a failing command's output is fed back to the
+        // model: the last bytes, where the error usually is.
+        const MaxOutput = 4000
+
+    - setType name Config, code exactly:
+        // Config is a project's verification settings: shell commands run, in order,
+        // against the tree a model's selection would produce. Commands come from the
+        // project's own config file or the command line, never from a generator
+        // package.
+        type Config struct {
+        	Commands []string
+        	Timeout  time.Duration
+        	// Skip are directory names not copied into the scratch tree, besides every
+        	// hidden directory.
+        	Skip []string
+        }
+
+    - setType name Failure, code exactly:
+        // Failure is one command that did not pass.
+        type Failure struct {
+        	Command string
+        	Status  string
+        	Output  string
+        }
+
+    - setType name fileConfig, code exactly:
+        type fileConfig struct {
+        	Verify  []string `yaml:"verify"`
+        	Timeout string   `yaml:"verify_timeout"`
+        }
+
+    - setFunction name LoadConfig, code exactly:
+        // LoadConfig reads ConfigPath under output. A missing file is not an error: it
+        // is a project that verifies nothing.
+        func LoadConfig(output string) (Config, error) {
+        	cfg := Config{Timeout: DefaultTimeout}
+        	data, err := os.ReadFile(filepath.Join(output, filepath.FromSlash(ConfigPath)))
+        	if errors.Is(err, fs.ErrNotExist) {
+        		return cfg, nil
+        	}
+        	if err != nil {
+        		return Config{}, err
+        	}
+        	var file fileConfig
+        	if err := yaml.Unmarshal(data, &file); err != nil {
+        		return Config{}, fmt.Errorf("%s: %w", ConfigPath, err)
+        	}
+        	cfg.Commands = file.Verify
+        	if file.Timeout != "" {
+        		timeout, err := time.ParseDuration(file.Timeout)
+        		if err != nil || timeout <= 0 {
+        			return Config{}, fmt.Errorf("%s: verify_timeout %q is not a positive duration", ConfigPath, file.Timeout)
+        		}
+        		cfg.Timeout = timeout
+        	}
+        	return cfg, nil
+        }
+
+    - setMethod name With, receiver Config, code exactly:
+        // With returns the config with extra commands run after its own.
+        func (c Config) With(extra []string) Config {
+        	c.Commands = append(append([]string(nil), c.Commands...), extra...)
+        	return c
+        }
+
+    - setMethod name Enabled, receiver Config, code exactly:
+        // Enabled reports that there is something to run.
+        func (c Config) Enabled() bool { return len(c.Commands) > 0 }
+
+    - setFunction name Run, code exactly:
+        // Run applies candidate (paths relative to output, with their new content) over
+        // a scratch copy of output and runs each command there, printing it to log
+        // first. It returns the commands that failed, none when all passed. The
+        // scratch directory is removed on every exit path.
+        func Run(ctx context.Context, cfg Config, output string, candidate map[string]string, log io.Writer) ([]Failure, error) {
+        	scratch, err := os.MkdirTemp("", "sedum-verify-")
+        	if err != nil {
+        		return nil, err
+        	}
+        	defer os.RemoveAll(scratch)
+
+        	if err := copyTree(output, scratch, cfg.Skip); err != nil {
+        		return nil, err
+        	}
+        	for rel, content := range candidate {
+        		path := filepath.Join(scratch, filepath.FromSlash(rel))
+        		if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+        			return nil, err
+        		}
+        		if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
+        			return nil, err
+        		}
+        	}
+
+        	timeout := cfg.Timeout
+        	if timeout <= 0 {
+        		timeout = DefaultTimeout
+        	}
+        	var failures []Failure
+        	for _, command := range cfg.Commands {
+        		fmt.Fprintf(log, "verify: %s\n", command)
+        		status, text, err := runCommand(ctx, scratch, command, timeout)
+        		if err != nil {
+        			return nil, err
+        		}
+        		if status != "" {
+        			failures = append(failures, Failure{Command: command, Status: status, Output: text})
+        		}
+        	}
+        	return failures, nil
+        }
+
+    - setFunction name runCommand, code exactly:
+        // runCommand runs one shell command in dir, in its own process group so a
+        // timeout kills everything it started. status is empty when it exited 0.
+        func runCommand(ctx context.Context, dir, command string, timeout time.Duration) (status, output string, err error) {
+        	cmd := exec.Command("sh", "-c", command)
+        	cmd.Dir = dir
+        	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
+        	var buf bytes.Buffer
+        	cmd.Stdout, cmd.Stderr = &buf, &buf
+        	if err := cmd.Start(); err != nil {
+        		return "", "", err
+        	}
+        	done := make(chan error, 1)
+        	go func() { done <- cmd.Wait() }()
+
+        	timer := time.NewTimer(timeout)
+        	defer timer.Stop()
+        	select {
+        	case waitErr := <-done:
+        		if waitErr == nil {
+        			return "", "", nil
+        		}
+        		var exit *exec.ExitError
+        		if errors.As(waitErr, &exit) {
+        			return exit.String(), tail(buf.String()), nil
+        		}
+        		return "", "", waitErr
+        	case <-timer.C:
+        		_ = syscall.Kill(-cmd.Process.Pid, syscall.SIGKILL)
+        		<-done
+        		return fmt.Sprintf("timed out after %s", timeout), tail(buf.String()), nil
+        	case <-ctx.Done():
+        		_ = syscall.Kill(-cmd.Process.Pid, syscall.SIGKILL)
+        		<-done
+        		return "", "", ctx.Err()
+        	}
+        }
+
+    - setFunction name tail, code exactly:
+        // tail keeps the last MaxOutput bytes of s.
+        func tail(s string) string {
+        	if len(s) <= MaxOutput {
+        		return s
+        	}
+        	return s[len(s)-MaxOutput:]
+        }
+
+    - setFunction name copyTree, code exactly:
+        // copyTree copies the regular files and directories under src into dst,
+        // skipping hidden directories and the named top-level directories.
+        func copyTree(src, dst string, skip []string) error {
+        	skipped := map[string]bool{}
+        	for _, name := range skip {
+        		skipped[name] = true
+        	}
+        	return filepath.WalkDir(src, func(path string, d fs.DirEntry, err error) error {
+        		if err != nil {
+        			return err
+        		}
+        		rel, err := filepath.Rel(src, path)
+        		if err != nil {
+        			return err
+        		}
+        		if rel == "." {
+        			return nil
+        		}
+        		if d.IsDir() {
+        			if strings.HasPrefix(d.Name(), ".") || (!strings.Contains(rel, string(filepath.Separator)) && skipped[d.Name()]) {
+        				return filepath.SkipDir
+        			}
+        			return os.MkdirAll(filepath.Join(dst, rel), 0o755)
+        		}
+        		if !d.Type().IsRegular() {
+        			return nil
+        		}
+        		data, err := os.ReadFile(path)
+        		if err != nil {
+        			return err
+        		}
+        		info, err := d.Info()
+        		if err != nil {
+        			return err
+        		}
+        		return os.WriteFile(filepath.Join(dst, rel), data, info.Mode().Perm()|0o200)
+        	})
+        }
+
+    - setFunction name Message, code exactly:
+        // Message is what the model is told when a selection did not verify.
+        func Message(failures []Failure) string {
+        	var b strings.Builder
+        	b.WriteString("These checks failed after applying your selection:\n")
+        	for _, f := range failures {
+        		fmt.Fprintf(&b, "\n$ %s\n%s\n%s", f.Command, f.Status, strings.TrimRight(f.Output, "\n"))
+        		b.WriteString("\n")
+        	}
+        	b.WriteString("\nFix the selection so every one of them passes.")
+        	return b.String()
+        }
+constraints: []
+affected_scope:
+  - internal/verify/verify.go
+forbidden_scope: []
+implements: prov-2026-b5c21813
+implements_version: 1
+related: []
+sealed_at_sha: ""
+associated_specs:
+  - path: internal/verify/verify_test.go
+    run_command: go test ./internal/verify -count=1
+associated_traces: []
+monitors: []
+tags:
+  - repair
