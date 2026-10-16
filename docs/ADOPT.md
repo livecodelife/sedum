@@ -243,6 +243,68 @@ The following is identical for every language and lives in the core:
 Language-specific, inside the package: the file templates, the actions, the
 adopter, the syntax checker, the normaliser.
 
+## Agent-assisted adopter authoring
+
+Writing an adopter is a small, checkable task, which is the shape an agent does
+well: the output is a short `adopt:` entry (or a small command), and the core
+supplies an exact verifier. So Sedum would ship a Claude Code skill for it.
+
+**`/sedum:adopter`** drafts and refines an adopter for one generator package:
+
+1. Inspect the repo: which files the package's extensions claim, a sample of
+   their top-level shapes, and the existing `sedum.yaml`.
+2. Draft the `adopt:` entry (declarative first; a command only when the
+   declarative form cannot express the shapes it found).
+3. Run `sedum adopt --dry-run` and read the coverage report: files adopted,
+   units found, and the **residual spans** with file and line.
+4. Refine and repeat. Stop when coverage is acceptable or progress stalls
+   (three rounds with no fewer residuals, or a declared round limit).
+5. Stop with a report: the adopter, the coverage numbers, what stayed residual
+   and why, and the commands the user would run next.
+
+**`/sedum:generator`** (later, separate) would author a whole generator package
+(file templates, actions, an adopter) from a repository's existing code. It
+reuses the same loop and adds the lift passes' proposals as its output. It is
+listed here only so the plugin's shape leaves room for it.
+
+### What the skill may and may not do
+
+May: read the repo; write the adopter entry in the package's `sedum.yaml` (or an
+adopter command file beside it) and the dry-run recording; run `sedum adopt
+--dry-run`, `sedum validate` and read-only git commands.
+
+May not, without the user saying so in that session: replay or write any
+managed file, create or edit provenance records, commit or push, or edit
+anything outside the adopter entry and recording. A command adopter runs only
+with `--allow-command-adopters`, which the skill passes only after showing the
+user the command and getting a yes. It never uses the model to produce the
+adopted code itself; the adopter only splits, so the invariant stays checkable
+by the core, not by the agent's say-so. Model calls it triggers elsewhere go
+through the herd's pinned wrapper like any other.
+
+### How it ships
+
+Assets (the skill files and a plugin manifest) live in the sedum repo, as the
+provenance plugin's do in its repo's `assets/`, and are embedded in the binary
+and written by `sedum install-plugin` / `sedum install-skills` into the user's
+Claude Code config. Open point: whether the two plugins share one marketplace
+entry or stay separate (they have different release cadences, which favours
+separate).
+
+### Order of work
+
+1. **Adopt core**: `adopt:` schema key, the coverage check, `sedum adopt` with
+   `--dry-run`, the marker-stripped verifier, the report format. The report must
+   be machine-readable (JSON) as well as text, since the skill reads it.
+2. **Go adopter**, built into the `go` package, as the first real adopter and
+   the reference for the declarative dialect.
+3. **Skill and plugin**, last: it needs a stable dry-run report and at least one
+   adopter to be tested against. Evals reuse the existing `evals/` harness with
+   cases of "repo X, language Y, expected coverage at least Z".
+
+Nothing is built until PR #11 merges and the open questions it raises are
+settled.
+
 ## Records adoption creates
 
 Sedum does not write provenance records (TOOL_BOUNDARIES). Adoption therefore
