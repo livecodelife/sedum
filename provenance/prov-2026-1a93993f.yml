@@ -2,8 +2,8 @@ id: prov-2026-1a93993f
 title: grow-prep migrates to v2 behind per-worktree hooks, with the undo recorded
 type: imprint
 status: open
-version: 3
-reason: 'Spec file edited: provenance/.evidence/** excluded (completion writes evidence files the scope check would reject)'
+version: 4
+reason: 'Refresh spec hash: .provenance.yml gained .gitattributes and docs/ADOPT.md in exclude_paths (PR #10, #11)'
 created_at: "2026-10-15"
 author: calebcowen@gmail.com
 intent: |-
