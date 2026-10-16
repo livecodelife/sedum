@@ -1,6 +1,6 @@
 id: prov-2026-53f4f82b
 title: Completeness ignores anchors other records already fill
-status: open
+status: implemented
 created_at: "2026-10-15"
 author: calebcowen@gmail.com
 intent: |
@@ -31,7 +31,7 @@ implements: prov-2026-cc73cf61
 supersedes: ""
 superseded_by: ""
 related: []
-sealed_at_sha: ""
+sealed_at_sha: 8f81aec70166c6e33be91383ef7633eb32fb64e8
 associated_specs:
   - path: internal/selection/present_test.go
     run_command: go test ./$(dirname {{path}})
