@@ -32,14 +32,23 @@ intent: |
   Declaration templates end in a blank line so the closing marker passes gofmt
   (prov-2026-ab24df5a).
 
-  File templates plant `import ( // sedum:anchor:imports )` and a trailing
+  File templates plant two top-level anchors, `// sedum:anchor:imports` and
   `// sedum:anchor:decls`, with the package clause from the path:
   `cmd/{bin}/{name}.go` is package main; `{pkg}/{name}.go`,
-  `*/{pkg}/{name}.go` and `*/*/{pkg}/{name}.go` take the directory; a root
-  `{name}.go` takes the run variable `root_package`. An existing hand-written
+  `*/{pkg}/{name}.go` and `*/*/{pkg}/{name}.go` take the directory. A file at
+  the module root has no template (its package name is not in its path) and
+  is reported as unmatched, as any path is today. An existing hand-written
   file is reconciled with the template as Phase 3 already does
   (prov-2026-4c49ca46): the anchors are added, or the run halts naming the
-  line.
+  line; a reconciliation that leaves the file invalid is caught by the syntax
+  check below.
+
+  addImport writes one `import "path"` declaration per region rather than a
+  line inside an `import ( )` block: gofmt indents a comment inside a block
+  differently depending on whether the block holds any import, so no marker
+  layout inside a block is gofmt-clean both before and after the first import.
+  Separate import declarations, each template ending in a blank line, are
+  clean in every state (checked against gofmt before this was written).
 
   ## Core change 1: two packages claiming .go
 
@@ -60,18 +69,21 @@ intent: |
   gofmts cleanly, so model-written Go can never land broken. That is the
   first check in Sedum that understands a target language, which the PRD's
   load-bearing principle ("Sedum's core contains no language-specific
-  knowledge") rules out. DECISION NEEDED, options:
+  knowledge") rules out as written.
 
-  (A) A package-declared formatter command in sedum.yaml (`format: [gofmt]`),
-      run on each touched file before writing; the file must come back
-      unchanged. Core stays language-free, but a generator package can now
-      run an executable on every grow, which TOOL_BOUNDARIES section 2 flags
-      as the user-defined-transforms trust problem.
-  (B) A closed set of syntax checkers built into Sedum, opted into per
-      package (`syntax: go`), with exactly one member implemented with the Go
-      standard library (go/parser, go/format). Nothing runs that Sedum did not
-      ship; the language knowledge is named, isolated and declared rather
-      than spread through core. Recommended.
+  Decided (provisio-mgr, #provisio 2026-10-15): a closed, built-in registry of
+  syntax checkers, keyed by a package's `syntax:` key in sedum.yaml, opted
+  into per package. One member for now, `go`, implemented with the Go
+  standard library only (go/format). Rejected: a package-declared formatter
+  command, because it lets a generator package run an executable on every
+  grow, breaking DESIGN's rule that nothing from a copied or shared source runs
+  automatically.
+
+  PRD amendment, recorded here: the principle becomes "Sedum's pipeline
+  contains no language-specific knowledge; target-language checks live only
+  in the syntax registry, are named, opt-in per package, ship with Sedum, and
+  run no external program." The pipeline asks the registry by name and never
+  branches on a language itself.
 
   Either way the check runs twice: in Phase 5, applying the record's
   invocations to its files in memory, so a failure re-prompts the model with
@@ -83,7 +95,8 @@ constraints:
   - Import paths reach the file only through quote (prov-2026-f63c340a).
   - Generated files, including every region the package can write, pass gofmt with no diff and parse; the package's tests prove it by replaying each action and checking with go/format.
   - Cross-package resolution picks the package whose file template matches most specifically; a tie or general-only match still needs --lang, and --lang still overrides.
-  - The syntax check (whichever option is chosen) runs in Phase 5 with re-prompting and in Phase 7 as an all-or-nothing guard; it applies only to packages that opt in.
+  - The syntax registry is a closed set compiled into Sedum; an unknown `syntax:` value rejects the package at load. The go checker uses only the standard library and runs no external program.
+  - The syntax check runs in Phase 5 with re-prompting and in Phase 7 as an all-or-nothing guard, on every file a package with `syntax:` touches; it applies only to packages that opt in.
   - No change to markers, hashes or recordings; pkg covers the new package's templates as any other.
   - The PRD records the decision on core language knowledge, the cross-package tie-break, and the go package as a reference.
 affected_scope:
@@ -94,6 +107,10 @@ affected_scope:
   - internal/genpkg/load.go
   - internal/genpkg/validate.go
   - internal/genpkg/*_test.go
+  - internal/genpkg/diag.go
+  - internal/expand/*.go
+  - internal/filetmpl/*.go
+  - conformance/README.md
   - internal/syntax/*.go
   - internal/selection/selection.go
   - internal/selection/*_test.go
