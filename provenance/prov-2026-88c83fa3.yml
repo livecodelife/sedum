@@ -1,14 +1,14 @@
 id: prov-2026-88c83fa3
 title: 'adopt: more declarative adopter tests'
 type: imprint
-status: implemented
-version: 3
+status: open
+version: 5
 reason: tests grown into the placeholder spec file
 created_at: "2026-10-16"
 author: calebcowen@gmail.com
 intent: |-
   Implements prov-2026-95d9ae7e: further tests for the declarative adopter in internal/adopt/declarative.go (NewDeclarative(pkg *genpkg.Package) (*Declarative, error); (*Declarative).Split(path string, src []byte) ([]Span, error); behaviour as in prov-2026-856f85eb). New file internal/adopt/declarative_more_test.go, package adopt, no non-test code. Each test is its OWN setFunction invocation and builds its genpkg.Package literal inline (Adopt{UnitStart: `^(?P<kind>def|class) (?P<name>\w+)`, Actions: {"def": "setFunction", "class": "setType"}, ...} and Actions setFunction and setType, each declaring kwargs file, name and code). Tests: TestDeclarativeDedentEnd; TestDeclarativeRegexpEndWithMatch; TestDeclarativeRegexpEndWithoutMatchRunsToEOF; TestDeclarativeAttachAbove (an `@dec` line directly above joins the unit through attach_above, a blank line between does not); TestDeclarativeUnknownKindStaysResidual; TestDeclarativeKwargsAreOnlyTheDeclaredOnes (an action declaring only name and code gets no file); TestNewDeclarativeRejectsCommandAndMissingAdopt.
-  Fixture rules that matter: every Adopt literal sets UnitEnd explicitly (`"dedent"` unless the test is about another mode; an empty UnitEnd is a regexp that matches every line, which ends a unit at its first line) and gives the named groups kind and name in UnitStart; the python-style sources indent a unit's body with four spaces. TestNewDeclarativeRejectsCommandAndMissingAdopt uses exactly two cases: &genpkg.Package{Name: "x", Adopt: &genpkg.Adopt{Command: []string{"splitter"}}} and &genpkg.Package{Name: "x"}; both must return an error.
+  Fixture rules that matter: every Adopt literal sets UnitEnd explicitly (`"dedent"` unless the test is about another mode; an empty UnitEnd is a regexp that matches every line, which ends a unit at its first line) and gives the named groups kind and name in UnitStart; the python-style sources indent a unit's body with four spaces. TestNewDeclarativeRejectsEmptyUnitEnd (a Package with Adopt{UnitStart: `^(?P<kind>def) (?P<name>\w+)`, Actions: {"def": "setFunction"}} and no UnitEnd: NewDeclarative returns an error containing "unit_end is required") is one more test, written as its own setFunction. TestNewDeclarativeRejectsCommandAndMissingAdopt uses exactly two cases: &genpkg.Package{Name: "x", Adopt: &genpkg.Adopt{Command: []string{"splitter"}}} and &genpkg.Package{Name: "x"}; both must return an error.
 constraints: []
 affected_scope:
   - internal/adopt/declarative_more_test.go
@@ -17,7 +17,7 @@ forbidden_scope: []
 implements: prov-2026-95d9ae7e
 implements_version: 2
 related: []
-sealed_at_sha: 77a6150441e2d2e9afd2fe88116ff69622d4a023
+sealed_at_sha: ""
 associated_specs:
   - path: internal/adopt/declarative_more_test.go
     run_command: go test ./internal/adopt -run 'TestDeclarativeDedentEnd|TestDeclarativeRegexp|TestDeclarativeAttach|TestDeclarativeUnknown|TestDeclarativeKwargs|TestNewDeclarative' -count=1

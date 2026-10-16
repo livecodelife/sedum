@@ -1,25 +1,24 @@
 package adopt
 
 // sedum:anchor:imports
-// sedum:addImport {"tier":"owned","record":"prov-2026-88c83fa3","gen":"sha256:0fbd41998cb5fb9c3f35cd2846f7ada93a6ff3c345794c055625bcdb02cebcff","pkg":"sha256:d6a9443c14d82b7bdf19bb96637f957fd44ad9bfbe8f167c97e6f7699c8b830f","kwargs":{"file":"internal/adopt/declarative_more_test.go","path":"strings"}}
+// sedum:addImport {"tier":"owned","record":"prov-2026-88c83fa3","gen":"sha256:2a225d388295fddeb0df23abd21cde5b9563d98ef8fd88eba9e9f176affc56be","pkg":"sha256:d6a9443c14d82b7bdf19bb96637f957fd44ad9bfbe8f167c97e6f7699c8b830f","kwargs":{"file":"internal/adopt/declarative_more_test.go","path":"strings"}}
 import "strings"
 
 // /sedum:addImport
-// sedum:addImport {"tier":"owned","record":"prov-2026-88c83fa3","gen":"sha256:0fbd41998cb5fb9c3f35cd2846f7ada93a6ff3c345794c055625bcdb02cebcff","pkg":"sha256:d6a9443c14d82b7bdf19bb96637f957fd44ad9bfbe8f167c97e6f7699c8b830f","kwargs":{"file":"internal/adopt/declarative_more_test.go","path":"testing"}}
+// sedum:addImport {"tier":"owned","record":"prov-2026-88c83fa3","gen":"sha256:2a225d388295fddeb0df23abd21cde5b9563d98ef8fd88eba9e9f176affc56be","pkg":"sha256:d6a9443c14d82b7bdf19bb96637f957fd44ad9bfbe8f167c97e6f7699c8b830f","kwargs":{"file":"internal/adopt/declarative_more_test.go","path":"testing"}}
 import "testing"
 
 // /sedum:addImport
-// sedum:addImport {"tier":"owned","record":"prov-2026-88c83fa3","gen":"sha256:0fbd41998cb5fb9c3f35cd2846f7ada93a6ff3c345794c055625bcdb02cebcff","pkg":"sha256:d6a9443c14d82b7bdf19bb96637f957fd44ad9bfbe8f167c97e6f7699c8b830f","kwargs":{"file":"internal/adopt/declarative_more_test.go","path":"github.com/livecodelife/sedum/internal/genpkg"}}
+// sedum:addImport {"tier":"owned","record":"prov-2026-88c83fa3","gen":"sha256:2a225d388295fddeb0df23abd21cde5b9563d98ef8fd88eba9e9f176affc56be","pkg":"sha256:d6a9443c14d82b7bdf19bb96637f957fd44ad9bfbe8f167c97e6f7699c8b830f","kwargs":{"file":"internal/adopt/declarative_more_test.go","path":"github.com/livecodelife/sedum/internal/genpkg"}}
 import "github.com/livecodelife/sedum/internal/genpkg"
 
 // /sedum:addImport
 
 // sedum:anchor:decls
-// sedum:setFunction {"tier":"owned","record":"prov-2026-88c83fa3","gen":"sha256:0fbd41998cb5fb9c3f35cd2846f7ada93a6ff3c345794c055625bcdb02cebcff","pkg":"sha256:6589611adfb6618a7920e43f951a79901428192ea95c1084fde9f222aecd9537","kwargs":{"code":"func TestDeclarativeDedentEnd(t *testing.T) {\n\tpkg := &genpkg.Package{\n\t\tName:       \"py\",\n\t\tExtensions: []string{\".py\"},\n\t\tAdopt: &genpkg.Adopt{\n\t\t\tUnitStart: `^(?P<kind>def|class) (?P<name>\\w+)`,\n\t\t\tUnitEnd:   \"dedent\",\n\t\t\tActions:   map[string]string{\"def\": \"setFunction\", \"class\": \"setType\"},\n\t\t},\n\t\tActions: map[string]*genpkg.Action{\n\t\t\t\"setFunction\": {Name: \"setFunction\", Kwargs: map[string]genpkg.Kwarg{\"file\": {Type: \"string\", Required: true}, \"name\": {Type: \"string\", Required: true}, \"code\": {Type: \"literal\", Required: true}}},\n\t\t\t\"setType\":     {Name: \"setType\", Kwargs: map[string]genpkg.Kwarg{\"file\": {Type: \"string\", Required: true}, \"name\": {Type: \"string\", Required: true}, \"code\": {Type: \"literal\", Required: true}}},\n\t\t},\n\t}\n\td, err := NewDeclarative(pkg)\n\tif err != nil {\n\t\tt.Fatalf(\"NewDeclarative: %v\", err)\n\t}\n\tsrc := []byte(\"def f():\\n    return 1\\n\\nx = 2\\n\")\n\tspans, err := d.Split(\"m.py\", src)\n\tif err != nil {\n\t\tt.Fatalf(\"Split: %v\", err)\n\t}\n\tvar units []Span\n\tfor _, s := range spans {\n\t\tif s.Kind == KindUnit {\n\t\t\tunits = append(units, s)\n\t\t}\n\t}\n\tif len(units) != 1 {\n\t\tt.Fatalf(\"got %d units, want 1\", len(units))\n\t}\n\tif units[0].Action != \"setFunction\" {\n\t\tt.Errorf(\"action = %q, want setFunction\", units[0].Action)\n\t}\n\tif !strings.HasPrefix(units[0].Text, \"def f():\") || strings.Contains(units[0].Text, \"x = 2\") {\n\t\tt.Errorf(\"unit text = %q, want the body only up to the dedent\", units[0].Text)\n\t}\n}\n","file":"internal/adopt/declarative_more_test.go","name":"TestDeclarativeDedentEnd"}}
+// sedum:setFunction {"tier":"owned","record":"prov-2026-88c83fa3","gen":"sha256:2a225d388295fddeb0df23abd21cde5b9563d98ef8fd88eba9e9f176affc56be","pkg":"sha256:6589611adfb6618a7920e43f951a79901428192ea95c1084fde9f222aecd9537","kwargs":{"code":"func TestDeclarativeDedentEnd(t *testing.T) {\n\tpkg := &genpkg.Package{\n\t\tName: \"py\",\n\t\tAdopt: &genpkg.Adopt{\n\t\t\tUnitStart: `^(?P<kind>def|class) (?P<name>\\w+)`,\n\t\t\tUnitEnd:   \"dedent\",\n\t\t\tActions:   map[string]string{\"def\": \"setFunction\", \"class\": \"setType\"},\n\t\t},\n\t\tActions: map[string]*genpkg.Action{\n\t\t\t\"setFunction\": {Name: \"setFunction\", Kwargs: map[string]genpkg.Kwarg{\"file\": {Type: \"string\", Required: true}, \"name\": {Type: \"string\", Required: true}, \"code\": {Type: \"literal\", Required: true}}},\n\t\t\t\"setType\":     {Name: \"setType\", Kwargs: map[string]genpkg.Kwarg{\"file\": {Type: \"string\", Required: true}, \"name\": {Type: \"string\", Required: true}, \"code\": {Type: \"literal\", Required: true}}},\n\t\t},\n\t}\n\td, err := NewDeclarative(pkg)\n\tif err != nil {\n\t\tt.Fatal(err)\n\t}\n\tsrc := []byte(\"def f():\\n    return 1\\nx = 2\\n\")\n\tspans, err := d.Split(\"a.py\", src)\n\tif err != nil {\n\t\tt.Fatal(err)\n\t}\n\tvar got []byte\n\tunits := 0\n\tfor _, s := range spans {\n\t\tgot = append(got, s.Text...)\n\t\tif s.Kind == KindUnit {\n\t\t\tunits++\n\t\t}\n\t}\n\tif string(got) != string(src) {\n\t\tt.Fatalf(\"spans do not cover the file: %q\", got)\n\t}\n\tif units != 1 {\n\t\tt.Fatalf(\"got %d units, want 1\", units)\n\t}\n}\n","file":"internal/adopt/declarative_more_test.go","name":"TestDeclarativeDedentEnd"}}
 func TestDeclarativeDedentEnd(t *testing.T) {
 	pkg := &genpkg.Package{
-		Name:       "py",
-		Extensions: []string{".py"},
+		Name: "py",
 		Adopt: &genpkg.Adopt{
 			UnitStart: `^(?P<kind>def|class) (?P<name>\w+)`,
 			UnitEnd:   "dedent",
@@ -32,36 +31,74 @@ func TestDeclarativeDedentEnd(t *testing.T) {
 	}
 	d, err := NewDeclarative(pkg)
 	if err != nil {
-		t.Fatalf("NewDeclarative: %v", err)
+		t.Fatal(err)
 	}
-	src := []byte("def f():\n    return 1\n\nx = 2\n")
-	spans, err := d.Split("m.py", src)
+	src := []byte("def f():\n    return 1\nx = 2\n")
+	spans, err := d.Split("a.py", src)
 	if err != nil {
-		t.Fatalf("Split: %v", err)
+		t.Fatal(err)
 	}
-	var units []Span
+	var got []byte
+	units := 0
 	for _, s := range spans {
+		got = append(got, s.Text...)
 		if s.Kind == KindUnit {
-			units = append(units, s)
+			units++
 		}
 	}
-	if len(units) != 1 {
-		t.Fatalf("got %d units, want 1", len(units))
+	if string(got) != string(src) {
+		t.Fatalf("spans do not cover the file: %q", got)
 	}
-	if units[0].Action != "setFunction" {
-		t.Errorf("action = %q, want setFunction", units[0].Action)
-	}
-	if !strings.HasPrefix(units[0].Text, "def f():") || strings.Contains(units[0].Text, "x = 2") {
-		t.Errorf("unit text = %q, want the body only up to the dedent", units[0].Text)
+	if units != 1 {
+		t.Fatalf("got %d units, want 1", units)
 	}
 }
 
 // /sedum:setFunction
-// sedum:setFunction {"tier":"owned","record":"prov-2026-88c83fa3","gen":"sha256:0fbd41998cb5fb9c3f35cd2846f7ada93a6ff3c345794c055625bcdb02cebcff","pkg":"sha256:6589611adfb6618a7920e43f951a79901428192ea95c1084fde9f222aecd9537","kwargs":{"code":"func TestDeclarativeRegexpEndWithMatch(t *testing.T) {\n\tpkg := &genpkg.Package{\n\t\tName:       \"py\",\n\t\tExtensions: []string{\".py\"},\n\t\tAdopt: &genpkg.Adopt{\n\t\t\tUnitStart: `^(?P<kind>def|class) (?P<name>\\w+)`,\n\t\t\tUnitEnd:   `^END$`,\n\t\t\tActions:   map[string]string{\"def\": \"setFunction\", \"class\": \"setType\"},\n\t\t},\n\t\tActions: map[string]*genpkg.Action{\n\t\t\t\"setFunction\": {Name: \"setFunction\", Kwargs: map[string]genpkg.Kwarg{\"file\": {Type: \"string\", Required: true}, \"name\": {Type: \"string\", Required: true}, \"code\": {Type: \"literal\", Required: true}}},\n\t\t\t\"setType\":     {Name: \"setType\", Kwargs: map[string]genpkg.Kwarg{\"file\": {Type: \"string\", Required: true}, \"name\": {Type: \"string\", Required: true}, \"code\": {Type: \"literal\", Required: true}}},\n\t\t},\n\t}\n\td, err := NewDeclarative(pkg)\n\tif err != nil {\n\t\tt.Fatalf(\"NewDeclarative: %v\", err)\n\t}\n\tspans, err := d.Split(\"m.py\", []byte(\"def f():\\n    x = 1\\nEND\\ntail\\n\"))\n\tif err != nil {\n\t\tt.Fatalf(\"Split: %v\", err)\n\t}\n\tvar units, residual []Span\n\tfor _, s := range spans {\n\t\tswitch s.Kind {\n\t\tcase KindUnit:\n\t\t\tunits = append(units, s)\n\t\tcase KindResidual:\n\t\t\tresidual = append(residual, s)\n\t\t}\n\t}\n\tif len(units) != 1 {\n\t\tt.Fatalf(\"got %d units, want 1\", len(units))\n\t}\n\tif units[0].Kwargs[\"name\"] != \"f\" {\n\t\tt.Errorf(\"name = %v, want f\", units[0].Kwargs[\"name\"])\n\t}\n\tif strings.Contains(units[0].Text, \"tail\") {\n\t\tt.Errorf(\"unit text %q runs past the end match\", units[0].Text)\n\t}\n\tfound := false\n\tfor _, s := range residual {\n\t\tif strings.Contains(s.Text, \"tail\") {\n\t\t\tfound = true\n\t\t}\n\t}\n\tif !found {\n\t\tt.Errorf(\"text after the end match should be residual\")\n\t}\n}\n","file":"internal/adopt/declarative_more_test.go","name":"TestDeclarativeRegexpEndWithMatch"}}
+// sedum:setFunction {"tier":"owned","record":"prov-2026-88c83fa3","gen":"sha256:2a225d388295fddeb0df23abd21cde5b9563d98ef8fd88eba9e9f176affc56be","pkg":"sha256:6589611adfb6618a7920e43f951a79901428192ea95c1084fde9f222aecd9537","kwargs":{"code":"func TestDeclarativeRegexpEndWithMatch(t *testing.T) {\n\tpkg := &genpkg.Package{\n\t\tName: \"py\",\n\t\tAdopt: &genpkg.Adopt{\n\t\t\tUnitStart: `^(?P<kind>def|class) (?P<name>\\w+)`,\n\t\t\tUnitEnd:   `^end$`,\n\t\t\tActions:   map[string]string{\"def\": \"setFunction\", \"class\": \"setType\"},\n\t\t},\n\t\tActions: map[string]*genpkg.Action{\n\t\t\t\"setFunction\": {Name: \"setFunction\", Kwargs: map[string]genpkg.Kwarg{\"file\": {Type: \"string\", Required: true}, \"name\": {Type: \"string\", Required: true}, \"code\": {Type: \"literal\", Required: true}}},\n\t\t\t\"setType\":     {Name: \"setType\", Kwargs: map[string]genpkg.Kwarg{\"file\": {Type: \"string\", Required: true}, \"name\": {Type: \"string\", Required: true}, \"code\": {Type: \"literal\", Required: true}}},\n\t\t},\n\t}\n\td, err := NewDeclarative(pkg)\n\tif err != nil {\n\t\tt.Fatal(err)\n\t}\n\tsrc := []byte(\"def f():\\n    pass\\nend\\nx = 1\\n\")\n\tspans, err := d.Split(\"a.py\", src)\n\tif err != nil {\n\t\tt.Fatal(err)\n\t}\n\tvar got []byte\n\tunits := 0\n\tfor _, s := range spans {\n\t\tgot = append(got, s.Text...)\n\t\tif s.Kind == KindUnit {\n\t\t\tunits++\n\t\t}\n\t}\n\tif string(got) != string(src) {\n\t\tt.Fatalf(\"spans do not cover the file: %q\", got)\n\t}\n\tif units != 1 {\n\t\tt.Fatalf(\"got %d units, want 1\", units)\n\t}\n}\n","file":"internal/adopt/declarative_more_test.go","name":"TestDeclarativeRegexpEndWithMatch"}}
 func TestDeclarativeRegexpEndWithMatch(t *testing.T) {
 	pkg := &genpkg.Package{
-		Name:       "py",
-		Extensions: []string{".py"},
+		Name: "py",
+		Adopt: &genpkg.Adopt{
+			UnitStart: `^(?P<kind>def|class) (?P<name>\w+)`,
+			UnitEnd:   `^end$`,
+			Actions:   map[string]string{"def": "setFunction", "class": "setType"},
+		},
+		Actions: map[string]*genpkg.Action{
+			"setFunction": {Name: "setFunction", Kwargs: map[string]genpkg.Kwarg{"file": {Type: "string", Required: true}, "name": {Type: "string", Required: true}, "code": {Type: "literal", Required: true}}},
+			"setType":     {Name: "setType", Kwargs: map[string]genpkg.Kwarg{"file": {Type: "string", Required: true}, "name": {Type: "string", Required: true}, "code": {Type: "literal", Required: true}}},
+		},
+	}
+	d, err := NewDeclarative(pkg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	src := []byte("def f():\n    pass\nend\nx = 1\n")
+	spans, err := d.Split("a.py", src)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var got []byte
+	units := 0
+	for _, s := range spans {
+		got = append(got, s.Text...)
+		if s.Kind == KindUnit {
+			units++
+		}
+	}
+	if string(got) != string(src) {
+		t.Fatalf("spans do not cover the file: %q", got)
+	}
+	if units != 1 {
+		t.Fatalf("got %d units, want 1", units)
+	}
+}
+
+// /sedum:setFunction
+// sedum:setFunction {"tier":"owned","record":"prov-2026-88c83fa3","gen":"sha256:2a225d388295fddeb0df23abd21cde5b9563d98ef8fd88eba9e9f176affc56be","pkg":"sha256:6589611adfb6618a7920e43f951a79901428192ea95c1084fde9f222aecd9537","kwargs":{"code":"func TestDeclarativeRegexpEndWithoutMatchRunsToEOF(t *testing.T) {\n\tpkg := &genpkg.Package{\n\t\tName: \"py\",\n\t\tAdopt: &genpkg.Adopt{\n\t\t\tUnitStart: `^(?P<kind>def|class) (?P<name>\\w+)`,\n\t\t\tUnitEnd:   `^END$`,\n\t\t\tActions:   map[string]string{\"def\": \"setFunction\", \"class\": \"setType\"},\n\t\t},\n\t\tActions: map[string]*genpkg.Action{\n\t\t\t\"setFunction\": {Name: \"setFunction\", Kwargs: map[string]genpkg.Kwarg{\"file\": {Type: \"string\", Required: true}, \"name\": {Type: \"string\", Required: true}, \"code\": {Type: \"literal\", Required: true}}},\n\t\t\t\"setType\":     {Name: \"setType\", Kwargs: map[string]genpkg.Kwarg{\"file\": {Type: \"string\", Required: true}, \"name\": {Type: \"string\", Required: true}, \"code\": {Type: \"literal\", Required: true}}},\n\t\t},\n\t}\n\td, err := NewDeclarative(pkg)\n\tif err != nil {\n\t\tt.Fatal(err)\n\t}\n\tsrc := []byte(\"def f():\\n    pass\\n    return 1\\n\")\n\tspans, err := d.Split(\"a.py\", src)\n\tif err != nil {\n\t\tt.Fatal(err)\n\t}\n\tvar got []byte\n\tunits := 0\n\tfor _, s := range spans {\n\t\tgot = append(got, s.Text...)\n\t\tif s.Kind == KindUnit {\n\t\t\tunits++\n\t\t\tif s.Text != string(src) {\n\t\t\t\tt.Fatalf(\"unit ends at %q, want end of file\", s.Text)\n\t\t\t}\n\t\t}\n\t}\n\tif string(got) != string(src) {\n\t\tt.Fatalf(\"spans do not cover the file: %q\", got)\n\t}\n\tif units != 1 {\n\t\tt.Fatalf(\"got %d units, want 1\", units)\n\t}\n}\n","file":"internal/adopt/declarative_more_test.go","name":"TestDeclarativeRegexpEndWithoutMatchRunsToEOF"}}
+func TestDeclarativeRegexpEndWithoutMatchRunsToEOF(t *testing.T) {
+	pkg := &genpkg.Package{
+		Name: "py",
 		Adopt: &genpkg.Adopt{
 			UnitStart: `^(?P<kind>def|class) (?P<name>\w+)`,
 			UnitEnd:   `^END$`,
@@ -74,90 +111,41 @@ func TestDeclarativeRegexpEndWithMatch(t *testing.T) {
 	}
 	d, err := NewDeclarative(pkg)
 	if err != nil {
-		t.Fatalf("NewDeclarative: %v", err)
+		t.Fatal(err)
 	}
-	spans, err := d.Split("m.py", []byte("def f():\n    x = 1\nEND\ntail\n"))
+	src := []byte("def f():\n    pass\n    return 1\n")
+	spans, err := d.Split("a.py", src)
 	if err != nil {
-		t.Fatalf("Split: %v", err)
+		t.Fatal(err)
 	}
-	var units, residual []Span
+	var got []byte
+	units := 0
 	for _, s := range spans {
-		switch s.Kind {
-		case KindUnit:
-			units = append(units, s)
-		case KindResidual:
-			residual = append(residual, s)
-		}
-	}
-	if len(units) != 1 {
-		t.Fatalf("got %d units, want 1", len(units))
-	}
-	if units[0].Kwargs["name"] != "f" {
-		t.Errorf("name = %v, want f", units[0].Kwargs["name"])
-	}
-	if strings.Contains(units[0].Text, "tail") {
-		t.Errorf("unit text %q runs past the end match", units[0].Text)
-	}
-	found := false
-	for _, s := range residual {
-		if strings.Contains(s.Text, "tail") {
-			found = true
-		}
-	}
-	if !found {
-		t.Errorf("text after the end match should be residual")
-	}
-}
-
-// /sedum:setFunction
-// sedum:setFunction {"tier":"owned","record":"prov-2026-88c83fa3","gen":"sha256:0fbd41998cb5fb9c3f35cd2846f7ada93a6ff3c345794c055625bcdb02cebcff","pkg":"sha256:6589611adfb6618a7920e43f951a79901428192ea95c1084fde9f222aecd9537","kwargs":{"code":"func TestDeclarativeRegexpEndWithoutMatchRunsToEOF(t *testing.T) {\n\tpkg := &genpkg.Package{\n\t\tName:       \"py\",\n\t\tExtensions: []string{\".py\"},\n\t\tAdopt: &genpkg.Adopt{\n\t\t\tUnitStart: `^(?P<kind>def|class) (?P<name>\\w+)`,\n\t\t\tUnitEnd:   `^NEVER$`,\n\t\t\tActions:   map[string]string{\"def\": \"setFunction\", \"class\": \"setType\"},\n\t\t},\n\t\tActions: map[string]*genpkg.Action{\n\t\t\t\"setFunction\": {Name: \"setFunction\", Kwargs: map[string]genpkg.Kwarg{\"file\": {Type: \"string\", Required: true}, \"name\": {Type: \"string\", Required: true}, \"code\": {Type: \"literal\", Required: true}}},\n\t\t\t\"setType\":     {Name: \"setType\", Kwargs: map[string]genpkg.Kwarg{\"file\": {Type: \"string\", Required: true}, \"name\": {Type: \"string\", Required: true}, \"code\": {Type: \"literal\", Required: true}}},\n\t\t},\n\t}\n\td, err := NewDeclarative(pkg)\n\tif err != nil {\n\t\tt.Fatalf(\"NewDeclarative: %v\", err)\n\t}\n\tsrc := []byte(\"def f():\\n    x = 1\\n    y = 2\\n\")\n\tspans, err := d.Split(\"m.py\", src)\n\tif err != nil {\n\t\tt.Fatalf(\"Split: %v\", err)\n\t}\n\tvar units []Span\n\tfor _, s := range spans {\n\t\tif s.Kind == KindUnit {\n\t\t\tunits = append(units, s)\n\t\t}\n\t}\n\tif len(units) != 1 {\n\t\tt.Fatalf(\"got %d units, want 1\", len(units))\n\t}\n\tif units[0].Text != string(src) {\n\t\tt.Errorf(\"unit text = %q, want the whole file %q\", units[0].Text, string(src))\n\t}\n}\n","file":"internal/adopt/declarative_more_test.go","name":"TestDeclarativeRegexpEndWithoutMatchRunsToEOF"}}
-func TestDeclarativeRegexpEndWithoutMatchRunsToEOF(t *testing.T) {
-	pkg := &genpkg.Package{
-		Name:       "py",
-		Extensions: []string{".py"},
-		Adopt: &genpkg.Adopt{
-			UnitStart: `^(?P<kind>def|class) (?P<name>\w+)`,
-			UnitEnd:   `^NEVER$`,
-			Actions:   map[string]string{"def": "setFunction", "class": "setType"},
-		},
-		Actions: map[string]*genpkg.Action{
-			"setFunction": {Name: "setFunction", Kwargs: map[string]genpkg.Kwarg{"file": {Type: "string", Required: true}, "name": {Type: "string", Required: true}, "code": {Type: "literal", Required: true}}},
-			"setType":     {Name: "setType", Kwargs: map[string]genpkg.Kwarg{"file": {Type: "string", Required: true}, "name": {Type: "string", Required: true}, "code": {Type: "literal", Required: true}}},
-		},
-	}
-	d, err := NewDeclarative(pkg)
-	if err != nil {
-		t.Fatalf("NewDeclarative: %v", err)
-	}
-	src := []byte("def f():\n    x = 1\n    y = 2\n")
-	spans, err := d.Split("m.py", src)
-	if err != nil {
-		t.Fatalf("Split: %v", err)
-	}
-	var units []Span
-	for _, s := range spans {
+		got = append(got, s.Text...)
 		if s.Kind == KindUnit {
-			units = append(units, s)
+			units++
+			if s.Text != string(src) {
+				t.Fatalf("unit ends at %q, want end of file", s.Text)
+			}
 		}
 	}
-	if len(units) != 1 {
-		t.Fatalf("got %d units, want 1", len(units))
+	if string(got) != string(src) {
+		t.Fatalf("spans do not cover the file: %q", got)
 	}
-	if units[0].Text != string(src) {
-		t.Errorf("unit text = %q, want the whole file %q", units[0].Text, string(src))
+	if units != 1 {
+		t.Fatalf("got %d units, want 1", units)
 	}
 }
 
 // /sedum:setFunction
-// sedum:setFunction {"tier":"owned","record":"prov-2026-88c83fa3","gen":"sha256:0fbd41998cb5fb9c3f35cd2846f7ada93a6ff3c345794c055625bcdb02cebcff","pkg":"sha256:6589611adfb6618a7920e43f951a79901428192ea95c1084fde9f222aecd9537","kwargs":{"code":"func TestDeclarativeAttachAbove(t *testing.T) {\n\tpkg := &genpkg.Package{\n\t\tName:       \"py\",\n\t\tExtensions: []string{\".py\"},\n\t\tAdopt: &genpkg.Adopt{\n\t\t\tUnitStart:   `^(?P<kind>def|class) (?P<name>\\w+)`,\n\t\t\tUnitEnd:     \"dedent\",\n\t\t\tAttachAbove: []string{`^@\\w+`},\n\t\t\tActions:     map[string]string{\"def\": \"setFunction\", \"class\": \"setType\"},\n\t\t},\n\t\tActions: map[string]*genpkg.Action{\n\t\t\t\"setFunction\": {Name: \"setFunction\", Kwargs: map[string]genpkg.Kwarg{\"file\": {Type: \"string\", Required: true}, \"name\": {Type: \"string\", Required: true}, \"code\": {Type: \"literal\", Required: true}}},\n\t\t\t\"setType\":     {Name: \"setType\", Kwargs: map[string]genpkg.Kwarg{\"file\": {Type: \"string\", Required: true}, \"name\": {Type: \"string\", Required: true}, \"code\": {Type: \"literal\", Required: true}}},\n\t\t},\n\t}\n\td, err := NewDeclarative(pkg)\n\tif err != nil {\n\t\tt.Fatalf(\"NewDeclarative: %v\", err)\n\t}\n\tspans, err := d.Split(\"m.py\", []byte(\"@dec\\ndef f():\\n    x = 1\\n\"))\n\tif err != nil {\n\t\tt.Fatalf(\"Split: %v\", err)\n\t}\n\tvar units []Span\n\tfor _, s := range spans {\n\t\tif s.Kind == KindUnit {\n\t\t\tunits = append(units, s)\n\t\t}\n\t}\n\tif len(units) != 1 || !strings.HasPrefix(units[0].Text, \"@dec\\n\") {\n\t\tt.Fatalf(\"decorator line directly above should join the unit, got %+v\", units)\n\t}\n\tspans, err = d.Split(\"m.py\", []byte(\"@dec\\n\\ndef g():\\n    y = 1\\n\"))\n\tif err != nil {\n\t\tt.Fatalf(\"Split: %v\", err)\n\t}\n\tfor _, s := range spans {\n\t\tif s.Kind == KindUnit && strings.Contains(s.Text, \"@dec\") {\n\t\t\tt.Errorf(\"decorator separated by a blank line should not join the unit: %q\", s.Text)\n\t\t}\n\t}\n}\n","file":"internal/adopt/declarative_more_test.go","name":"TestDeclarativeAttachAbove"}}
+// sedum:setFunction {"tier":"owned","record":"prov-2026-88c83fa3","gen":"sha256:2a225d388295fddeb0df23abd21cde5b9563d98ef8fd88eba9e9f176affc56be","pkg":"sha256:6589611adfb6618a7920e43f951a79901428192ea95c1084fde9f222aecd9537","kwargs":{"code":"func TestDeclarativeAttachAbove(t *testing.T) {\n\tpkg := &genpkg.Package{\n\t\tName: \"py\",\n\t\tAdopt: &genpkg.Adopt{\n\t\t\tUnitStart:   `^(?P<kind>def|class) (?P<name>\\w+)`,\n\t\t\tUnitEnd:     \"dedent\",\n\t\t\tAttachAbove: []string{`^@`},\n\t\t\tActions:     map[string]string{\"def\": \"setFunction\", \"class\": \"setType\"},\n\t\t},\n\t\tActions: map[string]*genpkg.Action{\n\t\t\t\"setFunction\": {Name: \"setFunction\", Kwargs: map[string]genpkg.Kwarg{\"file\": {Type: \"string\", Required: true}, \"name\": {Type: \"string\", Required: true}, \"code\": {Type: \"literal\", Required: true}}},\n\t\t\t\"setType\":     {Name: \"setType\", Kwargs: map[string]genpkg.Kwarg{\"file\": {Type: \"string\", Required: true}, \"name\": {Type: \"string\", Required: true}, \"code\": {Type: \"literal\", Required: true}}},\n\t\t},\n\t}\n\td, err := NewDeclarative(pkg)\n\tif err != nil {\n\t\tt.Fatal(err)\n\t}\n\tsrc := []byte(\"@dec\\ndef f():\\n    pass\\n\\n@dec\\n\\ndef g():\\n    pass\\n\")\n\tspans, err := d.Split(\"a.py\", src)\n\tif err != nil {\n\t\tt.Fatal(err)\n\t}\n\tvar got []byte\n\tvar units []string\n\tfor _, s := range spans {\n\t\tgot = append(got, s.Text...)\n\t\tif s.Kind == KindUnit {\n\t\t\tunits = append(units, s.Text)\n\t\t}\n\t}\n\tif string(got) != string(src) {\n\t\tt.Fatalf(\"spans do not cover the file: %q\", got)\n\t}\n\tif len(units) != 2 {\n\t\tt.Fatalf(\"got %d units, want 2\", len(units))\n\t}\n\tif units[0] != \"@dec\\ndef f():\\n    pass\\n\" {\n\t\tt.Fatalf(\"decorator not attached above: %q\", units[0])\n\t}\n}\n","file":"internal/adopt/declarative_more_test.go","name":"TestDeclarativeAttachAbove"}}
 func TestDeclarativeAttachAbove(t *testing.T) {
 	pkg := &genpkg.Package{
-		Name:       "py",
-		Extensions: []string{".py"},
+		Name: "py",
 		Adopt: &genpkg.Adopt{
 			UnitStart:   `^(?P<kind>def|class) (?P<name>\w+)`,
 			UnitEnd:     "dedent",
-			AttachAbove: []string{`^@\w+`},
+			AttachAbove: []string{`^@`},
 			Actions:     map[string]string{"def": "setFunction", "class": "setType"},
 		},
 		Actions: map[string]*genpkg.Action{
@@ -167,77 +155,67 @@ func TestDeclarativeAttachAbove(t *testing.T) {
 	}
 	d, err := NewDeclarative(pkg)
 	if err != nil {
-		t.Fatalf("NewDeclarative: %v", err)
+		t.Fatal(err)
 	}
-	spans, err := d.Split("m.py", []byte("@dec\ndef f():\n    x = 1\n"))
+	src := []byte("@dec\ndef f():\n    pass\n\n@dec\n\ndef g():\n    pass\n")
+	spans, err := d.Split("a.py", src)
 	if err != nil {
-		t.Fatalf("Split: %v", err)
+		t.Fatal(err)
 	}
-	var units []Span
+	var got []byte
+	var units []string
 	for _, s := range spans {
+		got = append(got, s.Text...)
 		if s.Kind == KindUnit {
-			units = append(units, s)
+			units = append(units, s.Text)
 		}
 	}
-	if len(units) != 1 || !strings.HasPrefix(units[0].Text, "@dec\n") {
-		t.Fatalf("decorator line directly above should join the unit, got %+v", units)
+	if string(got) != string(src) {
+		t.Fatalf("spans do not cover the file: %q", got)
 	}
-	spans, err = d.Split("m.py", []byte("@dec\n\ndef g():\n    y = 1\n"))
-	if err != nil {
-		t.Fatalf("Split: %v", err)
+	if len(units) != 2 {
+		t.Fatalf("got %d units, want 2", len(units))
 	}
-	for _, s := range spans {
-		if s.Kind == KindUnit && strings.Contains(s.Text, "@dec") {
-			t.Errorf("decorator separated by a blank line should not join the unit: %q", s.Text)
-		}
+	if units[0] != "@dec\ndef f():\n    pass\n" {
+		t.Fatalf("decorator not attached above: %q", units[0])
 	}
 }
 
 // /sedum:setFunction
-// sedum:setFunction {"tier":"owned","record":"prov-2026-88c83fa3","gen":"sha256:0fbd41998cb5fb9c3f35cd2846f7ada93a6ff3c345794c055625bcdb02cebcff","pkg":"sha256:6589611adfb6618a7920e43f951a79901428192ea95c1084fde9f222aecd9537","kwargs":{"code":"func TestDeclarativeUnknownKindStaysResidual(t *testing.T) {\n\tpkg := &genpkg.Package{\n\t\tName:       \"py\",\n\t\tExtensions: []string{\".py\"},\n\t\tAdopt: &genpkg.Adopt{\n\t\t\tUnitStart: `^(?P<kind>def|class) (?P<name>\\w+)`,\n\t\t\tUnitEnd:   \"dedent\",\n\t\t\tActions:   map[string]string{\"def\": \"setFunction\", \"class\": \"setType\"},\n\t\t},\n\t\tActions: map[string]*genpkg.Action{\n\t\t\t\"setFunction\": {Name: \"setFunction\", Kwargs: map[string]genpkg.Kwarg{\"file\": {Type: \"string\", Required: true}, \"name\": {Type: \"string\", Required: true}, \"code\": {Type: \"literal\", Required: true}}},\n\t\t\t\"setType\":     {Name: \"setType\", Kwargs: map[string]genpkg.Kwarg{\"file\": {Type: \"string\", Required: true}, \"name\": {Type: \"string\", Required: true}, \"code\": {Type: \"literal\", Required: true}}},\n\t\t},\n\t}\n\td, err := NewDeclarative(pkg)\n\tif err != nil {\n\t\tt.Fatalf(\"NewDeclarative: %v\", err)\n\t}\n\tsrc := []byte(\"enum E:\\n    A = 1\\n\")\n\tspans, err := d.Split(\"m.py\", src)\n\tif err != nil {\n\t\tt.Fatalf(\"Split: %v\", err)\n\t}\n\tvar text string\n\tfor _, s := range spans {\n\t\tif s.Kind == KindUnit {\n\t\t\tt.Errorf(\"unknown kind should not become a unit: %q\", s.Text)\n\t\t}\n\t\tif s.Kind == KindResidual {\n\t\t\ttext += s.Text\n\t\t}\n\t}\n\tif text != string(src) {\n\t\tt.Errorf(\"residual text = %q, want %q\", text, string(src))\n\t}\n}\n","file":"internal/adopt/declarative_more_test.go","name":"TestDeclarativeUnknownKindStaysResidual"}}
+// sedum:setFunction {"tier":"owned","record":"prov-2026-88c83fa3","gen":"sha256:2a225d388295fddeb0df23abd21cde5b9563d98ef8fd88eba9e9f176affc56be","pkg":"sha256:6589611adfb6618a7920e43f951a79901428192ea95c1084fde9f222aecd9537","kwargs":{"code":"func TestDeclarativeUnknownKindStaysResidual(t *testing.T) {\n\tpkg := &genpkg.Package{\n\t\tName: \"py\",\n\t\tAdopt: &genpkg.Adopt{\n\t\t\tUnitStart: `^(?P<kind>def|class) (?P<name>\\w+)`,\n\t\t\tUnitEnd:   \"dedent\",\n\t\t\tActions:   map[string]string{\"def\": \"setFunction\"},\n\t\t},\n\t\tActions: map[string]*genpkg.Action{\n\t\t\t\"setFunction\": {Name: \"setFunction\", Kwargs: map[string]genpkg.Kwarg{\"file\": {Type: \"string\", Required: true}, \"name\": {Type: \"string\", Required: true}, \"code\": {Type: \"literal\", Required: true}}},\n\t\t},\n\t}\n\td, err := NewDeclarative(pkg)\n\tif err != nil {\n\t\tt.Fatal(err)\n\t}\n\tsrc := []byte(\"class C:\\n    pass\\n\")\n\tspans, err := d.Split(\"a.py\", src)\n\tif err != nil {\n\t\tt.Fatal(err)\n\t}\n\tfor _, s := range spans {\n\t\tif s.Kind == KindUnit {\n\t\t\tt.Fatalf(\"unknown kind became a unit: %q\", s.Text)\n\t\t}\n\t}\n}\n","file":"internal/adopt/declarative_more_test.go","name":"TestDeclarativeUnknownKindStaysResidual"}}
 func TestDeclarativeUnknownKindStaysResidual(t *testing.T) {
 	pkg := &genpkg.Package{
-		Name:       "py",
-		Extensions: []string{".py"},
+		Name: "py",
 		Adopt: &genpkg.Adopt{
 			UnitStart: `^(?P<kind>def|class) (?P<name>\w+)`,
 			UnitEnd:   "dedent",
-			Actions:   map[string]string{"def": "setFunction", "class": "setType"},
+			Actions:   map[string]string{"def": "setFunction"},
 		},
 		Actions: map[string]*genpkg.Action{
 			"setFunction": {Name: "setFunction", Kwargs: map[string]genpkg.Kwarg{"file": {Type: "string", Required: true}, "name": {Type: "string", Required: true}, "code": {Type: "literal", Required: true}}},
-			"setType":     {Name: "setType", Kwargs: map[string]genpkg.Kwarg{"file": {Type: "string", Required: true}, "name": {Type: "string", Required: true}, "code": {Type: "literal", Required: true}}},
 		},
 	}
 	d, err := NewDeclarative(pkg)
 	if err != nil {
-		t.Fatalf("NewDeclarative: %v", err)
+		t.Fatal(err)
 	}
-	src := []byte("enum E:\n    A = 1\n")
-	spans, err := d.Split("m.py", src)
+	src := []byte("class C:\n    pass\n")
+	spans, err := d.Split("a.py", src)
 	if err != nil {
-		t.Fatalf("Split: %v", err)
+		t.Fatal(err)
 	}
-	var text string
 	for _, s := range spans {
 		if s.Kind == KindUnit {
-			t.Errorf("unknown kind should not become a unit: %q", s.Text)
+			t.Fatalf("unknown kind became a unit: %q", s.Text)
 		}
-		if s.Kind == KindResidual {
-			text += s.Text
-		}
-	}
-	if text != string(src) {
-		t.Errorf("residual text = %q, want %q", text, string(src))
 	}
 }
 
 // /sedum:setFunction
-// sedum:setFunction {"tier":"owned","record":"prov-2026-88c83fa3","gen":"sha256:0fbd41998cb5fb9c3f35cd2846f7ada93a6ff3c345794c055625bcdb02cebcff","pkg":"sha256:6589611adfb6618a7920e43f951a79901428192ea95c1084fde9f222aecd9537","kwargs":{"code":"func TestDeclarativeKwargsAreOnlyTheDeclaredOnes(t *testing.T) {\n\tpkg := &genpkg.Package{\n\t\tName:       \"py\",\n\t\tExtensions: []string{\".py\"},\n\t\tAdopt: &genpkg.Adopt{\n\t\t\tUnitStart: `^(?P<kind>def|class) (?P<name>\\w+)`,\n\t\t\tUnitEnd:   \"dedent\",\n\t\t\tActions:   map[string]string{\"def\": \"setFunction\"},\n\t\t},\n\t\tActions: map[string]*genpkg.Action{\n\t\t\t\"setFunction\": {Name: \"setFunction\", Kwargs: map[string]genpkg.Kwarg{\"name\": {Type: \"string\", Required: true}, \"code\": {Type: \"literal\", Required: true}}},\n\t\t},\n\t}\n\td, err := NewDeclarative(pkg)\n\tif err != nil {\n\t\tt.Fatalf(\"NewDeclarative: %v\", err)\n\t}\n\tspans, err := d.Split(\"m.py\", []byte(\"def f():\\n    x = 1\\n\"))\n\tif err != nil {\n\t\tt.Fatalf(\"Split: %v\", err)\n\t}\n\tvar units []Span\n\tfor _, s := range spans {\n\t\tif s.Kind == KindUnit {\n\t\t\tunits = append(units, s)\n\t\t}\n\t}\n\tif len(units) != 1 {\n\t\tt.Fatalf(\"got %d units, want 1\", len(units))\n\t}\n\tif _, ok := units[0].Kwargs[\"file\"]; ok {\n\t\tt.Errorf(\"kwargs should not carry file when the action does not declare it: %v\", units[0].Kwargs)\n\t}\n\tif units[0].Kwargs[\"name\"] != \"f\" {\n\t\tt.Errorf(\"name = %v, want f\", units[0].Kwargs[\"name\"])\n\t}\n}\n","file":"internal/adopt/declarative_more_test.go","name":"TestDeclarativeKwargsAreOnlyTheDeclaredOnes"}}
+// sedum:setFunction {"tier":"owned","record":"prov-2026-88c83fa3","gen":"sha256:2a225d388295fddeb0df23abd21cde5b9563d98ef8fd88eba9e9f176affc56be","pkg":"sha256:6589611adfb6618a7920e43f951a79901428192ea95c1084fde9f222aecd9537","kwargs":{"code":"func TestDeclarativeKwargsAreOnlyTheDeclaredOnes(t *testing.T) {\n\tpkg := &genpkg.Package{\n\t\tName: \"py\",\n\t\tAdopt: &genpkg.Adopt{\n\t\t\tUnitStart: `^(?P<kind>def|class) (?P<name>\\w+)`,\n\t\t\tUnitEnd:   \"dedent\",\n\t\t\tActions:   map[string]string{\"def\": \"setFunction\"},\n\t\t},\n\t\tActions: map[string]*genpkg.Action{\n\t\t\t\"setFunction\": {Name: \"setFunction\", Kwargs: map[string]genpkg.Kwarg{\"name\": {Type: \"string\", Required: true}, \"code\": {Type: \"literal\", Required: true}}},\n\t\t},\n\t}\n\td, err := NewDeclarative(pkg)\n\tif err != nil {\n\t\tt.Fatal(err)\n\t}\n\tspans, err := d.Split(\"a.py\", []byte(\"def f():\\n    pass\\n\"))\n\tif err != nil {\n\t\tt.Fatal(err)\n\t}\n\tfor _, s := range spans {\n\t\tif s.Kind != KindUnit {\n\t\t\tcontinue\n\t\t}\n\t\tif _, ok := s.Kwargs[\"file\"]; ok {\n\t\t\tt.Fatalf(\"undeclared file kwarg was set: %v\", s.Kwargs)\n\t\t}\n\t}\n}\n","file":"internal/adopt/declarative_more_test.go","name":"TestDeclarativeKwargsAreOnlyTheDeclaredOnes"}}
 func TestDeclarativeKwargsAreOnlyTheDeclaredOnes(t *testing.T) {
 	pkg := &genpkg.Package{
-		Name:       "py",
-		Extensions: []string{".py"},
+		Name: "py",
 		Adopt: &genpkg.Adopt{
 			UnitStart: `^(?P<kind>def|class) (?P<name>\w+)`,
 			UnitEnd:   "dedent",
@@ -249,40 +227,57 @@ func TestDeclarativeKwargsAreOnlyTheDeclaredOnes(t *testing.T) {
 	}
 	d, err := NewDeclarative(pkg)
 	if err != nil {
-		t.Fatalf("NewDeclarative: %v", err)
+		t.Fatal(err)
 	}
-	spans, err := d.Split("m.py", []byte("def f():\n    x = 1\n"))
+	spans, err := d.Split("a.py", []byte("def f():\n    pass\n"))
 	if err != nil {
-		t.Fatalf("Split: %v", err)
+		t.Fatal(err)
 	}
-	var units []Span
 	for _, s := range spans {
-		if s.Kind == KindUnit {
-			units = append(units, s)
+		if s.Kind != KindUnit {
+			continue
 		}
-	}
-	if len(units) != 1 {
-		t.Fatalf("got %d units, want 1", len(units))
-	}
-	if _, ok := units[0].Kwargs["file"]; ok {
-		t.Errorf("kwargs should not carry file when the action does not declare it: %v", units[0].Kwargs)
-	}
-	if units[0].Kwargs["name"] != "f" {
-		t.Errorf("name = %v, want f", units[0].Kwargs["name"])
+		if _, ok := s.Kwargs["file"]; ok {
+			t.Fatalf("undeclared file kwarg was set: %v", s.Kwargs)
+		}
 	}
 }
 
 // /sedum:setFunction
-// sedum:setFunction {"tier":"owned","record":"prov-2026-88c83fa3","gen":"sha256:0fbd41998cb5fb9c3f35cd2846f7ada93a6ff3c345794c055625bcdb02cebcff","pkg":"sha256:6589611adfb6618a7920e43f951a79901428192ea95c1084fde9f222aecd9537","kwargs":{"code":"func TestNewDeclarativeRejectsCommandAndMissingAdopt(t *testing.T) {\n\tcases := []*genpkg.Package{\n\t\t{Name: \"x\", Adopt: &genpkg.Adopt{Command: []string{\"splitter\"}}},\n\t\t{Name: \"x\"},\n\t}\n\tfor i, pkg := range cases {\n\t\tif _, err := NewDeclarative(pkg); err == nil {\n\t\t\tt.Errorf(\"case %d: NewDeclarative returned no error, want one\", i)\n\t\t}\n\t}\n}\n","file":"internal/adopt/declarative_more_test.go","name":"TestNewDeclarativeRejectsCommandAndMissingAdopt"}}
+// sedum:setFunction {"tier":"owned","record":"prov-2026-88c83fa3","gen":"sha256:2a225d388295fddeb0df23abd21cde5b9563d98ef8fd88eba9e9f176affc56be","pkg":"sha256:6589611adfb6618a7920e43f951a79901428192ea95c1084fde9f222aecd9537","kwargs":{"code":"func TestNewDeclarativeRejectsCommandAndMissingAdopt(t *testing.T) {\n\tcases := []struct {\n\t\tname string\n\t\tpkg  *genpkg.Package\n\t}{\n\t\t{\"command\", &genpkg.Package{Name: \"x\", Adopt: &genpkg.Adopt{Command: []string{\"splitter\"}}}},\n\t\t{\"missing adopt\", &genpkg.Package{Name: \"x\"}},\n\t}\n\tfor _, c := range cases {\n\t\tt.Run(c.name, func(t *testing.T) {\n\t\t\tif _, err := NewDeclarative(c.pkg); err == nil {\n\t\t\t\tt.Fatal(\"expected an error\")\n\t\t\t}\n\t\t})\n\t}\n}\n","file":"internal/adopt/declarative_more_test.go","name":"TestNewDeclarativeRejectsCommandAndMissingAdopt"}}
 func TestNewDeclarativeRejectsCommandAndMissingAdopt(t *testing.T) {
-	cases := []*genpkg.Package{
-		{Name: "x", Adopt: &genpkg.Adopt{Command: []string{"splitter"}}},
-		{Name: "x"},
+	cases := []struct {
+		name string
+		pkg  *genpkg.Package
+	}{
+		{"command", &genpkg.Package{Name: "x", Adopt: &genpkg.Adopt{Command: []string{"splitter"}}}},
+		{"missing adopt", &genpkg.Package{Name: "x"}},
 	}
-	for i, pkg := range cases {
-		if _, err := NewDeclarative(pkg); err == nil {
-			t.Errorf("case %d: NewDeclarative returned no error, want one", i)
-		}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			if _, err := NewDeclarative(c.pkg); err == nil {
+				t.Fatal("expected an error")
+			}
+		})
+	}
+}
+
+// /sedum:setFunction
+// sedum:setFunction {"tier":"owned","record":"prov-2026-88c83fa3","gen":"sha256:2a225d388295fddeb0df23abd21cde5b9563d98ef8fd88eba9e9f176affc56be","pkg":"sha256:6589611adfb6618a7920e43f951a79901428192ea95c1084fde9f222aecd9537","kwargs":{"code":"func TestNewDeclarativeRejectsEmptyUnitEnd(t *testing.T) {\n\tpkg := &genpkg.Package{\n\t\tName: \"py\",\n\t\tAdopt: &genpkg.Adopt{\n\t\t\tUnitStart: `^(?P<kind>def) (?P<name>\\w+)`,\n\t\t\tActions:   map[string]string{\"def\": \"setFunction\"},\n\t\t},\n\t\tActions: map[string]*genpkg.Action{\n\t\t\t\"setFunction\": {Name: \"setFunction\", Kwargs: map[string]genpkg.Kwarg{\"file\": {Type: \"string\", Required: true}, \"name\": {Type: \"string\", Required: true}, \"code\": {Type: \"literal\", Required: true}}},\n\t\t},\n\t}\n\t_, err := NewDeclarative(pkg)\n\tif err == nil || !strings.Contains(err.Error(), \"unit_end is required\") {\n\t\tt.Fatalf(\"got error %v, want one containing %q\", err, \"unit_end is required\")\n\t}\n}\n","file":"internal/adopt/declarative_more_test.go","name":"TestNewDeclarativeRejectsEmptyUnitEnd"}}
+func TestNewDeclarativeRejectsEmptyUnitEnd(t *testing.T) {
+	pkg := &genpkg.Package{
+		Name: "py",
+		Adopt: &genpkg.Adopt{
+			UnitStart: `^(?P<kind>def) (?P<name>\w+)`,
+			Actions:   map[string]string{"def": "setFunction"},
+		},
+		Actions: map[string]*genpkg.Action{
+			"setFunction": {Name: "setFunction", Kwargs: map[string]genpkg.Kwarg{"file": {Type: "string", Required: true}, "name": {Type: "string", Required: true}, "code": {Type: "literal", Required: true}}},
+		},
+	}
+	_, err := NewDeclarative(pkg)
+	if err == nil || !strings.Contains(err.Error(), "unit_end is required") {
+		t.Fatalf("got error %v, want one containing %q", err, "unit_end is required")
 	}
 }
 
