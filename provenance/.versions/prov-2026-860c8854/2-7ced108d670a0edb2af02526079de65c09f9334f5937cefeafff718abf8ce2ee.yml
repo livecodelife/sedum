@@ -1,0 +1,89 @@
+id: prov-2026-860c8854
+version: 2
+content_hash: sha256:7ced108d670a0edb2af02526079de65c09f9334f5937cefeafff718abf8ce2ee
+parent_hash: sha256:581f355b569827bd51862b563fa24ebe47bc7f1c6f7475078c30bc467facd22b
+reason: the hand-written command
+author: calebcowen@gmail.com
+created_at: "2026-10-16T23:48:27Z"
+spec_hashes:
+  - sha256:5c98857d31279ace4ef48e70982ac62dff7911b60db4326eb6808fcf09909531
+content:
+  id: prov-2026-860c8854
+  title: 'eval design: the Haiku wrapper call'
+  type: imprint
+  created_at: "2026-10-16"
+  author: calebcowen@gmail.com
+  intent: |-
+    The model-calling part of the behaviour-only-intent eval (prov-2026-d694c4c4): HaikuGrow runs the herd's sedum-haiku wrapper (which pins claude-haiku-5-5; this code passes no model flag). (No build tag: a build constraint cannot be written by the go generator package's file template, and no test uses a real wrapper, so a default `go test` never reaches a model.) The command evals/cmd/design/main.go (package main, which the go package's templates cannot produce outside a root cmd/ directory) is hand-written and is added to this imprint's scope after the grow; it is not grown.
+
+    New file evals/design/haiku_eval.go (package design); TRANSCRIBE, do not design: write exactly the code below. Imports (context, fmt, os, os/exec, strings): one addImport each. Declarations: one invocation per declaration (type -> setType, const -> setConst, func -> setFunction, method -> setMethod with the receiver type name), code = the whole declaration including its doc comment, exactly as written, tabs for indentation, no changes of any kind.
+
+    // HaikuGrow returns a Grow that runs sedum through the herd's sedum-haiku
+    // wrapper, which pins claude-haiku-5-5. The harness passes no model flag, and
+    // the wrapper refuses one: no other model is allowed.
+    func HaikuGrow(wrapper, sedumBin string) func(ctx context.Context, dir string) error {
+    	return func(ctx context.Context, dir string) error {
+    		cmd := exec.CommandContext(ctx, wrapper, "grow",
+    			"--generators", "./generators", "--records", "./provenance",
+    			"--prompt-file", "PROMPT.md", "--verify", "go vet ./...")
+    		cmd.Dir = dir
+    		cmd.Env = append(os.Environ(), "SEDUM_BIN="+sedumBin)
+    		out, err := cmd.CombinedOutput()
+    		if err != nil {
+    			lines := strings.Split(strings.TrimSpace(string(out)), "\n")
+    			return fmt.Errorf("%s", lines[len(lines)-1])
+    		}
+    		return nil
+    	}
+    }
+
+    Tests: the NEW file evals/design/haiku_eval_test.go (a spec of this imprint; it exists as a one-line placeholder). Transcribe exactly this test file; imports (context, os, path/filepath, strings, testing): one addImport each; each function and const -> its own invocation. Use the fixture text exactly (tabs, ASCII quotes).
+
+    // fakeWrapper writes an executable shell script and returns its path.
+    func fakeWrapper(t *testing.T, dir, body string) string {
+    	t.Helper()
+    	path := filepath.Join(dir, "wrapper.sh")
+    	if err := os.WriteFile(path, []byte("#!/bin/sh\n"+body), 0o755); err != nil {
+    		t.Fatal(err)
+    	}
+    	return path
+    }
+
+    func TestHaikuGrowRunsTheWrapperWithoutAModelFlag(t *testing.T) {
+    	dir := t.TempDir()
+    	args := filepath.Join(dir, "args")
+    	wrapper := fakeWrapper(t, dir, "echo \"$@\" > "+args+"\necho \"SEDUM_BIN=$SEDUM_BIN\" >> "+args+"\n")
+    	if err := HaikuGrow(wrapper, "/bin/sedum-x")(context.Background(), dir); err != nil {
+    		t.Fatal(err)
+    	}
+    	data, err := os.ReadFile(args)
+    	if err != nil {
+    		t.Fatal(err)
+    	}
+    	got := string(data)
+    	for _, want := range []string{"grow --generators ./generators --records ./provenance --prompt-file PROMPT.md --verify go vet ./...", "SEDUM_BIN=/bin/sedum-x"} {
+    		if !strings.Contains(got, want) {
+    			t.Errorf("wrapper arguments lack %q:\n%s", want, got)
+    		}
+    	}
+    	if strings.Contains(got, "--model") {
+    		t.Errorf("no model flag may be passed:\n%s", got)
+    	}
+    }
+
+    func TestHaikuGrowReportsTheLastOutputLine(t *testing.T) {
+    	dir := t.TempDir()
+    	wrapper := fakeWrapper(t, dir, "echo first\necho boom\nexit 1\n")
+    	err := HaikuGrow(wrapper, "/bin/sedum-x")(context.Background(), dir)
+    	if err == nil || err.Error() != "boom" {
+    		t.Fatalf("err = %v, want boom", err)
+    	}
+    }
+  affected_scope:
+    - evals/design/haiku_eval.go
+    - evals/design/haiku_eval_test.go
+    - evals/cmd/design/main.go
+  implements: prov-2026-d694c4c4
+  implements_version: 1
+  associated_specs:
+    - path: evals/design/haiku_eval_test.go
