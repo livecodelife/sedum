@@ -1,7 +1,7 @@
 id: prov-2026-8542d7f7
 title: 'adopt: more orchestrator tests'
 type: imprint
-status: open
+status: implemented
 version: 2
 reason: tests grown into the placeholder spec file
 created_at: "2026-10-16"
@@ -15,7 +15,7 @@ forbidden_scope: []
 implements: prov-2026-95d9ae7e
 implements_version: 2
 related: []
-sealed_at_sha: ""
+sealed_at_sha: 558a011c37bdd1a36588ea78190027559926a03c
 associated_specs:
   - path: internal/adopt/run_more_test.go
     run_command: go test ./internal/adopt -run 'TestRunDryRun|TestRunSkips|TestRunTwice' -count=1
