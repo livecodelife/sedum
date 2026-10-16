@@ -1,0 +1,294 @@
+id: prov-2026-8b91f1f9
+version: 1
+content_hash: sha256:5d6d5dab455a69b08d5030beb0af4c476a85b36ee42ac2bb5016ca163adb0395
+parent_hash: ""
+reason: ""
+author: calebcowen@gmail.com
+created_at: "2026-10-16T23:43:28Z"
+spec_hashes:
+  - sha256:53f769047590f2f1855f6174695baa2ccffc4a57550e046548214590390254d5
+content:
+  id: prov-2026-8b91f1f9
+  title: 'eval design: results'
+  type: imprint
+  created_at: "2026-10-16"
+  author: calebcowen@gmail.com
+  intent: |-
+    Results for the behaviour-only-intent eval (prov-2026-d694c4c4): Sample, Cell, Aggregate, TaskHash, Report with JSON and Table. The Variant type and Variants() exist (variants.go); Task and LoadTask exist (task.go); writeTask and validTask are test helpers in task_test.go (same package).
+
+    New file evals/design/result.go (package design); TRANSCRIBE, do not design: write exactly the code below. Imports (bytes, crypto/sha256, encoding/hex, encoding/json, fmt, os, path/filepath, sort, strings, text/tabwriter): one addImport each. Declarations: one invocation per declaration (type -> setType, const -> setConst, func -> setFunction, method -> setMethod with the receiver type name), code = the whole declaration including its doc comment, exactly as written, tabs for indentation, no changes of any kind.
+
+    // Sample is one grow of one task with one intent variant.
+    type Sample struct {
+    	Task             string  `json:"task"`
+    	Variant          Variant `json:"variant"`
+    	N                int     `json:"n"`
+    	Compiled         bool    `json:"compiled"`
+    	Passed           bool    `json:"passed"`
+    	Calls            int     `json:"calls"`
+    	Rejected         int     `json:"rejected"`
+    	Repairs          int     `json:"repairs"`
+    	PromptTokens     int     `json:"prompt_tokens"`
+    	CompletionTokens int     `json:"completion_tokens"`
+    	MS               int64   `json:"ms"`
+    	Error            string  `json:"error,omitempty"`
+    }
+
+    // Cell is the totals of the samples of one task and variant.
+    type Cell struct {
+    	Task             string  `json:"task"`
+    	Variant          Variant `json:"variant"`
+    	Samples          int     `json:"samples"`
+    	Compiled         int     `json:"compiled"`
+    	Passed           int     `json:"passed"`
+    	Calls            int     `json:"calls"`
+    	Rejected         int     `json:"rejected"`
+    	Repairs          int     `json:"repairs"`
+    	PromptTokens     int     `json:"prompt_tokens"`
+    	CompletionTokens int     `json:"completion_tokens"`
+    }
+
+    func (c *Cell) add(s Sample) {
+    	c.Samples++
+    	if s.Compiled {
+    		c.Compiled++
+    	}
+    	if s.Passed {
+    		c.Passed++
+    	}
+    	c.Calls += s.Calls
+    	c.Rejected += s.Rejected
+    	c.Repairs += s.Repairs
+    	c.PromptTokens += s.PromptTokens
+    	c.CompletionTokens += s.CompletionTokens
+    }
+
+    // Tokens is the cell's prompt and completion tokens together.
+    func (c Cell) Tokens() int { return c.PromptTokens + c.CompletionTokens }
+
+    // Aggregate totals samples per task and variant, sorted by task and then by
+    // variant order.
+    func Aggregate(samples []Sample) []Cell {
+    	by := map[string]*Cell{}
+    	for _, s := range samples {
+    		key := s.Task + "\x00" + string(s.Variant)
+    		c := by[key]
+    		if c == nil {
+    			c = &Cell{Task: s.Task, Variant: s.Variant}
+    			by[key] = c
+    		}
+    		c.add(s)
+    	}
+    	order := map[Variant]int{}
+    	for i, v := range Variants() {
+    		order[v] = i
+    	}
+    	cells := make([]Cell, 0, len(by))
+    	for _, c := range by {
+    		cells = append(cells, *c)
+    	}
+    	sort.Slice(cells, func(i, j int) bool {
+    		if cells[i].Task != cells[j].Task {
+    			return cells[i].Task < cells[j].Task
+    		}
+    		return order[cells[i].Variant] < order[cells[j].Variant]
+    	})
+    	return cells
+    }
+
+    // TaskHash fingerprints a task: its task.yaml and every context and hidden
+    // file, so a result says which version of the task it was drawn against.
+    func TaskHash(t Task) (string, error) {
+    	sum := sha256.New()
+    	paths := []string{filepath.Join(t.Dir, "task.yaml")}
+    	for _, f := range t.Context {
+    		paths = append(paths, filepath.Join(t.Dir, "context", f))
+    	}
+    	for _, f := range t.Hidden {
+    		paths = append(paths, filepath.Join(t.Dir, "hidden", f))
+    	}
+    	for _, p := range paths {
+    		data, err := os.ReadFile(p)
+    		if err != nil {
+    			return "", err
+    		}
+    		fmt.Fprintf(sum, "%s\x00%d\x00", filepath.Base(p), len(data))
+    		sum.Write(data)
+    	}
+    	return hex.EncodeToString(sum.Sum(nil))[:12], nil
+    }
+
+    // Report is a whole run: where it was drawn and every sample.
+    type Report struct {
+    	Version    int               `json:"version"`
+    	Commit     string            `json:"commit"`
+    	Sedum      string            `json:"sedum"`
+    	Model      string            `json:"model"`
+    	K          int               `json:"k"`
+    	TaskHashes map[string]string `json:"task_hashes"`
+    	Samples    []Sample          `json:"samples"`
+    	Cells      []Cell            `json:"cells"`
+    	Totals     Cell              `json:"totals"`
+    }
+
+    // NewReport builds the report for samples, computing the cells and the totals.
+    func NewReport(commit, sedum, model string, k int, hashes map[string]string, samples []Sample) Report {
+    	r := Report{Version: 1, Commit: commit, Sedum: sedum, Model: model, K: k, TaskHashes: hashes, Samples: samples, Cells: Aggregate(samples)}
+    	for _, s := range samples {
+    		r.Totals.add(s)
+    	}
+    	return r
+    }
+
+    // JSON renders the report as indented JSON with a trailing newline.
+    func (r Report) JSON() ([]byte, error) {
+    	b, err := json.MarshalIndent(r, "", "  ")
+    	if err != nil {
+    		return nil, err
+    	}
+    	return append(b, '\n'), nil
+    }
+
+    // Table renders the report: passes per task for each variant, then per-variant
+    // totals with retries, repairs and tokens. A rate over a handful of samples is
+    // a direction, not a number, and the header says so.
+    func (r Report) Table() string {
+    	var b strings.Builder
+    	fmt.Fprintf(&b, "design eval: model %s, K=%d samples per cell (a rate over so few samples is a direction, not a number)\n\n", r.Model, r.K)
+    	tasks := map[string]bool{}
+    	for _, c := range r.Cells {
+    		tasks[c.Task] = true
+    	}
+    	names := make([]string, 0, len(tasks))
+    	for t := range tasks {
+    		names = append(names, t)
+    	}
+    	sort.Strings(names)
+    	cell := func(task string, v Variant) Cell {
+    		for _, c := range r.Cells {
+    			if c.Task == task && c.Variant == v {
+    				return c
+    			}
+    		}
+    		return Cell{}
+    	}
+    	var buf bytes.Buffer
+    	w := tabwriter.NewWriter(&buf, 0, 8, 2, ' ', 0)
+    	fmt.Fprintf(w, "passed\t%s\n", strings.Join(names, "\t"))
+    	for _, v := range Variants() {
+    		row := []string{string(v)}
+    		for _, n := range names {
+    			c := cell(n, v)
+    			row = append(row, fmt.Sprintf("%d/%d", c.Passed, c.Samples))
+    		}
+    		fmt.Fprintln(w, strings.Join(row, "\t"))
+    	}
+    	w.Flush()
+    	b.Write(buf.Bytes())
+    	b.WriteString("\n")
+    	buf.Reset()
+    	w = tabwriter.NewWriter(&buf, 0, 8, 2, ' ', 0)
+    	fmt.Fprintln(w, "variant\tsamples\tcompiled\tpassed\tretries\trepairs\ttokens")
+    	for _, v := range Variants() {
+    		var t Cell
+    		for _, c := range r.Cells {
+    			if c.Variant == v {
+    				t.Samples += c.Samples
+    				t.Compiled += c.Compiled
+    				t.Passed += c.Passed
+    				t.Rejected += c.Rejected
+    				t.Repairs += c.Repairs
+    				t.PromptTokens += c.PromptTokens
+    				t.CompletionTokens += c.CompletionTokens
+    			}
+    		}
+    		fmt.Fprintf(w, "%s\t%d\t%d\t%d\t%d\t%d\t%d\n", v, t.Samples, t.Compiled, t.Passed, t.Rejected, t.Repairs, t.Tokens())
+    	}
+    	fmt.Fprintf(w, "total\t%d\t%d\t%d\t%d\t%d\t%d\n", r.Totals.Samples, r.Totals.Compiled, r.Totals.Passed, r.Totals.Rejected, r.Totals.Repairs, r.Totals.Tokens())
+    	w.Flush()
+    	b.Write(buf.Bytes())
+    	return b.String()
+    }
+
+    Tests: the NEW file evals/design/result_test.go (a spec of this imprint; it exists as a one-line placeholder). Transcribe exactly this test file; imports (encoding/json, strings, testing): one addImport each; each function and const -> its own invocation. Use the fixture text exactly (tabs, ASCII quotes).
+
+    func testSamples() []Sample {
+    	return []Sample{
+    		{Task: "b", Variant: VariantCode, N: 1, Compiled: true, Passed: true, Calls: 1, PromptTokens: 100, CompletionTokens: 10},
+    		{Task: "a", Variant: VariantCode, N: 1, Compiled: true, Passed: false, Calls: 2, Rejected: 1, Repairs: 1, PromptTokens: 200, CompletionTokens: 20},
+    		{Task: "a", Variant: VariantBehaviour, N: 1, Compiled: false, Calls: 3, Rejected: 3, PromptTokens: 50, CompletionTokens: 5},
+    		{Task: "a", Variant: VariantBehaviour, N: 2, Compiled: true, Passed: true, Calls: 1, PromptTokens: 50, CompletionTokens: 5},
+    	}
+    }
+
+    func TestAggregate(t *testing.T) {
+    	cells := Aggregate(testSamples())
+    	if len(cells) != 3 {
+    		t.Fatalf("got %d cells, want 3: %+v", len(cells), cells)
+    	}
+    	if cells[0].Task != "a" || cells[0].Variant != VariantBehaviour || cells[1].Variant != VariantCode || cells[2].Task != "b" {
+    		t.Fatalf("cells out of order: %+v", cells)
+    	}
+    	c := cells[0]
+    	if c.Samples != 2 || c.Compiled != 1 || c.Passed != 1 || c.Calls != 4 || c.Rejected != 3 || c.Tokens() != 110 {
+    		t.Fatalf("cell = %+v", c)
+    	}
+    }
+
+    func TestReportTotalsJSONAndTable(t *testing.T) {
+    	r := NewReport("abc1234", "sedum", "claude-haiku-5-5", 2, map[string]string{"a": "h1"}, testSamples())
+    	if r.Totals.Samples != 4 || r.Totals.Passed != 2 || r.Totals.Rejected != 4 || r.Totals.Repairs != 1 || r.Totals.Tokens() != 440 {
+    		t.Fatalf("totals = %+v", r.Totals)
+    	}
+    	data, err := r.JSON()
+    	if err != nil {
+    		t.Fatal(err)
+    	}
+    	if !strings.HasSuffix(string(data), "\n") {
+    		t.Fatal("JSON must end with a newline")
+    	}
+    	var back Report
+    	if err := json.Unmarshal(data, &back); err != nil {
+    		t.Fatal(err)
+    	}
+    	if back.Commit != "abc1234" || back.K != 2 || len(back.Samples) != 4 || back.Totals.Samples != 4 {
+    		t.Fatalf("round trip = %+v", back)
+    	}
+    	table := r.Table()
+    	for _, want := range []string{"claude-haiku-5-5", "K=2", "direction, not a number", "behaviour", "signatures", "code", "1/2", "total"} {
+    		if !strings.Contains(table, want) {
+    			t.Errorf("table lacks %q:\n%s", want, table)
+    		}
+    	}
+    }
+
+    func TestTaskHash(t *testing.T) {
+    	root := t.TempDir()
+    	task, err := LoadTask(writeTask(t, root, "ok", validTask))
+    	if err != nil {
+    		t.Fatal(err)
+    	}
+    	h1, err := TaskHash(task)
+    	if err != nil {
+    		t.Fatal(err)
+    	}
+    	h2, _ := TaskHash(task)
+    	if h1 != h2 || len(h1) != 12 {
+    		t.Fatalf("hash = %q then %q", h1, h2)
+    	}
+    	writeTask(t, root, "ok", strings.Replace(validTask, "code: c", "code: d", 1))
+    	changed, err := LoadTask(task.Dir)
+    	if err != nil {
+    		t.Fatal(err)
+    	}
+    	if h3, _ := TaskHash(changed); h3 == h1 {
+    		t.Fatal("a changed task must change its hash")
+    	}
+    }
+  affected_scope:
+    - evals/design/result.go
+    - evals/design/result_test.go
+  implements: prov-2026-d694c4c4
+  implements_version: 1
+  associated_specs:
+    - path: evals/design/result_test.go
