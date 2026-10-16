@@ -1,7 +1,7 @@
 id: prov-2026-9ac6951e
 title: 'adopt: the adoption report'
 type: imprint
-status: open
+status: implemented
 version: 5
 reason: 'stage 2: Text prints the scope lines'
 created_at: "2026-10-16"
@@ -74,7 +74,7 @@ forbidden_scope: []
 implements: prov-2026-95d9ae7e
 implements_version: 2
 related: []
-sealed_at_sha: ""
+sealed_at_sha: f00fd208cf7ce9cffe0ee9f76855d8a7bb44a8b7
 associated_specs:
   - path: internal/adopt/report_test.go
     run_command: go test ./internal/adopt -run 'TestReport|TestResiduals' -count=1
