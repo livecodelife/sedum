@@ -1,6 +1,6 @@
 id: prov-2026-0ce03d1c
 title: The go checker flags package qualifiers the file does not import
-status: open
+status: implemented
 created_at: "2026-10-15"
 author: calebcowen@gmail.com
 intent: |
@@ -42,7 +42,7 @@ implements: prov-2026-5403d162
 supersedes: ""
 superseded_by: ""
 related: []
-sealed_at_sha: ""
+sealed_at_sha: 02dd10e493c253409bce68d10886062f07b2bb27
 associated_specs:
   - path: internal/syntax/syntax_test.go
     run_command: go test ./$(dirname {{path}})
