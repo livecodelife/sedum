@@ -52,6 +52,7 @@ affected_scope:
   - go.mod
   - go.sum
   - proof/**
+  - evals/lifecycle/**
 forbidden_scope: []
 type: blueprint
 supersedes: ""
