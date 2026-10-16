@@ -2,8 +2,8 @@ id: prov-2026-7a9b82ae
 title: Phase 7 names the missing file template when an anchor is absent
 type: imprint
 status: open
-version: 2
-reason: inject.go cannot be grown (no reconcilable template); call-site edit goes under the blueprint
+version: 3
+reason: tests grown into the placeholder spec file
 created_at: "2026-10-16"
 author: calebcowen@gmail.com
 intent: |
