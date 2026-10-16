@@ -40,7 +40,7 @@ package record (github.com/livecodelife/sedum/internal/record):
     func (r *Record) Forbids(target string) (string, bool)
 
 package genpkg (internal/genpkg):
-    func Load(dir string, opts Options) (*Set, []Finding, error)  // Options zero value is fine
+    func Load(dir string, opts Options) (*Set, Findings, error)  // Options zero value is fine; Findings is a list, each with Kind == KindError for errors
     type Set struct { Packages []*Package }
     func (s *Set) ForExtension(ext string) []*Package   // ext includes the dot, e.g. ".go"
     func (s *Set) Lookup(name string) (*Package, bool)
@@ -50,11 +50,15 @@ package genpkg (internal/genpkg):
     type Comment struct { Prefix, Suffix string }  // methods: Wrap(body string) string; Unwrap(text string) string; Delimited() bool
 
 package pathpat (internal/pathpat): path-pattern grammar for scope entries (** * ? [..]).
-    check the package for its exported Match function before use
+    func Match(entry, target string) bool
+    func MatchAny(entries []string, target string) (string, bool)
+    func Normalize(p string) string
 
 package recording (internal/recording):
     type Recording struct { SedumVersion string `json:"sedum_version"`; Packages map[string]Package `json:"packages"`;
-        Records []Record `json:"records"`; Variables map[string]string `json:"variables,omitempty"` ... }
+        Records []Record `json:"records"`; Complete bool `json:"complete,omitempty"`;
+        Variables map[string]string `json:"variables,omitempty"`; Prompt string `json:"prompt,omitempty"` }
+    func Read(r io.Reader) (Recording, error)
     type Package struct { Extensions []string `json:"extensions"` }
     type Record struct { RecordID string; Gen, CreatedAt string; Files []File; Phases []Phase }
     type File struct { Path, Package, Template string; Captures map[string]string }
