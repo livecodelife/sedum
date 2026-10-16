@@ -1,9 +1,9 @@
 id: prov-2026-c637c262
 title: Replay can restamp gen and reconcile a complete recording
 type: blueprint
-status: implemented
-version: 3
-reason: Merge of main into the branch; the 12 records pinned to flags_test.go and PRD.md are refreshed in the merge commit
+status: open
+version: 4
+reason: 'JSON report: name the unselected regions a partial replay leaves, found after the branch was pushed'
 created_at: "2026-10-16"
 author: calebcowen@gmail.com
 intent: |
@@ -33,6 +33,7 @@ intent: |
   internal/pipeline/restamp.go (restampGen, reconcile-by-recording helpers) and its tests are grown by sedum-haiku via the go package. The thin wiring in recording.go, replay.go, grow.go, config.go, flags_test.go and the README/PRD flag tables is handwritten, because these files are not region-owned.
 constraints:
   - 'Merged with main (orphan summary, PR #4): both flags coexist, and records pinned to the merged flag test are refreshed.'
+  - The sedum.grow/1 report names a region a partial recording no longer selects as change unselected.
 affected_scope:
   - internal/recording/recording.go
   - internal/pipeline/replay.go
@@ -62,9 +63,10 @@ affected_scope:
   - provenance/prov-2026-cc73cf61.yml
   - provenance/prov-2026-d2f1bdf2.yml
   - provenance/prov-2026-e4bab53b.yml
+  - internal/cli/report.go
 forbidden_scope: []
 related: []
-sealed_at_sha: 3fec305be50c6a380cd65a5c926b5cffc010dee2
+sealed_at_sha: ""
 associated_specs:
   - path: internal/pipeline/restamp_test.go
     run_command: go test ./internal/pipeline -count=1 -run 'Restamp|Reconcile'
