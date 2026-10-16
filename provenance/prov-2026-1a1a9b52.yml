@@ -1,6 +1,6 @@
 id: prov-2026-1a1a9b52
 title: M3 - Path resolution and file creation from file templates (sedum resolve)
-status: open
+status: implemented
 version: 2
 reason: PRD.md / pipeline_test.go changed by prov-2026-8394826c (failed runs remove what they created)
 created_at: "2026-08-07"
@@ -124,7 +124,7 @@ type: blueprint
 implements: prov-2026-d554bfc3
 implements_version: 1
 related: []
-sealed_at_sha: ""
+sealed_at_sha: 1bc284c004d67690aba0b18f76372af5afcf911e
 associated_specs:
   - path: internal/record/record_test.go
     run_command: go test -count=1 ./$(dirname {{path}})
