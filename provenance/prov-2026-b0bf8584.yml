@@ -1,6 +1,7 @@
 id: prov-2026-b0bf8584
 title: A published dashboard that reads the stored results and refuses to over-read them
 status: implemented
+version: 1
 created_at: "2026-08-19"
 author: calebcowen@gmail.com
 intent: |
@@ -90,8 +91,6 @@ forbidden_scope:
   - internal/**
   - cmd/**
 type: blueprint
-supersedes: ""
-superseded_by: ""
 related: []
 sealed_at_sha: 2f12714c2ba37441e910d3e6cdad54985e261b2a
 associated_specs:

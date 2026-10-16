@@ -1,0 +1,113 @@
+id: prov-2026-375f5d4a
+version: 1
+content_hash: sha256:2c8aaf15429d15e689c8d300f5a064e185bc2add219201ef75fb99ebe5a03a51
+parent_hash: ""
+reason: ""
+author: calebcowen@gmail.com
+created_at: "2026-10-15T23:39:54Z"
+spec_hashes:
+  - sha256:97c0167b26e389f987c1cb90f5ee0a0b74c89bb79e3ca0809f39eba680e0be80
+  - sha256:42b3f5d0a0f781489b8fd36ce814730de3dca66ee381ce735d610dcfcbceb153
+  - sha256:aa15ef56c4589ab5cee49f57e06e394db13a48ea5f94ad8dd7d30d2d2f62c1dd
+content:
+  id: prov-2026-375f5d4a
+  title: Regions belong to the record named on their marker
+  type: blueprint
+  created_at: "2026-10-15"
+  author: calebcowen@gmail.com
+  intent: |
+    Second step of hash-aware grow (provenance DESIGN.md, "Region ownership" and
+    "Reconciling after re-selection"). Regeneration is only safe if a record can
+    replace, add and remove its own regions and can never touch another's.
+
+    ## The marker's record means owner
+
+    Today a region's record is its last writer (prov-2026-36c8a99c): a later
+    record selecting the same identity silently takes the region over. Under
+    versioned records that can only mean someone wrote a new record where they
+    should have revised the existing one, so it becomes an error naming both
+    records: revise the owner, or change this record's selection. Identity is
+    unchanged - action, variant, selecting kwargs - and the record still takes no
+    part in it, so two records still cannot silently produce two copies of one
+    definition.
+
+    A record owns a region when the marker names its id or one of its aliases
+    (Record model v2's aliases, read leniently, so a record folded in by migration
+    keeps the regions its old id wrote). A rewritten region's marker names the
+    current id. A region whose marker names no record (written by a foreign tool,
+    or before record existed) is unowned and is claimed by the first record to
+    select its identity.
+
+    ## Reconcile: replace, insert, prune
+
+    After a record's selection validates and expands, its regions are reconciled
+    against what is on disk by identity: same identity is replaced in place, a
+    new identity is inserted, and an owned region of this record that was not
+    selected again is pruned. Pruning happens inside the same all-or-nothing
+    write Phase 7 already does: any error anywhere in the run leaves every file
+    untouched, which is what "only after the whole selection validates" requires.
+    Seeded regions are never pruned. Only grow prunes; replay never does, because
+    a recording may be partial (OPEN_QUESTIONS section 16), and that stays opt-in
+    for a later --prune-orphans.
+
+    ## Duplicate paths move to region level
+
+    CheckDuplicatePaths, which halts any grow where two records name one file,
+    is removed. The region-level rules replace it: two records claiming one
+    identity in one run is already an error in inject.go, and a record selecting
+    an identity another record owns on disk becomes one. Records sharing a router
+    or a model file can then be grown in one run.
+
+    ## Order at a shared anchor
+
+    A new region inserted at an anchor that other records' regions already
+    share goes after every region whose owner sorts at or before its own owner,
+    and before the rest, ordering owners by record created_at, then id. Within
+    one owner, invocation order is kept, as today. Regenerating a file from
+    scratch therefore reproduces it byte for byte whatever order records were
+    grown in. Existing regions are never moved, so the "do not reorder regions"
+    rule for foreign writers still holds.
+
+    ## Not in this blueprint
+    - Skip / re-render / re-select by hash, and listing other records' regions
+      in the selection prompt as "already present, do not select": blueprint 3.
+    - Explicit handovers through an adopts list on the receiving imprint: needs a
+      region-identity syntax in records; proposed as its own blueprint once the
+      record library's schema settles.
+    - Superseding prov-2026-36c8a99c's last-writer rule as a record: blueprint 4,
+      as the brief assigns. This record cites it as the decision it overturns.
+  constraints:
+    - Ownership compares the marker's record against the selecting record's id and aliases; an empty marker record is unowned. A mismatch is an error naming the file, the region identity, the owning record and the selecting record, and nothing is written.
+    - Prune removes exactly this record's owned-tier regions, in files the record is authorized for in this run, whose identity it did not select. It never touches seeded regions, other owners' regions, or files outside the run.
+    - Prune happens only in grow, inside Phase 7's single all-or-nothing write, and --dry-run reports prunes without writing. Replay never prunes.
+    - An empty selection from a record that already owns regions in its files is an error unless --force, so a flaky model reply cannot wipe a record's code (provisio-mgr,
+    - This record adds grow's --force flag with only that meaning; blueprint 3 extends it to re-select when hashes match.
+    - CheckDuplicatePaths is removed from grow; the in-run identity claim check stays and keeps naming both records.
+    - Insertion at a shared anchor orders by owner (created_at, then id) and keeps invocation order within one owner; existing regions are never moved. A region with an unknown owner sorts first.
+    - Results and grow's report gain pruned regions.
+    - The PRD and README state ownership, prune and anchor order; the file-level rules for foreign writers gain "do not change a region's record except by an explicit handover".
+  affected_scope:
+    - internal/inject/inject.go
+    - internal/inject/anchor.go
+    - internal/inject/*_test.go
+    - internal/record/record.go
+    - internal/record/*_test.go
+    - internal/pipeline/pipeline.go
+    - internal/pipeline/replay.go
+    - internal/pipeline/*_test.go
+    - internal/pipeline/capture.go
+    - internal/recording/recording.go
+    - internal/recording/*_test.go
+    - internal/cli/grow.go
+    - internal/cli/config.go
+    - internal/cli/*_test.go
+    - conformance/README.md
+    - PRD.md
+  related:
+    - prov-2026-36c8a99c
+    - prov-2026-dc227be7
+    - prov-2026-66bea9f3
+  associated_specs:
+    - path: internal/inject/ownership_test.go
+    - path: internal/pipeline/pipeline_test.go
+    - path: internal/record/record_test.go

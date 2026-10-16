@@ -91,8 +91,27 @@ type Request struct {
 
 	// Prior is this record's invocations from an earlier recording
 	// (--prior-recording), shown in the same section. Context only: it is not
-	// replayed, executed or trusted (prov-2026-8602b702).
+	// replayed, executed or trusted (prov-2026-8602b702). A re-selected record
+	// with no --prior-recording gets them rebuilt from its own markers
+	// (prov-2026-cc73cf61).
 	Prior []recording.Invocation
+
+	// Present are the regions other records already own in this record's
+	// files. The prompt lists them as already present, so the model does not
+	// select a region another record owns - which Phase 7 would refuse
+	// (prov-2026-cc73cf61).
+	Present []Present
+}
+
+// Present is one region another record owns, as the prompt names it: where it
+// is, what action wrote it, the kwargs that identify it, and whose it is. No
+// hash: whether it is current is grow's business, not the model's.
+type Present struct {
+	Path    string
+	Action  string
+	Variant string
+	Kwargs  map[string]any
+	Owner   string
 }
 
 // Options bound and observe the loop.
@@ -119,6 +138,11 @@ type Options struct {
 	// side-by-side comparison, or for the eval harness measuring the filter's
 	// effect - and it changes nothing about validation either way.
 	FullCatalog bool
+
+	// Output is the directory the run's files live under. The syntax check
+	// reads each file from it to apply the answer in memory
+	// (prov-2026-5403d162).
+	Output string
 }
 
 // Answer is what one record's selection produced, and what it cost.
@@ -335,6 +359,12 @@ func Select(ctx context.Context, client Client, req Request, opts Options) (Answ
 		if len(violations) == 0 {
 			violations = validate(cat, packages, req.Files, invocations)
 		}
+		// Files a package checks with a built-in syntax checker must pass it,
+		// and a failure is put to the model like any other broken rule
+		// (prov-2026-5403d162).
+		if len(violations) == 0 {
+			violations = CheckSyntax(req.RecordID, req.Files, invocations, opts.Variables, opts.Output)
+		}
 		if len(violations) == 0 {
 			log.Info("model output validated", "record", req.RecordID,
 				"attempt", i+1, "invocations", len(invocations))
@@ -350,7 +380,7 @@ func Select(ctx context.Context, client Client, req Request, opts Options) (Answ
 			// package whose templates plant a region reserved for a later
 			// record earns no call here at all (prov-2026-206fa618).
 			if !askedForCompleteness {
-				unfilled := expand.Unfilled(req.RecordID, req.Files, invocations, opts.Variables)
+				unfilled := withoutPresent(expand.Unfilled(req.RecordID, req.Files, invocations, opts.Variables), req)
 				if len(unfilled) > 0 {
 					askedForCompleteness = true
 					answer.Completeness = 1

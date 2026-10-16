@@ -1,0 +1,43 @@
+id: prov-2026-43b7ec39
+version: 1
+content_hash: sha256:7054d2d9b42ac55d1906ec8cfcd04dce8911cb5d36a7080ad33ad4741f603d25
+parent_hash: ""
+reason: ""
+author: calebcowen@gmail.com
+created_at: "2026-10-15T23:48:53Z"
+spec_hashes:
+  - sha256:39ae4550fdd661c7f9d1712f8408427d6f64640a275673ff70c410120b9f6bb7
+content:
+  id: prov-2026-43b7ec39
+  title: Recordings carry each record's created_at so replay orders shared anchors like grow
+  type: imprint
+  created_at: "2026-10-15"
+  author: calebcowen@gmail.com
+  intent: |
+    prov-2026-375f5d4a orders new regions at a shared anchor by owner created_at,
+    then id. Replay without --records knows no created_at, so it ordered owners
+    by id alone and could lay out a shared anchor differently from the grow it
+    recorded whenever created_at order and id order disagree - breaking DESIGN's
+    "regenerating from scratch reproduces the same file byte for byte".
+
+    A recording record gains an optional created_at, captured from the record
+    the same way gen is (prov-2026-b9298192). Replay builds its owner table from
+    the recording's records, then overlays --records when given, which also
+    supplies aliases and any owner the recording does not name. created_at is a
+    fixed property of a record, not run state, so it is not a volatile field.
+
+    Approved in #provisio by provisio-mgr (2026-10-15).
+  constraints:
+    - created_at is omitempty on a recording record, after gen; a recording without it reads exactly as before.
+    - Capture takes it from the run's loaded records and recomputes nothing.
+    - With --records, the records directory wins for any record it holds; the recording fills in only what it lacks.
+  affected_scope:
+    - internal/recording/recording.go
+    - internal/recording/*_test.go
+    - internal/pipeline/capture.go
+    - internal/pipeline/replay.go
+    - internal/pipeline/*_test.go
+  implements: prov-2026-375f5d4a
+  implements_version: 1
+  associated_specs:
+    - path: internal/pipeline/replay_test.go

@@ -1,5 +1,7 @@
 package handlers
 
-// sedum:anchor:imports
+import (
+	// sedum:anchor:imports
+)
 
 // sedum:anchor:handlers

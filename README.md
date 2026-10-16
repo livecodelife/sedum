@@ -56,13 +56,11 @@ a trick — see [Recorded Executions](#recorded-executions).
 
 Two limits are worth knowing before pointing this at a real project.
 
-A path named by two provenance records is rejected, now at Phase 4's entry
-rather than at ingestion. Phase 4 makes one model call per record, so two
-records naming one file would mean two independent calls deciding one file's
-contents. Under `--execute` there is no model call, so the check does not apply
-and a recording may legitimately cover a shared file. Records that share a file
-generate correctly one at a time with `--only`, and their regions coexist and
-survive each other's reruns.
+A region belongs to the record named on its marker. Records that share a file
+grow together, but a record selecting a region another record owns is an error
+naming both: refine a region by revising its owner. And `grow` prunes the
+regions a record no longer selects, so an edited record's code follows it
+(an empty selection over owned regions needs `--force`).
 
 And a model's selection is the one part of a run that is not reproducible by
 construction. Temperature is pinned to zero, but the open-weight range this is
@@ -701,7 +699,7 @@ This is a governance position. `forbidden_scope` means Sedum does not touch what
 
 ### Phase 4 — Model invocation
 
-A path named by two records is rejected here, at the phase's entry. One model call per record means two records naming one file would be two independent calls deciding one file's contents. The check lives here rather than at ingestion because replay has no model call and so no such conflict — under `--execute` a recording may legitimately cover a shared file.
+Records that share a file are grown in one run. Ownership protects the code region by region rather than file by file: a record selecting a region another record owns is an error naming both, as is two records selecting one region in the same run (`prov-2026-375f5d4a`).
 
 One call per provenance record. The prompt contains the record's `intent`, its `constraints`, the paths created for it in Phase 3, and the action catalog — the **union of exposed actions across every package the record's paths resolved to**, with their kwarg schemas and variant lists.
 
@@ -774,10 +772,10 @@ An action targeting a marker that no file template in its package plants also wa
 
 ## Ownership and Idempotency
 
-Every injected region is wrapped in ownership markers naming the action that produced it, the ownership tier, the record that last parameterized it, and the kwargs it was rendered from:
+Every injected region is wrapped in ownership markers naming the action that produced it, the ownership tier, the record that owns it, the hashes of that record (`gen`) and of the action and templates it was rendered from (`pkg`), and the kwargs it was rendered from:
 
 ```ruby
-  # sedum:createControllerMethod:index {"tier":"owned","record":"PR-014","kwargs":{"collection":"users","controller":"users"}}
+  # sedum:createControllerMethod:index {"tier":"owned","record":"PR-014","gen":"sha256:…","pkg":"sha256:…","kwargs":{"collection":"users","controller":"users"}}
 def index
   @users = User.all
   render json: @users
@@ -815,9 +813,9 @@ The kwargs serialized on the opening marker make a region self-describing. A rea
 
 Nothing currently reads them back. They are written for the same reason the tier field is: markers are durable artifacts, and changing their shape after generated codebases exist is expensive.
 
-The marker carries the record ID from the first generated file — as an attribute, not as part of a region's identity. A region is identified by its action, its variant, and the kwargs it was rendered from; the record ID records who last wrote it. That distinction is what lets a later record refine a region an earlier one produced, rather than minting a second region beside it.
+The marker carries the ID of the record that **owns** the region — as an attribute, not as part of a region's identity. A region is identified by its action, its variant, and its selecting kwargs, so two records can never silently produce two copies of one definition; a record selecting a region another record owns is an error naming both, and refining a region means revising its owner (`prov-2026-375f5d4a`). A record also owns regions whose marker names one of its `aliases`.
 
-Refinement of a region across records and across runs is what that attribute is for, and it works. Two records naming **one path in one run** is a different thing and is still rejected at ingestion, because Phase 4 makes one model call per record — see the note in [Status](#status) about `--only`.
+`grow` reconciles each record it asks the model about: a region selected again is replaced in place, a new one is inserted, and an `owned` region the record no longer selects is pruned — inside Phase 7's all-or-nothing write, never touching seeded regions or other records' regions. An empty selection over owned regions is an error unless `--force`. Replay never prunes. New regions at a shared anchor are ordered by owner (`created_at`, then id), so a file regenerated from scratch is byte-identical whatever order its records grew in.
 
 ### The attribute object is the extension point
 
@@ -837,11 +835,43 @@ Rerun that region and `verified_by` is still there. This is the half that does n
 
 That promise is what makes the object usable by anything other than Sedum. A tool built above Sedum records its own per-region state under its own keys and finds it intact after the next run, with no schema change and no sidecar file keyed by region — which would reintroduce exactly the maintained state markers exist to avoid.
 
-Preservation is transparent: Sedum does not read, validate, interpret, or reorder a carried key, and a carried key may not shadow one Sedum models. The modelled keys are `tier`, `record`, `writer`, and `kwargs`. Carried keys are written after them in sorted order, so a marker with none is byte-identical to one written before any of this existed.
+Preservation is transparent: Sedum does not read, validate, interpret, or reorder a carried key, and a carried key may not shadow one Sedum models. The modelled keys are `tier`, `record`, `gen`, `pkg`, `writer`, and `kwargs`. `gen` and `pkg` are omitted when unknown, and unknown must be read as stale; see the PRD's *The gen and pkg hashes*. Carried keys are written after them in sorted order, so a marker with none is byte-identical to one written before any of this existed.
 
 `writer` names the tool that last wrote the region, and is omitted when that tool is Sedum. It exists because a demoted tier is otherwise unattributable — a region reading `seeded` cannot say whether a package author declared it or another tool demoted it.
 
 There is no version token. Additive evolution is already free under the object; a token would earn its place only for a breaking change, meaning an existing field whose meaning changes.
+
+### What grow does per record
+
+`grow` is safe to run on every record, every time (`prov-2026-9621daed`). After Phase 3 it reads the regions each record owns in the managed files it authorizes and decides, from the markers alone:
+
+| The record's owned regions | `grow` | Model call |
+| --- | --- | --- |
+| none yet | select (a normal grow) | yes |
+| some region's `gen` differs from the record's, or is unknown | re-select, then reconcile | yes |
+| `--force`, or `--record` | re-select, then reconcile | yes |
+| every `gen` and every `pkg` matches | skip: nothing expanded, no file written | no |
+| every `gen` matches, some `pkg` differs | re-render those regions in place from their markers | no |
+
+A re-rendered region is rebuilt from the action and kwargs on its own marker, which is a one-line recording; nothing is pruned, because nothing was re-selected. A region that can no longer be re-rendered - its action is gone, or it would now render into another file - sends its record to re-select instead. Seeded regions decide nothing and are never rewritten, but a seeded region whose record's `gen` has moved is reported so a person can look.
+
+So a second `grow` over unchanged records makes no model call and writes no file.
+
+**`--check`** classifies every record the same way and reports it as current, stale, to re-render, or unknown (no regions yet), with no model call and nothing written, Phase 3's files included. It exits non-zero when any record is stale or needs re-rendering; unknown does not fail. It suits CI and pre-commit hooks, and cannot be combined with `--execute`, `--record`, `--dry-run`, `--force` or `--stop-after`.
+
+**`--record` re-selects every record.** A recording captures selections, and a record that was skipped or re-rendered made none. Its invocations cannot be rebuilt from markers either: a composite's regions name its unexposed children, which recording validation rejects.
+
+**A limit, by decision.** A marker records every kwarg its region was rendered from, including package defaults and `--var` values bound at the time. Re-rendering replays them verbatim, and neither `gen` nor `pkg` covers them, so a changed kwarg default or `--var` value reaches an existing region only with `--force`.
+
+### Retired records, orphans, and stamping
+
+**Deprecated records are retired** (`prov-2026-cc73cf61`). A record's `status` is the one lifecycle field Sedum reads, and only the value `deprecated`: such a record takes no new versions, is never grown, and owns nothing. `--only` naming one is an error.
+
+**Orphans.** An orphan is an `owned` region whose marker names a record that is not in the records directory, by id or alias, or that is deprecated. Every `grow` reports orphans. `--prune-orphans` removes them, inside Phase 7's all-or-nothing write, but only in files some current record authorizes; Sedum writes nothing else, so an orphan in any other file is reported and left alone. Seeded and unowned regions are never orphans. `--check` lists orphans and fails on them: an orphan is code no current record stands behind.
+
+**`--stamp`** writes the current `gen` onto a record's regions whose marker has none, and the action's current `pkg` onto those with none, where the owning record exists, and changes nothing else — no body, no value already present, no record id. It makes no model call and runs nothing else. Running it asserts that the code is current, so a repository whose markers predate the hashes can skip a full re-select after migration. Because it writes only missing values, it never hides a real change. It cannot be combined with `--check`, `--execute`, `--record` or `--force`; with `--dry-run` it reports what it would stamp. A marker naming an alias keeps it until its region is next written, when the surviving id replaces it.
+
+**Prompt context.** For each file a record may write, the selection prompt lists the regions other records already own there — action, identifying kwargs, owner — under *Already present*, as not to be selected; selecting one would be refused in Phase 7. When a record is re-selected and no `--prior-recording` supplies its earlier selections, they are rebuilt from its own markers as context, keeping exposed actions and declared kwargs only. Hashes never reach the prompt.
 
 ---
 
@@ -1010,9 +1040,14 @@ sedum grow --generators ./generators --records ./provenance --output ./build
 | `--output <dir>` | Output directory. Defaults to the current directory. |
 | `--lang <name>` | Prefer the named package where an extension is contested. Repeatable. |
 | `--only <id>` | Generate only the named provenance record. Repeatable. |
-| `--record <path>` | Write a recording of the run to the given path. |
+| `--record <path>` | Write a recording of the run to the given path. Re-selects every record, so the recording holds a selection for each. |
 | `--execute <path>` | Replay a recording. Skips model invocation. Mutually exclusive with `--record`. |
-| `--dry-run` | Run every phase, write nothing. Reports the files that would be created and the injections that would be applied. |
+| `--dry-run` | Run every phase, write nothing. Reports the files that would be created, the injections that would be applied, and the regions that would be pruned. |
+| `--force` | Re-select every record even when its markers say it is current, and let a record whose selection comes back empty prune every region it owns (without `--force` that is an error). Ignored with `--execute`. |
+| `--check` | Report each record as current, stale, to re-render, or unknown, and any orphan regions, from markers. No model call, nothing written; exits non-zero when any record is stale or needs re-rendering, or any orphan exists. |
+| `--prune-orphans` | Remove regions whose record was removed or deprecated, in files some current record authorizes; report the rest. Ignored with `--execute`. |
+| `--json` | Print the run's report as the `sedum.grow/1` JSON document (`conformance/formats/`) instead of text. Each record says whether its regions changed — inserted, pruned, or rewritten with different bytes — so a caller runs only the specs whose code moved. |
+| `--stamp` | Write the current `gen` and `pkg` onto markers missing them, where the owning record exists, and nothing else. No model call. Cannot be combined with `--check`, `--execute`, `--record` or `--force`. |
 | `--stop-after <phase>` | Halt after the named phase. One of `resolution`, `files`, `invocations`, `expansion`. |
 | `--retries <n>` | Model output validation retry limit. Default 3. Ignored with `--execute`. |
 | `--model <name>` | Model identifier. Endpoint and credentials come from environment. Ignored with `--execute`. |
@@ -1088,6 +1123,24 @@ sedum validate --generators ./generators
 | `--generators <dir>` | Generators directory. Required. |
 | `--package <name>` | Validate a single package. Repeatable. |
 | `--strict` | Treat warnings as errors. |
+
+### `sedum regions`
+
+```
+sedum regions --generators ./generators [--output .] [--records ./provenance] [--record <id>]... [--json]
+```
+
+Lists every region whose marker names a record: its file, action, identifying kwargs, tier, and the `gen` and `pkg` hashes it was written with (`prov-2026-bf01cd6b`). Read-only — no model, nothing written, no records directory required — and it never reads hidden directories, the generators directory or the records directory. With `--records`, a marker naming an alias is reported under the surviving id, and `--record` matches either. An empty hash means the marker has none, which a consumer must read as unknown; `grow --stamp` fills them in.
+
+`--json` prints the `sedum.regions/1` document described in `conformance/formats/`. It is what the provenance library's evidence code hash is computed from, since that library never parses a marker.
+
+| Flag | Description |
+|---|---|
+| `--generators <path>` | Generators directory. Required. |
+| `--output <path>` | Directory to read markers from. Default `.`. |
+| `--records <path>` | Records directory. Optional. |
+| `--record <id>` | List only this record's regions. Repeatable. |
+| `--json` | Print the `sedum.regions/1` JSON document. |
 
 ### `sedum resolve`
 

@@ -1,6 +1,7 @@
 id: prov-2026-2ac1e4ca
 title: Load-time tie detection needs a pattern-overlap primitive, and it lives in M1a
 status: implemented
+version: 1
 created_at: "2026-08-07"
 author: calebcowen@gmail.com
 intent: |
@@ -69,8 +70,7 @@ affected_scope: []
 forbidden_scope: []
 type: imprint
 implements: prov-2026-f51f04b2
-supersedes: ""
-superseded_by: ""
+implements_version: 1
 related:
   - prov-2026-8e6dac6c
   - prov-2026-1a1a9b52

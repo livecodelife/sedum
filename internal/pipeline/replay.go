@@ -153,7 +153,7 @@ func Replay(rec recording.Recording, cfg ReplayConfig) (*Result, error) {
 	}
 
 	// Phase 5 - validation, identical to model-output validation and terminal.
-	selections, err := validateRecorded(rec, files, log)
+	selections, err := validateRecorded(rec, files, variables, cfg.Output, log)
 	if err != nil {
 		return nil, err
 	}
@@ -172,6 +172,7 @@ func Replay(rec recording.Recording, cfg ReplayConfig) (*Result, error) {
 		if err != nil {
 			return nil, fmt.Errorf("record %s: %w", s.RecordID, err)
 		}
+		stampGen(expanded, replayGen(rec, result.Records, s.RecordID))
 		log.Info("expanded invocations", "record", s.RecordID,
 			"selected", len(s.Invocations), "resolved", len(expanded))
 		resolved = append(resolved, expanded...)
@@ -183,11 +184,14 @@ func Replay(rec recording.Recording, cfg ReplayConfig) (*Result, error) {
 	}
 
 	// Phase 7 - inject, unchanged.
+	// Ownership applies to replay as to grow; reconciliation does not, since a
+	// recording may be partial and replay never prunes (prov-2026-375f5d4a).
 	applied, err := inject.Apply(resolved, inject.Options{
 		Output:    cfg.Output,
 		DryRun:    cfg.DryRun,
 		Unwritten: unwrittenFiles(cfg.DryRun, files),
 		Log:       log,
+		Owners:    replayOwners(rec, result.Records),
 	})
 	if err != nil {
 		return nil, err
@@ -283,7 +287,7 @@ func recordedResolutions(rec recording.Recording, packages *genpkg.Set) ([]resol
 // that list serialized. The counts a Selection carries are zero throughout: no
 // call was made, nothing was rejected and re-prompted, and reporting anything
 // else would attribute a cost to a run that did not incur one.
-func validateRecorded(rec recording.Recording, files []resolve.File, log *runlog.Log) ([]Selection, error) {
+func validateRecorded(rec recording.Recording, files []resolve.File, variables map[string]string, output string, log *runlog.Log) ([]Selection, error) {
 	var out []Selection
 
 	for _, r := range rec.Records {
@@ -298,6 +302,11 @@ func validateRecorded(rec recording.Recording, files []resolve.File, log *runlog
 		}
 
 		if violations := selection.Validate(mine, invocations); len(violations) > 0 {
+			return nil, &InvalidRecording{RecordID: r.RecordID, Violations: violations}
+		}
+		// The syntax check is validation too, and terminal here as every
+		// replay rule is (prov-2026-5403d162).
+		if violations := selection.CheckSyntax(r.RecordID, mine, invocations, variables, output); len(violations) > 0 {
 			return nil, &InvalidRecording{RecordID: r.RecordID, Violations: violations}
 		}
 		log.Info("recording validated", "record", r.RecordID, "invocations", len(invocations))
@@ -388,6 +397,41 @@ func unwrittenFiles(dryRun bool, files []resolve.File) map[string]string {
 			continue
 		}
 		out[f.Path] = f.Rendered
+	}
+	return out
+}
+
+// replayGen decides the gen a replayed record's regions carry
+// (prov-2026-b9298192).
+//
+// The recorded value comes first, because the invocations were selected
+// against that version of the record: it stays the truthful answer even if the
+// record has since changed, and a later grow will see the change and
+// re-select. A recording without one - written before the field existed, or
+// synthesized by a harness - takes the record's current gen from --records,
+// since that is what such a selection was made against. With neither, gen is
+// left empty, which reads as stale.
+func replayGen(rec recording.Recording, records *record.Set, recordID string) string {
+	for _, r := range rec.Records {
+		if r.RecordID == recordID && r.Gen != "" {
+			return r.Gen
+		}
+	}
+	return genOf(records, recordID)
+}
+
+// replayOwners is the owner table replay orders shared anchors by: the
+// recording's own records with the creation dates they were captured with,
+// overlaid by --records when given, which knows every record and its aliases
+// (prov-2026-43b7ec39). Without it, replay would order owners by id alone and
+// could lay out a shared anchor differently from the grow it recorded.
+func replayOwners(rec recording.Recording, records *record.Set) map[string]inject.Owner {
+	out := map[string]inject.Owner{}
+	for _, r := range rec.Records {
+		out[r.RecordID] = inject.Owner{ID: r.RecordID, CreatedAt: r.CreatedAt}
+	}
+	for id, owner := range ownersOf(records) {
+		out[id] = owner
 	}
 	return out
 }

@@ -1,0 +1,8 @@
+# grow-prep 12432f9
+$ sedum grow --stamp --generators generators --records provenance --log run.log
+
+stamped app/controllers/users_controller.rb  addBeforeFilter (gen and pkg, record prov-2026-aaaaaaaa)
+stamped app/controllers/users_controller.rb  addBeforeFilter (gen and pkg, record prov-2026-bbbbbbbb)
+
+2 marker(s) stamped
+[exit 0]

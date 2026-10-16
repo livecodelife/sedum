@@ -1,0 +1,21 @@
+id: prov-2026-7e570007
+title: "Handlers return JSON errors"
+status: implemented
+created_at: "2026-10-07"
+author: testbed@example.invalid
+intent: "Errors come back as plain text, which clients cannot parse. Every handler must return errors as JSON."
+constraints:
+  - "Every handler error response is JSON with an error field."
+affected_scope:
+  - "internal/handlers/errors.go"
+forbidden_scope: []
+type: bug
+extends: prov-2026-7e570002
+supersedes: ""
+superseded_by: ""
+related: []
+sealed_at_sha: ""
+associated_specs: []
+associated_traces: []
+monitors: []
+tags: [testbed]

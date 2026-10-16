@@ -33,7 +33,9 @@ drafting and discovery, test execution. Exists today.
 **Sedum** — deterministic generation from provenance records and generator
 packages. The PRD as written, M1–M7. Unchanged in scope.
 
-**The convergence loop** — unnamed. Owns the two-beat lifecycle (ODQ §13),
+**The convergence loop** — unnamed. *(Amended, §9: deciding per record whether to
+skip, re-render or re-select, and pruning a record's own regions, moved into
+`sedum grow`. Everything listed next stays here.)* Owns the two-beat lifecycle (ODQ §13),
 topological ordering (§7), the focused edit layer (§4), the paired update loop
 (§5), failure traceback (§9), the two repair modes (§10), and the escalation
 ladder (§11). Ours is one instance of this, not the only possible one.
@@ -90,6 +92,11 @@ harness
   └─ imprint emission                 → calls LineSpec
 ```
 
+*(Amended, §9:)* a harness calling `sedum grow` on every record, every time, is
+now the expected use: unchanged records cost no model call and write nothing, so
+"which records need regenerating" is no longer a question the harness has to
+answer before it calls.
+
 Sedum never calls the harness. No callback, hook, or plugin point in the pipeline —
 adding one inverts this direction and makes Sedum's guarantees depend on code it
 does not control.
@@ -137,6 +144,14 @@ than in the documentation.
 | **`sedum grow --execute`** | harness invokes | — |
 | **`sedum render`** | harness invokes | — |
 | **`conformance/`** | harness reads | Sedum's own tests read it too |
+| **`sedum grow --check`** | harness invokes | — |
+
+*(Amended, §9:)* markers now also carry `gen` and `pkg` and name the region's
+owning record; `conformance/pkghash/` publishes the `pkg` encoding, and `gen` is
+the shared provenance library's `gen_hash`, pinned by that library's own corpus.
+`grow --check` is the seventh surface: a staleness report with an exit status,
+no model call and nothing written. `grow --stamp` is a migration aid, not a
+surface.
 
 **"What exists?"** — grep the markers. ODQ §13's world-state scan is a filesystem
 walk requiring nothing from Sedum's process.
@@ -317,6 +332,11 @@ file are generated one at a time with `--only`. Replacing the sentence with
 "multiple records are supported" would have handed a harness author a guarantee
 that is not there, so the PRD and README now state both halves.
 
+*(Closed by `prov-2026-375f5d4a`:* the duplicate-path check is gone. Records
+sharing a file grow in one run, in grow and replay alike, and ownership protects
+the code region by region: a record selecting a region another record owns is an
+error naming both. What follows is kept as the history of the question.)*
+
 This has a consequence for M7, folded into `prov-2026-dc227be7`: under
 `--execute` there is no model call, so the check's justification does not hold
 on the replay path — yet a caller supplying records purely for scope validation
@@ -443,8 +463,8 @@ synthesises a single-invocation recording, which works today. The consumer that
 arrived needs no selector vocabulary, and a surface grows when a caller
 demonstrates it must, not before (`prov-2026-b5465dfa`).
 
-**Whether the duplicate-path check applies under `--execute`** (§6.2 ⚠︎). In
-M7's scope, in `prov-2026-dc227be7`.
+~~**Whether the duplicate-path check applies under `--execute`** (§6.2 ⚠︎).~~
+**Closed:** the check no longer exists anywhere (`prov-2026-375f5d4a`, §9).
 
 ~~**Where `adopt` lives** (ODQ §3).~~ **Dissolved, not answered**
 (`prov-2026-4c49ca46`). The question assumed a command, and asked whether
@@ -474,3 +494,47 @@ Sedum's own extensibility grounds and is unclaimed rather than refused
 **Whether `forbidden_scope` should be checkable independently of who is acting**
 (ODQ §15). Sedum enforces it over what Sedum does; nothing enforces it over what
 a tool above Sedum does except that tool.
+
+---
+
+## 9. Amendment — per-record regeneration moves into grow (`prov-2026-a88771dd`)
+
+§1 put the whole convergence loop above Sedum. The hash-aware grow track
+(provenance DESIGN.md, "Sedum: hash-aware grow") moves one piece of it down, and
+this section records which piece and why.
+
+**What moved.** Deciding, per record, whether to skip, re-render or re-select
+(`prov-2026-9621daed`), and reconciling a re-selected record's regions -
+replace, insert, and prune the owned regions it no longer selects
+(`prov-2026-375f5d4a`). A second `grow` over unchanged records makes no model
+call and writes nothing.
+
+**Why it belongs in Sedum.** Staleness is a fact about artifacts Sedum already
+owns: the `gen` and `pkg` hashes on markers it writes, against records it reads
+and packages it loads. Detecting it needs no target knowledge, no running
+service and no test suite - the properties §2 used to draw the line. Repairing
+*behaviour* still needs all three, so it stays above.
+
+**What did not move.** The two-beat lifecycle, the focused edit layer, the
+paired update loop, failure traceback, the repair modes and the escalation
+ladder. Sedum still never calls the harness (§3).
+
+**The record attribute means owner.** The marker's `record` was the last writer
+(`prov-2026-36c8a99c`); it is now the owner, set at first write, and only the
+owner rewrites or prunes the region (`prov-2026-375f5d4a`, superseding imprint
+`prov-2026-4df89974`). A foreign writer must not change it (PRD, *What a foreign
+writer may not do*). §5.3's `writer` key is unchanged and still says which tool
+last wrote the region.
+
+**One lifecycle value is read.** Sedum reads `status: deprecated` and nothing
+else: a deprecated record is never grown and its regions are orphans for
+`--prune-orphans` (`prov-2026-cc73cf61`). It still reads no supersession graph.
+
+**Target-language knowledge has exactly one home.** Generated Go must parse and
+be gofmt-clean, so Sedum gained a closed, built-in syntax registry, opted into
+by a package's `syntax:` key, shipping with Sedum and running no external
+program (`prov-2026-5403d162`). A harness cannot add a checker. That is
+deliberate and follows §2's trust argument: a package-declared command would let
+a generator package run an executable on every grow, and nothing from a copied
+or shared source may run automatically. A harness that needs a target check runs
+it itself, above Sedum, where §3 already puts target knowledge.

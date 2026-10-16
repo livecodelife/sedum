@@ -1,0 +1,15 @@
+{
+  "format": "sedum.regions/1",
+  "regions": [
+    {
+      "record": "prov-2026-aaaaaaaa",
+      "file": "app/models/user.rb",
+      "action": "addField",
+      "variant": "",
+      "tier": "owned",
+      "identity": {"field": "email", "model": "user"},
+      "gen": "sha256:0000000000000000000000000000000000000000000000000000000000000001",
+      "pkg": "sha256:0000000000000000000000000000000000000000000000000000000000000002"
+    }
+  ]
+}

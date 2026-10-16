@@ -146,17 +146,19 @@ func loadPackage(dir, dirName string) (*Package, Findings, error) {
 	}
 
 	pkg := &Package{
-		Name:          dirName,
-		Dir:           dir,
-		Extensions:    man.Extensions,
-		CommentPrefix: man.CommentPrefix,
-		CommentSuffix: man.CommentSuffix,
-		Transforms:    man.Transforms,
-		OpExceptions:  man.OpExceptions,
-		Unmanaged:     man.Unmanaged,
-		TestPaths:     man.TestPaths,
-		Variables:     man.Variables,
-		Actions:       map[string]*Action{},
+		Name:            dirName,
+		Dir:             dir,
+		Extensions:      man.Extensions,
+		CommentPrefix:   man.CommentPrefix,
+		CommentSuffix:   man.CommentSuffix,
+		Transforms:      man.Transforms,
+		OpExceptions:    man.OpExceptions,
+		Unmanaged:       man.Unmanaged,
+		TestPaths:       man.TestPaths,
+		Variables:       man.Variables,
+		Syntax:          man.Syntax,
+		OptionalAnchors: man.Optional,
+		Actions:         map[string]*Action{},
 	}
 
 	// The engine is built before anything reads a template, because the
@@ -224,13 +226,18 @@ func loadPackage(dir, dirName string) (*Package, Findings, error) {
 	checkTemplates(pkg, fileTemplates.contents, actionTemplates, r)
 	deriveRequirements(pkg, actionTemplates, r)
 	checkMarkerAnchors(pkg, fileTemplates.bodies(), r)
+	checkOptionalAnchors(pkg, fileTemplates.bodies(), r)
 	checkMarkersFilled(pkg, fileTemplates.bodies(), r)
 	checkUnmanaged(pkg, r)
 	checkTestPaths(pkg, r)
+	checkSyntax(pkg, r)
 	checkDeadConfig(pkg, r)
 
 	if r.hasErrors() {
 		return nil, r.findings, nil
+	}
+	if err := stampPkgHashes(pkg); err != nil {
+		return nil, nil, err
 	}
 	return pkg, r.findings, nil
 }

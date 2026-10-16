@@ -1,0 +1,89 @@
+id: prov-2026-bf01cd6b
+title: sedum regions and a JSON grow report feed provenance evidence
+status: implemented
+version: 1
+created_at: "2026-10-15"
+author: calebcowen@gmail.com
+intent: |
+  Phase 3's link that only Sedum can provide (provenance DESIGN.md,
+  "Verification evidence belongs to a version" and "Markers make spec runs
+  exact"). The provenance library never parses markers; Sedum reads them and
+  reports, as JSON a non-Go caller can consume (TOOL_BOUNDARIES section 4: the
+  surface is formats and commands, never linking).
+
+  ## sedum regions
+
+  `sedum regions --generators <dir> [--output <dir>] [--records <dir>]
+  [--record <id>]... [--json]` is read-only: no model, no records required,
+  nothing written. It walks the output tree as the orphan scan does - skipping
+  hidden, generators and records directories (prov-2026-fc05416c) - and lists
+  every region whose marker names a record. With --json it prints one object:
+
+    {"format": "sedum.regions/1", "regions": [
+      {"record": "prov-...", "file": "...", "action": "...", "variant": "...",
+       "tier": "owned", "identity": {...selecting kwargs...},
+       "gen": "sha256:...", "pkg": "sha256:..."}, ...]}
+
+  sorted by file, then position. gen and pkg are "" when the marker lacks them;
+  provenance treats that code as unknown, never fresh, and `grow --stamp` is
+  the way out (agreed with prov-lib and provisio-mgr in #provisio). With
+  --records, a marker naming an alias is reported under the surviving id, and
+  --record selects a record's regions by id or alias. identity is the action's
+  selecting kwargs, or every kwarg when the package no longer declares the
+  action. Without --json the same rows print as a table.
+
+  ## A JSON grow report
+
+  `sedum grow --json` prints the run's report as one object instead of text:
+
+    {"format": "sedum.grow/1", "dry_run": false,
+     "records": [{"record": "prov-...", "mode": "skip|select|re-select|re-render|none",
+                  "changed": true,
+                  "regions": [{"file": "...", "action": "...", "variant": "...",
+                               "change": "inserted|replaced|pruned|rerendered|unchanged|held"}]}],
+     "orphans": [{"file", "action", "variant", "record", "authorized", "pruned"}],
+     "stamped": [...], "check_failed": false}
+
+  `changed` is true exactly when one of the record's regions was inserted,
+  pruned, or rewritten with different bytes, so provenance runs only those
+  records' specs. A replaced region whose bytes are identical is "unchanged",
+  which Phase 7 learns by comparing the old region with the new one. --json
+  composes with --check, --dry-run and --stamp, reporting what each would do.
+constraints:
+  - sedum regions writes nothing, calls no model, and needs no records directory; it reads only files under --output.
+  - Both JSON documents carry a format string with a version, and add fields only additively; the shapes are documented in the PRD and README.
+  - gen and pkg are reported verbatim from markers, "" when absent; Sedum never computes or fills them in this command.
+  - A region counts as changed only when its bytes changed; identical rewrites are unchanged.
+  - Text output is unchanged when --json is not given.
+  - conformance/formats/ documents both formats with an example of each, and Sedum's tests check real output against the documented keys, so a TypeScript consumer can rely on them (provisio-mgr, #provisio).
+affected_scope:
+  - internal/cli/regions.go
+  - internal/cli/root.go
+  - internal/cli/grow.go
+  - internal/cli/config.go
+  - internal/cli/report.go
+  - internal/cli/*_test.go
+  - internal/pipeline/regions.go
+  - internal/pipeline/orphans.go
+  - internal/pipeline/*_test.go
+  - internal/inject/inject.go
+  - internal/inject/*_test.go
+  - PRD.md
+  - conformance/README.md
+  - conformance/formats/**
+  - testdata/generators/go/**
+forbidden_scope: []
+type: blueprint
+related:
+  - prov-2026-9621daed
+  - prov-2026-cc73cf61
+  - prov-2026-fc05416c
+sealed_at_sha: b453b2682ffc75701dc7a9f2a1135b38d967c6da
+associated_specs:
+  - path: internal/pipeline/regions_test.go
+    run_command: go test ./$(dirname {{path}})
+  - path: internal/cli/report_test.go
+    run_command: go test ./$(dirname {{path}})
+associated_traces: []
+monitors: []
+tags: []

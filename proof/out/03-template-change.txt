@@ -1,0 +1,21 @@
+# grow-prep 12432f9
+$ sedum grow --generators generators --records provenance --model stub --log run.log
+
+exists   app/controllers/users_controller.rb  (left as it is)
+exists   app/controllers/users_controller.rb  (left as it is)
+
+2 path(s) authorized, 0 created, 2 already present, 0 left unmanaged
+
+prov-2026-aaaaaaaa
+  (package changed; regions re-rendered from their markers, no model call)
+prov-2026-bbbbbbbb
+  (package changed; regions re-rendered from their markers, no model call)
+
+0 invocation(s) selected across 2 record(s)
+
+replaced app/controllers/users_controller.rb  addBeforeFilter
+replaced app/controllers/users_controller.rb  addBeforeFilter
+
+2 region(s) injected, 2 replaced, 0 left as seeded
+[exit 0]
+model calls: 0

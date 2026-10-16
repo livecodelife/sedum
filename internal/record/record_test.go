@@ -173,21 +173,6 @@ forbidden_scope:
 	wantErr(t, err, "prov-2026-aaaaaaaa", "app/models/user.rb", "app/models/**")
 }
 
-// One file, two records means two model calls injecting into the same file,
-// which the PRD puts out of scope. The check reports both record IDs, because
-// this is still the last point at which both are in hand to name.
-func TestTwoRecordsNamingOnePathIsAnError(t *testing.T) {
-	set, _, err := Load(writeRecords(t, map[string]string{
-		"a.yml": "id: prov-2026-aaaaaaaa\naffected_scope: [app/models/user.rb]\n",
-		"b.yml": "id: prov-2026-bbbbbbbb\naffected_scope: [app/models/user.rb]\n",
-	}), Options{})
-	if err != nil {
-		t.Fatalf("load: %v", err)
-	}
-
-	wantErr(t, set.CheckDuplicatePaths(), "app/models/user.rb", "prov-2026-aaaaaaaa", "prov-2026-bbbbbbbb")
-}
-
 // Ingesting is what ingestion does. The duplicate-path rule's justification is
 // Phase 4's one-call-per-record shape, so it lives at Phase 4's entry and a
 // caller that never reaches Phase 4 is never subject to it - which is what lets
@@ -206,18 +191,30 @@ func TestIngestionDoesNotRejectADuplicatePath(t *testing.T) {
 	}
 }
 
-// A path named once is not a duplicate, and the check must not invent one out
-// of a record that lists it twice - Paths is deduplicated per record.
-func TestCheckDuplicatePathsPassesWhenEachPathHasOneOwner(t *testing.T) {
+// Ownership needs every record's aliases and creation date, including the
+// records --only leaves out, because a run meets regions any record wrote
+// (prov-2026-375f5d4a).
+func TestKnownCarriesEveryRecordWithItsOwnershipFields(t *testing.T) {
 	set, _, err := Load(writeRecords(t, map[string]string{
-		"a.yml": "id: prov-2026-aaaaaaaa\naffected_scope: [app/models/user.rb, app/models/user.rb]\n",
-		"b.yml": "id: prov-2026-bbbbbbbb\naffected_scope: [app/models/order.rb]\n",
-	}), Options{})
+		"a.yml": "id: prov-2026-aaaaaaaa\ncreated_at: \"2026-08-14\"\naliases: [prov-2026-01d01d01]\naffected_scope: [app/models/user.rb]\n",
+		"b.yml": "id: prov-2026-bbbbbbbb\ncreated_at: 2026-08-15\naffected_scope: [app/models/order.rb]\n",
+	}), Options{Only: []string{"prov-2026-bbbbbbbb"}})
 	if err != nil {
 		t.Fatalf("load: %v", err)
 	}
-	if err := set.CheckDuplicatePaths(); err != nil {
-		t.Errorf("unexpected duplicate: %v", err)
+	if len(set.Records) != 1 || set.Records[0].ID != "prov-2026-bbbbbbbb" {
+		t.Fatalf("Records = %v, want only the record --only names", set.Records)
+	}
+	if len(set.Known) != 2 {
+		t.Fatalf("Known has %d records, want every record read", len(set.Known))
+	}
+	a := set.Known[0]
+	if a.ID != "prov-2026-aaaaaaaa" || a.CreatedAt != "2026-08-14" || len(a.Aliases) != 1 || a.Aliases[0] != "prov-2026-01d01d01" {
+		t.Errorf("Known[0] = %+v, want its created_at and aliases", a)
+	}
+	// An unquoted YAML date reads as the same text.
+	if b := set.Known[1]; b.CreatedAt != "2026-08-15" {
+		t.Errorf("unquoted created_at read as %q", b.CreatedAt)
 	}
 }
 
@@ -386,4 +383,72 @@ func containsFragment(list []string, want string) bool {
 		}
 	}
 	return false
+}
+
+// A deprecated record is retired: never grown, kept in Known so its id still
+// resolves, and an error when --only names it (prov-2026-cc73cf61).
+func TestADeprecatedRecordIsKnownButNotGrown(t *testing.T) {
+	dir := writeRecords(t, map[string]string{
+		"a.yml": "id: prov-2026-aaaaaaaa\nstatus: deprecated\naffected_scope: [app/models/user.rb]\n",
+		"b.yml": "id: prov-2026-bbbbbbbb\nstatus: implemented\naffected_scope: [app/models/order.rb]\n",
+	})
+	set, _, err := Load(dir, Options{})
+	if err != nil {
+		t.Fatalf("load: %v", err)
+	}
+	if len(set.Records) != 1 || set.Records[0].ID != "prov-2026-bbbbbbbb" {
+		t.Errorf("Records = %v, want only the record that is not deprecated", set.Records)
+	}
+	if len(set.Known) != 2 || !set.Known[0].Deprecated || set.Known[1].Deprecated {
+		t.Errorf("Known should hold both, with only a deprecated")
+	}
+
+	_, _, err = Load(dir, Options{Only: []string{"prov-2026-aaaaaaaa"}})
+	wantErr(t, err, "prov-2026-aaaaaaaa", "deprecated")
+}
+
+// The library decodes every field sedum reads; a malformed value in a field
+// sedum does not read never fails a run (prov-2026-5f1e4f0a, prov-2026-dad4d877).
+func TestOnlyFieldsSedumReadsCanFailARecord(t *testing.T) {
+	set, _, err := Load(writeRecords(t, map[string]string{
+		"a.yml": "id: prov-2026-aaaaaaaa\nmonitors: 5\nsealed_at_sha: [a]\nassociated_specs: nope\nintent: x\naffected_scope: [app/models/user.rb]\n",
+	}), Options{})
+	if err != nil {
+		t.Fatalf("a malformed field sedum does not read failed the record: %v", err)
+	}
+	if len(set.Records) != 1 {
+		t.Fatalf("records = %v", set.Records)
+	}
+
+	_, _, err = Load(writeRecords(t, map[string]string{
+		"b.yml": "id: prov-2026-bbbbbbbb\ntitle: t\ntags: [x]\nintent: [not, a, string]\n",
+	}), Options{})
+	wantErr(t, err, "b.yml", "line 4", "intent")
+
+	// status is read - deprecated retires a record - so it is held to the
+	// library's decoding like the other fields sedum reads.
+	_, _, err = Load(writeRecords(t, map[string]string{
+		"c.yml": "id: prov-2026-cccccccc\nstatus: [a]\nintent: x\n",
+	}), Options{})
+	wantErr(t, err, "c.yml", "line 2", "status")
+}
+
+// v1 and v2 files read the same for sedum: a v2 record's version and reason
+// are not sedum's business, and aliases and implements come through.
+func TestV1AndV2RecordsReadAlike(t *testing.T) {
+	set, _, err := Load(writeRecords(t, map[string]string{
+		"a.yml": "id: prov-2026-aaaaaaaa\ntype: imprint\nimplements: prov-2026-cccccccc\nintent: x\naffected_scope: [app/models/user.rb]\n",
+		"b.yml": "id: prov-2026-bbbbbbbb\nversion: 3\nreason: tightened\ntype: imprint\nimplements: prov-2026-cccccccc\naliases: [prov-2026-01d01d01]\nintent: x\naffected_scope: [app/models/user.rb]\n",
+	}), Options{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	a, _ := set.Lookup("prov-2026-aaaaaaaa")
+	b, _ := set.Lookup("prov-2026-bbbbbbbb")
+	if a.Implements != "prov-2026-cccccccc" || b.Implements != "prov-2026-cccccccc" || a.Type != "imprint" || b.Type != "imprint" {
+		t.Errorf("implements/type not read: a=%+v b=%+v", a, b)
+	}
+	if len(b.Aliases) != 1 || a.Gen != b.Gen {
+		t.Errorf("v2 aliases %v; gen a=%s b=%s, want equal for equal content", b.Aliases, a.Gen, b.Gen)
+	}
 }

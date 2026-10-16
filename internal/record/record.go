@@ -2,11 +2,15 @@
 // set every later phase is bounded by.
 //
 // A provenance record declares intent, constraints, and the files a change is
-// authorized to touch. Sedum reads five fields - id, intent, constraints,
-// affected_scope, and forbidden_scope - and nothing else. It does not interpret
-// a record's status or lifecycle, and it never writes to one: the record schema
-// belongs to the governance tool that produces it, so decoding is lenient and a
-// key Sedum does not model is ignored rather than rejected (prov-2026-dad4d877).
+// authorized to touch. Records are decoded by the shared provenance record
+// library, v1 and v2 alike (prov-2026-5f1e4f0a), over only the keys Sedum
+// reads: id, intent, constraints, affected_scope, forbidden_scope, created_at,
+// aliases, status, type, implements, and version, which decides the schema.
+// The record schema belongs to the governance tool that produces it, so a key
+// Sedum does not read can never fail a run - unknown or malformed alike - while
+// a malformed value in one it reads is an error (prov-2026-dad4d877). Sedum
+// acts on one lifecycle value, deprecated (prov-2026-cc73cf61), and never
+// writes to a record.
 //
 // An affected_scope entry is either a literal path, which names a file to
 // create, or a pattern, which authorizes matches without naming any. Only the
@@ -17,10 +21,13 @@ package record
 import (
 	"errors"
 	"fmt"
+	librecord "github.com/livecodelife/provenance/record"
+	"github.com/livecodelife/sedum/internal/genhash"
 	"github.com/livecodelife/sedum/internal/pathpat"
 	"os"
 	"path"
 	"path/filepath"
+	"regexp"
 	"slices"
 	"sort"
 	"strings"
@@ -51,6 +58,32 @@ type Record struct {
 	Patterns []string
 	// Forbidden are the forbidden_scope entries, literal or pattern alike.
 	Forbidden []string
+
+	// Gen is the record's gen_hash, which every region it writes carries as
+	// "gen" (prov-2026-66bea9f3). It is taken over the four fields exactly as
+	// the file states them - before trimming, deduplication, sorting, or the
+	// split into paths and patterns - because the hash is shared with every
+	// other tool that reads records, and none of them see Sedum's view.
+	Gen string
+
+	// CreatedAt and Aliases are what region ownership reads
+	// (prov-2026-375f5d4a): a record owns the regions whose marker names its
+	// id or one of its aliases - ids folded into it by migration - and owners
+	// at a shared anchor are ordered by creation date, then id.
+	CreatedAt string
+	Aliases   []string
+
+	// Deprecated reports a retired record (prov-2026-cc73cf61). It is the one
+	// lifecycle fact Sedum reads, and only the value "deprecated" is: such a
+	// record takes no new versions, is never grown, and owns nothing, so its
+	// regions are orphans.
+	Deprecated bool
+
+	// Type and Implements are read through the shared library and carried
+	// for reporting and for DESIGN's "only imprints grow regions"; nothing in
+	// sedum acts on them yet (prov-2026-5f1e4f0a).
+	Type       string
+	Implements string
 }
 
 // Forbids reports whether the record's forbidden_scope covers path, and returns
@@ -69,6 +102,12 @@ func (r *Record) Forbids(target string) (string, bool) {
 type Set struct {
 	// Records are the ingested records, sorted by ID.
 	Records []*Record
+
+	// Known is every record read from the directory, sorted by ID, including
+	// those --only left out and deprecated ones, which Records never holds. A run grows only Records, but the regions it
+	// meets may belong to any of them, and ownership and anchor order need
+	// their aliases and creation dates (prov-2026-375f5d4a).
+	Known []*Record
 }
 
 // Paths returns every literal path the set authorizes, sorted.
@@ -134,7 +173,11 @@ func Load(dir string, opts Options) (*Set, []string, error) {
 		records = append(records, rec)
 	}
 
+	known := append([]*Record(nil), records...)
+	sort.Slice(known, func(i, j int) bool { return known[i].ID < known[j].ID })
+
 	records, err = filterOnly(records, opts.Only)
+	records = slices.DeleteFunc(records, func(r *Record) bool { return r.Deprecated })
 	if err != nil {
 		problems = append(problems, err)
 	}
@@ -147,7 +190,7 @@ func Load(dir string, opts Options) (*Set, []string, error) {
 	if len(problems) > 0 {
 		return nil, warnings, errors.Join(problems...)
 	}
-	return &Set{Records: records}, warnings, nil
+	return &Set{Records: records, Known: known}, warnings, nil
 }
 
 // isRecordFile reports whether a directory entry is a record. The records
@@ -159,16 +202,57 @@ func isRecordFile(name string) bool {
 	return ext == ".yml" || ext == ".yaml"
 }
 
-// document is the shape Sedum decodes a record into. Decoding is deliberately
-// not strict: every other key a record carries belongs to the governance tool
-// that wrote it (prov-2026-dad4d877).
-type document struct {
-	ID             string   `yaml:"id"`
-	Intent         string   `yaml:"intent"`
-	Constraints    []string `yaml:"constraints"`
-	AffectedScope  []string `yaml:"affected_scope"`
-	ForbiddenScope []string `yaml:"forbidden_scope"`
+// readKeys are the record keys sedum reads (prov-2026-5f1e4f0a). Each file is
+// projected onto them before the shared record library decodes it: the library
+// owns the schema and rejects a malformed value in any field it models, while
+// sedum must not fail on a field it does not read (prov-2026-dad4d877). A
+// malformed value in one of these is still the library's error. version stays
+// because it decides whether the file is v1 or v2.
+var readKeys = map[string]bool{
+	"id": true, "version": true, "created_at": true, "status": true,
+	"aliases": true, "type": true, "implements": true,
+	"intent": true, "constraints": true, "affected_scope": true, "forbidden_scope": true,
 }
+
+// decode reads one record file through the shared library, over the keys
+// sedum reads only. An error names the line of the offending key in the
+// original file, not in the projection.
+func decode(data []byte) (*librecord.Record, error) {
+	var root yaml.Node
+	if err := yaml.Unmarshal(data, &root); err != nil {
+		return nil, err
+	}
+	if len(root.Content) == 0 || root.Content[0].Kind != yaml.MappingNode {
+		return librecord.Decode(data)
+	}
+	mapping := root.Content[0]
+	projected := &yaml.Node{Kind: yaml.MappingNode, Tag: "!!map"}
+	lines := map[string]int{}
+	for i := 0; i+1 < len(mapping.Content); i += 2 {
+		key := mapping.Content[i]
+		if readKeys[key.Value] {
+			projected.Content = append(projected.Content, key, mapping.Content[i+1])
+			lines[key.Value] = key.Line
+		}
+	}
+	out, err := yaml.Marshal(projected)
+	if err != nil {
+		return nil, err
+	}
+	rec, err := librecord.Decode(out)
+	if err != nil {
+		if m := libraryError.FindStringSubmatch(err.Error()); m != nil {
+			if line, ok := lines[m[1]]; ok {
+				return nil, fmt.Errorf("line %d: %s%s", line, m[1], m[2])
+			}
+		}
+		return nil, err
+	}
+	return rec, nil
+}
+
+// libraryError is the library's decode error: "line N: <field> <problem>".
+var libraryError = regexp.MustCompile(`^line \d+: ([a-z_]+)(.*)$`)
 
 func readRecord(full, name string) (*Record, error) {
 	data, err := os.ReadFile(full)
@@ -176,10 +260,12 @@ func readRecord(full, name string) (*Record, error) {
 		return nil, fmt.Errorf("read record %s: %w", name, err)
 	}
 
-	var doc document
-	if err := yaml.Unmarshal(data, &doc); err != nil {
+	doc, err := decode(data)
+	if err != nil {
 		return nil, fmt.Errorf("record %s could not be read: %w", name, err)
 	}
+	// The library accepts a file with no id; sedum cannot, because the id is
+	// what --only names and what every diagnostic identifies a record by.
 	if doc.ID == "" {
 		return nil, fmt.Errorf("record %s declares no id; the id is what --only names and what every diagnostic identifies a record by", name)
 	}
@@ -189,6 +275,17 @@ func readRecord(full, name string) (*Record, error) {
 		Source:      name,
 		Intent:      doc.Intent,
 		Constraints: doc.Constraints,
+		CreatedAt:   doc.CreatedAt,
+		Aliases:     doc.Aliases,
+		Type:        string(doc.Type),
+		Implements:  doc.Implements,
+		Deprecated:  doc.Status == librecord.StatusDeprecated,
+		Gen: genhash.Of(genhash.Input{
+			Intent:         doc.Intent,
+			Constraints:    doc.Constraints,
+			AffectedScope:  doc.AffectedScope,
+			ForbiddenScope: doc.ForbiddenScope,
+		}),
 	}
 
 	var problems []error
@@ -245,10 +342,19 @@ func filterOnly(records []*Record, only []string) ([]*Record, error) {
 	}
 
 	kept := make([]*Record, 0, len(only))
+	var retired []string
 	for _, r := range records {
 		if slices.Contains(only, r.ID) {
+			if r.Deprecated {
+				retired = append(retired, r.ID)
+				continue
+			}
 			kept = append(kept, r)
 		}
+	}
+	if len(retired) > 0 {
+		return kept, fmt.Errorf("--only names %s, which is deprecated: a deprecated record is never grown, and its regions are orphans for --prune-orphans",
+			strings.Join(retired, ", "))
 	}
 
 	// A mistyped --only would otherwise generate nothing and report success,
@@ -282,45 +388,6 @@ func checkForbidden(records []*Record) []error {
 		}
 	}
 	return problems
-}
-
-// CheckDuplicatePaths rejects a path named by two records.
-//
-// It is a method rather than part of ingestion because its justification is not
-// a property of records: Phase 4 makes one model call per record, so two
-// records naming one file would mean two independent invocation lists deciding
-// one file's contents. That reason holds at Phase 4's entry and nowhere else.
-//
-// Under replay there is no model call and the reason does not survive. The
-// recording already says what happens to the file, and a caller supplying
-// records purely for scope validation is asking whether paths were authorized -
-// two records legitimately refining regions in one file is what the marker's
-// record attribute exists to support. Ingesting is what ingestion does
-// (prov-2026-dc227be7).
-//
-// This is still the last point at which both record IDs are in hand to name, so
-// the diagnostic is unchanged.
-func (s *Set) CheckDuplicatePaths() error {
-	owners := map[string][]string{}
-	var order []string
-	for _, r := range s.Records {
-		for _, p := range r.Paths {
-			if len(owners[p]) == 0 {
-				order = append(order, p)
-			}
-			owners[p] = append(owners[p], r.ID)
-		}
-	}
-
-	var problems []error
-	for _, p := range order {
-		if len(owners[p]) > 1 {
-			problems = append(problems, fmt.Errorf(
-				"path %s is named by records %s; one file is generated from one record",
-				p, strings.Join(owners[p], " and ")))
-		}
-	}
-	return errors.Join(problems...)
 }
 
 // warnEmpty reports a record that authorizes only patterns. Generating nothing

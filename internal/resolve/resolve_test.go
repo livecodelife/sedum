@@ -177,11 +177,32 @@ func contested() map[string]string {
 	return files
 }
 
+// A path neither package's templates describe is still ambiguous, and still
+// needs --lang.
 func TestContestedExtensionWithoutALangFlagNamesBothPackages(t *testing.T) {
 	set := loadPackages(t, contested())
 
-	_, _, err := Paths(set, records(t, "app/models/user.rb"), nil)
-	wantErr(t, err, "app/models/user.rb", ".rb", "rails", "sinatra", "--lang")
+	_, _, err := Paths(set, records(t, "lib/user.rb"), nil)
+	wantErr(t, err, "lib/user.rb", ".rb", "rails", "sinatra", "--lang")
+}
+
+// Where one contesting package has a file template describing the path and the
+// other does not - or describes it less closely - the closer one wins without
+// --lang (prov-2026-5403d162).
+func TestTheMostSpecificTemplateResolvesAContestedExtension(t *testing.T) {
+	set := loadPackages(t, contested())
+
+	resolutions, _, err := Paths(set, records(t, "app/models/user.rb", "app/user.rb"), nil)
+	if err != nil {
+		t.Fatalf("Paths: %v", err)
+	}
+	got := map[string]string{}
+	for _, r := range resolutions {
+		got[r.Path] = r.Package.Name
+	}
+	if got["app/models/user.rb"] != "rails" || got["app/user.rb"] != "sinatra" {
+		t.Errorf("resolutions = %v, want app/models/user.rb to rails and app/user.rb to sinatra", got)
+	}
 }
 
 func TestLangFlagResolvesAContestedExtension(t *testing.T) {

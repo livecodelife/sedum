@@ -1,8 +1,69 @@
 id: prov-2026-e6969eb3
 title: A local eval harness, because the measurements it replaces were shell loops and grep
 status: implemented
+version: 5
+reason: |-
+  [[prov-2026-945fa0aa]] added a throughput line dividing every token in the
+  usage block by the wall clock. On this server most of those tokens are never
+  computed, so the headline overstates the work by about four times.
+
+  ## What the server actually does
+
+  LM Studio's llama.cpp backend selects a slot by longest-common-prefix
+  similarity and keeps everything up to the divergence point. A case's prompt is
+  byte-identical across its samples, so the second and later samples land on a
+  slot holding the whole thing:
+
+      slot get_availabl: selected slot by LCP similarity, sim_best = 1.000
+      slot update_slots: new prompt, n_keep = 1799, task.n_tokens = 1799
+      slot update_slots: n_past was set to 1798
+      prompt eval time =     746.79 ms /     1 tokens
+             eval time =  194531.80 ms /   603 tokens (3.10 tokens per second)
+
+  Of 1799 prompt tokens, **one** is evaluated. Across today's runs, 63 prompt
+  evaluations computed a single token, three computed the full 1799 as cold
+  starts, and the remainder were the completeness re-prompts, which share the
+  prefix and diverge after it.
+
+  So generation is not merely the larger cost, it is essentially the whole cost:
+  746 ms against 194.5 s, or 99.6%.
+
+  ## Three claims this retires
+
+  **Prefix caching is not an optimization waiting to be enabled.** 945fa0aa
+  argued for it at length and [[prov-2026-6f728c95]] recorded that it had not
+  been turned on. Neither is right: it was never off, and there is no flag,
+  because the backend does it by construction.
+
+  **A prompt-heavy token split does not diagnose a slow case.** The reasoning
+  that a large prompt means the catalog is re-read every call assumed the prompt
+  was recomputed. Billed and computed are different quantities, and only the
+  second is time.
+
+  **The headline number is wrong rather than imprecise.** A metric that counts
+  work the machine skipped will make a case look faster the larger its prompt
+  is, which is backwards.
+
+  ## The fix
+
+  The headline throughput is completion tokens per second, because those are the
+  tokens the machine produced. Prompt tokens stay on the line, labelled as
+  billed, because they remain what a hosted endpoint charges for and what a rate
+  limit is denominated in - the two questions [[prov-2026-98ab639c]] needs them
+  for.
+
+  What the harness still cannot see is how much of a prompt was recomputed: the
+  usage block reports the prompt length whether the prefix was reused or not.
+  That is a property of the protocol rather than a gap to fill, and the line says
+  billed rather than implying otherwise.
+reason_kind: fix
 created_at: "2026-08-15"
 author: calebcowen@gmail.com
+aliases:
+  - prov-2026-0811425c
+  - prov-2026-096a4d4b
+  - prov-2026-6f728c95
+  - prov-2026-e323b805
 intent: |
   A package under evals/ that runs a case against a model N times and reports how
   often each action was selected. Built from a prototype rather than designed
@@ -111,58 +172,56 @@ intent: |
   Only the sedum arm runs. Behavior is not measured. Both are declared and both
   are rejected at run time rather than silently skipped.
 constraints:
-  - >-
-    Nothing in internal/ or cmd/ imports evals/, and the runner stays behind a
-    build tag so go test ./... never reaches it. The boundary is the import
-    direction and the tag, not the directory.
-  - >-
-    The harness reports rates and never fails a build on one. The single failing
-    condition is a case that produced nothing to measure, which is a broken
-    harness rather than a poor model.
-  - >-
-    Every reported rate carries its sample size, model and build. A rate recorded
-    without them cannot be re-run and will be believed longer than it is true.
-  - >-
-    Valid, invalid and failed stay distinct. An answer Phase 5 rejected is a
-    measurement; a run that never reached the model is excluded from every
-    denominator.
-  - >-
-    Retries are zero. The question is what one call produces, and a retry loop
-    would fold Phase 5's recovery into a number meant to describe a first answer.
-  - >-
-    A case declares every axis of the matrix even where one value exists, because
-    a schema that grows after results exist means rewriting the results.
-  - >-
-    The baseline arm and the behavioral pass rate are reserved in the schema and
-    rejected at run time until implemented. An unimplemented axis is never
-    silently skipped.
-  - >-
-    The harness's own logic is covered by deterministic tests that need no model
-    and run in the default suite. Only the model-dependent runner is tagged.
-  - >-
-    Expectations are what a complete answer contains, never what the model
-    usually produces. Fitting the expectation to observed behavior would make
-    every rate 100% by construction.
+  - Nothing in internal/ or cmd/ imports evals/, and the runner stays behind a build tag so go test ./... never reaches it. The boundary is the import direction and the tag, not the directory.
+  - The harness reports rates and never fails a build on one. The single failing condition is a case that produced nothing to measure, which is a broken harness rather than a poor model.
+  - Every reported rate carries its sample size, model and build. A rate recorded without them cannot be re-run and will be believed longer than it is true.
+  - Valid, invalid and failed stay distinct. An answer Phase 5 rejected is a measurement; a run that never reached the model is excluded from every denominator.
+  - Retries are zero. The question is what one call produces, and a retry loop would fold Phase 5's recovery into a number meant to describe a first answer.
+  - A case declares every axis of the matrix even where one value exists, because a schema that grows after results exist means rewriting the results.
+  - The baseline arm and the behavioral pass rate are reserved in the schema and rejected at run time until implemented. An unimplemented axis is never silently skipped.
+  - The harness's own logic is covered by deterministic tests that need no model and run in the default suite. Only the model-dependent runner is tagged.
+  - Expectations are what a complete answer contains, never what the model usually produces. Fitting the expectation to observed behavior would make every rate 100% by construction.
+  - Phase 5 reports Calls, Rejected and Completeness alongside the invocations. Three counts rather than one, because a rejected answer, a completeness observation and a total are three different facts drawn from two budgets.
+  - 'First-call validity is recoverable at any retry budget: a sample with zero rejections validated on its first call, whatever the budget allowed. The budget stops being a trade-off between two measurements.'
+  - A rejected answer is a typed error carrying the same counts and every attempt's violations. Callers classify with errors.As rather than by matching a message, and the diagnostic text stays as informative as it is today.
+  - The completeness call is counted separately from validation attempts. It draws from its own budget, and folding the two together would report a complete answer as a rejected one.
+  - Nothing about what Phase 5 accepts, rejects or asks about changes. This record adds reporting and changes no decision.
+  - An eval entry records the counts per sample, additively. The schema does not move, a reader ignores what it does not recognise, and no existing field changes meaning - so entries written before this remain readable and keep meaning what they meant.
+  - Cost per sample is reported in calls, not only in seconds. Two entries at different retry budgets compare on calls, which is the comparison seconds could never support.
+  - Every model call's prompt and completion token counts leave Phase 5 with the calls that made them, per record and summed per sample.
+  - A server that reports no usage is recorded as reporting none, never as zero tokens. A zero would average into a rate as though it were measured.
+  - The client returns the message and its token counts and nothing else. The interface stays incapable of carrying a tool call, which is the property the string return was protecting rather than the string itself.
+  - Tokens are reported beside calls, never instead of them. A call is what a retry budget is spent from; tokens are what a call costs. Neither derives the other.
+  - Entry fields are additive and the schema does not move, so entries written before this stay readable and keep meaning what they meant.
+  - A server configuration in the documentation is read off the running server, never reconstructed from what a server of that kind plausibly takes. The command that reads it is written beside it so the next person can check.
+  - What the server does not expose is described as unknown rather than assumed. Prefix caching is unmeasured on these entries and says so.
+  - A claim about how a measurement was produced is corrected the moment it is found wrong, because unlike a wrong number it survives re-running.
+  - Whether prefix caching helps is an open question needing repeated conditions, not a flag to add and assert. The wall clock is the only external signal and it is worth plus or minus 31% here.
+  - Throughput is completion tokens over wall clock. Those are the tokens the machine produced, and a metric counting skipped work would make a case look faster the larger its prompt is.
+  - Prompt tokens are reported as billed, never as work. They are what a hosted endpoint charges and what a rate limit counts, and they are not what the local clock measures.
+  - The harness does not claim to know how much of a prompt was recomputed. The usage block cannot say, so the report does not imply it.
+  - A token split is not evidence about where a case spends its time. Only the completion half is time on a server that reuses prefixes.
 affected_scope:
   - evals/**
+  - internal/selection/**
+  - internal/pipeline/**
+  - PRD.md
 forbidden_scope: []
 type: blueprint
 implements: prov-2026-d554bfc3
-supersedes: ""
-superseded_by: ""
+implements_version: 1
 related:
   - prov-2026-6d87dc11
   - prov-2026-c5697387
   - prov-2026-369544c1
-sealed_at_sha: b5e74a83e2d2ec6030f2eefd1fdce818e71c4915
+sealed_at_sha: c5f6349238c7b43c890b0c5a6c7418aae0ce85ba
 associated_specs:
-  # The scoring logic is deterministic and is tested as such - hand-built
-  # samples, no model, runs in the default suite. The tagged runner is the part
-  # that needs an endpoint, and it is not what this proves.
   - path: evals/run_test.go
     run_command: go test -count=1 ./$(dirname {{path}})
   - path: evals/README.md
     run_command: test -f {{path}}
+  - path: internal/selection/selection_test.go
+    run_command: go test -count=1 ./$(dirname {{path}})
 associated_traces: []
 monitors: []
 tags:

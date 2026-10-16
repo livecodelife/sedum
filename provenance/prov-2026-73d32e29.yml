@@ -1,0 +1,47 @@
+id: prov-2026-73d32e29
+title: A package can declare anchors completeness never asks about
+status: implemented
+version: 1
+created_at: "2026-10-15"
+author: calebcowen@gmail.com
+intent: |
+  The go package plants an imports anchor in every file, and most
+  declarations need no new import. Phase 5's completeness check
+  (prov-2026-6d87dc11) asks the model about every planted anchor its answer
+  leaves empty that some action could fill, so every such answer costs one
+  extra model call whose right reply is almost always "no change". provisio-mgr
+  asked for the fix (#provisio, 2026-10-15): +1 call per record adds up.
+
+  sedum.yaml gains `optional_anchors`: anchor names this package's templates
+  plant that completeness never asks about. They are still injection points;
+  they are simply not work a file expects. A name no template of the package
+  plants is a load error, so the list cannot silently go stale. The go package
+  declares `imports` optional; `decls` stays, because a file with no
+  declarations is worth a question.
+constraints:
+  - Optional anchors are skipped by completeness only; injection, ordering and every other rule are unchanged.
+  - An optional_anchors entry no file template of the package plants rejects the package at load.
+affected_scope:
+  - internal/genpkg/schema.go
+  - internal/genpkg/load.go
+  - internal/genpkg/validate.go
+  - internal/genpkg/diag.go
+  - internal/genpkg/*_test.go
+  - internal/expand/*.go
+  - internal/pipeline/*_test.go
+  - testdata/generators/go/**
+  - PRD.md
+forbidden_scope: []
+type: imprint
+implements: prov-2026-5403d162
+implements_version: 1
+related: []
+sealed_at_sha: 66e8d942a886c2554bee172af098c8d7a092d72d
+associated_specs:
+  - path: internal/pipeline/gopkg_test.go
+    run_command: go test ./$(dirname {{path}})
+  - path: internal/genpkg/syntax_test.go
+    run_command: go test ./$(dirname {{path}})
+associated_traces: []
+monitors: []
+tags: []

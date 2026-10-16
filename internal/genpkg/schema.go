@@ -29,6 +29,8 @@ type manifest struct {
 	Unmanaged     []string                     `yaml:"unmanaged"`
 	TestPaths     []string                     `yaml:"test_paths"`
 	Variables     map[string]Variable          `yaml:"variables"`
+	Syntax        string                       `yaml:"syntax"`
+	Optional      []string                     `yaml:"optional_anchors"`
 }
 
 // Variable is a project fact this package's templates reference and cannot
@@ -266,6 +268,11 @@ type Action struct {
 	// guess (prov-2026-369544c1).
 	TemplateRefs map[string][]string
 
+	// PkgHash is the hash of everything that decides what this action renders
+	// for fixed kwargs, written on each region's marker as "pkg". A region
+	// whose pkg differs was rendered from an older package (prov-2026-66bea9f3).
+	PkgHash string
+
 	kind ActionKind
 }
 
@@ -394,6 +401,19 @@ type Package struct {
 	// user.go: same extension, same package, same directory, and nothing
 	// directory-shaped can separate them.
 	TestPaths []string
+
+	// Syntax names the built-in checker every file this package touches must
+	// pass before it is written, from the closed registry in internal/syntax
+	// (prov-2026-5403d162). Empty means none. It is the only way target-language
+	// knowledge reaches a run: opted into here, shipped with Sedum, and never
+	// an external program.
+	Syntax string
+
+	// OptionalAnchors are anchors this package's templates plant that Phase
+	// 5's completeness check never asks about (prov-2026-73d32e29). They are
+	// injection points like any other, just not work a file expects: a Go
+	// file's imports anchor, which most declarations leave empty.
+	OptionalAnchors []string
 
 	// Variables are the project facts this package's templates reference and
 	// cannot know. The run supplies their values (prov-2026-6fc3d13d).

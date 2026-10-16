@@ -1,0 +1,39 @@
+id: prov-2026-71ebd3d9
+version: 1
+content_hash: sha256:e8dbc1fca83502f332563b0f07f5a2933d035a1f8002590694dad13dae1fe7a3
+parent_hash: ""
+reason: ""
+author: calebcowen@gmail.com
+created_at: "2026-10-16T01:02:32Z"
+spec_hashes:
+  - sha256:fe7129d1d7229615d23cf70a2595bb902940cdf83242e6c43defd943c21a7b60
+content:
+  id: prov-2026-71ebd3d9
+  title: The lifecycle testbed joins sedum as evals/lifecycle, the PR's runnable demo
+  type: imprint
+  created_at: "2026-10-15"
+  author: calebcowen@gmail.com
+  intent: |
+    migrate-dry's lifecycle testbed exercises the whole Phase 1-2 loop end to
+    end - v1 records, provenance migrate, every grow mode, ownership errors,
+    --check, --stamp, --prune-orphans - against a local stub model, and prints a
+    pass/fail table. provisio-mgr decided it becomes the grow-prep PR's runnable
+    demo inside sedum at evals/lifecycle/ (#provisio, 2026-10-15).
+
+    migrate-dry prepared the export outside this worktree (lifecycle-testbed
+    94daf31, export/evals-lifecycle/), so the branch keeps one writer; it is
+    copied in unchanged. demo.sh builds sedum from the enclosing checkout,
+    sedum v0.8.0 from this repository's own history (0571de7), and the
+    provenance CLI with `go install` at a pinned commit of
+    github.com/livecodelife/provenance (afdc4f2); chi comes from
+    testdata/generators/chi. No local paths outside the checkout are read, and
+    no real model is reachable: the scripts refuse any endpoint but 127.0.0.1.
+  constraints:
+    - The export is copied unchanged; fixes go back through migrate-dry.
+    - evals/lifecycle adds no .go files, and its work/ and .demo/ directories are gitignored, so go build and go test see nothing new.
+  affected_scope:
+    - evals/lifecycle/**
+  implements: prov-2026-3c35801c
+  implements_version: 1
+  associated_specs:
+    - path: evals/lifecycle/demo.sh

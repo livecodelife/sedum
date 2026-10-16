@@ -1,0 +1,44 @@
+id: prov-2026-1a93993f
+version: 1
+content_hash: sha256:deb5f8a0e9adb67f8af25bea5b70d57360a40c2c958ba20634b47c6da3b698f4
+parent_hash: ""
+reason: ""
+author: calebcowen@gmail.com
+created_at: "2026-10-16T01:45:33Z"
+spec_hashes:
+  - sha256:3c293d29d572ef4d89db9617c589b07960ef96d6b9438fd2efff2285c9288910
+content:
+  id: prov-2026-1a93993f
+  title: grow-prep migrates to v2 behind per-worktree hooks, with the undo recorded
+  type: imprint
+  created_at: "2026-10-15"
+  author: calebcowen@gmail.com
+  intent: |-
+    Records this repository's migration to v2 and the per-worktree hooks, so it can be undone or repeated.
+
+    Done in commit 710846e with the provenance CLI at origin/cli f895a29:
+      git tag pre-v2-migration
+      git config extensions.worktreeConfig true             (shared config; no effect on other worktrees)
+      git config --worktree core.hooksPath "$(git rev-parse --absolute-git-dir)/hooks-v2"
+      provenance hooks install                              (writes into hooks-v2, not the shared hooks dir)
+      provenance migrate --workspace ~/workspace            (166 records to 147, 166 snapshots, 19 aliases)
+      provenance edit prov-2026-3c35801c --add-scope ...    (v2: scope covers the migration files)
+      one commit tagged [prov-2026-3c35801c@2], through the v2 hooks
+
+    The shared .git/hooks stay the v1 linespec hooks, so the main checkout is unchanged until the PR merges (verified: core.hooksPath unset there).
+
+    At merge, undo the per-worktree hooks and let the merged repository use v2 hooks everywhere:
+      git config --worktree --unset core.hooksPath
+      rm -r "$(git rev-parse --absolute-git-dir)/hooks-v2"
+      provenance hooks install                              (into the shared hooks dir; v1 hooks kept as .bak)
+    To roll the whole migration back: git reset --hard pre-v2-migration (this branch only).
+  constraints:
+    - The shared .git/hooks stay v1 until the PR merges; main's core.hooksPath is never set.
+    - Undo at merge is the three commands in the intent.
+    - The proof spec is .provenance.yml, which no lifecycle commit rewrites.
+  affected_scope:
+    - .provenance.yml
+  implements: prov-2026-3c35801c
+  implements_version: 2
+  associated_specs:
+    - path: .provenance.yml

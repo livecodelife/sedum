@@ -1,0 +1,39 @@
+{
+  "format": "sedum.pkg",
+  "corpus_version": 1,
+  "description": "Golden cases for the pkg hash a marker carries: what a template renders for fixed kwargs, hashed so a harness can tell a region rendered from an older package without linking Sedum. Decided by prov-2026-66bea9f3.",
+  "cases": [
+    {
+      "id": "pkg/simple-action",
+      "why": "A simple action's one template is keyed by the empty string. Descriptions are left out: they reach the model, never the renderer, so editing one must not mark a region stale. A declared default is in, written as its value; an undeclared one is null.",
+      "files": {
+        "rails/sedum.yaml": "name: rails\nextensions: [\".rb\"]\ncomment_prefix: \"#\"\ntransforms:\n  constantize: [singular, pascal]\n  instantize: [plural, \"prefix:@\"]\nop_exceptions:\n  pascal:\n    api: API\n",
+        "rails/files/app/controllers/{name}_controller.rb": "class {{name|constantize}}Controller\n  # sedum:anchor:class_body_top\n\n  # sedum:anchor:class_body\nend\n",
+        "rails/actions/actions.yaml": "actions:\n  addBeforeFilter:\n    description: Adds a before_action filter.\n    kwargs:\n      controller: { type: string, required: true, description: The controller. }\n      filter: { type: string, required: true }\n      only: { type: string, default: \"\" }\n    injects_into: \"app/controllers/{{controller|snake}}_controller.rb\"\n    anchor: class_body_top\n    identity: [controller, filter]\n  createControllerMethod:\n    kwargs:\n      controller: { type: string, required: true }\n      name: { type: string, required: true }\n      collection: { type: string, required: false }\n    discriminator: name\n    variants: [show, index]\n    injects_into: \"app/controllers/{{controller|snake}}_controller.rb\"\n    anchor: class_body\n",
+        "rails/actions/addBeforeFilter.rb": "before_action :{{filter}}{{only}}\n",
+        "rails/actions/createControllerMethod/index.rb": "def index\n  {{collection|instantize}} = {{collection|constantize}}.all\nend\n",
+        "rails/actions/createControllerMethod/show.rb": "def show\nend\n",
+        "rails/actions/createControllerMethod/_default.rb": "def {{name}}\nend\n"
+      },
+      "action": "addBeforeFilter",
+      "canonical": "{\"action\":{\"anchor\":\"class_body_top\",\"anchor_end\":\"\",\"anchor_pattern\":\"\",\"anchor_start\":\"\",\"discriminator\":\"\",\"identity\":[\"controller\",\"filter\"],\"injects_into\":\"app/controllers/{{controller|snake}}_controller.rb\",\"kwargs\":{\"controller\":{\"default\":null,\"required\":true,\"type\":\"string\"},\"filter\":{\"default\":null,\"required\":true,\"type\":\"string\"},\"only\":{\"default\":\"\",\"required\":false,\"type\":\"string\"}},\"name\":\"addBeforeFilter\",\"variants\":[]},\"format\":\"sedum.pkg/1\",\"op_exceptions\":{\"pascal\":{\"api\":\"API\"}},\"templates\":{\"\":\"before_action :{{filter}}{{only}}\\u000a\"},\"transforms\":{\"constantize\":[\"singular\",\"pascal\"],\"instantize\":[\"plural\",\"prefix:@\"]}}",
+      "pkg": "sha256:6d626aaf6239c9c6bdf020140e6cfad8fd6157df60a0865c0e63123dcf50bf00"
+    },
+    {
+      "id": "pkg/discriminated-action",
+      "why": "Each variant's template is keyed by variant name, the _default fallback included. variants keep declaration order, because that is the order the author wrote and nothing sorts it.",
+      "files": {
+        "rails/sedum.yaml": "name: rails\nextensions: [\".rb\"]\ncomment_prefix: \"#\"\ntransforms:\n  constantize: [singular, pascal]\n  instantize: [plural, \"prefix:@\"]\nop_exceptions:\n  pascal:\n    api: API\n",
+        "rails/files/app/controllers/{name}_controller.rb": "class {{name|constantize}}Controller\n  # sedum:anchor:class_body_top\n\n  # sedum:anchor:class_body\nend\n",
+        "rails/actions/actions.yaml": "actions:\n  addBeforeFilter:\n    description: Adds a before_action filter.\n    kwargs:\n      controller: { type: string, required: true, description: The controller. }\n      filter: { type: string, required: true }\n      only: { type: string, default: \"\" }\n    injects_into: \"app/controllers/{{controller|snake}}_controller.rb\"\n    anchor: class_body_top\n    identity: [controller, filter]\n  createControllerMethod:\n    kwargs:\n      controller: { type: string, required: true }\n      name: { type: string, required: true }\n      collection: { type: string, required: false }\n    discriminator: name\n    variants: [show, index]\n    injects_into: \"app/controllers/{{controller|snake}}_controller.rb\"\n    anchor: class_body\n",
+        "rails/actions/addBeforeFilter.rb": "before_action :{{filter}}{{only}}\n",
+        "rails/actions/createControllerMethod/index.rb": "def index\n  {{collection|instantize}} = {{collection|constantize}}.all\nend\n",
+        "rails/actions/createControllerMethod/show.rb": "def show\nend\n",
+        "rails/actions/createControllerMethod/_default.rb": "def {{name}}\nend\n"
+      },
+      "action": "createControllerMethod",
+      "canonical": "{\"action\":{\"anchor\":\"class_body\",\"anchor_end\":\"\",\"anchor_pattern\":\"\",\"anchor_start\":\"\",\"discriminator\":\"name\",\"identity\":[],\"injects_into\":\"app/controllers/{{controller|snake}}_controller.rb\",\"kwargs\":{\"collection\":{\"default\":null,\"required\":false,\"type\":\"string\"},\"controller\":{\"default\":null,\"required\":true,\"type\":\"string\"},\"name\":{\"default\":null,\"required\":true,\"type\":\"string\"}},\"name\":\"createControllerMethod\",\"variants\":[\"show\",\"index\"]},\"format\":\"sedum.pkg/1\",\"op_exceptions\":{\"pascal\":{\"api\":\"API\"}},\"templates\":{\"_default\":\"def {{name}}\\u000aend\\u000a\",\"index\":\"def index\\u000a  {{collection|instantize}} = {{collection|constantize}}.all\\u000aend\\u000a\",\"show\":\"def show\\u000aend\\u000a\"},\"transforms\":{\"constantize\":[\"singular\",\"pascal\"],\"instantize\":[\"plural\",\"prefix:@\"]}}",
+      "pkg": "sha256:3205d11904da326f7262bbf556efc31fc948de7df42d75660c78ce258bdac89d"
+    }
+  ]
+}

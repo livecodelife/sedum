@@ -1,0 +1,18 @@
+{
+    "invocations": [
+        {
+            "action": "addImport",
+            "kwargs": {
+                "resource": "health",
+                "path": "net/http"
+            }
+        },
+        {
+            "action": "createHandler",
+            "kwargs": {
+                "resource": "health",
+                "verb": "get"
+            }
+        }
+    ]
+}

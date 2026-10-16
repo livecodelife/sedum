@@ -63,6 +63,32 @@ type Config struct {
 	// DryRun runs every phase and writes nothing.
 	DryRun bool
 
+	// Force lets a record whose selection came back empty prune every region
+	// it owns. Without it that is an error, because an empty reply is more
+	// often a flaky model than an intent to delete a record's code
+	// (prov-2026-375f5d4a). It also re-selects every record whatever its
+	// hashes say (prov-2026-9621daed).
+	Force bool
+
+	// Reselect re-selects every record whatever its hashes say, without
+	// Force's licence to prune on an empty selection. A recording run sets
+	// it: a recording captures selections, and a skipped record makes none.
+	Reselect bool
+
+	// Check classifies every record and stops: no model call, and nothing
+	// written, Phase 3's files included (prov-2026-9621daed).
+	Check bool
+
+	// PruneOrphans removes orphan regions - owned regions whose record was
+	// removed or deprecated - in files some current record authorizes
+	// (prov-2026-cc73cf61).
+	PruneOrphans bool
+
+	// Stamp writes the current gen and pkg onto markers missing them, for
+	// regions whose record exists, and does nothing else: no model call, no
+	// other byte changed (prov-2026-cc73cf61).
+	Stamp bool
+
 	// StopAfterPhase halts the run after the named phase. Zero runs every
 	// phase, since Phase 0 is not a stop point.
 	StopAfterPhase int
@@ -133,6 +159,30 @@ type Result struct {
 	// StoppedAfter is the phase the run halted at, or zero if it ran to the
 	// end.
 	StoppedAfter int
+
+	// Classifications are what grow decided for each record from its markers
+	// - select, re-select, skip or re-render - and why (prov-2026-9621daed).
+	// Nil when the run stopped before they were made.
+	Classifications []Classification
+
+	// Orphans are the regions whose record is no longer current, and whether
+	// this run pruned them (prov-2026-cc73cf61).
+	Orphans []Orphan
+
+	// Stamped are the markers --stamp wrote a missing hash onto.
+	Stamped []inject.Stamped
+}
+
+// CheckFailed reports whether --check fails: some record is stale or needs
+// re-rendering. A record with no regions is unknown and does not fail.
+func (r *Result) CheckFailed() bool {
+	for _, c := range r.Classifications {
+		if c.Failing() {
+			return true
+		}
+	}
+	// An orphan is code no current record stands behind (prov-2026-cc73cf61).
+	return len(r.Orphans) > 0
 }
 
 // Selection is one record's validated invocation list, with the files it was
@@ -245,10 +295,12 @@ func Run(ctx context.Context, cfg Config) (*Result, error) {
 		return result, nil
 	}
 
-	// Phase 3 - create files from templates.
+	// Phase 3 - create files from templates. --check writes nothing, so it
+	// takes Phase 3's dry-run path and reads what would have been written.
+	writeless := cfg.DryRun || cfg.Check || cfg.Stamp
 	files, err := resolve.Create(resolutions, resolve.Options{
 		Output:    cfg.Output,
-		DryRun:    cfg.DryRun,
+		DryRun:    writeless,
 		Variables: variables,
 		Log:       log,
 	})
@@ -262,13 +314,68 @@ func Run(ctx context.Context, cfg Config) (*Result, error) {
 		return result, nil
 	}
 
+	owners := ownersOf(records)
+
+	// --stamp writes a missing gen or pkg onto the markers of each record's
+	// regions and nothing else (prov-2026-cc73cf61).
+	if cfg.Stamp {
+		var requests []inject.StampRequest
+		for _, rec := range records.Records {
+			requests = append(requests, inject.StampRequest{
+				RecordID: rec.ID, Gen: rec.Gen, Targets: targetsOf(filesOf(files, rec.ID)),
+			})
+		}
+		stamped, err := inject.Stamp(requests, inject.Options{
+			Output:    cfg.Output,
+			DryRun:    cfg.DryRun,
+			Unwritten: unwrittenFiles(writeless, files),
+			Owners:    owners,
+		})
+		if err != nil {
+			return nil, err
+		}
+		result.Stamped = stamped
+		log.Info("stamped markers", "regions", len(stamped), "dry_run", cfg.DryRun)
+		return result, nil
+	}
+
+	// Classify each record from its markers: select, re-select, skip, or
+	// re-render. Only the first two reach the model (prov-2026-9621daed).
+	scanSkip := []string{cfg.Generators, cfg.Records}
+	classes, err := classify(records, files, owners, cfg.Output, unwrittenFiles(writeless, files), cfg.Force || cfg.Reselect, scanSkip)
+	if err != nil {
+		return nil, err
+	}
+	result.Classifications = classes
+	needsModel := map[string]bool{}
+	for _, c := range classes {
+		needsModel[c.RecordID] = c.needsModel()
+		log.Info("classified record", "record", c.RecordID, "mode", c.Mode.String(),
+			"stale", len(c.Stale), "rerender", len(c.Rerender), "stale_seeded", len(c.StaleSeeded))
+	}
+	orphans, orphanTargets, err := findOrphans(packages, records, owners, cfg.Output, scanSkip)
+	if err != nil {
+		return nil, err
+	}
+	result.Orphans = orphans
+	for _, o := range orphans {
+		log.Info("orphan region", "path", o.Path, "action", o.Action, "record", o.Record, "authorized", o.Authorized)
+	}
+	if cfg.Check {
+		log.Info("check complete; nothing written")
+		return result, nil
+	}
+	if !cfg.PruneOrphans {
+		orphanTargets = nil
+	}
+
 	// Phases 4 and 5 - one model call per record, and deterministic
 	// validation of what it returned.
 	//
 	// Per record rather than per run, because a record is the unit of intent:
 	// its constraints govern its own paths, and one call deciding two records'
 	// files would make each record's constraints apply to the other's.
-	selections, err := selectAll(ctx, cfg, records, files, variables, log)
+	selections, err := selectAll(ctx, cfg, records, files, variables, classes, owners, log)
 	if err != nil {
 		return nil, err
 	}
@@ -288,9 +395,18 @@ func Run(ctx context.Context, cfg Config) (*Result, error) {
 		if err != nil {
 			return nil, fmt.Errorf("record %s: %w", s.RecordID, err)
 		}
+		stampGen(expanded, genOf(records, s.RecordID))
 		log.Info("expanded invocations", "record", s.RecordID,
 			"selected", len(s.Invocations), "resolved", len(expanded))
 		resolved = append(resolved, expanded...)
+	}
+	// A re-rendered record's invocations were built from its markers during
+	// classification; they replace its pkg-stale regions in place.
+	for _, c := range classes {
+		if c.Mode == ModeRerender {
+			log.Info("re-rendering regions from their markers", "record", c.RecordID, "regions", len(c.rerendered))
+			resolved = append(resolved, c.rerendered...)
+		}
 	}
 
 	if cfg.StopAfterPhase == PhaseExpand {
@@ -299,16 +415,24 @@ func Run(ctx context.Context, cfg Config) (*Result, error) {
 	}
 
 	// Phase 7 - inject.
+	// Phase 7 reconciles each record the model was asked about: its owned
+	// regions it did not select again are pruned, in the same all-or-nothing
+	// write as everything else.
 	applied, err := inject.Apply(resolved, inject.Options{
-		Output:    cfg.Output,
-		DryRun:    cfg.DryRun,
-		Unwritten: unwrittenFiles(cfg.DryRun, files),
-		Log:       log,
+		Output:         cfg.Output,
+		DryRun:         cfg.DryRun,
+		Unwritten:      unwrittenFiles(cfg.DryRun, files),
+		Log:            log,
+		Owners:         owners,
+		Reconcile:      reconcileOf(selections, needsModel),
+		PruneOrphansIn: orphanTargets,
+		Force:          cfg.Force,
 	})
 	if err != nil {
 		return nil, err
 	}
 	result.Injections = applied
+	markPruned(result.Orphans, applied)
 	return result, nil
 }
 
@@ -318,18 +442,15 @@ func Run(ctx context.Context, cfg Config) (*Result, error) {
 // a model call. Its catalog would be empty, so the only valid answer is an
 // empty list, and paying for a call to be told so would be a cost the run can
 // see is pointless before it is incurred.
-func selectAll(ctx context.Context, cfg Config, records *record.Set, files []resolve.File, variables map[string]string, log *runlog.Log) ([]Selection, error) {
-	// Phase 4's entry is where the duplicate-path check belongs, because this
-	// is the phase whose one-call-per-record shape is the reason for it. Two
-	// records naming one file would mean two independent calls deciding that
-	// file's contents (prov-2026-dc227be7).
-	//
-	// It halts before the first call rather than before records are read, so
-	// nothing has been paid for. Replay never reaches this function and is
-	// therefore never subject to a rule that has no meaning without a model.
-	if err := records.CheckDuplicatePaths(); err != nil {
-		return nil, err
+func selectAll(ctx context.Context, cfg Config, records *record.Set, files []resolve.File, variables map[string]string, classes []Classification, owners map[string]inject.Owner, log *runlog.Log) ([]Selection, error) {
+	byRecord := map[string]Classification{}
+	for _, c := range classes {
+		byRecord[c.RecordID] = c
 	}
+
+	// No duplicate-path check: records sharing a file are reconciled region
+	// by region in Phase 7, where a record selecting a region another record
+	// owns is the error (prov-2026-375f5d4a).
 
 	// The prior-selection bound is per record and is checked for every selected
 	// record before the first call, so an overflow costs nothing. Selections
@@ -341,12 +462,33 @@ func selectAll(ctx context.Context, cfg Config, records *record.Set, files []res
 		if err := selection.CheckPrior(rec.ID, prior[rec.ID]); err != nil {
 			return nil, err
 		}
+		// A re-selected record with no prior recording sees its own earlier
+		// selections, rebuilt from its markers, so the model has less reason
+		// to change kwargs that did not need changing (prov-2026-cc73cf61).
+		// Rebuilt context that would overflow the bound is left out rather
+		// than failing a run the caller never asked to carry it.
+		if c := byRecord[rec.ID]; len(prior[rec.ID]) == 0 && c.Mode == ModeReselect {
+			rebuilt := priorFromMarkers(rec.ID, c.found, owners)
+			if err := selection.CheckPrior(rec.ID, rebuilt); err != nil {
+				log.Info("prior selections rebuilt from markers left out", "record", rec.ID, "reason", err.Error())
+			} else {
+				prior[rec.ID] = rebuilt
+			}
+		}
 	}
 
 	var out []Selection
 
 	for _, rec := range records.Records {
 		mine := filesOf(files, rec.ID)
+		if anyManaged(mine) && !byRecord[rec.ID].needsModel() {
+			// Classified skip or re-render: everything it needs is on its
+			// markers (prov-2026-9621daed).
+			log.Info("no model call for record", "record", rec.ID,
+				"reason", "its regions are current against the record")
+			out = append(out, Selection{RecordID: rec.ID, Files: mine})
+			continue
+		}
 		if !anyManaged(mine) {
 			log.Info("no model call for record", "record", rec.ID,
 				"reason", "no path it authorized is written by a generator package")
@@ -368,7 +510,8 @@ func selectAll(ctx context.Context, cfg Config, records *record.Set, files []res
 			Files:       mine,
 			Prompt:      cfg.Prompt,
 			Prior:       prior[rec.ID],
-		}, selection.Options{Retries: cfg.Retries, Variables: variables, Log: log, FullCatalog: cfg.FullCatalog})
+			Present:     presentFor(rec.ID, byRecord[rec.ID].found, owners),
+		}, selection.Options{Retries: cfg.Retries, Variables: variables, Log: log, FullCatalog: cfg.FullCatalog, Output: cfg.Output})
 		if err != nil {
 			return nil, err
 		}
@@ -425,6 +568,116 @@ func priorFor(prior *recording.Recording, recordID string) []recording.Invocatio
 		for _, ph := range r.Phases {
 			out = append(out, ph.Invocations...)
 		}
+	}
+	return out
+}
+
+// stampGen sets the gen_hash of the record that selected them on a record's
+// expanded invocations, so every region it writes says which version of the
+// record wrote it (prov-2026-66bea9f3).
+func stampGen(invocations []inject.Invocation, gen string) {
+	for i := range invocations {
+		invocations[i].Gen = gen
+	}
+}
+
+// genOf returns the gen_hash of the record with the given id, or nothing when
+// the run has no such record.
+//
+// Nothing is not a gap to fill with a guess: an empty gen means unknown, and a
+// later grow reads unknown as stale.
+func genOf(records *record.Set, recordID string) string {
+	if records == nil {
+		return ""
+	}
+	rec, ok := records.Lookup(recordID)
+	if !ok {
+		return ""
+	}
+	return rec.Gen
+}
+
+// ownersOf is what Phase 7 knows about every record in the directory, for
+// region ownership and anchor order. Records --only left out are included,
+// because the regions a run meets may belong to any of them.
+func ownersOf(records *record.Set) map[string]inject.Owner {
+	if records == nil {
+		return nil
+	}
+	out := make(map[string]inject.Owner, len(records.Known))
+	for _, r := range records.Known {
+		// A deprecated record owns nothing: its regions are orphans
+		// (prov-2026-cc73cf61).
+		if r.Deprecated {
+			continue
+		}
+		out[r.ID] = inject.Owner{ID: r.ID, Aliases: r.Aliases, CreatedAt: r.CreatedAt}
+	}
+	return out
+}
+
+// reconcileOf names the records whose owned regions Phase 7 reconciles: every
+// record the model was asked about, over the managed files it authorizes. A
+// record that made no selection - nothing to grow, skipped, or re-rendered -
+// reconciles nothing.
+func reconcileOf(selections []Selection, needsModel map[string]bool) []inject.Reconcile {
+	var out []inject.Reconcile
+	for _, s := range selections {
+		if !anyManaged(s.Files) || !needsModel[s.RecordID] {
+			continue
+		}
+		out = append(out, inject.Reconcile{RecordID: s.RecordID, Targets: targetsOf(s.Files)})
+	}
+	return out
+}
+
+// presentFor lists the regions other records own in a record's files, for its
+// prompt (prov-2026-cc73cf61). Each names its action, the kwargs that identify
+// it, and its owner - never a hash.
+func presentFor(recordID string, found []inject.OwnedRegion, owners map[string]inject.Owner) []selection.Present {
+	var out []selection.Present
+	for _, r := range found {
+		m := r.Region.Marker
+		if m.Record == "" || inject.Owns(owners, recordID, m.Record) {
+			continue
+		}
+		kwargs := m.Kwargs
+		if action, ok := r.Package.Actions[m.Action]; ok {
+			kwargs = map[string]any{}
+			for _, name := range inject.SelectingKwargs(action) {
+				if v, ok := m.Kwargs[name]; ok {
+					kwargs[name] = v
+				}
+			}
+		}
+		out = append(out, selection.Present{Path: r.Path, Action: m.Action, Variant: m.Variant, Kwargs: kwargs, Owner: m.Record})
+	}
+	return out
+}
+
+// priorFromMarkers rebuilds a record's earlier selections from the markers of
+// the regions it owns (prov-2026-cc73cf61). Only exposed actions are kept - a
+// composite's regions name unexposed children the model cannot select - and
+// only the kwargs each action declares, since recorded defaults are the
+// package's and recorded variables are the run's, not the model's to bind.
+func priorFromMarkers(recordID string, found []inject.OwnedRegion, owners map[string]inject.Owner) []recording.Invocation {
+	var out []recording.Invocation
+	for _, r := range found {
+		m := r.Region.Marker
+		if !inject.Owns(owners, recordID, m.Record) {
+			continue
+		}
+		action, ok := r.Package.Actions[m.Action]
+		if !ok || !action.Exposed {
+			continue
+		}
+		kwargs := map[string]any{}
+		for name, value := range m.Kwargs {
+			if _, declared := action.Kwargs[name]; declared {
+				kwargs[name] = value
+			}
+		}
+		out = append(out, recording.Invocation{Action: m.Action, Kwargs: kwargs})
 	}
 	return out
 }

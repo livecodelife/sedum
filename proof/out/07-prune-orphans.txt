@@ -1,0 +1,17 @@
+# grow-prep 12432f9
+$ sedum grow --generators generators --records provenance --model stub --log run.log --prune-orphans
+
+exists   app/controllers/users_controller.rb  (left as it is)
+
+1 path(s) authorized, 0 created, 1 already present, 0 left unmanaged
+
+prov-2026-aaaaaaaa
+  (current; no model call)
+
+0 invocation(s) selected across 1 record(s)
+
+
+0 region(s) injected, 0 replaced, 0 left as seeded
+
+pruned orphan app/controllers/users_controller.rb  addBeforeFilter (record prov-2026-bbbbbbbb is gone or deprecated)
+[exit 0]

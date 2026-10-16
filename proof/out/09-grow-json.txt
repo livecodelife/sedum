@@ -1,0 +1,26 @@
+# grow-prep 12432f9
+$ sedum grow --generators generators --records provenance --model stub --log run.log --json
+
+{
+  "format": "sedum.grow/1",
+  "dry_run": false,
+  "records": [
+    {
+      "record": "prov-2026-aaaaaaaa",
+      "mode": "re-select",
+      "changed": true,
+      "regions": [
+        {
+          "file": "app/controllers/users_controller.rb",
+          "action": "addBeforeFilter",
+          "variant": "",
+          "change": "replaced"
+        }
+      ]
+    }
+  ],
+  "orphans": [],
+  "stamped": [],
+  "check_failed": false
+}
+[exit 0]

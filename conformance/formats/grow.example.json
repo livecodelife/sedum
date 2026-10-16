@@ -1,0 +1,21 @@
+{
+  "format": "sedum.grow/1",
+  "dry_run": false,
+  "records": [
+    {
+      "record": "prov-2026-aaaaaaaa",
+      "mode": "re-select",
+      "changed": true,
+      "regions": [
+        {"file": "app/models/user.rb", "action": "addField", "variant": "", "change": "replaced"}
+      ]
+    }
+  ],
+  "orphans": [
+    {"file": "app/models/user.rb", "action": "addField", "variant": "", "record": "prov-2026-bbbbbbbb", "authorized": true, "pruned": false}
+  ],
+  "stamped": [
+    {"file": "app/models/user.rb", "action": "addField", "variant": "", "record": "prov-2026-aaaaaaaa", "gen": true, "pkg": false}
+  ],
+  "check_failed": false
+}

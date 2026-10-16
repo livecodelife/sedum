@@ -1,0 +1,47 @@
+id: prov-2026-ab24df5a
+title: A template ending in a blank line keeps one before its closing marker
+status: implemented
+version: 1
+created_at: "2026-10-15"
+author: calebcowen@gmail.com
+intent: |
+  Generated Go must pass gofmt with no diff, because most of the code these
+  projects carry is about to be generated (provisio-mgr, #provisio
+  2026-10-15). gofmt accepts markers around statements, struct fields and
+  var/const specs, and a closing marker followed by the next opening marker.
+  The one layout it rewrites is a top-level declaration followed directly by
+  the closing-marker comment: it inserts a blank line between `}` and
+  `// /sedum:...`.
+
+  Sedum cannot know what "top-level" means in a target language, so the
+  template says it. Today renderRegion strips every trailing newline from a
+  rendered template, which makes the blank line impossible to ask for. Now a
+  template that ends in a blank line (its content ends with two or more
+  newlines) keeps exactly one blank line before its closing marker; a template
+  that does not is rendered exactly as before. No template in this repository
+  ends in a blank line, so no existing output changes and no pkg hash moves.
+
+  The chi fixture's top-level templates gain the trailing blank line, and a
+  replay test checks the chi output with go/format: test code, not core.
+constraints:
+  - A template whose rendered content does not end in a blank line renders byte-identically to before.
+  - Several trailing blank lines collapse to one, as several trailing newlines collapsed to none.
+  - Core gains no knowledge of Go; only the chi fixture's templates and a test use it.
+affected_scope:
+  - internal/inject/inject.go
+  - internal/inject/*_test.go
+  - internal/pipeline/*_test.go
+  - testdata/generators/chi/**
+  - PRD.md
+forbidden_scope: []
+type: imprint
+implements: prov-2026-cc73cf61
+implements_version: 1
+related: []
+sealed_at_sha: 9d0b8a3a52d9cf7744d319352c9d2f7e353297e7
+associated_specs:
+  - path: internal/pipeline/gofmt_test.go
+    run_command: go test ./$(dirname {{path}})
+associated_traces: []
+monitors: []
+tags: []

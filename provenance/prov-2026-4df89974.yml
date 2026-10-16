@@ -1,0 +1,56 @@
+id: prov-2026-4df89974
+title: A region's record is its owner, not its last writer
+status: implemented
+version: 2
+reason: 'Supersedes prov-2026-36c8a99c: A region''s record is its owner, not its last writer'
+created_at: "2026-10-15"
+author: calebcowen@gmail.com
+aliases:
+  - prov-2026-36c8a99c
+intent: |
+  Supersedes prov-2026-36c8a99c, under the same M4 blueprint it implemented,
+  as part of the boundary catch-up in prov-2026-a88771dd. Its central rule - a later record selecting
+  a region's identity takes the region over, and the marker names the last
+  writer - was reversed by region ownership (prov-2026-375f5d4a). Under
+  versioned records a record keeps its id when it changes, so another record
+  selecting the same region means a new record was written where the owner
+  should have been revised; that is now an error naming both records, not an
+  update.
+
+  What prov-2026-36c8a99c decided that still stands:
+  - A region's identity is its action, its variant and the kwargs that select
+    it. The record takes no part in identity, so two records can never
+    silently produce two copies of one definition.
+  - Every field a matching rule could need is written on the marker from the
+    first generated file, so the rule can change without a migration.
+  - The marker parser tolerates fields it does not recognize and defaults
+    absent ones.
+
+  What replaced the rest:
+  - The marker's record is the owner, set at first write; a record also owns
+    regions naming one of its aliases, and a rewrite names the current id
+    (prov-2026-375f5d4a).
+  - Unknown marker keys are preserved through a rewrite, not dropped
+    (prov-2026-72775ae5).
+  - Sedum reads one lifecycle value, deprecated, which retires a record and
+    orphans its regions; it still reads no supersession graph
+    (prov-2026-cc73cf61).
+  - Several records naming one path grow in one run; the duplicate-path check
+    is gone, and ownership protects code region by region.
+constraints:
+  - The record is never part of a region's identity.
+  - A region's record is its owner; only the owner rewrites or prunes it, and another record selecting it is an error.
+affected_scope:
+  - internal/inject/**
+forbidden_scope: []
+type: imprint
+implements: prov-2026-b6fa093c
+implements_version: 1
+related: []
+sealed_at_sha: 1ef10631c1c7bab49fd6b1186364c89c70474c7a
+associated_specs:
+  - path: internal/inject/ownership_test.go
+    run_command: go test ./$(dirname {{path}})
+associated_traces: []
+monitors: []
+tags: []

@@ -23,10 +23,32 @@ type GrowConfig struct {
 	Execute    string
 	DryRun     bool
 	StopAfter  string
-	Retries    int
-	Model      string
-	LogPath    string
-	Verbose    bool
+
+	// Force lets a record whose selection comes back empty remove every
+	// region it owns (prov-2026-375f5d4a), and re-selects every record whatever
+	// its hashes say (prov-2026-9621daed).
+	Force bool
+
+	// Check classifies every record from its markers and reports, with no
+	// model call and nothing written (prov-2026-9621daed).
+	Check bool
+
+	// PruneOrphans removes regions whose record was removed or deprecated, in
+	// files some current record authorizes (prov-2026-cc73cf61).
+	PruneOrphans bool
+
+	// Stamp writes a missing gen or pkg onto markers whose record exists, and
+	// nothing else (prov-2026-cc73cf61).
+	Stamp bool
+
+	// JSON prints the run's report as the sedum.grow/1 document in place of
+	// the text report (prov-2026-bf01cd6b).
+	JSON bool
+
+	Retries int
+	Model   string
+	LogPath string
+	Verbose bool
 
 	// LocalModel is a gguf file to serve locally instead of consulting
 	// --model against a hosted or already-running endpoint. Set, it starts

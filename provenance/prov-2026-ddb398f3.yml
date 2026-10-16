@@ -1,8 +1,12 @@
 id: prov-2026-ddb398f3
 title: The response envelope is an object, and a key nobody asked for is ignored
 status: implemented
+version: 2
+reason: 'Supersedes prov-2026-abd43bb4: The response envelope is an object, and a key nobody asked for is ignored'
 created_at: "2026-08-19"
 author: calebcowen@gmail.com
+aliases:
+  - prov-2026-abd43bb4
 intent: |
   Supersedes [[prov-2026-abd43bb4]] to reverse one of its constraints. Everything
   else it decided is carried forward unchanged and restated here, because a
@@ -77,8 +81,7 @@ affected_scope:
 forbidden_scope: []
 type: imprint
 implements: prov-2026-f095e19f
-supersedes: prov-2026-abd43bb4
-superseded_by: ""
+implements_version: 1
 related: []
 sealed_at_sha: 8311dbaa2c16547b30d1b768b30815c9f68e5b2e
 associated_specs:

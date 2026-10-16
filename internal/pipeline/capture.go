@@ -1,6 +1,7 @@
 package pipeline
 
 import (
+	"github.com/livecodelife/sedum/internal/record"
 	"github.com/livecodelife/sedum/internal/recording"
 	"github.com/livecodelife/sedum/internal/resolve"
 )
@@ -23,7 +24,11 @@ func Capture(result *Result) recording.Recording {
 	}
 
 	for _, s := range result.Selections {
-		rec := recording.Record{RecordID: s.RecordID}
+		rec := recording.Record{
+			RecordID:  s.RecordID,
+			Gen:       genOf(result.Records, s.RecordID),
+			CreatedAt: createdAtOf(result.Records, s.RecordID),
+		}
 
 		for _, f := range s.Files {
 			// An unmanaged path has no package by design, and replay does not
@@ -67,4 +72,17 @@ func capturesOf(f resolve.File) map[string]string {
 		return nil
 	}
 	return f.Captures
+}
+
+// createdAtOf returns the creation date of the record with the given id, or
+// nothing when the run has no such record.
+func createdAtOf(records *record.Set, recordID string) string {
+	if records == nil {
+		return ""
+	}
+	rec, ok := records.Lookup(recordID)
+	if !ok {
+		return ""
+	}
+	return rec.CreatedAt
 }

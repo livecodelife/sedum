@@ -1,0 +1,21 @@
+id: prov-2026-7e570004
+title: "Health endpoint"
+status: implemented
+created_at: "2026-10-04"
+author: testbed@example.invalid
+intent: "Serve the health resource: GET /health answers 200 when the service is up."
+constraints:
+  - "Handlers live in internal/handlers/health.go."
+affected_scope:
+  - "internal/handlers/health.go"
+forbidden_scope: []
+type: imprint
+implements: prov-2026-7e570002
+supersedes: ""
+superseded_by: ""
+related: []
+sealed_at_sha: ""
+associated_specs: []
+associated_traces: []
+monitors: []
+tags: [testbed]

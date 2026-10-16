@@ -63,6 +63,31 @@ func Expand(recordID string, files []resolve.File, invocations []recording.Invoc
 	return out, nil
 }
 
+// Rerender resolves one region again from what its marker records - the
+// action it names and the kwargs it was rendered from - against the package as
+// it is now (prov-2026-9621daed).
+//
+// The marker is its own one-line recording, so nothing the model chose is
+// consulted. Its kwargs already carry the defaults and variables bound when
+// the region was written, and they are replayed verbatim: a default the
+// package has since changed does not reach the region this way, which is the
+// documented reason --force exists. A kwarg the package has since added with a
+// default is filled in, as it would be for any invocation.
+//
+// The marker names the action that rendered the region, which for a
+// composite's region is the child, so a composite here is an error rather
+// than something to expand.
+func Rerender(recordID string, pkg *genpkg.Package, files []resolve.File, actionName string, kwargs map[string]any) (inject.Invocation, error) {
+	action, ok := pkg.Actions[actionName]
+	if !ok {
+		return inject.Invocation{}, fmt.Errorf("package %s no longer declares action %s", pkg.Name, actionName)
+	}
+	if action.Kind() == genpkg.Composite {
+		return inject.Invocation{}, fmt.Errorf("action %s is a composite, and no region is written by a composite", actionName)
+	}
+	return resolveOne(recordID, pkg, files, action, kwargs, nil)
+}
+
 func expandOne(recordID string, packages []*genpkg.Package, files []resolve.File, inv recording.Invocation, variables map[string]string) ([]inject.Invocation, error) {
 	pkg, action, err := lookupAction(packages, inv.Action)
 	if err != nil {

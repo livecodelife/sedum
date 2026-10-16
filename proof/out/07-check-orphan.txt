@@ -1,0 +1,10 @@
+# grow-prep 12432f9
+$ sedum grow --check --generators generators --records provenance --log run.log
+
+current    prov-2026-aaaaaaaa
+
+1 current, 0 stale, 0 to re-render, 0 unknown
+
+orphan        app/controllers/users_controller.rb  addBeforeFilter (record prov-2026-bbbbbbbb is gone or deprecated; --prune-orphans removes it)
+sedum: check failed: some records are stale, need re-rendering, or have left orphan regions; run sedum grow (with --prune-orphans for orphans)
+[exit 1]

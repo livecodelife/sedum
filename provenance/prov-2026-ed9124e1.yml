@@ -1,0 +1,59 @@
+id: prov-2026-ed9124e1
+title: The go checker flags unused function-local variables and unused imports
+status: implemented
+version: 1
+created_at: "2026-10-15"
+author: calebcowen@gmail.com
+intent: |
+  Two compile errors `syntax: go` cannot yet see cost prov-cli a model call
+  each when growing the provenance CLI (#provisio, 2026-10-15): a variable
+  declared and never used ("declared and not used"), and, by the same token, an
+  import nothing uses ("imported and not used"). Both are compile errors in Go,
+  both are visible in the file alone, and provisio-mgr approved catching them
+  with an AST walk - no go/types, inside the stdlib-only registry rule
+  (prov-2026-5403d162) - re-prompting in the same call like the qualifier
+  check (prov-2026-0ce03d1c).
+
+  ## Unused function-local variables
+
+  Within each function body, a variable introduced by `:=`, `var`, a range
+  clause or a type switch, and never referenced afterwards in its scope, is
+  flagged. The parser's per-file resolution supplies the scopes: an identifier
+  is a use when it resolves to the declaration's object and is not itself the
+  declaring occurrence or the target of a plain assignment. The blank
+  identifier, parameters, named results and package-level declarations are
+  never flagged, exactly as the compiler treats them.
+
+  ## Unused imports
+
+  An import is unused when no selector in the file uses its name, and it is not
+  a blank (`_`) or dot import. The name is the explicit one, or the names the
+  qualifier check already infers from the path; an import whose name cannot be
+  inferred is assumed used, so the check errs toward silence as the qualifier
+  check does. Unused imports are reported with the name the file would need to
+  delete.
+
+  Both report through the existing Problem, naming each variable or import
+  with its line, so the re-prompt says exactly what to remove.
+constraints:
+  - go/parser and go/ast only; no go/types, no build, no external program.
+  - Never flag what the compiler accepts - blank identifiers, parameters, named results, package-level names, blank and dot imports, an import whose name cannot be inferred - so a correct answer is never re-prompted.
+  - A violation names the identifier and its line.
+  - "Guard, from provisio-mgr: the provenance CLI's grown cmd/provenance files at provenance@658d54b, which compile, are a fixture the full go checker must accept without a single finding."
+affected_scope:
+  - internal/syntax/*.go
+  - internal/syntax/testdata/**
+  - internal/pipeline/*_test.go
+  - PRD.md
+forbidden_scope: []
+type: blueprint
+related:
+  - prov-2026-5403d162
+  - prov-2026-0ce03d1c
+sealed_at_sha: 26aab52ca7252e8c2a94eccd55188d72adb525e2
+associated_specs:
+  - path: internal/syntax/syntax_test.go
+    run_command: go test -count=1 ./$(dirname {{path}})
+associated_traces: []
+monitors: []
+tags: []

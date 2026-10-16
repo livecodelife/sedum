@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"testing"
 
@@ -41,39 +42,6 @@ func TestPhaseOrderingReplayDependsOn(t *testing.T) {
 	}
 }
 
-// The duplicate-path check moved from ingestion to Phase 4's entry. The grow
-// path's behaviour is unchanged, and that is the test - two records naming one
-// file still halt with the same diagnostic. What changed is when: before the
-// first model call rather than before records are read (prov-2026-dc227be7).
-
-func TestTwoRecordsNamingOneFileStillHalt(t *testing.T) {
-	cfg := config(t)
-	cfg.Records = recordsDir(t, map[string]string{
-		"prov-2026-aaaaaaaa": "  - app/models/user.rb\n",
-		"prov-2026-bbbbbbbb": "  - app/models/user.rb\n",
-	})
-	client := &stub{}
-	cfg.Client = client
-
-	_, err := Run(context.Background(), cfg)
-	if err == nil {
-		t.Fatal("a path named by two records did not halt the run")
-	}
-	for _, want := range []string{"app/models/user.rb", "prov-2026-aaaaaaaa", "prov-2026-bbbbbbbb"} {
-		if !strings.Contains(err.Error(), want) {
-			t.Errorf("the diagnostic does not name %q: %v", want, err)
-		}
-	}
-
-	// The point of moving it rather than deleting it: nothing was paid for.
-	if client.calls != 0 {
-		t.Errorf("the run made %d model call(s) before halting on a duplicate path", client.calls)
-	}
-}
-
-// Records are still ingested and resolved when they share a path. The rule is
-// Phase 4's, so everything before Phase 4 has to be reachable - this is what a
-// caller supplying records purely for scope validation depends on.
 func TestADuplicatePathSurvivesEverythingBeforePhaseFour(t *testing.T) {
 	cfg := config(t)
 	cfg.Records = recordsDir(t, map[string]string{
@@ -354,4 +322,105 @@ func equalStrings(a, b []string) bool {
 		}
 	}
 	return true
+}
+
+// markerGen returns the gen attribute on the one region in app/models/user.rb,
+// or "" when the marker carries none.
+func markerGen(t *testing.T, output string) string {
+	t.Helper()
+	content := readFile(t, filepath.Join(output, "app", "models", "user.rb"))
+	match := regexp.MustCompile(`"gen":"([^"]*)"`).FindStringSubmatch(content)
+	if match == nil {
+		return ""
+	}
+	return match[1]
+}
+
+// Replay takes a region's gen from the recording first, then from --records,
+// and otherwise writes none (prov-2026-b9298192).
+func TestReplayGenPrecedence(t *testing.T) {
+	cfg := config(t)
+	cfg.Client = &stub{response: withField}
+	rec, grown := recorded(t, cfg)
+
+	grownGen := markerGen(t, grown)
+	if !strings.HasPrefix(grownGen, "sha256:") {
+		t.Fatalf("grow wrote no gen on the marker: %q", grownGen)
+	}
+	if rec.Records[0].Gen != grownGen {
+		t.Fatalf("the recording carries gen %q, but grow wrote %q", rec.Records[0].Gen, grownGen)
+	}
+
+	// The same record id, edited since the recording was made.
+	edited := writeTree(t, map[string]string{
+		"prov-2026-aaaaaaaa.yml": "id: prov-2026-aaaaaaaa\nintent: |\n  Something else.\naffected_scope:\n  - app/models/user.rb\n",
+	})
+
+	t.Run("the recorded gen wins over --records", func(t *testing.T) {
+		rcfg := replayConfig(t, cfg)
+		rcfg.Records = edited
+		if _, err := Replay(rec, rcfg); err != nil {
+			t.Fatalf("Replay: %v", err)
+		}
+		if got := markerGen(t, rcfg.Output); got != grownGen {
+			t.Errorf("gen = %q, want the recorded %q: the invocations were selected against that version", got, grownGen)
+		}
+	})
+
+	withoutGen := rec
+	withoutGen.Records = append([]recording.Record(nil), rec.Records...)
+	withoutGen.Records[0].Gen = ""
+
+	t.Run("without a recorded gen, --records supplies it", func(t *testing.T) {
+		rcfg := replayConfig(t, cfg)
+		rcfg.Records = edited
+		result, err := Replay(withoutGen, rcfg)
+		if err != nil {
+			t.Fatalf("Replay: %v", err)
+		}
+		want := result.Records.Records[0].Gen
+		if want == grownGen {
+			t.Fatal("the edited record hashes the same as the original")
+		}
+		if got := markerGen(t, rcfg.Output); got != want {
+			t.Errorf("gen = %q, want the --records value %q", got, want)
+		}
+	})
+
+	t.Run("with neither, no gen is written", func(t *testing.T) {
+		rcfg := replayConfig(t, cfg)
+		if _, err := Replay(withoutGen, rcfg); err != nil {
+			t.Fatalf("Replay: %v", err)
+		}
+		if got := markerGen(t, rcfg.Output); got != "" {
+			t.Errorf("gen = %q, want none: an unknown gen must read as stale, not be guessed", got)
+		}
+	})
+}
+
+// Replay without --records lays out a shared anchor exactly as the grow it
+// recorded did, even when created_at order and id order disagree, because the
+// recording carries each record's created_at (prov-2026-43b7ec39).
+func TestReplayOrdersASharedAnchorLikeGrow(t *testing.T) {
+	cfg := config(t)
+	cfg.Records = writeTree(t, map[string]string{
+		// Created later, sorts first by id.
+		"prov-2026-aaaaaaaa.yml": "id: prov-2026-aaaaaaaa\ncreated_at: \"2026-09-01\"\nintent: |\n  Something.\naffected_scope:\n  - app/models/user.rb\n",
+		"prov-2026-bbbbbbbb.yml": "id: prov-2026-bbbbbbbb\ncreated_at: \"2026-08-01\"\nintent: |\n  Something.\naffected_scope:\n  - app/models/user.rb\n",
+	})
+	cfg.Client = &stub{sequence: []string{fields("email"), fields("name")}}
+	rec, grown := recorded(t, cfg)
+
+	grownModel := readFile(t, filepath.Join(grown, "app", "models", "user.rb"))
+	if strings.Index(grownModel, "attribute :name") > strings.Index(grownModel, "attribute :email") {
+		t.Fatalf("grow should put the earlier-created record's region first:\n%s", grownModel)
+	}
+
+	rcfg := replayConfig(t, cfg)
+	if _, err := Replay(rec, rcfg); err != nil {
+		t.Fatalf("Replay: %v", err)
+	}
+	if got := readFile(t, filepath.Join(rcfg.Output, "app", "models", "user.rb")); got != grownModel {
+		t.Errorf("replay laid out the shared anchor differently:\n got %q\nwant %q", got, grownModel)
+	}
 }

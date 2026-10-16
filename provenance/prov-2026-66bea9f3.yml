@@ -1,0 +1,96 @@
+id: prov-2026-66bea9f3
+title: Markers carry gen and pkg hashes as first-class attributes
+status: implemented
+version: 1
+created_at: "2026-10-15"
+author: calebcowen@gmail.com
+intent: |
+  First step of hash-aware grow (provenance DESIGN.md, "Sedum: hash-aware
+  grow"). Every region Sedum writes records the two inputs that decide whether
+  it is current, so a later grow can skip, re-render, or re-select per record
+  from markers alone, with no manifest or lockfile:
+
+    # sedum:createControllerMethod:index {"tier":"owned","record":"prov-…","gen":"sha256:…","pkg":"sha256:…","kwargs":{…}}
+
+  - gen: the gen_hash of the record that wrote the region, at write time.
+    SHA-256 over DESIGN.md's canonical encoding of exactly the fields Sedum
+    reads: intent, constraints, affected_scope, forbidden_scope.
+  - pkg: a hash of the action definition and its templates at render time.
+    A pkg mismatch alone means re-render from the marker's own kwargs, no
+    model call.
+
+  This blueprint only writes and parses the two attributes. Nothing reads them
+  to decide anything yet; skip / re-render / re-select is a later blueprint.
+
+  ## gen_hash sits behind a small seam
+
+  The canonical gen_hash belongs to the shared record library prov-lib is
+  building in ~/workspace/provenance. Sedum gets a tiny internal package
+  (internal/genhash) whose one function takes the four fields as plain values
+  and returns "sha256:<hex>". Its interim body implements DESIGN.md's encoding
+  directly; when the library lands, the body delegates to it through a go.mod
+  replace directive and the interim code is deleted. The signature is being
+  agreed with prov-lib in #provisio so the swap touches one file.
+
+  ## pkg is Sedum's own hash
+  pkg covers everything that changes what a template renders for fixed
+  kwargs: the resolved action declaration (kwargs schema with defaults,
+  discriminator, variants, injects_into, anchors, identity), the content of
+  each of its templates, and the package's transforms and op_exceptions. The
+  package-wide part is deliberately conservative: an unrelated transform edit
+  costs a re-render, never a model call, while missing a real input would leave
+  a stale region looking current. It is computed once at package load and
+  carried on the Action.
+constraints:
+  - gen and pkg are declared attributes, not Extra keys. Declared order is tier, record, gen, pkg, writer, kwargs; both are omitted when empty, so a marker written without them stays byte-identical to one written before they existed.
+  - An absent gen or pkg means unknown and must read as stale to later consumers, never as current. Replay without records (no record to hash) writes no gen.
+  - A marker already carrying gen or pkg as an unknown key (written by a foreign tool) is promoted to the declared field on parse and never also re-emitted from Extra.
+  - Both values use the form "sha256:" + 64 lowercase hex. The interim gen_hash follows DESIGN.md exactly (sorted keys, UTF-8 NFC, trimmed and collapsed whitespace, list order kept) and switches to prov-lib's implementation without changing its callers.
+  - A composite's regions carry the pkg hash of the child action named on the marker, since that is what re-rendering replays.
+  - pkg is deterministic across loads, machines and map iteration order; the encoding is documented in conformance/ so a harness can compute it without linking Sedum (TOOL_BOUNDARIES.md section 4).
+  - The marker conformance corpus gains cases for parsing, emission order, omission when empty, and promotion from Extra; corpus_version increments.
+  - No grow behavior changes in this record beyond writing the attributes.
+affected_scope:
+  - internal/inject/marker.go
+  - internal/inject/inject.go
+  - internal/inject/*_test.go
+  - internal/genhash/*.go
+  - internal/genpkg/schema.go
+  - internal/genpkg/load.go
+  - internal/genpkg/pkghash.go
+  - internal/genpkg/*_test.go
+  - internal/record/record.go
+  - internal/record/*_test.go
+  - internal/expand/expand.go
+  - internal/expand/*_test.go
+  - internal/pipeline/pipeline.go
+  - internal/pipeline/replay.go
+  - internal/pipeline/*_test.go
+  - internal/pipeline/capture.go
+  - internal/recording/recording.go
+  - internal/recording/*_test.go
+  - conformance/README.md
+  - conformance/markers/cases.json
+  - conformance/pkghash/cases.json
+  - go.mod
+  - go.sum
+  - PRD.md
+forbidden_scope: []
+type: blueprint
+related:
+  - prov-2026-72775ae5
+  - prov-2026-c6580f1e
+  - prov-2026-36c8a99c
+sealed_at_sha: f79f69d544eb3e05dac17de29a6de8fe03aa2457
+associated_specs:
+  - path: internal/genhash/genhash_test.go
+    run_command: go test ./$(dirname {{path}})
+  - path: internal/genpkg/pkghash_test.go
+    run_command: go test ./$(dirname {{path}})
+  - path: internal/inject/conformance_test.go
+    run_command: go test ./$(dirname {{path}})
+  - path: internal/pipeline/pipeline_test.go
+    run_command: go test ./$(dirname {{path}})
+associated_traces: []
+monitors: []
+tags: []

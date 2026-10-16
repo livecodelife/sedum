@@ -1,8 +1,62 @@
 id: prov-2026-d318e3dd
 title: The fixtures are what an engineer would build, and the harness is neutral between the arms
 status: implemented
+version: 4
+reason: |-
+  addFixtureAttribute's `value` description says what the answer must be, not
+  only what the file ends up containing.
+
+  ## The run that found it, and the defect it found
+
+  todo-rails-described at coarse on the 14B: one of five valid, against three of
+  five on the defined arm drawn the same way. Every one of the four rejections
+  carried kwarg_type. A single-sample probe names it exactly:
+
+      kwarg_type | addFixtureAttribute: kwarg "value" is declared literal but
+                   was bound to the bool false
+
+  The description [[prov-2026-7b4db9f2]] gave that kwarg reads:
+
+      written as the YAML literal it becomes - false for a boolean, 0 for an
+      integer, and bare text for a string
+
+  Every clause is true of the rendered fixture and wrong about the answer.
+  `literal` is "a string the template emits as source" ([[prov-2026-e3d7b9ac]]),
+  so the answer carries "false" and the file carries false. A description that
+  describes only the second teaches the first.
+
+  It is the same mistake this session's own canned answer made an hour earlier,
+  rejected by the same rule, and then written into the catalog as guidance.
+
+  ## What this costs and what it does not
+
+  The described arm's entry does not measure descriptions. It measures a
+  catalog with a defect in it, and the question it was drawn to answer - whether
+  a sentence prevents the addColumn.default binding the declaration alone did
+  not ([[prov-2026-b43799a0]]) - is untouched by it. That run has to happen
+  again.
+
+  The entry stays. It is a true observation, correctly labelled, and
+  [[prov-2026-b6059aa7]] holds that results are append-only.
+
+  ## A latent one that is deliberately left alone
+
+  addColumn's `default` carries a description of the same shape, predating this
+  session: "written as the Ruby literal it becomes - false for a boolean". The
+  probe did not fire on it, and the one valid sample bound it as the string
+  "false" correctly. So it is a hazard rather than an observed defect, and
+  editing it would change the arm's pre-existing content on suspicion.
+
+  If the re-run shows kwarg_type on `default`, that is its own record with its
+  own evidence. Guessing now would make the next entry as hard to read as this
+  one.
+reason_kind: fix
 created_at: "2026-08-18"
 author: calebcowen@gmail.com
+aliases:
+  - prov-2026-2fb763a0
+  - prov-2026-7b4db9f2
+  - prov-2026-30cb01cc
 intent: |
   Three rules, and everything below is their application:
 
@@ -133,57 +187,47 @@ intent: |
   A decision either way belongs in its own record, after the fixtures are fixed
   and it is clear what a reader of the file would actually be misled by.
 constraints:
-  - >-
-    A generated service follows the conventions and best practice of its
-    language and framework, as though nobody involved had heard of Sedum. A
-    template line that exists only because of how the harness runs is a defect.
-  - >-
-    A generator package is what a team would author who wanted a repeatable
-    template for new services. The test for any line is whether a team who had
-    never heard of Sedum would put it there.
-  - >-
-    The harness is neutral between the arms. It does not scaffold, boot or
-    assert in a way that depends on a choice one arm's package happens to make
-    and the other arm has no way to know.
-  - >-
-    Where a fixture and the harness disagree, the fixture is what an engineer
-    would build and the harness changes. The scaffold was chosen to accommodate
-    a template, which is the inversion this rule exists to forbid.
-  - >-
-    Both package sets change together. The description A/B is held to differing
-    only by descriptions, and a fix applied to one arm would make the pair
-    measure two things.
-  - >-
-    Implemented by imprint, one decision at a time. Each change is an argument
-    about what a team would write and is recorded as one.
-  - >-
-    An assertion tests what the record requires, never what a package happens to
-    emit. An assertion that only one arm can satisfy is measuring the fixture.
-  - >-
-    A boot probe does not depend on a path a generated file may legitimately
-    replace.
-
-    An earlier draft of this constraint also required the probe to prove the
-    service healthy rather than merely answering. That was wrong and is
-    withdrawn: waiting for a listener is the probe's whole job, and a service
-    that boots with a broken route should fail at verify, with the failing
-    assertion named, rather than at boot as an outcome that only says "broke".
-    See prov-2026-79e94e7c.
+  - A generated service follows the conventions and best practice of its language and framework, as though nobody involved had heard of Sedum. A template line that exists only because of how the harness runs is a defect.
+  - A generator package is what a team would author who wanted a repeatable template for new services. The test for any line is whether a team who had never heard of Sedum would put it there.
+  - The harness is neutral between the arms. It does not scaffold, boot or assert in a way that depends on a choice one arm's package happens to make and the other arm has no way to know.
+  - Where a fixture and the harness disagree, the fixture is what an engineer would build and the harness changes. The scaffold was chosen to accommodate a template, which is the inversion this rule exists to forbid.
+  - Both package sets change together. The description A/B is held to differing only by descriptions, and a fix applied to one arm would make the pair measure two things.
+  - Implemented by imprint, one decision at a time. Each change is an argument about what a team would write and is recorded as one.
+  - An assertion tests what the record requires, never what a package happens to emit. An assertion that only one arm can satisfy is measuring the fixture.
+  - |-
+    A boot probe does not depend on a path a generated file may legitimately replace.
+    An earlier draft of this constraint also required the probe to prove the service healthy rather than merely answering. That was wrong and is withdrawn: waiting for a listener is the probe's whole job, and a service that boots with a broken route should fail at verify, with the failing assertion named, rather than at boot as an outcome that only says "broke". See prov-2026-79e94e7c.
+  - The record authorizes test/fixtures/{table}.yml, because a Rails service's test data lives there and a record that forbids it forbids the framework's own convention.
+  - 'Attributes are one kwarg per value, never a single YAML blob, for the reason addColumn gives: a caller guessing at a convention the catalog cannot state produces a guess the template renders.'
+  - The fixture label is in the file template and the anchor sits inside it, so no attribute carries a label and no fixture depends on invocation order.
+  - The action template is written at the depth its anchor sits at, per prov-2026-df491217 - markers take the anchor's indentation and bodies do not.
+  - Both package sets change identically. The description A/B differs only by descriptions and a fix to one arm would make the pair measure two things.
+  - The existing test templates are untouched. Building a record in the test that needs one is idiomatic too, and rewriting them would change what the sedum arm is measured on rather than close this defect.
+  - Only the described set changes. The defined set's actions carry no kwarg descriptions and that is the variable under test.
+  - Every kwarg of every action in the described set carries a description. A set that describes all but one action is not the thing prov-2026-ac15ed2b built.
+  - The descriptions state the form and name the wrong form, matching the set's existing voice. A description that only restated the kwarg name would widen the catalog without varying what the arm measures.
+  - A literal kwarg's description says what the answer carries, not only what the rendered file carries. The two differ by quotation marks and that difference is the whole of the type rule.
+  - Only addFixtureAttribute's value changes. addColumn's default carries the same shape and has not been observed to fail, and editing it on suspicion would alter the described arm beyond the defect this record is about.
+  - The confounded entry stays. It is a true observation about a catalog that existed, and deleting a result because it is inconvenient is what append-only exists to prevent.
 affected_scope:
   - evals/**
+  - evals/testdata/todo-rails/**
+  - evals/behavior/targets/todo-rails/answer.json
+  - evals/cases/todo-rails-defined.yaml
+  - evals/cases/todo-rails-described.yaml
+  - evals/testdata/todo-rails/generators/described/rails/actions/actions.yaml
 forbidden_scope:
   - internal/**
   - cmd/**
 type: blueprint
 implements: prov-2026-b6059aa7
-supersedes: ""
-superseded_by: ""
+implements_version: 1
 related:
   - prov-2026-a4dbe65c
   - prov-2026-83340ba0
   - prov-2026-e6969eb3
   - prov-2026-090ab9c8
-sealed_at_sha: 935b5280ce2405369a7d3fb6c8c800839486f22e
+sealed_at_sha: 88aa94367145f882116951f3a9b6597033a9d316
 associated_specs:
   - path: evals/run_test.go
     run_command: go test -count=1 ./$(dirname {{path}})

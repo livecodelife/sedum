@@ -1,0 +1,18 @@
+{
+    "invocations": [
+        {
+            "action": "addImport",
+            "kwargs": {
+                "resource": "legacy",
+                "path": "net/http"
+            }
+        },
+        {
+            "action": "createHandler",
+            "kwargs": {
+                "resource": "legacy",
+                "verb": "get"
+            }
+        }
+    ]
+}

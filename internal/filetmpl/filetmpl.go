@@ -158,3 +158,20 @@ func order(a, b string) (string, string) {
 	}
 	return a, b
 }
+
+// Compare ranks two patterns by the specificity rules a package's own
+// templates are ranked by: negative when a is more specific, positive when b
+// is, zero when they tie. It is what lets two packages contesting an extension
+// be told apart by how closely each one's templates describe a path
+// (prov-2026-5403d162).
+func Compare(a, b string) (int, error) {
+	pa, err := parse(a)
+	if err != nil {
+		return 0, err
+	}
+	pb, err := parse(b)
+	if err != nil {
+		return 0, err
+	}
+	return compare(pa, pb), nil
+}

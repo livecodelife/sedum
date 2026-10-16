@@ -77,6 +77,11 @@ func TestGrowFlagSurface(t *testing.T) {
 		{"record", "", "string", ""},
 		{"execute", "", "string", ""},
 		{"dry-run", "", "bool", "false"},
+		{"force", "", "bool", "false"},
+		{"check", "", "bool", "false"},
+		{"prune-orphans", "", "bool", "false"},
+		{"stamp", "", "bool", "false"},
+		{"json", "", "bool", "false"},
 		{"stop-after", "", "string", ""},
 		{"retries", "", "int", "3"},
 		{"model", "", "string", ""},
@@ -104,6 +109,17 @@ func TestValidateFlagSurface(t *testing.T) {
 		{"generators", "", "string", ""},
 		{"package", "", "stringSlice", "[]"},
 		{"strict", "", "bool", "false"},
+	})
+}
+
+// sedum regions is read-only and needs no records (prov-2026-bf01cd6b).
+func TestRegionsFlagSurface(t *testing.T) {
+	assertFlags(t, "regions", []flagSpec{
+		{"generators", "", "string", ""},
+		{"output", "", "string", "."},
+		{"records", "", "string", ""},
+		{"record", "", "stringArray", "[]"},
+		{"json", "", "bool", "false"},
 	})
 }
 
@@ -287,7 +303,7 @@ func TestValidateReportsOnTheGeneratorsDirectory(t *testing.T) {
 	if err != nil {
 		t.Fatalf("validate on the fixture packages failed: %v\n%s", err, out)
 	}
-	for _, want := range []string{"3 package(s) loaded", "0 error(s)"} {
+	for _, want := range []string{"4 package(s) loaded", "0 error(s)"} {
 		if !strings.Contains(out, want) {
 			t.Errorf("validate output = %q, does not report %q", out, want)
 		}
@@ -308,7 +324,7 @@ func TestValidateFailsOnARejectedPackage(t *testing.T) {
 }
 
 func TestRootListsEverySubcommand(t *testing.T) {
-	want := map[string]bool{"grow": false, "validate": false, "resolve": false, "actions": false}
+	want := map[string]bool{"grow": false, "validate": false, "resolve": false, "actions": false, "regions": false}
 	for _, c := range NewRootCommand().Commands() {
 		if _, ok := want[c.Name()]; ok {
 			want[c.Name()] = true
@@ -624,5 +640,48 @@ func TestModelFlagsOverrideTheBundledDefault(t *testing.T) {
 				t.Errorf("the bundled default was consulted despite --local-model: %v", err)
 			}
 		})
+	}
+}
+
+// --check only reports, so every flag that writes, records, replays or forces a
+// selection is refused with it, naming both flags (prov-2026-9621daed).
+func TestCheckRefusesWhatContradictsIt(t *testing.T) {
+	for _, extra := range [][]string{
+		{"--execute", "rec.json"},
+		{"--record", "rec.json"},
+		{"--dry-run"},
+		{"--force"},
+		{"--stop-after", "files"},
+	} {
+		_, err := exec(t, growArgs(t, append([]string{"--check"}, extra...)...)...)
+		wantErr(t, err, "--check", extra[0])
+	}
+}
+
+// The re-render limit is stated where a user deciding whether to trust
+// --check or reach for --force will read it.
+func TestCheckAndForceHelpNameTheReRenderLimit(t *testing.T) {
+	cmd := findCommand(t, "grow")
+	for _, name := range []string{"check", "force"} {
+		usage := cmd.Flags().Lookup(name).Usage
+		for _, want := range []string{"verbatim", "default", "--var", "--force"} {
+			if !strings.Contains(usage, want) {
+				t.Errorf("--%s help does not mention %q: %s", name, want, usage)
+			}
+		}
+	}
+}
+
+// --stamp writes only missing hashes, so it refuses everything that selects,
+// replays, records or checks (prov-2026-cc73cf61).
+func TestStampRefusesWhatContradictsIt(t *testing.T) {
+	for _, extra := range [][]string{
+		{"--check"},
+		{"--execute", "rec.json"},
+		{"--record", "rec.json"},
+		{"--force"},
+	} {
+		_, err := exec(t, growArgs(t, append([]string{"--stamp"}, extra...)...)...)
+		wantErr(t, err, "--stamp", extra[0])
 	}
 }

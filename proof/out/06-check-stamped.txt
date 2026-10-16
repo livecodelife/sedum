@@ -1,0 +1,8 @@
+# grow-prep 12432f9
+$ sedum grow --check --generators generators --records provenance --log run.log
+
+current    prov-2026-aaaaaaaa
+current    prov-2026-bbbbbbbb
+
+2 current, 0 stale, 0 to re-render, 0 unknown
+[exit 0]

@@ -128,6 +128,28 @@ func provisionStep() []recording.Invocation {
 	}}
 }
 
+// cairnPkg returns the pkg hash the fixture package gives an action.
+//
+// A composite's regions carry their child's hash rather than the composite's,
+// because the marker names the child and re-rendering replays the child
+// (prov-2026-66bea9f3); the goldens below would fail if they carried the
+// composite's.
+func cairnPkg(t *testing.T, action string) string {
+	t.Helper()
+	set, _, err := genpkg.Load(writeTree(t, compositeGenerators()), genpkg.Options{})
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	pkg, ok := set.Lookup("cairn")
+	if !ok {
+		t.Fatal("fixture package cairn did not load")
+	}
+	if pkg.Actions[action].PkgHash == pkg.Actions["provisionStep"].PkgHash {
+		t.Fatalf("action %s hashes the same as its composite", action)
+	}
+	return pkg.Actions[action].PkgHash
+}
+
 func TestCompositeInjectsIntoBothFiles(t *testing.T) {
 	output, err := run(t, []string{manifestPath, sharedPath}, provisionStep())
 	if err != nil {
@@ -138,7 +160,7 @@ func TestCompositeInjectsIntoBothFiles(t *testing.T) {
 	// name rather than the composite's.
 	shared := readFile(t, output, sharedPath)
 	want := "shared Handle\n" +
-		`;; sedum:declareConstant {"tier":"owned","record":"prov-2026-aaaaaaaa","kwargs":{"name":"handle","unit":"user"}}` + "\n" +
+		`;; sedum:declareConstant {"tier":"owned","record":"prov-2026-aaaaaaaa","pkg":"` + cairnPkg(t, "declareConstant") + `","kwargs":{"name":"handle","unit":"user"}}` + "\n" +
 		"const HANDLE = \"users\"\n" +
 		";; /sedum:declareConstant\n"
 	if shared != want {
@@ -151,7 +173,7 @@ func TestCompositeInjectsIntoBothFiles(t *testing.T) {
 	want = "unit User\n" +
 		"\n" +
 		"  ;; sedum:anchor:steps\n" +
-		`  ;; sedum:addStep {"tier":"owned","record":"prov-2026-aaaaaaaa","kwargs":{"step":"build","unit":"user"}}` + "\n" +
+		`  ;; sedum:addStep {"tier":"owned","record":"prov-2026-aaaaaaaa","pkg":"` + cairnPkg(t, "addStep") + `","kwargs":{"step":"build","unit":"user"}}` + "\n" +
 		"  step builds\n" +
 		"    for User\n" +
 		"  end\n" +

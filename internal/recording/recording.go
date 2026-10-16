@@ -57,9 +57,21 @@ type Package struct {
 
 // Record is one provenance record's contribution to a run.
 type Record struct {
-	RecordID string  `json:"record_id"`
-	Files    []File  `json:"files"`
-	Phases   []Phase `json:"phases"`
+	RecordID string `json:"record_id"`
+	// Gen is the gen_hash of the record version these invocations were
+	// selected from, so replay can write the same gen on every marker that the
+	// run it recorded did (prov-2026-b9298192). It is deterministic in the
+	// record's content, so it is not a volatile field. Additive and omitted
+	// when empty: a recording without it reads exactly as before, and replay
+	// then takes gen from --records, or writes none.
+	Gen string `json:"gen,omitempty"`
+	// CreatedAt is the record's creation date, which orders owners at a shared
+	// anchor. Recorded so that replay without --records lays a shared anchor
+	// out exactly as the grow it recorded did (prov-2026-43b7ec39). Optional
+	// and omitted when empty, like gen.
+	CreatedAt string  `json:"created_at,omitempty"`
+	Files     []File  `json:"files"`
+	Phases    []Phase `json:"phases"`
 }
 
 // File is one authorized path with the resolution decided for it: which package

@@ -1,0 +1,72 @@
+id: prov-2026-5f1e4f0a
+version: 1
+content_hash: sha256:134dceeb4090c0779a06952b4775dda2d3253b4b9885e2e92469829c8d3c04a6
+parent_hash: ""
+reason: ""
+author: calebcowen@gmail.com
+created_at: "2026-10-16T00:39:36Z"
+spec_hashes:
+  - sha256:8c06db6ed04bf0f2ff7892bf9722f84466f51ec0e8240590cce416a7e4d147a2
+content:
+  id: prov-2026-5f1e4f0a
+  title: sedum reads records through the shared provenance record library
+  type: blueprint
+  created_at: "2026-10-15"
+  author: calebcowen@gmail.com
+  intent: |
+    DESIGN.md ("Products, repos and CLIs"): sedum replaces its own lenient record
+    decoder with the shared record library, github.com/livecodelife/provenance/
+    record, which gen_hash already comes from (prov-2026-dac49f78). One
+    definition of a record means v1 and v2 files, aliases and implements are
+    read the same way by every tool, and a schema change lands in sedum by
+    re-syncing the library rather than by editing a second decoder.
+
+    ## What sedum takes from the library
+
+    internal/record decodes each file with record.Decode, which reads v1 and v2
+    (a top-level version key means v2), and fills sedum's Record from the
+    library's: id, intent, constraints, affected_scope, forbidden_scope,
+    created_at, aliases, status (only "deprecated" is acted on,
+    prov-2026-cc73cf61), type and implements. gen_hash is computed from the
+    library's own fields. Type and implements are carried for DESIGN's "only
+    imprints grow regions" and for reporting; nothing in this blueprint acts on
+    them.
+
+    ## The leniency sedum keeps, and why
+
+    prov-2026-dad4d877 decided that a record decodes leniently because sedum
+    does not own the record schema: a field sedum does not read must never fail
+    a run, and a malformed value in a field it does read must. The library is
+    stricter by design - it is the schema's owner - and rejects a malformed
+    value in any field it models: probed against it, `monitors: 5` or
+    `status: [a]` fails Decode even though sedum reads neither.
+
+    So sedum projects each file onto the keys it reads before handing it to the
+    library: id, version (which decides the schema), created_at, status,
+    aliases, type, implements, intent, constraints, affected_scope,
+    forbidden_scope. A malformed value in one of those is the library's error,
+    named with the file; anything else in the file - unknown keys and
+    malformed values in unread fields alike - is not seen. sedum keeps its own
+    check that a record has an id, since the library accepts a file without
+    one. Nothing else of the old decoder survives.
+
+    (An alternative is a library function decoding a named subset of keys; the
+    projection keeps this change inside sedum and can move into the library
+    later without changing behaviour.)
+  constraints:
+    - Decoding of every field sedum reads is the library's; sedum adds only the projection and the id check.
+    - A malformed value in a field sedum does not read never fails a run; a malformed value in one it reads always does, naming the file (prov-2026-dad4d877).
+    - v1 and v2 records ingest identically for sedum's purposes; a v2 record's version, reason and snapshots are not sedum's business.
+    - gen_hash values do not change for any existing record; a test pins that against the shared corpus's worked example and against this repository's own records.
+    - The PRD's record-ingestion description says what is decoded by the library and which leniency remains, citing this record.
+  affected_scope:
+    - internal/record/record.go
+    - internal/record/*_test.go
+    - internal/genhash/*.go
+    - PRD.md
+  related:
+    - prov-2026-dad4d877
+    - prov-2026-dac49f78
+    - prov-2026-cc73cf61
+  associated_specs:
+    - path: internal/record/realrepos_test.go

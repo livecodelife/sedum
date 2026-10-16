@@ -1,0 +1,5 @@
+# grow-prep 12432f9
+$ sedum grow --generators generators --records provenance --model stub --log run.log --only prov-2026-cccccccc
+
+sedum: file app/controllers/users_controller.rb: record prov-2026-cccccccc selected addBeforeFilter, which record prov-2026-aaaaaaaa owns (identity {"controller":"users","filter":"authenticate"}); revise prov-2026-aaaaaaaa, or change prov-2026-cccccccc's selection
+[exit 1]

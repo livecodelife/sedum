@@ -1,0 +1,144 @@
+id: prov-2026-5403d162
+version: 1
+content_hash: sha256:03ad01707a1892f9b79bee67d604bc1392740446a5a78976a01332181aec7c3a
+parent_hash: ""
+reason: ""
+author: calebcowen@gmail.com
+created_at: "2026-10-16T00:15:56Z"
+spec_hashes:
+  - sha256:df5b2080cfa3ef4aa3ba92f63c051f93a8d80a0a3c490fa77f5e0127c89ae1b7
+  - sha256:24324f27243efe1f97215d586202c0ec16864b87200628c890ca1dd4de306d16
+content:
+  id: prov-2026-5403d162
+  title: A generic go generator package grows one-off Go code through literal-code actions
+  type: blueprint
+  created_at: "2026-10-15"
+  author: calebcowen@gmail.com
+  intent: |
+    Caleb's generate-first rule (#provisio, 2026-10-15): one-off code is grown
+    too, through broad actions whose body is a literal-code kwarg, so even logic
+    no narrow generator expresses is owned by a record, hashed, regenerated and
+    pruned like everything else. This blueprint adds the first such package, for
+    Go, and the two core changes it needs.
+
+    ## The package: generators/go
+
+    Shipped under testdata/generators/go as a reference package, the way chi is.
+
+    Actions, each targeting the file named by its `file` kwarg (the target-as-
+    kwarg form addImportTo already uses), with identity declared so editing a
+    body replaces the region in place:
+
+    | action      | kwargs                         | identity              | anchor  |
+    | setFunction | file, name, code (literal)     | file, name            | decls   |
+    | setMethod   | file, receiver, name, code     | file, receiver, name  | decls   |
+    | setType     | file, name, code               | file, name            | decls   |
+    | setVar      | file, name, code               | file, name            | decls   |
+    | setConst    | file, name, code               | file, name            | decls   |
+    | addImport   | file, path (quoted with quote) | file, path            | imports |
+
+    `code` is the whole declaration, signature included: the model writes Go,
+    Sedum does not template it. Every kwarg is required; no optional kwargs, so
+    nothing invites the model to fill what nobody asked for (prov-cli's finding).
+    Declaration templates end in a blank line so the closing marker passes gofmt
+    (prov-2026-ab24df5a).
+
+    File templates plant two top-level anchors, `// sedum:anchor:imports` and
+    `// sedum:anchor:decls`, with the package clause from the path:
+    `cmd/{bin}/{name}.go` is package main; `{pkg}/{name}.go`,
+    `*/{pkg}/{name}.go` and `*/*/{pkg}/{name}.go` take the directory. A file at
+    the module root has no template (its package name is not in its path) and
+    is reported as unmatched, as any path is today. An existing hand-written
+    file is reconciled with the template as Phase 3 already does
+    (prov-2026-4c49ca46): the anchors are added, or the run halts naming the
+    line; a reconciliation that leaves the file invalid is caught by the syntax
+    check below.
+
+    addImport writes one `import "path"` declaration per region rather than a
+    line inside an `import ( )` block: gofmt indents a comment inside a block
+    differently depending on whether the block holds any import, so no marker
+    layout inside a block is gofmt-clean both before and after the first import.
+    Separate import declarations, each template ending in a blank line, are
+    clean in every state (checked against gofmt before this was written).
+
+    ## Core change 1: two packages claiming .go
+
+    Today a contested extension needs a run-wide --lang, which cannot serve a
+    record touching both cobra-shaped command files and plain Go logic.
+    Resolution gains a tie-break before the --lang rule: among the packages
+    claiming the extension, the one with a file template matching the path more
+    specifically than any other package's wins (the existing specificity
+    ranking, applied across packages); a tie, or matches only by equally general
+    templates, still needs --lang. cobra's cmd/{bin}/{name}_cmd.go therefore
+    wins its files and go's general templates win the rest. A package's
+    unmanaged entries still bind every package, so cobra must stop declaring
+    hand-written run files unmanaged once go grows them.
+
+    ## Core change 2: generated Go must parse and be gofmt-clean
+
+    provisio-mgr asked that validation reject a region unless it parses and
+    gofmts cleanly, so model-written Go can never land broken. That is the
+    first check in Sedum that understands a target language, which the PRD's
+    load-bearing principle ("Sedum's core contains no language-specific
+    knowledge") rules out as written.
+
+    Decided (provisio-mgr, #provisio 2026-10-15): a closed, built-in registry of
+    syntax checkers, keyed by a package's `syntax:` key in sedum.yaml, opted
+    into per package. One member for now, `go`, implemented with the Go
+    standard library only (go/format). Rejected: a package-declared formatter
+    command, because it lets a generator package run an executable on every
+    grow, breaking DESIGN's rule that nothing from a copied or shared source runs
+    automatically.
+
+    PRD amendment, recorded here: the principle becomes "Sedum's pipeline
+    contains no language-specific knowledge; target-language checks live only
+    in the syntax registry, are named, opt-in per package, ship with Sedum, and
+    run no external program." The pipeline asks the registry by name and never
+    branches on a language itself.
+
+    Either way the check runs twice: in Phase 5, applying the record's
+    invocations to its files in memory, so a failure re-prompts the model with
+    the parse error or the gofmt form of its code (within the existing retry
+    budget); and in Phase 7 before writing, as a guard, failing the run
+    all-or-nothing. A file the check rejects is never written.
+  constraints:
+    - Every action's kwargs are required and declare their identity; code is a literal kwarg holding a whole declaration.
+    - Import paths reach the file only through quote (prov-2026-f63c340a).
+    - Generated files, including every region the package can write, pass gofmt with no diff and parse; the package's tests prove it by replaying each action and checking with go/format.
+    - Cross-package resolution picks the package whose file template matches most specifically; a tie or general-only match still needs --lang, and --lang still overrides.
+    - The syntax registry is a closed set compiled into Sedum; an unknown `syntax:` value rejects the package at load. The go checker uses only the standard library and runs no external program.
+    - The syntax check runs in Phase 5 with re-prompting and in Phase 7 as an all-or-nothing guard, on every file a package with `syntax:` touches; it applies only to packages that opt in.
+    - No change to markers, hashes or recordings; pkg covers the new package's templates as any other.
+    - The PRD records the decision on core language knowledge, the cross-package tie-break, and the go package as a reference.
+  affected_scope:
+    - testdata/generators/go/**
+    - internal/resolve/resolve.go
+    - internal/resolve/*_test.go
+    - internal/genpkg/schema.go
+    - internal/genpkg/load.go
+    - internal/genpkg/validate.go
+    - internal/genpkg/*_test.go
+    - internal/genpkg/diag.go
+    - internal/expand/*.go
+    - internal/filetmpl/*.go
+    - conformance/README.md
+    - internal/syntax/*.go
+    - internal/selection/selection.go
+    - internal/selection/syntax.go
+    - internal/selection/*_test.go
+    - internal/inject/inject.go
+    - internal/inject/*_test.go
+    - internal/pipeline/pipeline.go
+    - internal/pipeline/replay.go
+    - internal/pipeline/orphans.go
+    - internal/pipeline/classify.go
+    - internal/pipeline/*_test.go
+    - internal/cli/*_test.go
+    - PRD.md
+  related:
+    - prov-2026-f63c340a
+    - prov-2026-ab24df5a
+    - prov-2026-4c49ca46
+  associated_specs:
+    - path: internal/syntax/syntax_test.go
+    - path: internal/pipeline/gopkg_test.go

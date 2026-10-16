@@ -1,8 +1,12 @@
 id: prov-2026-14c832bf
 title: An action's target may be a kwarg, and the constraint against choosing paths is scoped to pattern targets
 status: implemented
+version: 2
+reason: 'Supersedes prov-2026-1bbb8e2e: An action''s target may be a kwarg, and the constraint against choosing paths is scoped to pattern targets'
 created_at: "2026-08-14"
 author: calebcowen@gmail.com
+aliases:
+  - prov-2026-1bbb8e2e
 intent: |
   [[prov-2026-1bbb8e2e]] put each action's injects_into pattern in the catalog and
   wrote four constraints around it. Three of them are untouched here. The third
@@ -286,8 +290,7 @@ affected_scope:
 forbidden_scope: []
 type: imprint
 implements: prov-2026-f095e19f
-supersedes: prov-2026-1bbb8e2e
-superseded_by: ""
+implements_version: 1
 related:
   - prov-2026-6d87dc11
   - prov-2026-a9e59197

@@ -12,6 +12,7 @@ import (
 	"github.com/livecodelife/sedum/internal/filetmpl"
 	"github.com/livecodelife/sedum/internal/pathpat"
 	"github.com/livecodelife/sedum/internal/render"
+	"github.com/livecodelife/sedum/internal/syntax"
 )
 
 // The load-time checks. Each one reports every instance it finds rather than
@@ -763,4 +764,28 @@ func captureNames(pattern string) []string {
 		out = append(out, m[1])
 	}
 	return out
+}
+
+// checkSyntax rejects a syntax: value the closed registry does not hold.
+func checkSyntax(pkg *Package, r *reporter) {
+	if pkg.Syntax == "" {
+		return
+	}
+	if _, ok := syntax.Lookup(pkg.Syntax); !ok {
+		r.errorf(manifestFile, RuleSyntaxUnknown,
+			"syntax %q is not a checker Sedum ships; the registry holds %s",
+			pkg.Syntax, strings.Join(syntax.Names(), ", "))
+	}
+}
+
+// checkOptionalAnchors rejects an optional_anchors entry no file template in
+// the package plants.
+func checkOptionalAnchors(pkg *Package, fileTemplates []string, r *reporter) {
+	planted := plantedMarkers(pkg.Comment(), fileTemplates)
+	for _, name := range pkg.OptionalAnchors {
+		if !planted[name] {
+			r.errorf(manifestFile, RuleOptionalAnchorUnplanted,
+				"optional_anchors names %q, which no file template in this package plants", name)
+		}
+	}
 }
