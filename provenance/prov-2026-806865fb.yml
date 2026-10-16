@@ -1,0 +1,25 @@
+id: prov-2026-806865fb
+title: validate warns when generators/ holds Go templates and no go.mod
+type: imprint
+status: implemented
+version: 2
+reason: tests grown into the placeholder spec file
+created_at: "2026-10-16"
+author: calebcowen@gmail.com
+intent: |
+  Implements prov-2026-1da47b75, behaviour 4. New file internal/genpkg/gomod.go holds `checkGoModBoundary(dir string) Findings`: it walks the generators directory dir; if any regular file whose name ends in ".go" exists anywhere below it and dir/go.mod does not exist, it returns one Finding (Kind KindWarning, Rule RuleGoModMissing, Package filepath.Base(dir), File empty) with the message: `holds Go template files but has no go.mod, so go build/test ./... will try to compile them; run `sedum generators install` or add a go.mod with `module generators``. Otherwise it returns nil. A directory that cannot be read yields no finding (loading reports that on its own). RuleGoModMissing = "generators_go_mod_missing" is already declared in diag.go (hand-written, with the call in Load). Tests in internal/genpkg/gomod_test.go (package genpkg, t.TempDir fixtures): templates present and no go.mod -> exactly one warning with that rule and the message; with go.mod -> nil; no .go files at all (only yaml/rb templates) -> nil; a .go file nested several levels down is found; a go.mod in a subdirectory only (not at dir) still warns; an unreadable or missing dir -> nil. Grown via sedum-haiku (setFunction, tests).
+constraints: []
+affected_scope:
+  - internal/genpkg/gomod.go
+  - internal/genpkg/gomod_test.go
+forbidden_scope: []
+implements: prov-2026-1da47b75
+implements_version: 1
+related: []
+sealed_at_sha: f4feb5d9a6d617540ad4b500327963a3a51e00d5
+associated_specs:
+  - path: internal/genpkg/gomod_test.go
+    run_command: go test ./internal/genpkg -count=1
+associated_traces: []
+monitors: []
+tags: []

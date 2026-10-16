@@ -62,6 +62,11 @@ const (
 
 	RuleActionNameReserved = "action_name_reserved"
 
+	// RuleGoModMissing names a generators directory that holds Go template
+	// files with no go.mod beside them, so the user's own go build/test ./...
+	// would try to compile the templates (prov-2026-1da47b75).
+	RuleGoModMissing = "generators_go_mod_missing"
+
 	RuleAnchorUnplanted       = "anchor_marker_unplanted"
 	RuleMarkerUnfilled        = "anchor_marker_unfilled"
 	RuleAnchorPatternLineMode = "anchor_pattern_line_mode"

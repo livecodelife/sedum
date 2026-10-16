@@ -118,6 +118,10 @@ func Load(dir string, opts Options) (*Set, Findings, error) {
 		set.Packages = append(set.Packages, pkg)
 	}
 
+	// The directory as a whole, not any one package: a go.mod beside the
+	// packages keeps the user's go build/test ./... off the templates.
+	findings = append(findings, checkGoModBoundary(dir)...)
+
 	sort.Slice(set.Packages, func(i, j int) bool { return set.Packages[i].Name < set.Packages[j].Name })
 	for _, p := range set.Packages {
 		for _, ext := range p.Extensions {

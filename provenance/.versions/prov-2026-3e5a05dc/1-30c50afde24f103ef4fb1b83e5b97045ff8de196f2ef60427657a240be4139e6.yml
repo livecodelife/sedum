@@ -1,0 +1,29 @@
+id: prov-2026-3e5a05dc
+version: 1
+content_hash: sha256:30c50afde24f103ef4fb1b83e5b97045ff8de196f2ef60427657a240be4139e6
+parent_hash: ""
+reason: ""
+author: calebcowen@gmail.com
+created_at: "2026-10-16T10:22:50Z"
+spec_hashes:
+  - sha256:55feb8da8d74ead61adcf05dfbc90d4ec717e9510e8f14e0e89bf1e838d3bd23
+content:
+  id: prov-2026-3e5a05dc
+  title: 'sedum generators install: plan, safety checks, apply'
+  type: imprint
+  created_at: "2026-10-16"
+  author: calebcowen@gmail.com
+  intent: |
+    Implements prov-2026-1da47b75, behaviours 1-3: `sedum generators install`. New file internal/cli/generators.go (package cli) holds `newGeneratorsCommand() *cobra.Command` (a `generators` command with one subcommand, `install <pkg>...`, flags --dir (default "generators"), --from, --force, --dry-run; registration in root.go is hand-written) and the logic as unexported functions so tests drive them directly:
+    - `type installOptions struct{ Dir, From string; Force, DryRun bool }`
+    - `type installEntry struct{ Path string; Status string; Data []byte }` with Status one of "create", "identical", "differs"
+    - `planInstall(names []string, opts installOptions) ([]installEntry, error)`: validates each name (empty, ".", "..", or containing "/" or "\" or a NUL is `invalid package name %q`; this is the path-escape guard), loads the files (opts.From == "" -> internal/builtin Files(name), whose unknown-name error is wrapped with the hint `use --from <dir> for a package that is not built in`; otherwise the directory filepath.Join(opts.From, name), walked recursively, regular files only, error if it is not a directory), refuses any relative file path that is not filepath.IsLocal, and returns an entry per file with Path = filepath.Join(opts.Dir, name, rel) and Status from comparing the bytes already on disk.
+    - `applyInstall(out io.Writer, names []string, opts installOptions) error`: plans, prints the plan first, one line per entry `create <path>` / `identical <path>` / `differs <path>`, then one go.mod line (`create <dir>/go.mod` or `exists <dir>/go.mod (left as it is)`); in dry-run mode prints `dry run: nothing written` and returns nil having written nothing; if any entry differs and Force is false it writes NOTHING and returns an error naming up to the first five differing paths and saying to rerun with --force; otherwise it writes the create entries and (with Force) the differs entries, mode 0o644 with MkdirAll 0o755, writes <dir>/go.mod only when it does not exist, with exactly this content: "// Generator packages hold templates, not Go code. This module boundary keeps\n// the enclosing module's ./... from compiling them.\nmodule generators\n\ngo 1.21\n", never deletes or touches any other file, and ends with `installed N file(s) into <dir> (I identical, O overwritten)`.
+    Tests in internal/cli/generators_test.go (package cli; use the existing helper `exec(t, args...) (string, error)` from flags_test.go to drive the real command, and t.TempDir): installing "go" writes <dir>/go/sedum.yaml and <dir>/go.mod and the result loads as a valid package set; a second install is all `identical` and writes nothing new; the plan lines come before the summary in the output; a differing existing file is refused with nothing written (check another created file is absent) and --force overwrites only the differing file and leaves an extra file in the target alone; an existing go.mod is never overwritten; path-escape names ("../evil", "a/b", "..", ".", "") are rejected and NOTHING is created outside --dir (compare the temp tree before and after); --dry-run writes nothing at all (tree unchanged) but prints the plan; an unknown built-in name errors with the --from hint; --from copies another package from a directory, including nested files; --from pointing at a missing package directory errors. Grown via sedum-haiku (setType, setFunction, tests).
+  affected_scope:
+    - internal/cli/generators.go
+    - internal/cli/generators_test.go
+  implements: prov-2026-1da47b75
+  implements_version: 2
+  associated_specs:
+    - path: internal/cli/generators_test.go

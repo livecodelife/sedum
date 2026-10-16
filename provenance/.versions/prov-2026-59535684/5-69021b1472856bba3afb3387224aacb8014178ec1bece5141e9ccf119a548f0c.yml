@@ -1,12 +1,12 @@
 id: prov-2026-59535684
 version: 5
-content_hash: sha256:81fb4d2c357c0c04d9bf0db9b9bc82b57da090841c54a1feb4345c51a7067a6b
-parent_hash: sha256:768c777b238ca1b7ed0668ab3a822480ca1f0f1d613c16aff002accb8558c0c8
-reason: merge main (#7) into gen-errors
+content_hash: sha256:69021b1472856bba3afb3387224aacb8014178ec1bece5141e9ccf119a548f0c
+parent_hash: sha256:a98fa6f174e590ea6b3aeb5727f080a5cf10c5b5b12cf9b354d4f81fcacd7435
+reason: merge gen-errors into generators-install
 author: calebcowen@gmail.com
-created_at: "2026-10-16T13:49:51Z"
+created_at: "2026-10-16T13:24:23Z"
 spec_hashes:
-  - sha256:bf4ae4f592fb8a266afcefac7c99ec9d22916c29b891c2378f818a8c6d9879ce
+  - sha256:d4788e5d8bb0a7d4b40ee2f98231d4c5cc57b14f1fb01fc05394803402044f83
   - sha256:023599c8198a8cfe80d04408eaf3d2e3a685face80d4fefcabcc468c1e866003
 content:
   id: prov-2026-59535684
