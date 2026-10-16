@@ -28,6 +28,7 @@ intent: |-
 constraints:
   - The shared .git/hooks stay v1 until the PR merges; main's core.hooksPath is never set.
   - Undo at merge is the three commands in the intent.
+  - The proof spec is .provenance.yml, which no lifecycle commit rewrites.
 affected_scope:
   - .provenance.yml
 forbidden_scope: []
@@ -36,7 +37,7 @@ implements_version: 2
 related: []
 sealed_at_sha: ""
 associated_specs:
-  - path: .provenance/versions.jsonl
+  - path: .provenance.yml
     run_command: test -s {{path}}
 associated_traces: []
 monitors: []
