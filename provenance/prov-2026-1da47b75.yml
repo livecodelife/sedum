@@ -1,7 +1,7 @@
 id: prov-2026-1da47b75
 title: sedum generators install vendors a package with a go.mod boundary
 type: blueprint
-status: open
+status: implemented
 version: 3
 reason: 'built-in package travels as a generated zip: go:embed rejects the * directories; embed var hand-written'
 created_at: "2026-10-16"
@@ -38,7 +38,7 @@ affected_scope:
   - PRD.md
 forbidden_scope: []
 related: []
-sealed_at_sha: ""
+sealed_at_sha: cffd54f17cbd89747ec22e74028659cbc62ac564
 associated_specs:
   - path: internal/builtin/builtin_test.go
     run_command: go test ./internal/builtin -count=1
