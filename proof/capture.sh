@@ -53,6 +53,15 @@ record() { # record <id> <created_at> <intent> [extra yaml]
 record prov-2026-aaaaaaaa 2026-10-01 "Authenticate every request."
 record prov-2026-bbbbbbbb 2026-10-02 "Log every request."
 
+# scrub keeps captured output machine-neutral: the repository is <repo>, the
+# real-repos workspace is $PROVENANCE_REAL_REPOS, and temporary directories
+# are <tmp>.
+scrub() {
+	sed -e "s#$T/##g" -e "s#$ROOT#<repo>#g" \
+		-e "s#${PROVENANCE_REAL_REPOS:-/nonexistent}#\$PROVENANCE_REAL_REPOS#g" \
+		-e 's#/var/folders/[^ ]*#<tmp>#g' -e 's#/tmp/[^ ]*#<tmp>#g'
+}
+
 LAST_EXIT=0
 capture() { # capture <name> <args...>: run in the work dir, write the output file
 	local name=$1; shift
@@ -62,9 +71,9 @@ capture() { # capture <name> <args...>: run in the work dir, write the output fi
 	set -e
 	{
 		echo "# grow-prep $COMMIT"
-		echo "\$ ${*/#$SEDUM/sedum}" | sed "s#$T/##g"
+		echo "\$ ${*/#$SEDUM/sedum}" | scrub
 		echo
-		sed "s#$T/##g" "$T/last.out"
+		scrub <"$T/last.out"
 		echo "[exit $LAST_EXIT]"
 	} >"$OUT/$name.txt"
 }
