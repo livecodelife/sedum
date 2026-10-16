@@ -89,3 +89,24 @@ package runlog (internal/runlog): func Discard() *Log
 - Coverage: span texts concatenated in order equal the file byte for byte.
 - v1 policy: a file with a residual span that is not all whitespace is skipped, never partly written.
 - No model call anywhere. No external program except a command adopter the user allowed.
+
+## When growing internal/genpkg/adopt.go and adopt_test.go (package genpkg, not adopt)
+
+These files are in package `genpkg`. Already present and hand-written: manifest has
+`Adopt *Adopt `yaml:"adopt"``, Package has `Adopt *Adopt`, and load.go calls
+`checkAdopt(pkg, r)` after checkTestPaths. So adopt.go defines `type Adopt`, the
+rule constant and `checkAdopt`. Helpers you must use (exact):
+    type reporter struct{...}
+    func (r *reporter) errorf(file, rule, format string, args ...any)
+    const manifestFile = "sedum.yaml"
+    // diag rule constants are plain strings, e.g. RuleTestPathsInvalid = "test_paths_invalid"
+    type Package struct { Name string; Actions map[string]*Action; Adopt *Adopt; ... }
+    type Action struct { Name string; Kwargs map[string]Kwarg; ... }
+    type Kwarg struct { Type string; Required bool; Description string }
+Test helpers in genpkg_test.go (same package): validPackage() map[string]string (a rails
+package: sedum.yaml, files, actions; actions are createControllerMethod and others),
+mutated(map[string]*string) map[string]string, text(s string) *string,
+loadTree(t, files) (*Set, Findings), findingFor(t, findings, rule) Finding.
+A test mutates "rails/sedum.yaml" with text(`name: rails\nextensions: [".rb"]\ncomment_prefix: "#"\n...`)
+(see testpaths_test.go for the exact shape; the transforms block it carries must be kept).
+Set.Packages[0] is the loaded package. Findings have .Rule and .Message.
