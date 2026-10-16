@@ -1,5 +1,5 @@
-# grow-prep 12432f9
-$ sedum grow --check --generators generators --records provenance --log run.log
+# grow-prep f7b8da4
+$ sedum grow --check --orphans --generators generators --records provenance --log run.log
 
 current    prov-2026-aaaaaaaa
 

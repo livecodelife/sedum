@@ -37,6 +37,10 @@ type GrowConfig struct {
 	// files some current record authorizes (prov-2026-cc73cf61).
 	PruneOrphans bool
 
+	// ListOrphans prints every orphan region in place of the summary
+	// (prov-2026-3f83335f).
+	ListOrphans bool
+
 	// Stamp writes a missing gen or pkg onto markers whose record exists, and
 	// nothing else (prov-2026-cc73cf61).
 	Stamp bool
