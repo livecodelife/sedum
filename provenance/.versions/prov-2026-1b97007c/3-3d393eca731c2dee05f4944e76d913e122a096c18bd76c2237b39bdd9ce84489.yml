@@ -1,0 +1,39 @@
+id: prov-2026-1b97007c
+version: 3
+content_hash: sha256:3d393eca731c2dee05f4944e76d913e122a096c18bd76c2237b39bdd9ce84489
+parent_hash: sha256:696d045ecc9a9097d84a9c2e46d64835e5202ea3265d32dc856d52d10c710635
+reason: 'stage 2: the builtin adopter form'
+author: calebcowen@gmail.com
+created_at: "2026-10-16T22:36:29Z"
+spec_hashes:
+  - sha256:25cacbcff0806f1fa9da580fe47eb04e40fbcd5b51dfd49bab37a61e612b3bb3
+  - sha256:0e045e0e8dd17e09290477bc2dd1a58487f8e54782d9bc837b8277b402e5091f
+content:
+  id: prov-2026-1b97007c
+  title: 'adopt: choosing the adopter form for a package'
+  type: imprint
+  created_at: "2026-10-16"
+  author: calebcowen@gmail.com
+  intent: |-
+    Implements prov-2026-95d9ae7e: choosing the adopter form for a package. New file internal/adopt/forpackage.go (package adopt). Span, Kind, Adopter, CommandAdopter (field Argv []string, method String()) exist in span.go and command.go; NewDeclarative(pkg *genpkg.Package) (*Declarative, error) exists in declarative.go and *Declarative implements Adopter; genpkg.Package has Name string and Adopt *genpkg.Adopt whose Command []string is set for the command form.
+    - `func ForPackage(pkg *genpkg.Package, allowCommand bool) (Adopter, error)`: nil Adopt is an error `package <name> declares no adopter`; a `command` adopter returns a CommandAdopter{Argv: pkg.Adopt.Command} when allowCommand, otherwise the error `package <name> declares a command adopter (<command line>); rerun with --allow-command-adopters to run it`; a declarative one returns NewDeclarative(pkg).
+    Tests in forpackage_test.go, each its OWN setFunction invocation: TestForPackageDeclarative (a genpkg.Package literal with Adopt{UnitStart: `^(?P<kind>def) (?P<name>\w+)`, UnitEnd: "dedent", Actions: {"def": "setFunction"}} and an Actions map holding setFunction; ForPackage returns a *Declarative); TestForPackageCommandNeedsPermission (exact error text `package py declares a command adopter (splitter -x); rerun with --allow-command-adopters to run it`); TestForPackageCommandAllowed (returns CommandAdopter whose Argv equals the command); TestForPackageNoAdopter (exact error text `package py declares no adopter`).
+
+    Stage 2 (prov-2026-36809902): the built-in form. genpkg.Adopt has a field `Builtin string`. In forpackage.go add, documented, `var builtinAdopters = map[string]func() Adopter{"go": func() Adopter { return GoAdopter{} }}` (GoAdopter is in goadopter.go), and in ForPackage, right after the nil-Adopt check and before the command branch, add exactly:
+    	if name := pkg.Adopt.Builtin; name != "" {
+    		mk, ok := builtinAdopters[name]
+    		if !ok {
+    			return nil, fmt.Errorf("package %s names the built-in adopter %q, which this sedum does not have", pkg.Name, name)
+    		}
+    		return mk(), nil
+    	}
+    A built-in adopter needs no allowCommand. Its doc comment now says so. New tests go in the NEW file forpackage_builtin_test.go (package adopt; imports strings and testing and github.com/livecodelife/sedum/internal/genpkg), each its OWN setFunction: TestForPackageBuiltinGo (pkg := &genpkg.Package{Name: "go", Adopt: &genpkg.Adopt{Builtin: "go"}}; ForPackage(pkg, false) returns no error and a value whose type is GoAdopter, checked with `if _, ok := ad.(GoAdopter); !ok`) and TestForPackageBuiltinUnknown (Builtin "cobol": the error contains "does not have").
+  affected_scope:
+    - internal/adopt/forpackage.go
+    - internal/adopt/forpackage_test.go
+    - internal/adopt/forpackage_builtin_test.go
+  implements: prov-2026-95d9ae7e
+  implements_version: 2
+  associated_specs:
+    - path: internal/adopt/forpackage_test.go
+    - path: internal/adopt/forpackage_builtin_test.go

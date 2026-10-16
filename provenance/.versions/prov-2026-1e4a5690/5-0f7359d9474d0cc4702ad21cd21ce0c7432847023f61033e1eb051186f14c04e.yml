@@ -1,0 +1,22 @@
+id: prov-2026-1e4a5690
+version: 5
+content_hash: sha256:0f7359d9474d0cc4702ad21cd21ce0c7432847023f61033e1eb051186f14c04e
+parent_hash: sha256:f83a1353f7b7d7c83308b11b17834dfade904d2785374db7aeb20b0caaba18e0
+reason: 'revert: header kwargs are not needed; a file''s package comes from its path'
+author: calebcowen@gmail.com
+created_at: "2026-10-16T22:42:02Z"
+spec_hashes:
+  - sha256:69b557976b8cf1a0a4320efb9c2f160e66fda007523d95c975a87de3099c34a8
+content:
+  id: prov-2026-1e4a5690
+  title: 'adopt: the recording builder'
+  type: imprint
+  created_at: "2026-10-16"
+  author: calebcowen@gmail.com
+  affected_scope:
+    - internal/adopt/build.go
+    - internal/adopt/build_test.go
+  implements: prov-2026-95d9ae7e
+  implements_version: 2
+  associated_specs:
+    - path: internal/adopt/build_test.go

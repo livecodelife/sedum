@@ -2,8 +2,10 @@
 
 Module: github.com/livecodelife/sedum. Package `adopt` (internal/adopt) is the
 language-agnostic core of `sedum adopt`: it brings existing files under Sedum
-without a model. It contains NO language knowledge: no go/parser, no gofmt, no
-regex that mentions a language. Standard library only, plus the internal
+without a model. It contains NO language knowledge, with one exception: the
+built-in Go adopter in goadopter.go (go/parser, go/format), which transcribes
+the code in its record's intent exactly. Everywhere else: no go/parser, no
+gofmt, no regex that mentions a language. Standard library only, plus the internal
 packages listed below. Return errors wrapped with fmt.Errorf("...: %w", err).
 Never panic. Every exported identifier has a doc comment. All code must be
 gofmt-clean. Tests are table-driven, use t.TempDir(), and never run git.

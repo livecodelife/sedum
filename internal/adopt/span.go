@@ -88,14 +88,18 @@ func Coverage(src []byte, spans []Span) error {
 }
 
 // /sedum:setFunction
-// sedum:setMethod {"tier":"owned","record":"prov-2026-d87e7f92","gen":"sha256:be079f96fee77ea810342a75f22d0f5b007cec1f10482b632a21550cc79041fc","pkg":"sha256:8ea07fc52bbc260836983438ef08ad02746b86a1028c8b1a51b60eeb7b83cc2b","kwargs":{"code":"func (s Span) Valid() error {\n\tswitch s.Kind {\n\tcase KindUnit:\n\t\tif s.Action == \"\" || s.Text == \"\" {\n\t\t\treturn fmt.Errorf(\"unit span needs an action and text\")\n\t\t}\n\tcase KindHeader, KindResidual:\n\t\tif s.Action != \"\" || s.Kwargs != nil {\n\t\t\treturn fmt.Errorf(\"%s span must not carry an action or kwargs\", s.Kind)\n\t\t}\n\tdefault:\n\t\treturn fmt.Errorf(\"unknown span kind %q\", s.Kind)\n\t}\n\treturn nil\n}","file":"internal/adopt/span.go","name":"Valid","receiver":"Span"}}
+// sedum:setMethod {"tier":"owned","record":"prov-2026-d87e7f92","gen":"sha256:be079f96fee77ea810342a75f22d0f5b007cec1f10482b632a21550cc79041fc","pkg":"sha256:8ea07fc52bbc260836983438ef08ad02746b86a1028c8b1a51b60eeb7b83cc2b","kwargs":{"code":"func (s Span) Valid() error {\n\tswitch s.Kind {\n\tcase KindUnit:\n\t\tif s.Action == \"\" || s.Text == \"\" {\n\t\t\treturn fmt.Errorf(\"unit span needs an action and text\")\n\t\t}\n\tcase KindHeader:\n\t\tif s.Action != \"\" || s.Kwargs != nil {\n\t\t\treturn fmt.Errorf(\"%s span must not carry an action or kwargs\", s.Kind)\n\t\t}\n\tcase KindResidual:\n\t\tif s.Action != \"\" || s.Kwargs != nil {\n\t\t\treturn fmt.Errorf(\"%s span must not carry an action or kwargs\", s.Kind)\n\t\t}\n\tdefault:\n\t\treturn fmt.Errorf(\"unknown span kind %q\", s.Kind)\n\t}\n\treturn nil\n}","file":"internal/adopt/span.go","name":"Valid","receiver":"Span"}}
 func (s Span) Valid() error {
 	switch s.Kind {
 	case KindUnit:
 		if s.Action == "" || s.Text == "" {
 			return fmt.Errorf("unit span needs an action and text")
 		}
-	case KindHeader, KindResidual:
+	case KindHeader:
+		if s.Action != "" || s.Kwargs != nil {
+			return fmt.Errorf("%s span must not carry an action or kwargs", s.Kind)
+		}
+	case KindResidual:
 		if s.Action != "" || s.Kwargs != nil {
 			return fmt.Errorf("%s span must not carry an action or kwargs", s.Kind)
 		}
