@@ -103,7 +103,7 @@ expect_calls() {
 
 # content hash + mtime of every app file
 snapshot() { (cd "$W" && find internal -type f | sort | while read -r f; do
-	printf '%s %s %s\n' "$(shasum -a 256 "$f" | cut -c1-16)" "$(stat -f %m "$f")" "$f"; done) >"$W/.stub/$1"; }
+	printf '%s %s %s\n' "$(shasum -a 256 "$f" | cut -c1-16)" "$(stat -c %Y "$f" 2>/dev/null || stat -f %m "$f")" "$f"; done) >"$W/.stub/$1"; }
 changed_files() {  # files whose content changed between two snapshots
 	join -j 3 -o 1.1,2.1,0 <(sort -k3 "$W/.stub/$1") <(sort -k3 "$W/.stub/$2") | awk '$1 != $2 {print $3}'
 }
