@@ -1,0 +1,21 @@
+id: read
+package: growlog
+target:
+- read.go
+context:
+- entry.go
+hidden:
+- read_test.go
+behaviour: |
+  Package growlog (the Entry type already exists in entry.go, and Append writes the log). Write read.go. It provides the function Read.
+
+  Read(path string) ([]Entry, int, error) reads the grow log at path and returns its entries in file order, plus the number of malformed lines it skipped. Each line is one JSON-encoded Entry. Blank lines are ignored. A line that is not valid JSON is counted as malformed and skipped; it is never an error. A line may be up to 1 MiB long. A file that cannot be opened is an error that says it was the grow log and wraps the cause; so is a failure while scanning, which also returns what was read so far.
+signatures: |
+  Package growlog (the Entry type already exists in entry.go, and Append writes the log). Write read.go. It provides the function Read.
+
+  Read(path string) ([]Entry, int, error) reads the grow log at path and returns its entries in file order, plus the number of malformed lines it skipped. Each line is one JSON-encoded Entry. Blank lines are ignored. A line that is not valid JSON is counted as malformed and skipped; it is never an error. A line may be up to 1 MiB long. A file that cannot be opened is an error that says it was the grow log and wraps the cause; so is a failure while scanning, which also returns what was read so far.
+
+  The declarations to provide, with bodies elided:
+
+  func Read(path string) ([]Entry, int, error)
+code: "Write the following code into read.go, exactly as it is, with no changes:\n\npackage growlog\n\nimport (\n\t\"bufio\"\n\t\"encoding/json\"\n\t\"fmt\"\n\t\"os\"\n\t\"strings\"\n)\n\n// Read returns the entries of the grow log at path in file order, and the\n// number of malformed lines it skipped. Blank lines are ignored. A missing file\n// is an error.\nfunc Read(path string) ([]Entry, int, error) {\n\tf, err := os.Open(path)\n\tif err != nil {\n\t\treturn nil, 0, fmt.Errorf(\"open grow log: %w\", err)\n\t}\n\tdefer f.Close()\n\tvar entries []Entry\n\tmalformed := 0\n\tsc := bufio.NewScanner(f)\n\tsc.Buffer(make([]byte, 0, 64*1024), 1024*1024)\n\tfor sc.Scan() {\n\t\tline := strings.TrimSpace(sc.Text())\n\t\tif line == \"\" {\n\t\t\tcontinue\n\t\t}\n\t\tvar e Entry\n\t\tif err := json.Unmarshal([]byte(line), &e); err != nil {\n\t\t\tmalformed++\n\t\t\tcontinue\n\t\t}\n\t\tentries = append(entries, e)\n\t}\n\tif err := sc.Err(); err != nil {\n\t\treturn entries, malformed, fmt.Errorf(\"read grow log %s: %w\", path, err)\n\t}\n\treturn entries, malformed, nil\n}\n"
