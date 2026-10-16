@@ -55,7 +55,8 @@ fail() {
 
 add_records() {  # add_records <stepN>: fixtures are stored as <hex>.yml (see make_records.py)
 	local f
-	for f in "$TB/fixtures/$1/records/"*.yml; do cp "$f" "$W/provenance/prov-2026-$(basename "$f")"; done
+	# cp keeps the source mode; inside a sedum checkout under the v2 hooks tracked files are 0444
+	for f in "$TB/fixtures/$1/records/"*.yml; do cp "$f" "$W/provenance/prov-2026-$(basename "$f")"; chmod u+w "$W/provenance/prov-2026-$(basename "$f")"; done
 }
 
 v1_lint() {  # the v1 records are valid v1; linespec is optional so the demo runs without it
