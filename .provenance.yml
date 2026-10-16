@@ -1,6 +1,6 @@
 enforcement: strict
 dir: provenance
-exclude_paths: ['.gitignore', '.gitattributes', 'README.md', '.provenance.yml', 'OPEN_QUESTIONS.md', 'evals/results/**', 'generators/**', 'testdata/generators/**', '.sedum/**', 'provenance/.evidence/**']
+exclude_paths: ['.gitignore', '.gitattributes', 'docs/ADOPT.md', 'README.md', '.provenance.yml', 'OPEN_QUESTIONS.md', 'evals/results/**', 'generators/**', 'testdata/generators/**', '.sedum/**', 'provenance/.evidence/**']
 shared_repos: []
 cache_ttl_minutes: 0
 commit_tag_required: true
