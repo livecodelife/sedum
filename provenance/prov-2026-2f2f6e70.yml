@@ -1,7 +1,7 @@
 id: prov-2026-2f2f6e70
 title: 'growlog: Read'
 type: imprint
-status: open
+status: implemented
 version: 2
 reason: tests grown into the placeholder spec file
 created_at: "2026-10-16"
@@ -97,7 +97,7 @@ forbidden_scope: []
 implements: prov-2026-7a13f569
 implements_version: 1
 related: []
-sealed_at_sha: ""
+sealed_at_sha: a776edee49443e0a0e461d1e575cf4421180a341
 associated_specs:
   - path: internal/growlog/read_test.go
     run_command: go test ./internal/growlog -run 'TestReadSkipsMalformedLines|TestReadMissingFile|TestAppendConcurrent' -count=1
