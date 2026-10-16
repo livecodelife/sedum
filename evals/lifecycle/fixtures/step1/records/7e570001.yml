@@ -1,0 +1,20 @@
+id: prov-2026-7e570001
+title: "A notes service"
+status: implemented
+created_at: "2026-10-01"
+author: testbed@example.invalid
+intent: "A small HTTP service for keeping notes, with a health check for its load balancer."
+constraints:
+  - "Every endpoint lives under internal/handlers and is registered with chi."
+affected_scope:
+  - "internal/**"
+forbidden_scope: []
+type: brief
+supersedes: ""
+superseded_by: ""
+related: []
+sealed_at_sha: ""
+associated_specs: []
+associated_traces: []
+monitors: []
+tags: [testbed]

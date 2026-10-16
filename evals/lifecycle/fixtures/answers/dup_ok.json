@@ -1,0 +1,11 @@
+{
+    "invocations": [
+        {
+            "action": "createHandler",
+            "kwargs": {
+                "resource": "note",
+                "verb": "patch"
+            }
+        }
+    ]
+}

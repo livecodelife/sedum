@@ -1,0 +1,21 @@
+id: prov-2026-7e570006
+title: "List, create and delete notes"
+status: implemented
+created_at: "2026-10-06"
+author: testbed@example.invalid
+intent: "Serve the note resource: GET /note lists notes, POST /note creates one, and DELETE /note removes one."
+constraints:
+  - "Handlers live in internal/handlers/note.go."
+affected_scope:
+  - "internal/handlers/note.go"
+forbidden_scope: []
+type: imprint
+implements: prov-2026-7e570002
+supersedes: "prov-2026-7e570003"
+superseded_by: ""
+related: []
+sealed_at_sha: ""
+associated_specs: []
+associated_traces: []
+monitors: []
+tags: [testbed]

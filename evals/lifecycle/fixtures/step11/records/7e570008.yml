@@ -1,0 +1,21 @@
+id: prov-2026-7e570008
+title: "Read-only note mirror"
+status: implemented
+created_at: "2026-10-08"
+author: testbed@example.invalid
+intent: "A read-only mirror of the note resource for reporting: GET /note."
+constraints:
+  - "Handlers live in internal/handlers/note.go."
+affected_scope:
+  - "internal/handlers/note.go"
+forbidden_scope: []
+type: imprint
+implements: prov-2026-7e570002
+supersedes: ""
+superseded_by: ""
+related: []
+sealed_at_sha: ""
+associated_specs: []
+associated_traces: []
+monitors: []
+tags: [testbed]

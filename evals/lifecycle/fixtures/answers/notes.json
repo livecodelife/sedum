@@ -1,0 +1,32 @@
+{
+    "invocations": [
+        {
+            "action": "addImport",
+            "kwargs": {
+                "resource": "note",
+                "path": "net/http"
+            }
+        },
+        {
+            "action": "createHandler",
+            "kwargs": {
+                "resource": "note",
+                "verb": "get"
+            }
+        },
+        {
+            "action": "createHandler",
+            "kwargs": {
+                "resource": "note",
+                "verb": "post"
+            }
+        },
+        {
+            "action": "createHandler",
+            "kwargs": {
+                "resource": "note",
+                "verb": "delete"
+            }
+        }
+    ]
+}

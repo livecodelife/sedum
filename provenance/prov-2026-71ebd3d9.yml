@@ -11,7 +11,7 @@ intent: |
   demo inside sedum at evals/lifecycle/ (#provisio, 2026-10-15).
 
   migrate-dry prepared the export outside this worktree (lifecycle-testbed
-  223c1aa, export/evals-lifecycle/), so the branch keeps one writer; it is
+  a52a280, export/evals-lifecycle/), so the branch keeps one writer; it is
   copied in unchanged. demo.sh builds sedum from the enclosing checkout,
   sedum v0.8.0 from this repository's own history (0571de7), and the
   provenance CLI with `go install` at a pinned commit of

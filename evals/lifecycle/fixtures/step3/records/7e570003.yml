@@ -1,0 +1,21 @@
+id: prov-2026-7e570003
+title: "List and create notes"
+status: superseded
+created_at: "2026-10-03"
+author: testbed@example.invalid
+intent: "Serve the note resource: GET /note lists notes and POST /note creates one."
+constraints:
+  - "Handlers live in internal/handlers/note.go."
+affected_scope:
+  - "internal/handlers/note.go"
+forbidden_scope: []
+type: imprint
+implements: prov-2026-7e570002
+supersedes: ""
+superseded_by: "prov-2026-7e570006"
+related: []
+sealed_at_sha: ""
+associated_specs: []
+associated_traces: []
+monitors: []
+tags: [testbed]
