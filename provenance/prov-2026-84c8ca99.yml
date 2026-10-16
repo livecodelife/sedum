@@ -1,0 +1,308 @@
+id: prov-2026-84c8ca99
+title: 'eval design: tasks and variants'
+type: imprint
+status: open
+version: 1
+reason: ""
+created_at: "2026-10-16"
+author: calebcowen@gmail.com
+intent: |-
+  Tasks and variants for the behaviour-only-intent eval (prov-2026-d694c4c4): loading a design task from a directory (task.yaml, context/ and hidden/ files) with validation, the three intent variants (behaviour, signatures, code), and the isolation check that no hidden test text reaches any intent. Task data lives in evals/design/testdata/tasks and already exists.
+
+  New file evals/design/task.go (package design); TRANSCRIBE, do not design: write exactly the code below. Imports (fmt, os, path/filepath, sort, strings, gopkg.in/yaml.v3): one addImport each. Declarations: one invocation per declaration (type -> setType, const -> setConst, func -> setFunction, method -> setMethod with the receiver type name), code = the whole declaration including its doc comment, exactly as written, tabs for indentation, no changes of any kind.
+
+  // Task is one design task: a small Go package the model must write, graded by
+  // hidden tests it is never shown. Context files are copied in beside it.
+  type Task struct {
+  	ID         string   `yaml:"id"`
+  	Package    string   `yaml:"package"`
+  	Target     []string `yaml:"target"`
+  	Context    []string `yaml:"context"`
+  	Hidden     []string `yaml:"hidden"`
+  	Behaviour  string   `yaml:"behaviour"`
+  	Signatures string   `yaml:"signatures"`
+  	Code       string   `yaml:"code"`
+
+  	// Dir is the task directory it was loaded from.
+  	Dir string `yaml:"-"`
+  }
+
+  // LoadTask reads dir/task.yaml and checks it. Context files live under
+  // dir/context/ and hidden test files under dir/hidden/; every one named must
+  // exist, hidden files must end in _test.go, and no target file may also be a
+  // context or hidden file.
+  func LoadTask(dir string) (Task, error) {
+  	data, err := os.ReadFile(filepath.Join(dir, "task.yaml"))
+  	if err != nil {
+  		return Task{}, fmt.Errorf("read task: %w", err)
+  	}
+  	var t Task
+  	if err := yaml.Unmarshal(data, &t); err != nil {
+  		return Task{}, fmt.Errorf("parse %s: %w", filepath.Join(dir, "task.yaml"), err)
+  	}
+  	t.Dir = dir
+  	if t.ID == "" || t.ID != filepath.Base(dir) {
+  		return Task{}, fmt.Errorf("task %s: id %q must equal the directory name", dir, t.ID)
+  	}
+  	if t.Package == "" || len(t.Target) == 0 || len(t.Hidden) == 0 {
+  		return Task{}, fmt.Errorf("task %s: package, target and hidden are required", t.ID)
+  	}
+  	if t.Behaviour == "" || t.Signatures == "" || t.Code == "" {
+  		return Task{}, fmt.Errorf("task %s: behaviour, signatures and code intents are all required", t.ID)
+  	}
+  	for _, f := range t.Hidden {
+  		if !strings.HasSuffix(f, "_test.go") {
+  			return Task{}, fmt.Errorf("task %s: hidden file %s must end in _test.go", t.ID, f)
+  		}
+  		if _, err := os.Stat(filepath.Join(dir, "hidden", f)); err != nil {
+  			return Task{}, fmt.Errorf("task %s: %w", t.ID, err)
+  		}
+  	}
+  	for _, f := range t.Context {
+  		if _, err := os.Stat(filepath.Join(dir, "context", f)); err != nil {
+  			return Task{}, fmt.Errorf("task %s: %w", t.ID, err)
+  		}
+  	}
+  	for _, f := range t.Target {
+  		for _, other := range append(append([]string{}, t.Context...), t.Hidden...) {
+  			if f == other {
+  				return Task{}, fmt.Errorf("task %s: target %s is also a context or hidden file", t.ID, f)
+  			}
+  		}
+  	}
+  	return t, nil
+  }
+
+  // LoadTasks loads every subdirectory of root that holds a task.yaml, sorted by
+  // task id.
+  func LoadTasks(root string) ([]Task, error) {
+  	entries, err := os.ReadDir(root)
+  	if err != nil {
+  		return nil, fmt.Errorf("read tasks: %w", err)
+  	}
+  	var tasks []Task
+  	for _, e := range entries {
+  		if !e.IsDir() {
+  			continue
+  		}
+  		if _, err := os.Stat(filepath.Join(root, e.Name(), "task.yaml")); err != nil {
+  			continue
+  		}
+  		t, err := LoadTask(filepath.Join(root, e.Name()))
+  		if err != nil {
+  			return nil, err
+  		}
+  		tasks = append(tasks, t)
+  	}
+  	sort.Slice(tasks, func(i, j int) bool { return tasks[i].ID < tasks[j].ID })
+  	return tasks, nil
+  }
+
+  Tests: the NEW file evals/design/task_test.go (a spec of this imprint; it exists as a one-line placeholder). Transcribe exactly this test file; imports (os, path/filepath, strings, testing): one addImport each; each function and const -> its own invocation. Use the fixture text exactly (tabs, ASCII quotes).
+
+  // writeTask writes a minimal valid task into root/id and returns its dir.
+  func writeTask(t *testing.T, root, id, yaml string) string {
+  	t.Helper()
+  	dir := filepath.Join(root, id)
+  	for _, d := range []string{"context", "hidden"} {
+  		if err := os.MkdirAll(filepath.Join(dir, d), 0o755); err != nil {
+  			t.Fatal(err)
+  		}
+  	}
+  	files := map[string]string{
+  		"task.yaml":        yaml,
+  		"hidden/a_test.go": "package p\n\nimport \"testing\"\n\nfunc TestA(t *testing.T) {}\n",
+  		"context/ctx.go":   "package p\n",
+  	}
+  	for name, content := range files {
+  		if err := os.WriteFile(filepath.Join(dir, name), []byte(content), 0o644); err != nil {
+  			t.Fatal(err)
+  		}
+  	}
+  	return dir
+  }
+
+  const validTask = "id: ok\npackage: p\ntarget: [a.go]\ncontext: [ctx.go]\nhidden: [a_test.go]\nbehaviour: b\nsignatures: s\ncode: c\n"
+
+  func TestLoadTask(t *testing.T) {
+  	root := t.TempDir()
+  	dir := writeTask(t, root, "ok", validTask)
+  	task, err := LoadTask(dir)
+  	if err != nil {
+  		t.Fatal(err)
+  	}
+  	if task.ID != "ok" || task.Package != "p" || task.Dir != dir || len(task.Target) != 1 || task.Code != "c" {
+  		t.Fatalf("task = %+v", task)
+  	}
+  }
+
+  func TestLoadTaskRejects(t *testing.T) {
+  	cases := []struct {
+  		name, id, yaml, want string
+  	}{
+  		{"id differs from directory", "ok", strings.Replace(validTask, "id: ok", "id: other", 1), "directory name"},
+  		{"no target", "ok", strings.Replace(validTask, "target: [a.go]", "target: []", 1), "required"},
+  		{"missing intent", "ok", strings.Replace(validTask, "code: c\n", "", 1), "all required"},
+  		{"hidden is not a test file", "ok", strings.Replace(validTask, "hidden: [a_test.go]", "hidden: [ctx.go]", 1), "_test.go"},
+  		{"missing hidden file", "ok", strings.Replace(validTask, "a_test.go", "b_test.go", 1), "no such file"},
+  		{"target is also context", "ok", strings.Replace(validTask, "target: [a.go]", "target: [ctx.go]", 1), "also a context or hidden"},
+  	}
+  	for _, tc := range cases {
+  		t.Run(tc.name, func(t *testing.T) {
+  			dir := writeTask(t, t.TempDir(), tc.id, tc.yaml)
+  			_, err := LoadTask(dir)
+  			if err == nil || !strings.Contains(err.Error(), tc.want) {
+  				t.Fatalf("err = %v, want it to contain %q", err, tc.want)
+  			}
+  		})
+  	}
+  }
+
+  func TestLoadTasks(t *testing.T) {
+  	tasks, err := LoadTasks("testdata/tasks")
+  	if err != nil {
+  		t.Fatal(err)
+  	}
+  	var ids []string
+  	for _, task := range tasks {
+  		ids = append(ids, task.ID)
+  	}
+  	if got := strings.Join(ids, ","); got != "append,read,render,since,summarize" {
+  		t.Fatalf("tasks = %s", got)
+  	}
+  	if _, err := LoadTasks(filepath.Join(t.TempDir(), "none")); err == nil {
+  		t.Fatal("a missing tasks directory must be an error")
+  	}
+  }
+
+  New file evals/design/variants.go (package design); TRANSCRIBE, do not design: write exactly the code below. Imports (fmt, os, path/filepath, strings): one addImport each. Declarations: one invocation per declaration (type -> setType, const -> setConst, func -> setFunction, method -> setMethod with the receiver type name), code = the whole declaration including its doc comment, exactly as written, tabs for indentation, no changes of any kind.
+
+  // Variant is how much of the answer an intent gives away.
+  type Variant string
+
+  // The three intent variants, from least to most given.
+  const (
+  	VariantBehaviour  Variant = "behaviour"
+  	VariantSignatures Variant = "signatures"
+  	VariantCode       Variant = "code"
+  )
+
+  // Variants returns every variant in order.
+  func Variants() []Variant {
+  	return []Variant{VariantBehaviour, VariantSignatures, VariantCode}
+  }
+
+  // Intent returns the task's intent text for v.
+  func (t Task) Intent(v Variant) (string, error) {
+  	switch v {
+  	case VariantBehaviour:
+  		return t.Behaviour, nil
+  	case VariantSignatures:
+  		return t.Signatures, nil
+  	case VariantCode:
+  		return t.Code, nil
+  	}
+  	return "", fmt.Errorf("unknown variant %q", v)
+  }
+
+  // Isolated returns an error when hidden test text could reach the model: a
+  // hidden file's name, or any of its "func Test" lines, appearing in any of the
+  // task's intents.
+  func (t Task) Isolated() error {
+  	for _, v := range Variants() {
+  		intent, err := t.Intent(v)
+  		if err != nil {
+  			return err
+  		}
+  		for _, f := range t.Hidden {
+  			if strings.Contains(intent, f) {
+  				return fmt.Errorf("task %s: the %s intent names hidden file %s", t.ID, v, f)
+  			}
+  			data, err := os.ReadFile(filepath.Join(t.Dir, "hidden", f))
+  			if err != nil {
+  				return err
+  			}
+  			for _, line := range strings.Split(string(data), "\n") {
+  				if strings.HasPrefix(line, "func Test") && strings.Contains(intent, line) {
+  					return fmt.Errorf("task %s: the %s intent contains the hidden test line %q", t.ID, v, line)
+  				}
+  			}
+  		}
+  	}
+  	return nil
+  }
+
+  Tests: the NEW file evals/design/variants_test.go (a spec of this imprint; it exists as a one-line placeholder). Transcribe exactly this test file; imports (os, path/filepath, strings, testing): one addImport each; each function and const -> its own invocation. Use the fixture text exactly (tabs, ASCII quotes).
+
+  func TestIntentVariants(t *testing.T) {
+  	task := Task{Behaviour: "b", Signatures: "s", Code: "c"}
+  	for v, want := range map[Variant]string{VariantBehaviour: "b", VariantSignatures: "s", VariantCode: "c"} {
+  		got, err := task.Intent(v)
+  		if err != nil || got != want {
+  			t.Errorf("Intent(%s) = %q, %v, want %q", v, got, err, want)
+  		}
+  	}
+  	if _, err := task.Intent("nope"); err == nil {
+  		t.Fatal("an unknown variant must be an error")
+  	}
+  	if got := Variants(); len(got) != 3 || got[0] != VariantBehaviour || got[2] != VariantCode {
+  		t.Fatalf("Variants() = %v", got)
+  	}
+  }
+
+  func TestIsolatedRealTasks(t *testing.T) {
+  	tasks, err := LoadTasks("testdata/tasks")
+  	if err != nil {
+  		t.Fatal(err)
+  	}
+  	for _, task := range tasks {
+  		if err := task.Isolated(); err != nil {
+  			t.Errorf("%s: %v", task.ID, err)
+  		}
+  	}
+  }
+
+  func TestIsolatedCatchesLeaks(t *testing.T) {
+  	root := t.TempDir()
+  	dir := writeTask(t, root, "ok", validTask)
+  	task, err := LoadTask(dir)
+  	if err != nil {
+  		t.Fatal(err)
+  	}
+  	if err := task.Isolated(); err != nil {
+  		t.Fatalf("a clean task: %v", err)
+  	}
+  	named := task
+  	named.Signatures = "see a_test.go"
+  	if err := named.Isolated(); err == nil || !strings.Contains(err.Error(), "a_test.go") {
+  		t.Fatalf("a named hidden file: %v", err)
+  	}
+  	leaked := task
+  	leaked.Behaviour = "copy this\nfunc TestA(t *testing.T) {}\n"
+  	if err := leaked.Isolated(); err == nil || !strings.Contains(err.Error(), "func TestA") {
+  		t.Fatalf("a leaked test line: %v", err)
+  	}
+  	if err := os.Remove(filepath.Join(dir, "hidden", "a_test.go")); err != nil {
+  		t.Fatal(err)
+  	}
+  	if err := task.Isolated(); err == nil {
+  		t.Fatal("an unreadable hidden file must be an error")
+  	}
+  }
+constraints: []
+affected_scope:
+  - evals/design/task.go
+  - evals/design/variants.go
+  - evals/design/variants_test.go
+  - evals/design/task_test.go
+forbidden_scope: []
+implements: prov-2026-d694c4c4
+implements_version: 1
+related: []
+sealed_at_sha: ""
+associated_specs:
+  - path: evals/design/task_test.go
+    run_command: go test ./evals/design -run 'TestLoadTask|TestLoadTasks|TestIntentVariants|TestIsolated' -count=1
+associated_traces: []
+monitors: []
+tags: []
