@@ -1,0 +1,172 @@
+id: prov-2026-6ab86198
+title: 'go: internal/verify/verify_test.go, tests for project verification'
+type: imprint
+status: open
+version: 1
+reason: ""
+created_at: "2026-10-16"
+author: calebcowen@gmail.com
+intent: |
+  The tests of internal/verify/verify_test.go (go package, package verify): config loading, the scratch tree, failures and truncated output, skipped directories, and a timeout that kills the process group and cleans up. The file already exists holding only its package clause.
+
+  Imports, each its own addImport, exactly: bytes, context, os, path/filepath, strings, testing, time.
+
+  Declarations, in this order, each exactly one set* call whose code kwarg is the code below verbatim (gofmt-formatted, comments kept). Do not alter, reorder or add anything.
+
+    - setFunction name tree, code exactly:
+        // tree writes files (slash paths under a fresh directory) and returns it.
+        func tree(t *testing.T, files map[string]string) string {
+        	t.Helper()
+        	root := t.TempDir()
+        	for rel, content := range files {
+        		path := filepath.Join(root, filepath.FromSlash(rel))
+        		if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+        			t.Fatal(err)
+        		}
+        		if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
+        			t.Fatal(err)
+        		}
+        	}
+        	return root
+        }
+
+    - setFunction name TestLoadConfigReadsCommandsAndTimeout, code exactly:
+        func TestLoadConfigReadsCommandsAndTimeout(t *testing.T) {
+        	root := tree(t, map[string]string{
+        		".sedum/config.yml": "verify:\n  - go build ./...\n  - go vet ./...\nverify_timeout: 30s\n",
+        	})
+        	cfg, err := LoadConfig(root)
+        	if err != nil {
+        		t.Fatal(err)
+        	}
+        	if len(cfg.Commands) != 2 || cfg.Commands[0] != "go build ./..." || cfg.Timeout != 30*time.Second {
+        		t.Errorf("LoadConfig = %+v", cfg)
+        	}
+        	if !cfg.Enabled() {
+        		t.Error("a config with commands should be enabled")
+        	}
+        }
+
+    - setFunction name TestLoadConfigWithoutAFileVerifiesNothing, code exactly:
+        func TestLoadConfigWithoutAFileVerifiesNothing(t *testing.T) {
+        	cfg, err := LoadConfig(t.TempDir())
+        	if err != nil {
+        		t.Fatal(err)
+        	}
+        	if cfg.Enabled() || cfg.Timeout != DefaultTimeout {
+        		t.Errorf("LoadConfig = %+v, want nothing to run and the default timeout", cfg)
+        	}
+        	if got := cfg.With([]string{"make test"}); len(got.Commands) != 1 || cfg.Enabled() {
+        		t.Errorf("With = %+v, and the original must not change: %+v", got, cfg)
+        	}
+        }
+
+    - setFunction name TestLoadConfigRejectsABadTimeout, code exactly:
+        func TestLoadConfigRejectsABadTimeout(t *testing.T) {
+        	root := tree(t, map[string]string{".sedum/config.yml": "verify: [make]\nverify_timeout: soon\n"})
+        	if _, err := LoadConfig(root); err == nil || !strings.Contains(err.Error(), "verify_timeout") {
+        		t.Errorf("LoadConfig error = %v, want one naming verify_timeout", err)
+        	}
+        }
+
+    - setFunction name TestRunSeesTheCandidateAndLeavesTheOutputAlone, code exactly:
+        func TestRunSeesTheCandidateAndLeavesTheOutputAlone(t *testing.T) {
+        	root := tree(t, map[string]string{"keep.txt": "kept\n"})
+        	var log bytes.Buffer
+        	cfg := Config{Commands: []string{"grep -q hello new/file.txt && test -f keep.txt"}, Timeout: 10 * time.Second}
+        	failures, err := Run(context.Background(), cfg, root, map[string]string{"new/file.txt": "hello\n"}, &log)
+        	if err != nil {
+        		t.Fatal(err)
+        	}
+        	if len(failures) != 0 {
+        		t.Errorf("failures = %+v, want none", failures)
+        	}
+        	if _, err := os.Stat(filepath.Join(root, "new")); err == nil {
+        		t.Error("the candidate was written into the output directory")
+        	}
+        	if !strings.Contains(log.String(), "verify: grep -q hello") {
+        		t.Errorf("the command was not printed before it ran: %q", log.String())
+        	}
+        }
+
+    - setFunction name TestRunReportsAFailureWithItsStatusAndOutput, code exactly:
+        func TestRunReportsAFailureWithItsStatusAndOutput(t *testing.T) {
+        	root := tree(t, nil)
+        	cfg := Config{Commands: []string{"echo boom; exit 3", "true"}, Timeout: 10 * time.Second}
+        	failures, err := Run(context.Background(), cfg, root, nil, &bytes.Buffer{})
+        	if err != nil {
+        		t.Fatal(err)
+        	}
+        	if len(failures) != 1 || failures[0].Status != "exit status 3" || !strings.Contains(failures[0].Output, "boom") {
+        		t.Fatalf("failures = %+v", failures)
+        	}
+        	message := Message(failures)
+        	for _, want := range []string{"These checks failed", "$ echo boom; exit 3", "exit status 3", "boom"} {
+        		if !strings.Contains(message, want) {
+        			t.Errorf("Message lacks %q:\n%s", want, message)
+        		}
+        	}
+        }
+
+    - setFunction name TestRunKeepsOnlyTheEndOfALongOutput, code exactly:
+        func TestRunKeepsOnlyTheEndOfALongOutput(t *testing.T) {
+        	cfg := Config{Commands: []string{"yes xxxxxxxxx | head -n 2000; echo the-end; exit 1"}, Timeout: 10 * time.Second}
+        	failures, err := Run(context.Background(), cfg, tree(t, nil), nil, &bytes.Buffer{})
+        	if err != nil {
+        		t.Fatal(err)
+        	}
+        	if len(failures) != 1 || len(failures[0].Output) > MaxOutput || !strings.HasSuffix(failures[0].Output, "the-end\n") {
+        		t.Errorf("output length %d, want at most %d ending with the-end", len(failures[0].Output), MaxOutput)
+        	}
+        }
+
+    - setFunction name TestRunSkipsHiddenAndNamedDirectories, code exactly:
+        func TestRunSkipsHiddenAndNamedDirectories(t *testing.T) {
+        	root := tree(t, map[string]string{".git/HEAD": "x", "generators/a.txt": "x", "src/a.txt": "x"})
+        	cfg := Config{Commands: []string{"test ! -e .git && test ! -e generators && test -f src/a.txt"}, Timeout: 10 * time.Second, Skip: []string{"generators"}}
+        	failures, err := Run(context.Background(), cfg, root, nil, &bytes.Buffer{})
+        	if err != nil || len(failures) != 0 {
+        		t.Errorf("failures = %+v, err = %v", failures, err)
+        	}
+        }
+
+    - setFunction name TestRunKillsTheWholeProcessGroupOnTimeoutAndCleansUp, code exactly:
+        // A timeout kills the command and everything it started, reports it as a
+        // failure, and still removes the scratch directory.
+        func TestRunKillsTheWholeProcessGroupOnTimeoutAndCleansUp(t *testing.T) {
+        	marker := filepath.Join(t.TempDir(), "cwd")
+        	cfg := Config{Commands: []string{"pwd > " + marker + "; sleep 30 & sleep 30"}, Timeout: 300 * time.Millisecond}
+        	start := time.Now()
+        	failures, err := Run(context.Background(), cfg, tree(t, nil), nil, &bytes.Buffer{})
+        	if err != nil {
+        		t.Fatal(err)
+        	}
+        	if elapsed := time.Since(start); elapsed > 10*time.Second {
+        		t.Errorf("Run took %s: the background process held the run open", elapsed)
+        	}
+        	if len(failures) != 1 || !strings.HasPrefix(failures[0].Status, "timed out") {
+        		t.Fatalf("failures = %+v, want one timeout", failures)
+        	}
+        	data, err := os.ReadFile(marker)
+        	if err != nil {
+        		t.Fatal(err)
+        	}
+        	if _, err := os.Stat(strings.TrimSpace(string(data))); err == nil {
+        		t.Errorf("the scratch directory %s was not removed", strings.TrimSpace(string(data)))
+        	}
+        }
+constraints: []
+affected_scope:
+  - internal/verify/verify_test.go
+forbidden_scope: []
+implements: prov-2026-b5c21813
+implements_version: 1
+related: []
+sealed_at_sha: ""
+associated_specs:
+  - path: internal/verify/verify_test.go
+    run_command: go test ./internal/verify -count=1
+associated_traces: []
+monitors: []
+tags:
+  - repair
