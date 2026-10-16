@@ -1,8 +1,8 @@
 id: prov-2026-86a21f53
 title: Resolve the --stop-after / --execute / --record conflict in the PRD flag rules
 status: implemented
-version: 3
-reason: Spec files edited by the merge of orphan-summary and replay-restamp; refresh its hash
+version: 5
+reason: 'merge main (#5, #6): README/PRD/flags_test.go gained both sides'' hunks'
 created_at: "2026-08-07"
 author: calebcowen@gmail.com
 intent: |
@@ -75,7 +75,7 @@ type: imprint
 implements: prov-2026-aa4b736d
 implements_version: 1
 related: []
-sealed_at_sha: 7a903c41a043c05e3041ce85ebe945cc0a2ef3c2
+sealed_at_sha: f0bc2ad841b4d75ffdfff556f84cf8f953210f9b
 associated_specs:
   - path: internal/cli/flags_test.go
     type: go_test

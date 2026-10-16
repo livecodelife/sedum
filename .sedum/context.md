@@ -20,3 +20,7 @@ Package pipeline (internal/pipeline)
 Package cli (internal/cli)
 - Identifiers that exist in package cli (call, do not redefine): describeRef(r pipeline.RegionRef) string.
 - pipeline.Orphan has fields Path, Action, Variant, Record string and Authorized, Pruned bool; pipeline.Result has Orphans []pipeline.Orphan; pipeline.RegionRef has Path, Action, Variant string.
+
+Package verify (internal/verify) and package selection tests
+- Package verify has no other files; module path github.com/livecodelife/sedum. The only third-party import is gopkg.in/yaml.v3.
+- Package selection test helpers that exist (call, do not redefine): railsRequest(t) Request; type stub with fields responses []string and seen [][]Message; validResponse; the constants RoleUser and RoleAssistant; type Message{Role, Content string}; Select(ctx, client, req, opts) (Answer, error); type Options with fields Retries, Repair, Output, Verify; type Answer with fields Repairs, Calls, Rejected, Invocations.

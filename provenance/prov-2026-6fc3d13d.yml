@@ -1,8 +1,8 @@
 id: prov-2026-6fc3d13d
 title: A run supplies the project facts a package cannot know
 status: implemented
-version: 3
-reason: Spec files edited by the merge of orphan-summary and replay-restamp; refresh its hash
+version: 5
+reason: 'merge main (#5, #6): README/PRD/flags_test.go gained both sides'' hunks'
 created_at: "2026-08-17"
 author: calebcowen@gmail.com
 intent: |
@@ -188,7 +188,7 @@ implements_version: 1
 related:
   - prov-2026-83340ba0
   - prov-2026-f03916ba
-sealed_at_sha: a661b424605d8c6aa62b5dbd64a6ffc82511fe0c
+sealed_at_sha: 031afcadcf39f67456488bccd3831a64084dae50
 associated_specs:
   - path: internal/genpkg/genpkg_test.go
     run_command: go test ./$(dirname {{path}})

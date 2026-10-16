@@ -1,8 +1,8 @@
 id: prov-2026-59535684
 title: The integration surface is file formats, not an API
 status: implemented
-version: 3
-reason: Spec files edited by the merge of orphan-summary and replay-restamp; refresh its hash
+version: 5
+reason: 'merge main (#5, #6): README/PRD/flags_test.go gained both sides'' hunks'
 created_at: "2026-08-14"
 author: calebcowen@gmail.com
 intent: |
@@ -146,7 +146,7 @@ related:
   - prov-2026-72775ae5
   - prov-2026-529954ab
   - prov-2026-e8671c88
-sealed_at_sha: 4e3ed77d24e421a2038ab78aa5545c185272345f
+sealed_at_sha: b068e2931eb2d91e4035dd49338edf998661d443
 associated_specs:
   # Docs-only record, so the proof asserts the claims actually landed rather
   # than that the files exist. Each grep names a statement this record is

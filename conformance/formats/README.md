@@ -42,6 +42,7 @@ The run's report, in place of the text report.
 | `records[].record` | The record id. |
 | `records[].mode` | `"select"`, `"re-select"`, `"skip"`, `"re-render"`, `"none"` (nothing Sedum writes), or `"replay"` under `--execute`. |
 | `records[].changed` | True exactly when one of the record's regions was inserted, pruned, or rewritten with different bytes. |
+| `records[].repair_attempts` | How many times the project's verification sent the record's selection back to the model (`--repair`); omitted when none. |
 | `records[].regions` | What happened to each region the run touched for the record. |
 | `records[].regions[].file`, `.action`, `.variant` | Which region. |
 | `records[].regions[].change` | `"inserted"`, `"replaced"` (bytes differ), `"unchanged"` (rewritten identically), `"pruned"`, `"held"` (a prune only `--force` would make), `"unselected"` (a partial recording's replay left a region of a named record it no longer selects), `"seeded"` (left alone). |
