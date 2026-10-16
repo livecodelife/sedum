@@ -1,0 +1,18 @@
+{
+    "invocations": [
+        {
+            "action": "addImport",
+            "kwargs": {
+                "resource": "ping",
+                "path": "net/http"
+            }
+        },
+        {
+            "action": "createHandler",
+            "kwargs": {
+                "resource": "ping",
+                "verb": "get"
+            }
+        }
+    ]
+}

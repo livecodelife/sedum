@@ -1,9 +1,9 @@
 id: prov-2026-8394826c
 title: A path no template matches fails with a clear error and leaves no stray file
 type: blueprint
-status: implemented
-version: 3
-reason: imprint 2558649d grew its tests into the placeholder spec
+status: open
+version: 5
+reason: 'merge main: records refreshed on both sides'
 created_at: "2026-10-16"
 author: calebcowen@gmail.com
 intent: |
@@ -23,9 +23,20 @@ affected_scope:
   - internal/inject/**
   - internal/pipeline/**
   - PRD.md
+  - .sedum/context.md
+  - README.md
+  - conformance/formats/**
+  - evals/lifecycle/**
+  - internal/cli/**
+  - internal/recording/**
+  - provenance/prov-2026-59535684.yml
+  - provenance/prov-2026-5d9b8590.yml
+  - provenance/prov-2026-8602b702.yml
+  - provenance/prov-2026-b5465dfa.yml
+  - provenance/prov-2026-e4bab53b.yml
 forbidden_scope: []
 related: []
-sealed_at_sha: 44cb22d27e74a0f081aaea9f495b0def41c4f7e1
+sealed_at_sha: ""
 associated_specs:
   - path: internal/inject/notemplate_test.go
     run_command: go test ./internal/inject -count=1

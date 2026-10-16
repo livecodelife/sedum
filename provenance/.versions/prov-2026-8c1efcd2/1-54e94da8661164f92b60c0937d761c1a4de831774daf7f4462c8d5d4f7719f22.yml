@@ -1,0 +1,26 @@
+id: prov-2026-8c1efcd2
+version: 1
+content_hash: sha256:54e94da8661164f92b60c0937d761c1a4de831774daf7f4462c8d5d4f7719f22
+parent_hash: ""
+reason: ""
+author: calebcowen@gmail.com
+created_at: "2026-10-16T05:48:33Z"
+spec_hashes:
+  - sha256:09dbd455f060c27a53b96004e96d1e00262b5e726995344a38010bcc423b52ce
+content:
+  id: prov-2026-8c1efcd2
+  title: Re-import evals/lifecycle from the testbed at provenance cli 8ff22fb
+  type: imprint
+  created_at: "2026-10-16"
+  author: calebcowen@gmail.com
+  intent: 'migrate-dry re-exported the lifecycle testbed (lifecycle-testbed 648a912, export/evals-lifecycle) after pinning the provenance CLI at 8ff22fb (merged cli, v2 reconcile and evidence). The export replaces evals/lifecycle unchanged: demo.sh (pin 8ff22fb), run.sh (steps 8, 13, 14; step 10 passes --orphans when sedum has it), table.py, fixtures/answers/routes.json, and the new fixtures/answers/ping.json. Decided by provisio-mgr in #provisio, 2026-10-16; fixes go back through migrate-dry.'
+  affected_scope:
+    - evals/lifecycle/**
+    - provenance/prov-2026-71ebd3d9.yml
+    - provenance/prov-2026-b241b29f.yml
+    - provenance/.versions/**
+    - .provenance/**
+  implements: prov-2026-3c35801c
+  implements_version: 2
+  associated_specs:
+    - path: evals/lifecycle/make_records.py
