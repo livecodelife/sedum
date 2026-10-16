@@ -1,7 +1,7 @@
 id: prov-2026-fc6b6621
 title: The binary carries the go generator package
 type: imprint
-status: open
+status: implemented
 version: 3
 reason: tests grown into the placeholder spec file
 created_at: "2026-10-16"
@@ -16,7 +16,7 @@ forbidden_scope: []
 implements: prov-2026-1da47b75
 implements_version: 2
 related: []
-sealed_at_sha: ""
+sealed_at_sha: e17440f8af2e6c3e01a314ac406b78d1fbccac36
 associated_specs:
   - path: internal/builtin/builtin_test.go
     run_command: go test ./internal/builtin -count=1
