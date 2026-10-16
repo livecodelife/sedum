@@ -1,7 +1,7 @@
 id: prov-2026-b241b29f
 title: Re-pin evals/lifecycle demo to provenance cli 1b04123 (v2, merged with main)
 type: imprint
-status: open
+status: implemented
 version: 3
 reason: demo.sh re-imported at cli 8ff22fb; refresh its hash
 created_at: "2026-10-15"
@@ -15,7 +15,7 @@ forbidden_scope: []
 implements: prov-2026-3c35801c
 implements_version: 2
 related: []
-sealed_at_sha: ""
+sealed_at_sha: 847db97ee242be7da8f0f0af955b391378992e7e
 associated_specs:
   - path: evals/lifecycle/demo.sh
     run_command: bash {{path}}
