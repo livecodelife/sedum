@@ -1,6 +1,8 @@
 package pipeline
 
 import (
+	"path/filepath"
+
 	"github.com/livecodelife/sedum/internal/expand"
 	"github.com/livecodelife/sedum/internal/inject"
 	"github.com/livecodelife/sedum/internal/record"
@@ -105,7 +107,8 @@ func refOf(r inject.OwnedRegion) RegionRef {
 //     file), in which case re-select
 //
 // Seeded regions take no part in the decision.
-func classify(records *record.Set, files []resolve.File, owners map[string]inject.Owner, output string, unwritten map[string]string, reselect bool) ([]Classification, error) {
+func classify(records *record.Set, files []resolve.File, owners map[string]inject.Owner, output string, unwritten map[string]string, reselect bool, skip []string) ([]Classification, error) {
+	skipped := skipSet(skip)
 	var out []Classification
 	for _, rec := range records.Records {
 		mine := filesOf(files, rec.ID)
@@ -116,7 +119,13 @@ func classify(records *record.Set, files []resolve.File, owners map[string]injec
 			continue
 		}
 
-		found, err := inject.ScanRegions(targetsOf(mine), output, unwritten)
+		var targets []inject.Target
+		for _, t := range targetsOf(mine) {
+			if !within(skipped, filepath.Join(output, filepath.FromSlash(t.Path))) {
+				targets = append(targets, t)
+			}
+		}
+		found, err := inject.ScanRegions(targets, output, unwritten)
 		if err != nil {
 			return nil, err
 		}

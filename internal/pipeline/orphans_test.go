@@ -240,3 +240,45 @@ func TestTheSelectionPromptCarriesPresentRegionsAndRebuiltPriors(t *testing.T) {
 		t.Errorf("a hash reached the prompt:\n%s", user)
 	}
 }
+
+// Generator packages are not application code: a fixture carrying markers
+// under the generators directory is never an orphan, even when a record's
+// pattern authorizes it (prov-2026-fc05416c).
+func TestMarkerScansSkipTheGeneratorsDirectory(t *testing.T) {
+	cfg := config(t)
+	inside := filepath.Join(cfg.Output, "generators")
+	if err := os.CopyFS(inside, os.DirFS(cfg.Generators)); err != nil {
+		t.Fatal(err)
+	}
+	cfg.Generators = inside
+	fixture := filepath.Join(inside, "rails", "testdata", "golden", "user.rb")
+	if err := os.MkdirAll(filepath.Dir(fixture), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	golden := "class User\n  # sedum:addField {\"tier\":\"owned\",\"record\":\"prov-2026-zzzzzzzz\"}\n  attribute :x\n  # /sedum:addField\nend\n"
+	if err := os.WriteFile(fixture, []byte(golden), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	cfg.Records = recordsDir(t, map[string]string{"prov-2026-aaaaaaaa": userScope + "  - generators/**\n"})
+
+	check := cfg
+	check.Check = true
+	check.Client = &stub{}
+	result, err := Run(context.Background(), check)
+	if err != nil {
+		t.Fatalf("check: %v", err)
+	}
+	if len(result.Orphans) != 0 {
+		t.Errorf("orphans = %+v, want none: generator fixtures are not application code", result.Orphans)
+	}
+
+	prune := cfg
+	prune.PruneOrphans = true
+	prune.Client = &stub{response: fields("email")}
+	if _, err := Run(context.Background(), prune); err != nil {
+		t.Fatalf("grow: %v", err)
+	}
+	if got := readFile(t, fixture); got != golden {
+		t.Errorf("--prune-orphans edited a generator fixture:\n%s", got)
+	}
+}

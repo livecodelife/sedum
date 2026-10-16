@@ -341,7 +341,8 @@ func Run(ctx context.Context, cfg Config) (*Result, error) {
 
 	// Classify each record from its markers: select, re-select, skip, or
 	// re-render. Only the first two reach the model (prov-2026-9621daed).
-	classes, err := classify(records, files, owners, cfg.Output, unwrittenFiles(writeless, files), cfg.Force || cfg.Reselect)
+	scanSkip := []string{cfg.Generators, cfg.Records}
+	classes, err := classify(records, files, owners, cfg.Output, unwrittenFiles(writeless, files), cfg.Force || cfg.Reselect, scanSkip)
 	if err != nil {
 		return nil, err
 	}
@@ -352,7 +353,7 @@ func Run(ctx context.Context, cfg Config) (*Result, error) {
 		log.Info("classified record", "record", c.RecordID, "mode", c.Mode.String(),
 			"stale", len(c.Stale), "rerender", len(c.Rerender), "stale_seeded", len(c.StaleSeeded))
 	}
-	orphans, orphanTargets, err := findOrphans(packages, records, owners, cfg.Output)
+	orphans, orphanTargets, err := findOrphans(packages, records, owners, cfg.Output, scanSkip)
 	if err != nil {
 		return nil, err
 	}

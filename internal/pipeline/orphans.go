@@ -38,8 +38,9 @@ type Orphan struct {
 //
 // It returns the orphans and, for --prune-orphans, the authorized files they
 // sit in as Phase 7 targets.
-func findOrphans(packages *genpkg.Set, records *record.Set, owners map[string]inject.Owner, output string) ([]Orphan, []inject.Target, error) {
+func findOrphans(packages *genpkg.Set, records *record.Set, owners map[string]inject.Owner, output string, skip []string) ([]Orphan, []inject.Target, error) {
 	current := currentRecords(records)
+	skipped := skipSet(skip)
 
 	var (
 		orphans []Orphan
@@ -51,6 +52,12 @@ func findOrphans(packages *genpkg.Set, records *record.Set, owners map[string]in
 		}
 		if d.IsDir() {
 			if full != output && strings.HasPrefix(d.Name(), ".") {
+				return filepath.SkipDir
+			}
+			// Generator packages and records are not application code,
+			// whatever markers their templates and fixtures carry
+			// (prov-2026-fc05416c).
+			if skipped[absClean(full)] {
 				return filepath.SkipDir
 			}
 			return nil
@@ -136,4 +143,37 @@ func markPruned(orphans []Orphan, applied []inject.Result) {
 			removed[key]--
 		}
 	}
+}
+
+// skipSet is the directories grow's marker scans never read: the generators
+// directory and the records directory (prov-2026-fc05416c).
+func skipSet(dirs []string) map[string]bool {
+	out := map[string]bool{}
+	for _, d := range dirs {
+		if d != "" {
+			out[absClean(d)] = true
+		}
+	}
+	return out
+}
+
+// within reports whether path lies inside one of the skipped directories.
+func within(skipped map[string]bool, path string) bool {
+	for p := absClean(path); ; {
+		if skipped[p] {
+			return true
+		}
+		parent := filepath.Dir(p)
+		if parent == p {
+			return false
+		}
+		p = parent
+	}
+}
+
+func absClean(p string) string {
+	if abs, err := filepath.Abs(p); err == nil {
+		return filepath.Clean(abs)
+	}
+	return filepath.Clean(p)
 }
