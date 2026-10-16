@@ -1,0 +1,25 @@
+id: prov-2026-cf20817f
+version: 1
+content_hash: sha256:8148f273cbac7ab229568033a12bdae1b760c8d3e0db9e63f04cf99d91b563aa
+parent_hash: ""
+reason: ""
+author: calebcowen@gmail.com
+created_at: "2026-10-16T02:02:00Z"
+spec_hashes:
+  - sha256:df5b2080cfa3ef4aa3ba92f63c051f93a8d80a0a3c490fa77f5e0127c89ae1b7
+content:
+  id: prov-2026-cf20817f
+  title: Audit grow-prep for dead and duplicated code
+  type: blueprint
+  created_at: "2026-10-15"
+  author: calebcowen@gmail.com
+  intent: 'Caleb''s review of PR #1: too many additions, too few deletions. Audit with deadcode, staticcheck and dupl against main: remove the one new unreachable function (inject.ScanOwned), merge two identical label helpers in the CLI, and trim the Go checker''s guard fixture from the provenance CLI to its non-test files (1,719 fewer lines of copied code; the guard keeps 24 real compiling files). Everything else in the diff is justified in the per-package table posted in #provisio.'
+  constraints:
+    - No new unreachable function versus main (deadcode), and nothing the shared library already provides is reimplemented.
+  affected_scope:
+    - internal/inject/scan.go
+    - internal/cli/grow.go
+    - internal/syntax/**
+    - proof/GROW_PREP.md
+  associated_specs:
+    - path: internal/syntax/syntax_test.go
