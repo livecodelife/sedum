@@ -1,6 +1,6 @@
 id: prov-2026-4df89974
 title: A region's record is its owner, not its last writer
-status: open
+status: implemented
 created_at: "2026-10-15"
 author: calebcowen@gmail.com
 intent: |
@@ -44,7 +44,7 @@ implements: prov-2026-b6fa093c
 supersedes: prov-2026-36c8a99c
 superseded_by: ""
 related: []
-sealed_at_sha: ""
+sealed_at_sha: 1ef10631c1c7bab49fd6b1186364c89c70474c7a
 associated_specs:
   - path: internal/inject/ownership_test.go
     run_command: go test ./$(dirname {{path}})
