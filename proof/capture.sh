@@ -15,6 +15,11 @@ set -euo pipefail
 # GIT_INDEX_FILE and friends. Nothing here should act on an inherited
 # repository, so drop them all first.
 for v in $(env | sed -n 's/^\(GIT_[A-Z_]*\)=.*/\1/p'); do unset "$v"; done
+# Git also runs with its own HOME and no system or global config (COMMON.md,
+# "Git in tests and scripts"; prov-2026-a500e28a). This script only reads
+# through git; nothing here commits.
+GIT_HOME=$(mktemp -d)
+git() { HOME="$GIT_HOME" GIT_CONFIG_NOSYSTEM=1 GIT_CONFIG_GLOBAL=/dev/null command git "$@"; }
 
 ROOT=$(git -C "$(dirname "$0")" rev-parse --show-toplevel)
 COMMIT=$(git -C "$ROOT" rev-parse --short HEAD)
@@ -23,7 +28,7 @@ OUT="$ROOT/proof/out"
 [ "${1:-}" = "--check" ] && OUT="$T/out"
 mkdir -p "$OUT"
 STUB_PID=""
-cleanup() { [ -n "$STUB_PID" ] && kill "$STUB_PID" 2>/dev/null; rm -rf "$T"; }
+cleanup() { [ -n "$STUB_PID" ] && kill "$STUB_PID" 2>/dev/null; rm -rf "$T" "$GIT_HOME"; }
 trap cleanup EXIT
 
 fail() { echo "FAIL: $*" >&2; exit 1; }
