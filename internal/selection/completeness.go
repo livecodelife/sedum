@@ -30,11 +30,14 @@ func note(unfilled []expand.Anchor) string {
 	var b strings.Builder
 	b.WriteString("Your selection is valid. Before it is accepted, one observation:\n\n")
 
+	// The note names the file and says nothing about who created it: since
+	// records share files, it may well have existed before the run
+	// (prov-2026-53f4f82b).
 	if len(unfilled) == 1 {
-		fmt.Fprintf(&b, "This run created %s, which carries an injection point named %q that nothing you selected writes into.\n",
+		fmt.Fprintf(&b, "%s carries an injection point named %q that nothing you selected writes into.\n",
 			unfilled[0].Path, unfilled[0].Marker)
 	} else {
-		b.WriteString("This run created files carrying injection points that nothing you selected writes into:\n")
+		b.WriteString("These files carry injection points that nothing you selected writes into:\n")
 		for _, a := range unfilled {
 			fmt.Fprintf(&b, "  %s: %q\n", a.Path, a.Marker)
 		}
@@ -56,4 +59,33 @@ func anchorSummary(unfilled []expand.Anchor) string {
 		parts = append(parts, a.Path+":"+a.Marker)
 	}
 	return strings.Join(parts, ", ")
+}
+
+// withoutPresent drops the anchors a region owned by another record already
+// fills (prov-2026-53f4f82b). Such an anchor is not work this record left
+// undone, and the only answer that would fill it - selecting that record's
+// region - is refused in Phase 7 as an ownership conflict. A region fills the
+// anchor its action is declared against.
+func withoutPresent(unfilled []expand.Anchor, req Request) []expand.Anchor {
+	if len(req.Present) == 0 {
+		return unfilled
+	}
+	filled := map[expand.Anchor]bool{}
+	for _, p := range req.Present {
+		for _, f := range req.Files {
+			if f.Path != p.Path || f.Package == nil {
+				continue
+			}
+			if action, ok := f.Package.Actions[p.Action]; ok && action.Anchor != "" {
+				filled[expand.Anchor{Path: p.Path, Marker: action.Anchor}] = true
+			}
+		}
+	}
+	var out []expand.Anchor
+	for _, a := range unfilled {
+		if !filled[a] {
+			out = append(out, a)
+		}
+	}
+	return out
 }

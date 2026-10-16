@@ -369,7 +369,7 @@ func Select(ctx context.Context, client Client, req Request, opts Options) (Answ
 			// package whose templates plant a region reserved for a later
 			// record earns no call here at all (prov-2026-206fa618).
 			if !askedForCompleteness {
-				unfilled := expand.Unfilled(req.RecordID, req.Files, invocations, opts.Variables)
+				unfilled := withoutPresent(expand.Unfilled(req.RecordID, req.Files, invocations, opts.Variables), req)
 				if len(unfilled) > 0 {
 					askedForCompleteness = true
 					answer.Completeness = 1
