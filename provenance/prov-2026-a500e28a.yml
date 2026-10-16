@@ -1,0 +1,47 @@
+id: prov-2026-a500e28a
+title: sedum's tests and proof script isolate git from the environment
+status: draft
+created_at: "2026-10-15"
+author: calebcowen@gmail.com
+intent: |
+  COMMON.md's standing rule "Git in tests and scripts" (provisio-mgr,
+  #provisio 2026-10-15), after three incidents across the herd: linespec runs
+  specs from inside a git hook, which exports GIT_DIR, GIT_INDEX_FILE and the
+  like, so any git command a test or script runs can act on the wrong
+  repository. Every test, spec or script that runs git clears GIT_* first,
+  isolates HOME and global config, uses `git -C`, and checks
+  `rev-parse --show-toplevel` before writing.
+
+  Audit of grow-prep: three places run git, none of them write.
+  - internal/cli's release_test reads `git -C <repo> remote get-url`.
+  - internal/record's real-repos test calls the provenance library's
+    migrate.Load, which reads each real repository's history with git; under a
+    hook's GIT_DIR it would read sedum's instead and compare the wrong data.
+  - proof/capture.sh reads `rev-parse` (GIT_* already cleared in 9a5aeb6).
+  Each package gets a TestMain that clears GIT_*, points HOME at a temporary
+  directory and turns off system and global git config before any test runs;
+  capture.sh runs its git through the same isolation. The evals runner's
+  read-only git calls describe the checkout an eval ran in and are not tests
+  or specs, so they are left alone.
+constraints:
+  - Isolation happens before any test in the package runs.
+  - Nothing in sedum's tests or specs writes through git; the toplevel check applies to any that ever does.
+affected_scope:
+  - internal/cli/*_test.go
+  - internal/record/*_test.go
+  - proof/**
+forbidden_scope: []
+type: imprint
+implements: prov-2026-3c35801c
+supersedes: ""
+superseded_by: ""
+related: []
+sealed_at_sha: ""
+associated_specs:
+  - path: internal/cli/gitenv_test.go
+    run_command: go test -count=1 ./$(dirname {{path}})
+  - path: internal/record/gitenv_test.go
+    run_command: go test -count=1 ./$(dirname {{path}})
+associated_traces: []
+monitors: []
+tags: []
