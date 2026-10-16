@@ -1,6 +1,6 @@
 # `sedum adopt`: bringing existing code under Sedum
 
-Status: design proposal, no code. Written 2026-10-16 for provisio-mgr and Caleb.
+Status: design proposal, no code. Written 2026-10-16 for provisio-mgr and Caleb; revised to be language-agnostic with Go as the first adopter.
 
 ## Problem
 
@@ -20,7 +20,13 @@ it. The model is never involved, so adoption is cheap, repeatable and
 reviewable as a diff. Making the code *better structured* is a separate step,
 the lift passes below, and that step is checked against the transcription.
 
-Adoption uses only what exists today: the `go` package's actions
+Adoption is language-agnostic in the core and language-specific in generator
+packages, like everything else in Sedum. The core never parses a language: a
+generator package declares an **adopter** that splits a file into units, and the
+core does the rest. Go is the first adopter (below, *Adopters*). The rest of this
+section and the Go mapping describe that first adopter.
+
+Adoption for Go uses only what exists today: the `go` package's actions
 (`setFunction`, `setMethod`, `setType`, `setVar`, `setConst`, `addImport`), the
 file templates, recordings, `replay --execute`, `--stamp`/`--restamp-gen`, and
 the marker format. New code is limited to a reader (Go source to invocations),
@@ -45,7 +51,7 @@ Consequences, stated so nobody is surprised in review:
 - Blank lines the original had between declarations are normalised by the
   marker layout. gofmt keeps at most one, so this is invisible after gofmt.
 
-## Pipeline
+## Pipeline (Go as the example)
 
 ```
 sedum adopt [--records DIR] [--record ID] [--generators DIR] [--dry-run] <path>...
@@ -56,11 +62,13 @@ sedum adopt [--records DIR] [--record ID] [--generators DIR] [--dry-run] <path>.
    already carrying Sedum markers are left alone; files that no `go` file
    template matches (a root-level `main.go` today) are reported as unsupported,
    not guessed at.
-2. **Read.** Parse each file with `go/parser` (the standard library; Sedum's
-   `syntax: go` checker already links it, so this adds no dependency and does
-   not conflict with the "no parsers" rule, which is about generator anchors,
-   not adoption). Split into top-level declarations with their doc comments.
-3. **Map to invocations**, in source order, per the table below.
+2. **Split.** Ask the file's package for its adopter (see *Adopters*). The
+   adopter returns an ordered list of units: a header span, then top-level
+   units with an identity, an action, kwargs and the exact source text, and
+   a list of residual spans it could not claim. The core never looks inside a
+   unit.
+3. **Map to invocations**, in source order. For Go the adopter's mapping is the
+   table below.
 4. **Write a recording** with one record per target imprint, one `default`
    phase, invocations in source order. Invocation order within a record fixes
    region order at a shared anchor, so source order is preserved.
@@ -95,6 +103,145 @@ before implementation (see open questions): file headers (license comment,
 `//go:embed` and `//go:generate` directives, cgo preambles, grouped `var (...)`
 and `const (...)` blocks with iota, `import (...)` grouping, and blank
 identifiers (`var _ I = (*T)(nil)`).
+
+## Adopters
+
+An **adopter** is the one language-specific piece of adoption. A generator
+package declares it in `sedum.yaml`; the core calls it, validates what it
+returns, and does everything else. Two forms:
+
+**Declarative.** Regexes and delimiters, in the style of anchors, so no parser:
+
+```yaml
+adopt:
+  header: '\A(#!.*\n)?(""".*?"""\n)?'      # kept as the file template's head
+  unit_start: '^(def|class|async def)\s+(?P<name>\w+)'   # a unit starts here
+  unit_end: dedent                          # next line at column 0, or EOF
+  attach_above: ['^@', '^#']                 # decorators and comments belong to the unit
+  action: {def: setFunction, class: setType}
+```
+
+**External command.** The package names an executable that reads a file path
+and writes a recording fragment to stdout (the same JSON as a recording, which
+is already a public input format: README *The recording is an input format*).
+The core runs it, validates the fragment exactly as it validates a model's
+response, and treats failures as terminal. The Go adopter is of this form,
+built into the `go` package, because Go needs a real parse (grouped blocks,
+raw strings containing `//`).
+
+Both forms are subject to the same checks, whoever wrote them:
+
+- **Coverage.** Header + unit texts + residual spans, concatenated in order, must
+  equal the original file exactly. Anything the adopter cannot claim is a
+  *residual* and is kept as a verbatim, unmanaged span, never dropped.
+- **Round trip.** The marker-stripped invariant (below) is the contract, and it
+  is checked by the core on the replayed result, not trusted from the adopter.
+- **Unmanaged residue is reported**, per file, so a package that adopts 60% of
+  a file says so.
+
+The strictly decoded `sedum.yaml` means the `adopt` key must be added to the
+loader first, the same ordering that `test_paths` followed.
+
+### Questions 7 and 8, answered
+
+*Q8, where it lives.* The core stays parserless. `sedum adopt` is a core
+command, but it only orchestrates: select files, call the package's adopter,
+validate coverage, replay, verify. Splitting source is the adopter's job, and
+an adopter is generator-package content, exempt from provenance like the rest of
+`generators/**`. Trade-off: the core gains a command and a schema key, and the
+`adopt` command is a new public surface; in return nothing in the core knows a
+language, and a team can write an adopter for its language without touching
+Sedum. The alternative, a separate tool that writes a recording, is already
+possible today and stays possible (it is the external-command form run by hand),
+but then verification and hashes are each tool's own problem.
+
+*Q7, how a package declares it.* A keyed `adopt:` entry in `sedum.yaml`, either
+declarative or `command:`. Trade-off: declarative adopters are portable and
+cheap to review but cover regular languages of top-level units only (see below);
+command adopters can use real parsers but are code a user must trust and run, so
+`adopt` should refuse a command adopter unless `--allow-command-adopters` is
+given, and print the command first. Go ships as a built-in command adopter.
+
+## Sanity check against non-Go shapes
+
+Paper exercises; nothing here is implemented or measured.
+
+### Python or TypeScript (decorators, exports)
+
+A Python module: shebang and docstring header, imports, then `def`, `class` and
+module-level assignments, decorators above defs, comments above decorators.
+
+- **Expressible declaratively:** header (shebang + docstring), one unit per
+  top-level `def`/`class` ended by dedent, decorators and comment runs attached
+  above (`attach_above`), imports as one-line units.
+- **Not expressible declaratively:** unit end inside multi-line strings that contain
+  dedented text, nested decorators with arguments across lines, `if __name__ ==
+  '__main__':` blocks (a unit with no name), conditional imports, and
+  top-level statements with side effects, whose order matters. These become
+  residual spans or force a command adopter.
+- **Ordering:** `class` bodies are one unit; methods are not separate regions
+  unless the package defines an action with an inner anchor. So the first
+  adoption of a large class is one literal region, a known weakness (lifting
+  methods needs class-body anchors the file template must plant, which an
+  existing file does not have).
+
+TypeScript adds `export` modifiers, `export default`, overloads (several
+declarations with one name: identity must include a signature hash, or the
+overload group is one unit), and `declare module` blocks. Brace matching ending
+a unit is declarative only if the regex flavour supports balanced delimiters;
+template literals containing braces break a simple counter. Expected result:
+declarative for plain modules, command adopter (TypeScript compiler API) for the
+rest.
+
+### C++ (header + implementation)
+
+A declaration in `foo.h` and its definition in `foo.cpp` are one logical thing
+in two files.
+
+- **Adoption handles each file independently.** The core would give them two
+  units with different identities (`Foo::bar` declared, `Foo::bar` defined).
+  The round trip passes, but the pair is not recognised as one thing, so a
+  `revise` has to touch both regions by hand.
+- **Cannot be expressed:** macros that generate declarations, include guards
+  that wrap the whole file (a header span ending at EOF, so coverage works but
+  `decls` anchors sit inside it), templates split across headers, and
+  `#ifdef` regions that share one unit. An adopter can mark such spans residual.
+- **What the design would need to add:** a *group id* shared by the units of two
+  files (a kwarg, and a fact the marker already carries), so that a lift can
+  join them. That belongs to the lift, not to adoption.
+
+### What the declarative adopter cannot express, in summary
+
+Units with no name; units ended by balanced delimiters in languages with
+nested string syntax; order-dependent side-effect statements; one logical
+unit across two files; macros/preprocessing; a unit nested in another
+(methods in a class) without anchors the existing file lacks; and any language
+whose top-level boundary depends on type or scope information.
+
+## Language-free parts
+
+The following is identical for every language and lives in the core:
+
+- **Marker layout.** `comment_prefix`/`comment_suffix` per package, the `sedum:`
+  namespace, the attribute JSON object, `/sedum:` closing marker, indentation
+  copied from the anchor.
+- **Region identity and ownership.** Action + variant + identity kwargs; `record`
+  as owner; reconcile by identity; conflicts as errors; order at shared anchors.
+- **Hashes.** `gen` is over the record (intent, constraints, scope), `pkg` over
+  the action and its templates. Neither looks at the language. Adoption only
+  needs a record to exist, then replay stamps both.
+- **Recording and replay.** Format, phases, scope validation, `--restamp-gen`.
+- **The verifier's shape:** strip markers, normalise, compare. Only the
+  *normaliser* is language-specific (gofmt for Go; `black`, `prettier` or
+  `clang-format` for others, declared by the package; none means byte-exact
+  compare, which is stricter and often what a language without a canonical
+  formatter needs).
+- **Lift scaffolding.** Cluster by normal form, re-render, compare. The
+  normalisation of identifiers and literals is the one language-specific part
+  and can be the same declarative style (token classes) or the command adopter.
+
+Language-specific, inside the package: the file templates, the actions, the
+adopter, the syntax checker, the normaliser.
 
 ## Records adoption creates
 
@@ -211,12 +358,17 @@ for `gen`, and a `pkg` restamp on template edits is what `grow` re-render does.
    block-aware import region?
 6. **Tests.** `test_paths` is validated but unread. Adopt tests in the same
    imprint, in a second imprint, or not at all by default?
-7. **Other languages.** The reader is Go-only. Does a generator package declare an
-   adopter (a keyed entry in `sedum.yaml`, which is strictly decoded), or is
-   adoption per-language code in Sedum?
-8. **Where it lives.** Sedum is a text-level tool with no language parsers by
-   design (PRD). Does `adopt` belong in Sedum, or in a separate tool that writes a
-   recording, which is already a public input format?
+7. **Other languages.** Answered above (*Adopters*): a keyed `adopt:` entry,
+   declarative or external command, Go built in. Still open: the declarative
+   dialect (regex flavour, how a unit end is specified) and whether command
+   adopters need a trust model beyond `--allow-command-adopters`.
+8. **Where it lives.** Answered above: orchestration in the core, splitting in the
+   package. Still open: whether the core should refuse a package with no
+   adopter or fall back to treating the whole file as one residual.
+11. **Formatter per language.** The verifier needs a normaliser; is it declared in
+    the package (`adopt.normalize: black`), and is a missing formatter an error?
+12. **Cross-file units** (C++ header/impl, Go test beside code). Group id on the
+    marker, or leave to lift?
 9. **Provenance side.** `provenance consolidate` (prov-lib's analysis) handles the
    records already created. Adoption should not duplicate it; it only prevents new
    ones.
@@ -225,7 +377,7 @@ for `gen`, and a `pkg` restamp on template edits is what `grow` re-render does.
 
 ## Suggested order of work
 
-1. Decide questions 1, 2, 5, 8 (they change formats or tool boundaries).
+1. Decide questions 1, 2, 5, 7, 8 (they change formats or tool boundaries).
 2. Blueprint: reader, mapping, recording writer, verifier, for plain top-level
    declarations only, with the marker-strip invariant as the spec.
 3. Prove it on a package of provenance's `cmd/` (handwritten parts), then linespec;
