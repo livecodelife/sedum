@@ -1,7 +1,7 @@
 id: prov-2026-b5c21813
 title: grow --repair feeds project verification failures back to the model
 type: blueprint
-status: open
+status: implemented
 version: 4
 reason: 'merge main (#5, #6) into grow-repair'
 created_at: "2026-10-16"
@@ -81,7 +81,7 @@ affected_scope:
   - .sedum/context.md
 forbidden_scope: []
 related: []
-sealed_at_sha: ""
+sealed_at_sha: 050cd34997ff7e2b4d97cde8d3c701a1bd85014b
 associated_specs:
   - path: internal/verify/verify_test.go
     run_command: go test ./internal/verify -count=1
