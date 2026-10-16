@@ -1,0 +1,67 @@
+id: prov-2026-520ee992
+title: 'adopt: the orchestrator'
+type: imprint
+status: open
+version: 1
+reason: ""
+created_at: "2026-10-16"
+author: calebcowen@gmail.com
+intent: |-
+  Implements prov-2026-95d9ae7e: the adopt orchestrator. New file internal/adopt/run.go (package adopt). It composes pieces that already exist in this package: Select(cfg SelectConfig, paths []string) ([]Candidate, []Skip, error) with SelectConfig{Root string; Set *genpkg.Set; Records *record.Set; Tests bool}, Candidate{Path string; Package *genpkg.Package; Template string; Captures map[string]string; Record *record.Record; Src []byte}, Skip{Path string; Reason Reason; Detail string}; ForPackage(pkg *genpkg.Package, allowCommand bool) (Adopter, error) and the Adopter interface (Split(path string, src []byte) ([]Span, error)); CommandAdopter{Argv []string; Dir string}; CheckSpans(src []byte, spans []Span) error; ResidualsOf(src []byte, spans []Span, comment genpkg.Comment) []ResidualInfo; Adopted{Candidate Candidate; Spans []Span} and BuildRecording(items []Adopted) (recording.Recording, error); Verify(comment genpkg.Comment, original, adopted string) error; NewReport() *Report, (*Report).Add(FileReport) with FileReport{Path, Package, Record string; Status FileStatus; Reason Reason; Detail string; Units int; Residuals []ResidualInfo} and StatusAdopted/StatusSkipped/StatusRejected; Report.Recording string; KindUnit; Reason constants. Other packages: genpkg.Load(dir string, genpkg.Options{}) (*genpkg.Set, genpkg.Findings, error) where each Finding has Kind (genpkg.KindError for errors) and String(); record.Load(dir string, record.Options{}) (*record.Set, []string, error); recording.Write(w io.Writer, r recording.Recording) error; pipeline.Replay(rec recording.Recording, cfg pipeline.ReplayConfig) (*pipeline.Result, error) with ReplayConfig{Generators, Output, Records string; Log *runlog.Log}; runlog.Discard().
+  Define, with doc comments:
+  - new Reason constants (type Reason from select.go): ReasonCoverage "coverage", ReasonRoundTrip "round_trip", ReasonAdopterFailed "adopter_failed", ReasonNoUnits "no_units".
+  - `type Config struct { Root, Generators, Records string; Paths []string; Tests, AllowCommand, DryRun bool; RecordingPath string }`.
+  - `func Run(cfg Config) (*Report, error)`:
+    1. genpkg.Load(cfg.Generators); any finding of Kind genpkg.KindError is an error listing them ("generator packages did not load:\n  <finding>..."). record.Load(cfg.Records).
+    2. Select(SelectConfig{Root: cfg.Root, Set, Records, Tests: cfg.Tests}, cfg.Paths); every Skip becomes a FileReport{Path, Status: StatusSkipped, Reason, Detail}.
+    3. For each Candidate, in order: adopter via ForPackage(c.Package, cfg.AllowCommand) (cached per package name; an error here aborts the whole run with that error, because the user must opt in), and a CommandAdopter gets Dir set to cfg.Root. Split(c.Path, c.Src): an error makes the file StatusRejected, ReasonAdopterFailed, Detail the error. CheckSpans failing makes it StatusRejected, ReasonCoverage, Detail the error. ResidualsOf non-empty makes it StatusSkipped with Reason the first residual's Reason and Residuals filled in. No KindUnit span makes it StatusSkipped, ReasonNoUnits. Otherwise it is adopted (Package name, Record id and Units filled).
+    4. BuildRecording of the adopted items; write it with recording.Write to cfg.RecordingPath (create parent directories; when empty use filepath.Join(cfg.Root, ".sedum", "adopt", "adopt.json")) and set Report.Recording to that path as given. When there are no adopted items write nothing and skip to step 7.
+    5. cfg.DryRun: mark each adopted file FileReport{Status: StatusAdopted, Detail: "dry run"} and go to step 7 without touching any file under Root.
+    6. Otherwise pipeline.Replay the recording with Generators, Records and Output set to a fresh os.MkdirTemp directory (removed on return, runlog.Discard() as the log); a Replay error aborts the run, nothing written. For each adopted item read Output/<path>; Verify(c.Package.Comment(), string(c.Src), text): a failure makes the file StatusRejected, ReasonRoundTrip, Detail the error and it is not written. The verified files are then written to Root/<path> with the original file's permissions (write a temp file in the same directory and os.Rename); if any write fails the files already replaced are restored from their Src and the error is returned. Each written file is StatusAdopted.
+    7. Report.Files are sorted by Path (sort.SliceStable). Return the report.
+  Tests (run_test.go), each its OWN setFunction invocation; start with a helper `newRunFixture(t *testing.T, files map[string]string) (cfg Config)` as its own invocation that writes, under t.TempDir(): a generators tree `gen/` with exactly
+  gen/py/sedum.yaml:
+  name: py
+  extensions: [".py"]
+  comment_prefix: "#"
+  adopt:
+    unit_start: '^(?P<kind>def) (?P<name>\w+)'
+    unit_end: dedent
+    actions:
+      def: setThing
+  gen/py/files/{name}.py:
+  # sedum:anchor:decls
+  gen/py/actions/actions.yaml:
+  actions:
+    setThing:
+      kwargs:
+        file: { type: string, required: true }
+        name: { type: string, required: true }
+        code: { type: string, required: true }
+      injects_into: "{{file}}"
+      anchor: decls
+  gen/py/actions/setThing.py:
+  {{code}}
+  and a records directory `prov/` with one file imp.yml containing
+  id: prov-2026-aaaaaaaa
+  type: imprint
+  status: open
+  intent: adopt py files
+  created_at: "2026-10-16"
+  affected_scope: ["*.py"]
+  plus the given files under `proj/` (the project root), returning Config{Root: proj, Generators: gen, Records: prov, Paths: []string{"."}}. Tests: TestRunAdopts (a.py = "def f():\n    return 1\n\ndef g():\n    return 2\n": report Totals.Adopted 1 and Units 2; the file on disk now contains "# sedum:setThing"; Verify with Comment{Prefix: "#"} of the original against the file on disk passes; the recording file exists at proj/.sedum/adopt/adopt.json); TestRunDryRunTouchesNothing (same input with DryRun: file bytes unchanged, recording written, FileReport Detail "dry run"); TestRunSkipsResidualFiles (b.py = "import os\n\ndef f():\n    return 1\n" is skipped with ReasonOtherResidual; c.py = "# licence\n\ndef f():\n    return 1\n" is skipped with ReasonHeader; both unchanged on disk; Totals.SkippedByReason has one of each); TestRunTwiceSkipsAdopted (run, then run again: second report has Adopted 0 and the file skipped with ReasonAlreadyAdopted).
+constraints: []
+affected_scope:
+  - internal/adopt/run.go
+  - internal/adopt/run_test.go
+forbidden_scope: []
+implements: prov-2026-95d9ae7e
+implements_version: 2
+related: []
+sealed_at_sha: ""
+associated_specs:
+  - path: internal/adopt/run_test.go
+    run_command: go test ./internal/adopt -run 'TestRun' -count=1
+associated_traces: []
+monitors: []
+tags: []
