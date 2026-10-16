@@ -1,0 +1,167 @@
+id: prov-2026-751790c4
+title: 'go: internal/selection/repair_test.go, tests for the repair loop'
+type: imprint
+status: implemented
+version: 3
+reason: 'Two more tests: exhaustion counts every model call, and --repair 0 verifies once and fails'
+created_at: "2026-10-16"
+author: calebcowen@gmail.com
+intent: |
+  The tests of internal/selection/repair_test.go (go package, package selection): a failed verification is sent back to the model within the repair budget, what happens when it is exhausted (every model call is counted) or absent, and that a repair budget of zero verifies once and fails.
+
+  Imports, each its own addImport, exactly: context, errors, strings, testing.
+
+  Declarations, in this order, each exactly one set* call whose code kwarg is the code below verbatim (gofmt-formatted, comments kept). Do not alter, reorder or add anything.
+
+    - setType name failing, code exactly:
+        // failing is a Verify that fails its first n calls with message and then
+        // passes, remembering the candidates it was given.
+        type failing struct {
+        	n          int
+        	message    string
+        	candidates []map[string]string
+        }
+
+    - setMethod name verify, receiver failing, code exactly:
+        func (f *failing) verify(_ context.Context, candidate map[string]string) (string, error) {
+        	f.candidates = append(f.candidates, candidate)
+        	if len(f.candidates) <= f.n {
+        		return f.message, nil
+        	}
+        	return "", nil
+        }
+
+    - setFunction name selectRepairing, code exactly:
+        func selectRepairing(t *testing.T, repair int, verify func(context.Context, map[string]string) (string, error), responses ...string) (Answer, *stub, error) {
+        	t.Helper()
+        	client := &stub{responses: responses}
+        	req := railsRequest(t)
+        	req.Files[0].Rendered = "class UsersController\n  # sedum:anchor:class_body\nend\n"
+        	answer, err := Select(context.Background(), client, req, Options{
+        		Retries: 3,
+        		Repair:  repair,
+        		Verify:  verify,
+        		Output:  t.TempDir(),
+        	})
+        	return answer, client, err
+        }
+
+    - setFunction name TestRepairSendsAFailedVerificationBack, code exactly:
+        func TestRepairSendsAFailedVerificationBack(t *testing.T) {
+        	check := &failing{n: 1, message: "These checks failed: go build ./..."}
+        	answer, client, err := selectRepairing(t, 1, check.verify, validResponse, validResponse)
+        	if err != nil {
+        		t.Fatalf("the repair should have succeeded: %v", err)
+        	}
+        	if answer.Repairs != 1 || answer.Calls != 2 || answer.Rejected != 0 {
+        		t.Errorf("Repairs = %d, Calls = %d, Rejected = %d, want 1, 2 and 0", answer.Repairs, answer.Calls, answer.Rejected)
+        	}
+        	second := client.seen[1]
+        	last := second[len(second)-1]
+        	if last.Role != RoleUser || last.Content != check.message {
+        		t.Errorf("the failure was not put to the model as the next message: %+v", last)
+        	}
+        	if prev := second[len(second)-2]; prev.Role != RoleAssistant || prev.Content != validResponse {
+        		t.Errorf("the answer that failed was not kept in the conversation: %+v", prev)
+        	}
+        }
+
+    - setFunction name TestRepairVerifiesTheFilesTheAnswerWouldWrite, code exactly:
+        func TestRepairVerifiesTheFilesTheAnswerWouldWrite(t *testing.T) {
+        	check := &failing{}
+        	if _, _, err := selectRepairing(t, 1, check.verify, validResponse); err != nil {
+        		t.Fatal(err)
+        	}
+        	if len(check.candidates) != 1 {
+        		t.Fatalf("Verify was called %d times, want 1", len(check.candidates))
+        	}
+        	content, ok := check.candidates[0]["app/controllers/users_controller.rb"]
+        	if !ok || !strings.Contains(content, "index") {
+        		t.Errorf("the candidate lacks the controller the answer writes: %v", check.candidates[0])
+        	}
+        }
+
+    - setFunction name TestRepairExhaustionFailsNamingTheRecordAndTheFailure, code exactly:
+        func TestRepairExhaustionFailsNamingTheRecordAndTheFailure(t *testing.T) {
+        	check := &failing{n: 5, message: "These checks failed: make test"}
+        	_, client, err := selectRepairing(t, 1, check.verify, validResponse, validResponse)
+        	if err == nil {
+        		t.Fatal("an answer that never verifies should fail")
+        	}
+        	for _, want := range []string{"PR-014", "did not verify after 1 repair attempt(s)", check.message} {
+        		if !strings.Contains(err.Error(), want) {
+        			t.Errorf("the error lacks %q: %v", want, err)
+        		}
+        	}
+        	if len(client.seen) != 2 {
+        		t.Errorf("the model was called %d times, want the first answer and one repair", len(client.seen))
+        	}
+        }
+
+    - setFunction name TestWithoutVerifyNothingIsRepaired, code exactly:
+        func TestWithoutVerifyNothingIsRepaired(t *testing.T) {
+        	answer, client, err := selectRepairing(t, 3, nil, validResponse)
+        	if err != nil {
+        		t.Fatal(err)
+        	}
+        	if answer.Repairs != 0 || len(client.seen) != 1 {
+        		t.Errorf("Repairs = %d after %d call(s), want 0 after 1", answer.Repairs, len(client.seen))
+        	}
+        }
+
+    - setFunction name TestAVerifyErrorStopsTheRecordWithoutARepair, code exactly:
+        func TestAVerifyErrorStopsTheRecordWithoutARepair(t *testing.T) {
+        	broken := func(context.Context, map[string]string) (string, error) { return "", errors.New("no shell") }
+        	_, client, err := selectRepairing(t, 3, broken, validResponse, validResponse)
+        	if err == nil || !strings.Contains(err.Error(), "verifying the selection") || !strings.Contains(err.Error(), "no shell") {
+        		t.Fatalf("error = %v, want one naming the verification and its cause", err)
+        	}
+        	if len(client.seen) != 1 {
+        		t.Errorf("the model was called %d times, want 1: a broken verifier is not the model's mistake", len(client.seen))
+        	}
+        }
+
+    - setFunction name TestRepairExhaustionCountsEveryModelCall, code exactly:
+        func TestRepairExhaustionCountsEveryModelCall(t *testing.T) {
+        	bad := `{"invocations":[{"action":"createControllerMethod","kwargs":{"controller":"users"}}]}`
+        	check := &failing{n: 5, message: "These checks failed: make test"}
+        	_, client, err := selectRepairing(t, 1, check.verify, validResponse, bad, validResponse)
+        	if err == nil {
+        		t.Fatal("an answer that never verifies should fail")
+        	}
+        	for _, want := range []string{"1 repair attempt(s)", "3 model call(s)", "1 answer(s) rejected by validation"} {
+        		if !strings.Contains(err.Error(), want) {
+        			t.Errorf("the error lacks %q: %v", want, err)
+        		}
+        	}
+        	if len(client.seen) != 3 {
+        		t.Errorf("the model was called %d times, want 3", len(client.seen))
+        	}
+        }
+
+    - setFunction name TestRepairZeroVerifiesOnceAndFails, code exactly:
+        func TestRepairZeroVerifiesOnceAndFails(t *testing.T) {
+        	check := &failing{n: 5, message: "These checks failed: make test"}
+        	_, client, err := selectRepairing(t, 0, check.verify, validResponse, validResponse)
+        	if err == nil || !strings.Contains(err.Error(), "after 0 repair attempt(s)") {
+        		t.Fatalf("error = %v, want one saying no repair was allowed", err)
+        	}
+        	if len(client.seen) != 1 || len(check.candidates) != 1 {
+        		t.Errorf("%d model call(s) and %d verification(s), want 1 and 1", len(client.seen), len(check.candidates))
+        	}
+        }
+constraints: []
+affected_scope:
+  - internal/selection/repair_test.go
+forbidden_scope: []
+implements: prov-2026-b5c21813
+implements_version: 1
+related: []
+sealed_at_sha: 99ed80ef1aa854117d8ccb32c5c0af2589219291
+associated_specs:
+  - path: internal/verify/verify_test.go
+    run_command: go test ./internal/selection -count=1 -run 'Repair|Verify'
+associated_traces: []
+monitors: []
+tags:
+  - repair

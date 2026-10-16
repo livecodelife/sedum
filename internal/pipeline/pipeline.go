@@ -100,6 +100,13 @@ type Config struct {
 	// Retries bounds Phase 5's re-prompt loop.
 	Retries int
 
+	// Repair bounds how often a selection that passed Phase 5 is sent back
+	// because Verify failed it, and Verify is the project's verification: it
+	// receives the files a record's selection would write and returns what
+	// failed, or the empty string (prov-2026-b5c21813). Nil means none.
+	Repair int
+	Verify func(ctx context.Context, candidate map[string]string) (string, error)
+
 	// Log is the run log. A nil log discards.
 	Log *runlog.Log
 
@@ -205,9 +212,12 @@ type Selection struct {
 	// did this record cost" is a question about the run and not about one
 	// phase's diagnostics (prov-2026-0811425c, prov-2026-096a4d4b). A record no
 	// model was asked about carries zeroes, which is what it cost.
-	Calls            int
-	Rejected         int
-	Completeness     int
+	Calls        int
+	Rejected     int
+	Completeness int
+	// Repairs is how many times the project's verification sent this record's
+	// selection back (prov-2026-b5c21813).
+	Repairs          int
 	PromptTokens     int
 	CompletionTokens int
 }
@@ -530,7 +540,7 @@ func selectAll(ctx context.Context, cfg Config, records *record.Set, files []res
 			Prompt:      cfg.Prompt,
 			Prior:       prior[rec.ID],
 			Present:     presentFor(rec.ID, byRecord[rec.ID].found, owners),
-		}, selection.Options{Retries: cfg.Retries, Variables: variables, Log: log, FullCatalog: cfg.FullCatalog, Output: cfg.Output})
+		}, selection.Options{Retries: cfg.Retries, Variables: variables, Log: log, FullCatalog: cfg.FullCatalog, Output: cfg.Output, Repair: cfg.Repair, Verify: cfg.Verify})
 		if err != nil {
 			return nil, err
 		}
@@ -542,6 +552,7 @@ func selectAll(ctx context.Context, cfg Config, records *record.Set, files []res
 			Calls:            answer.Calls,
 			Rejected:         answer.Rejected,
 			Completeness:     answer.Completeness,
+			Repairs:          answer.Repairs,
 			PromptTokens:     answer.PromptTokens,
 			CompletionTokens: answer.CompletionTokens,
 		})

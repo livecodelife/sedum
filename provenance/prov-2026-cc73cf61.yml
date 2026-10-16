@@ -1,8 +1,8 @@
 id: prov-2026-cc73cf61
 title: Orphans, deprecated records, stamping, and prompt context for grow
 status: implemented
-version: 3
-reason: Spec files edited by the merge of orphan-summary and replay-restamp; refresh its hash
+version: 5
+reason: 'merge main (#5, #6): README/PRD/flags_test.go gained both sides'' hunks'
 created_at: "2026-10-15"
 author: calebcowen@gmail.com
 intent: |
@@ -99,7 +99,7 @@ related:
   - prov-2026-375f5d4a
   - prov-2026-9621daed
   - prov-2026-dad4d877
-sealed_at_sha: 1dbab476714f3be7a9e27395418509fe11866f46
+sealed_at_sha: deca98173c7b2c578dbfff83a67343465c26cfca
 associated_specs:
   - path: internal/pipeline/orphans_test.go
     run_command: go test ./$(dirname {{path}})

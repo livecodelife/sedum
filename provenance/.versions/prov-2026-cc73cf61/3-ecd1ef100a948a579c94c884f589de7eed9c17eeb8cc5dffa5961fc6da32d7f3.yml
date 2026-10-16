@@ -1,15 +1,15 @@
 id: prov-2026-cc73cf61
 version: 3
-content_hash: sha256:f501d26f9d56c7ca224013df95d6d0d5cc9a39e360db42ac171f19a73edecb2e
+content_hash: sha256:ecd1ef100a948a579c94c884f589de7eed9c17eeb8cc5dffa5961fc6da32d7f3
 parent_hash: sha256:24070bdbe2c449d875af7091f8e4a87bdb41e118b2c62c37ce78f12912822d1e
-reason: Spec files edited by the merge of orphan-summary and replay-restamp; refresh its hash
+reason: Spec file edited under prov-2026-b5c21813; refresh its hash
 author: calebcowen@gmail.com
-created_at: "2026-10-16T06:14:57Z"
+created_at: "2026-10-16T06:44:50Z"
 spec_hashes:
   - sha256:b69fed63bdc4ec6cc1c13dd60dab39d12973b62e8a943e16998ef41aaf13ea48
   - sha256:b1f77f082abbc5d9a81b551deb359b4682f0e96319b4afe5f8a83825de7880ed
   - sha256:aa15ef56c4589ab5cee49f57e06e394db13a48ea5f94ad8dd7d30d2d2f62c1dd
-  - sha256:9471d43da38c58990cb311f6cd0e3c4636337f36a9450900e5b5766eafcea1ce
+  - sha256:6346394c933ac40b304c08b753dc9a62a6aa4859e175041c7c024aedd9ad138f
 content:
   id: prov-2026-cc73cf61
   title: Orphans, deprecated records, stamping, and prompt context for grow

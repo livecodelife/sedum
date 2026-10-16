@@ -1,13 +1,13 @@
 id: prov-2026-d2f1bdf2
-version: 3
-content_hash: sha256:9c35a50776606198a1cae12509b643250f711e2ed0377713ea89603db4dca052
-parent_hash: sha256:4170a70a059d59475837ff49243bd678dee28a0f99b90e58f1b6d463e2244d14
-reason: Spec files edited by the merge of orphan-summary and replay-restamp; refresh its hash
+version: 5
+content_hash: sha256:82974d1205e2bf707a7dd510dee589c6afe593769c52427c112ebb7c4c9976c4
+parent_hash: sha256:ea372dc30deddacde2803442f88bea93094081a5fa5086c07f09a8a99aea8c37
+reason: 'merge main (#5, #6): README/PRD/flags_test.go gained both sides'' hunks'
 author: calebcowen@gmail.com
-created_at: "2026-10-16T06:14:58Z"
+created_at: "2026-10-16T13:05:06Z"
 spec_hashes:
   - sha256:597c71ff26ca824bc35a97887a2e91793f68e7a8b34984f2f900ae56d275b20d
-  - sha256:9471d43da38c58990cb311f6cd0e3c4636337f36a9450900e5b5766eafcea1ce
+  - sha256:7113081ded3b93aae46a83b2133d35c7dddd199a97bc149b397d7297ef963442
   - sha256:31e5ec0e0f2157c22dee82d834e8b4edca6ef5f7264f0bb1b3555e081701828e
 content:
   id: prov-2026-d2f1bdf2

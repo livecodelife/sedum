@@ -18,6 +18,10 @@ const (
 	defaultOutput  = "."
 	defaultLogPath = ".sedum/run.log"
 	defaultRetries = 3
+	// defaultRepair and maxRepair bound the verification loop
+	// (prov-2026-b5c21813).
+	defaultRepair = 1
+	maxRepair     = 3
 )
 
 // NewRootCommand builds a fresh command tree. Nothing is shared between trees,
