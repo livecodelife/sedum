@@ -1,7 +1,7 @@
 id: prov-2026-21aa9103
 title: 'growlog: the entry type and Append'
 type: imprint
-status: open
+status: implemented
 version: 4
 reason: the entry test must not depend on Read
 created_at: "2026-10-16"
@@ -159,7 +159,7 @@ forbidden_scope: []
 implements: prov-2026-7a13f569
 implements_version: 1
 related: []
-sealed_at_sha: ""
+sealed_at_sha: 9e18150b8b4aca3e42adbfabf7f6d29e2a15f648
 associated_specs:
   - path: internal/growlog/entry_test.go
     run_command: go test ./internal/growlog -run 'TestAppendWritesOneLinePerEntry|TestAppendClipsError' -count=1
