@@ -1,7 +1,7 @@
 id: prov-2026-6edbd718
 title: 'cli: the grow log wiring'
 type: imprint
-status: open
+status: implemented
 version: 2
 reason: tests grown into the placeholder spec file
 created_at: "2026-10-16"
@@ -350,7 +350,7 @@ forbidden_scope: []
 implements: prov-2026-7a13f569
 implements_version: 2
 related: []
-sealed_at_sha: ""
+sealed_at_sha: c2e516c24e41af468b4cc2d3b63e24d01c4edef5
 associated_specs:
   - path: internal/cli/growlogwire_test.go
     run_command: go test ./internal/cli -run 'TestGrowLogEntries|TestGrowLogFailure|TestGrowLogModel|TestGrowLogSettings|TestWriteGrowLog' -count=1
