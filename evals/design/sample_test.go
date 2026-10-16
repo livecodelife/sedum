@@ -1,37 +1,37 @@
 package design
 
 // sedum:anchor:imports
-// sedum:addImport {"tier":"owned","record":"prov-2026-e6976fa9","gen":"sha256:ebb1bd9ca8c21c30033cac7adfe5ee18f5ef9dd23e972d1502637991e68c5e50","pkg":"sha256:d6a9443c14d82b7bdf19bb96637f957fd44ad9bfbe8f167c97e6f7699c8b830f","kwargs":{"file":"evals/design/sample_test.go","path":"context"}}
+// sedum:addImport {"tier":"owned","record":"prov-2026-e6976fa9","gen":"sha256:36e1a83c85979b86a1d983a8b7b8a9c818fb8f21b52e5dfffa2860d20230971c","pkg":"sha256:d6a9443c14d82b7bdf19bb96637f957fd44ad9bfbe8f167c97e6f7699c8b830f","kwargs":{"file":"evals/design/sample_test.go","path":"context"}}
 import "context"
 
 // /sedum:addImport
-// sedum:addImport {"tier":"owned","record":"prov-2026-e6976fa9","gen":"sha256:ebb1bd9ca8c21c30033cac7adfe5ee18f5ef9dd23e972d1502637991e68c5e50","pkg":"sha256:d6a9443c14d82b7bdf19bb96637f957fd44ad9bfbe8f167c97e6f7699c8b830f","kwargs":{"file":"evals/design/sample_test.go","path":"errors"}}
+// sedum:addImport {"tier":"owned","record":"prov-2026-e6976fa9","gen":"sha256:36e1a83c85979b86a1d983a8b7b8a9c818fb8f21b52e5dfffa2860d20230971c","pkg":"sha256:d6a9443c14d82b7bdf19bb96637f957fd44ad9bfbe8f167c97e6f7699c8b830f","kwargs":{"file":"evals/design/sample_test.go","path":"errors"}}
 import "errors"
 
 // /sedum:addImport
-// sedum:addImport {"tier":"owned","record":"prov-2026-e6976fa9","gen":"sha256:ebb1bd9ca8c21c30033cac7adfe5ee18f5ef9dd23e972d1502637991e68c5e50","pkg":"sha256:d6a9443c14d82b7bdf19bb96637f957fd44ad9bfbe8f167c97e6f7699c8b830f","kwargs":{"file":"evals/design/sample_test.go","path":"os"}}
+// sedum:addImport {"tier":"owned","record":"prov-2026-e6976fa9","gen":"sha256:36e1a83c85979b86a1d983a8b7b8a9c818fb8f21b52e5dfffa2860d20230971c","pkg":"sha256:d6a9443c14d82b7bdf19bb96637f957fd44ad9bfbe8f167c97e6f7699c8b830f","kwargs":{"file":"evals/design/sample_test.go","path":"os"}}
 import "os"
 
 // /sedum:addImport
-// sedum:addImport {"tier":"owned","record":"prov-2026-e6976fa9","gen":"sha256:ebb1bd9ca8c21c30033cac7adfe5ee18f5ef9dd23e972d1502637991e68c5e50","pkg":"sha256:d6a9443c14d82b7bdf19bb96637f957fd44ad9bfbe8f167c97e6f7699c8b830f","kwargs":{"file":"evals/design/sample_test.go","path":"path/filepath"}}
+// sedum:addImport {"tier":"owned","record":"prov-2026-e6976fa9","gen":"sha256:36e1a83c85979b86a1d983a8b7b8a9c818fb8f21b52e5dfffa2860d20230971c","pkg":"sha256:d6a9443c14d82b7bdf19bb96637f957fd44ad9bfbe8f167c97e6f7699c8b830f","kwargs":{"file":"evals/design/sample_test.go","path":"path/filepath"}}
 import "path/filepath"
 
 // /sedum:addImport
-// sedum:addImport {"tier":"owned","record":"prov-2026-e6976fa9","gen":"sha256:ebb1bd9ca8c21c30033cac7adfe5ee18f5ef9dd23e972d1502637991e68c5e50","pkg":"sha256:d6a9443c14d82b7bdf19bb96637f957fd44ad9bfbe8f167c97e6f7699c8b830f","kwargs":{"file":"evals/design/sample_test.go","path":"strings"}}
+// sedum:addImport {"tier":"owned","record":"prov-2026-e6976fa9","gen":"sha256:36e1a83c85979b86a1d983a8b7b8a9c818fb8f21b52e5dfffa2860d20230971c","pkg":"sha256:d6a9443c14d82b7bdf19bb96637f957fd44ad9bfbe8f167c97e6f7699c8b830f","kwargs":{"file":"evals/design/sample_test.go","path":"strings"}}
 import "strings"
 
 // /sedum:addImport
-// sedum:addImport {"tier":"owned","record":"prov-2026-e6976fa9","gen":"sha256:ebb1bd9ca8c21c30033cac7adfe5ee18f5ef9dd23e972d1502637991e68c5e50","pkg":"sha256:d6a9443c14d82b7bdf19bb96637f957fd44ad9bfbe8f167c97e6f7699c8b830f","kwargs":{"file":"evals/design/sample_test.go","path":"testing"}}
+// sedum:addImport {"tier":"owned","record":"prov-2026-e6976fa9","gen":"sha256:36e1a83c85979b86a1d983a8b7b8a9c818fb8f21b52e5dfffa2860d20230971c","pkg":"sha256:d6a9443c14d82b7bdf19bb96637f957fd44ad9bfbe8f167c97e6f7699c8b830f","kwargs":{"file":"evals/design/sample_test.go","path":"testing"}}
 import "testing"
 
 // /sedum:addImport
-// sedum:addImport {"tier":"owned","record":"prov-2026-e6976fa9","gen":"sha256:ebb1bd9ca8c21c30033cac7adfe5ee18f5ef9dd23e972d1502637991e68c5e50","pkg":"sha256:d6a9443c14d82b7bdf19bb96637f957fd44ad9bfbe8f167c97e6f7699c8b830f","kwargs":{"file":"evals/design/sample_test.go","path":"github.com/livecodelife/sedum/internal/growlog"}}
+// sedum:addImport {"tier":"owned","record":"prov-2026-e6976fa9","gen":"sha256:36e1a83c85979b86a1d983a8b7b8a9c818fb8f21b52e5dfffa2860d20230971c","pkg":"sha256:d6a9443c14d82b7bdf19bb96637f957fd44ad9bfbe8f167c97e6f7699c8b830f","kwargs":{"file":"evals/design/sample_test.go","path":"github.com/livecodelife/sedum/internal/growlog"}}
 import "github.com/livecodelife/sedum/internal/growlog"
 
 // /sedum:addImport
 
 // sedum:anchor:decls
-// sedum:setFunction {"tier":"owned","record":"prov-2026-e6976fa9","gen":"sha256:ebb1bd9ca8c21c30033cac7adfe5ee18f5ef9dd23e972d1502637991e68c5e50","pkg":"sha256:6589611adfb6618a7920e43f951a79901428192ea95c1084fde9f222aecd9537","kwargs":{"code":"// referenceGrow writes the task's reference code, taken from its code intent,\n// as the target file, and logs one grow the way sedum grow does.\nfunc referenceGrow(t *testing.T, task Task) func(context.Context, string) error {\n\treturn func(_ context.Context, dir string) error {\n\t\tparts := strings.SplitN(task.Code, \":\\n\\n\", 2)\n\t\tif len(parts) != 2 {\n\t\t\tt.Fatalf(\"task %s: unexpected code intent\", task.ID)\n\t\t}\n\t\tif err := os.WriteFile(filepath.Join(dir, task.Target[0]), []byte(parts[1]), 0o644); err != nil {\n\t\t\treturn err\n\t\t}\n\t\treturn growlog.Append(filepath.Join(dir, \".sedum\", \"grow.jsonl\"), growlog.Entry{Calls: 2, Rejected: 1, Repairs: 1, PromptTokens: 100, CompletionTokens: 10})\n\t}\n}","file":"evals/design/sample_test.go","name":"referenceGrow"}}
+// sedum:setFunction {"tier":"owned","record":"prov-2026-e6976fa9","gen":"sha256:36e1a83c85979b86a1d983a8b7b8a9c818fb8f21b52e5dfffa2860d20230971c","pkg":"sha256:6589611adfb6618a7920e43f951a79901428192ea95c1084fde9f222aecd9537","kwargs":{"code":"// referenceGrow writes the task's reference code, taken from its code intent,\n// as the target file, and logs one grow the way sedum grow does.\nfunc referenceGrow(t *testing.T, task Task) func(context.Context, string) error {\n\treturn func(_ context.Context, dir string) error {\n\t\tparts := strings.SplitN(task.Code, \":\\n\\n\", 2)\n\t\tif len(parts) != 2 {\n\t\t\tt.Fatalf(\"task %s: unexpected code intent\", task.ID)\n\t\t}\n\t\tif err := os.WriteFile(filepath.Join(dir, task.Package, task.Target[0]), []byte(parts[1]), 0o644); err != nil {\n\t\t\treturn err\n\t\t}\n\t\treturn growlog.Append(filepath.Join(dir, \".sedum\", \"grow.jsonl\"), growlog.Entry{Calls: 2, Rejected: 1, Repairs: 1, PromptTokens: 100, CompletionTokens: 10})\n\t}\n}","file":"evals/design/sample_test.go","name":"referenceGrow"}}
 // referenceGrow writes the task's reference code, taken from its code intent,
 // as the target file, and logs one grow the way sedum grow does.
 func referenceGrow(t *testing.T, task Task) func(context.Context, string) error {
@@ -40,7 +40,7 @@ func referenceGrow(t *testing.T, task Task) func(context.Context, string) error 
 		if len(parts) != 2 {
 			t.Fatalf("task %s: unexpected code intent", task.ID)
 		}
-		if err := os.WriteFile(filepath.Join(dir, task.Target[0]), []byte(parts[1]), 0o644); err != nil {
+		if err := os.WriteFile(filepath.Join(dir, task.Package, task.Target[0]), []byte(parts[1]), 0o644); err != nil {
 			return err
 		}
 		return growlog.Append(filepath.Join(dir, ".sedum", "grow.jsonl"), growlog.Entry{Calls: 2, Rejected: 1, Repairs: 1, PromptTokens: 100, CompletionTokens: 10})
@@ -48,7 +48,7 @@ func referenceGrow(t *testing.T, task Task) func(context.Context, string) error 
 }
 
 // /sedum:setFunction
-// sedum:setFunction {"tier":"owned","record":"prov-2026-e6976fa9","gen":"sha256:ebb1bd9ca8c21c30033cac7adfe5ee18f5ef9dd23e972d1502637991e68c5e50","pkg":"sha256:6589611adfb6618a7920e43f951a79901428192ea95c1084fde9f222aecd9537","kwargs":{"code":"func TestReferenceCodePassesEveryTask(t *testing.T) {\n\ttasks, err := LoadTasks(\"testdata/tasks\")\n\tif err != nil {\n\t\tt.Fatal(err)\n\t}\n\tfor _, task := range tasks {\n\t\tt.Run(task.ID, func(t *testing.T) {\n\t\t\tcfg := Config{Generators: \"../../generators\", Grow: referenceGrow(t, task)}\n\t\t\ts, err := RunSample(context.Background(), cfg, task, VariantCode, 1)\n\t\t\tif err != nil {\n\t\t\t\tt.Fatal(err)\n\t\t\t}\n\t\t\tif !s.Compiled || !s.Passed {\n\t\t\t\tt.Fatalf(\"the reference code must pass its own hidden tests: %+v\", s)\n\t\t\t}\n\t\t\tif s.Calls != 2 || s.Rejected != 1 || s.Repairs != 1 || s.PromptTokens != 100 || s.CompletionTokens != 10 {\n\t\t\t\tt.Fatalf(\"the grow log was not read: %+v\", s)\n\t\t\t}\n\t\t})\n\t}\n}","file":"evals/design/sample_test.go","name":"TestReferenceCodePassesEveryTask"}}
+// sedum:setFunction {"tier":"owned","record":"prov-2026-e6976fa9","gen":"sha256:36e1a83c85979b86a1d983a8b7b8a9c818fb8f21b52e5dfffa2860d20230971c","pkg":"sha256:6589611adfb6618a7920e43f951a79901428192ea95c1084fde9f222aecd9537","kwargs":{"code":"func TestReferenceCodePassesEveryTask(t *testing.T) {\n\ttasks, err := LoadTasks(\"testdata/tasks\")\n\tif err != nil {\n\t\tt.Fatal(err)\n\t}\n\tfor _, task := range tasks {\n\t\tt.Run(task.ID, func(t *testing.T) {\n\t\t\tcfg := Config{Generators: \"../../generators\", Grow: referenceGrow(t, task)}\n\t\t\ts, err := RunSample(context.Background(), cfg, task, VariantCode, 1)\n\t\t\tif err != nil {\n\t\t\t\tt.Fatal(err)\n\t\t\t}\n\t\t\tif !s.Compiled || !s.Passed {\n\t\t\t\tt.Fatalf(\"the reference code must pass its own hidden tests: %+v\", s)\n\t\t\t}\n\t\t\tif s.Calls != 2 || s.Rejected != 1 || s.Repairs != 1 || s.PromptTokens != 100 || s.CompletionTokens != 10 {\n\t\t\t\tt.Fatalf(\"the grow log was not read: %+v\", s)\n\t\t\t}\n\t\t})\n\t}\n}","file":"evals/design/sample_test.go","name":"TestReferenceCodePassesEveryTask"}}
 func TestReferenceCodePassesEveryTask(t *testing.T) {
 	tasks, err := LoadTasks("testdata/tasks")
 	if err != nil {
@@ -72,7 +72,7 @@ func TestReferenceCodePassesEveryTask(t *testing.T) {
 }
 
 // /sedum:setFunction
-// sedum:setFunction {"tier":"owned","record":"prov-2026-e6976fa9","gen":"sha256:ebb1bd9ca8c21c30033cac7adfe5ee18f5ef9dd23e972d1502637991e68c5e50","pkg":"sha256:6589611adfb6618a7920e43f951a79901428192ea95c1084fde9f222aecd9537","kwargs":{"code":"func TestRunSampleOutcomes(t *testing.T) {\n\ttask, err := LoadTask(\"testdata/tasks/since\")\n\tif err != nil {\n\t\tt.Fatal(err)\n\t}\n\twrite := func(content string) func(context.Context, string) error {\n\t\treturn func(_ context.Context, dir string) error {\n\t\t\treturn os.WriteFile(filepath.Join(dir, \"parse.go\"), []byte(content), 0o644)\n\t\t}\n\t}\n\tcases := []struct {\n\t\tname           string\n\t\tgrow           func(context.Context, string) error\n\t\tcompiled, pass bool\n\t\terrPart        string\n\t}{\n\t\t{\"does not compile\", write(\"package since\\n\\nfunc broken( {\\n\"), false, false, \"\"},\n\t\t{\"compiles but fails the tests\", write(\"package since\\n\\nimport \\\"time\\\"\\n\\nfunc parseSince(s string, now time.Time) (time.Time, error) { return now, nil }\\n\"), true, false, \"\"},\n\t\t{\"the grow fails\", func(context.Context, string) error { return errors.New(\"model unreachable\\nsecond line\") }, false, false, \"model unreachable\"},\n\t}\n\tfor _, tc := range cases {\n\t\tt.Run(tc.name, func(t *testing.T) {\n\t\t\ts, err := RunSample(context.Background(), Config{Generators: \"../../generators\", Grow: tc.grow}, task, VariantBehaviour, 3)\n\t\t\tif err != nil {\n\t\t\t\tt.Fatal(err)\n\t\t\t}\n\t\t\tif s.Compiled != tc.compiled || s.Passed != tc.pass || s.N != 3 || s.Variant != VariantBehaviour {\n\t\t\t\tt.Fatalf(\"sample = %+v\", s)\n\t\t\t}\n\t\t\tif tc.errPart != \"\" && s.Error != tc.errPart {\n\t\t\t\tt.Fatalf(\"error = %q, want %q\", s.Error, tc.errPart)\n\t\t\t}\n\t\t})\n\t}\n}","file":"evals/design/sample_test.go","name":"TestRunSampleOutcomes"}}
+// sedum:setFunction {"tier":"owned","record":"prov-2026-e6976fa9","gen":"sha256:36e1a83c85979b86a1d983a8b7b8a9c818fb8f21b52e5dfffa2860d20230971c","pkg":"sha256:6589611adfb6618a7920e43f951a79901428192ea95c1084fde9f222aecd9537","kwargs":{"code":"func TestRunSampleOutcomes(t *testing.T) {\n\ttask, err := LoadTask(\"testdata/tasks/since\")\n\tif err != nil {\n\t\tt.Fatal(err)\n\t}\n\twrite := func(content string) func(context.Context, string) error {\n\t\treturn func(_ context.Context, dir string) error {\n\t\t\treturn os.WriteFile(filepath.Join(dir, \"since\", \"parse.go\"), []byte(content), 0o644)\n\t\t}\n\t}\n\tcases := []struct {\n\t\tname           string\n\t\tgrow           func(context.Context, string) error\n\t\tcompiled, pass bool\n\t\terrPart        string\n\t}{\n\t\t{\"does not compile\", write(\"package since\\n\\nfunc broken( {\\n\"), false, false, \"\"},\n\t\t{\"compiles but fails the tests\", write(\"package since\\n\\nimport \\\"time\\\"\\n\\nfunc parseSince(s string, now time.Time) (time.Time, error) { return now, nil }\\n\"), true, false, \"\"},\n\t\t{\"the grow fails\", func(context.Context, string) error { return errors.New(\"model unreachable\\nsecond line\") }, false, false, \"model unreachable\"},\n\t}\n\tfor _, tc := range cases {\n\t\tt.Run(tc.name, func(t *testing.T) {\n\t\t\ts, err := RunSample(context.Background(), Config{Generators: \"../../generators\", Grow: tc.grow}, task, VariantBehaviour, 3)\n\t\t\tif err != nil {\n\t\t\t\tt.Fatal(err)\n\t\t\t}\n\t\t\tif s.Compiled != tc.compiled || s.Passed != tc.pass || s.N != 3 || s.Variant != VariantBehaviour {\n\t\t\t\tt.Fatalf(\"sample = %+v\", s)\n\t\t\t}\n\t\t\tif tc.errPart != \"\" && s.Error != tc.errPart {\n\t\t\t\tt.Fatalf(\"error = %q, want %q\", s.Error, tc.errPart)\n\t\t\t}\n\t\t})\n\t}\n}","file":"evals/design/sample_test.go","name":"TestRunSampleOutcomes"}}
 func TestRunSampleOutcomes(t *testing.T) {
 	task, err := LoadTask("testdata/tasks/since")
 	if err != nil {
@@ -80,7 +80,7 @@ func TestRunSampleOutcomes(t *testing.T) {
 	}
 	write := func(content string) func(context.Context, string) error {
 		return func(_ context.Context, dir string) error {
-			return os.WriteFile(filepath.Join(dir, "parse.go"), []byte(content), 0o644)
+			return os.WriteFile(filepath.Join(dir, "since", "parse.go"), []byte(content), 0o644)
 		}
 	}
 	cases := []struct {
@@ -110,7 +110,7 @@ func TestRunSampleOutcomes(t *testing.T) {
 }
 
 // /sedum:setFunction
-// sedum:setFunction {"tier":"owned","record":"prov-2026-e6976fa9","gen":"sha256:ebb1bd9ca8c21c30033cac7adfe5ee18f5ef9dd23e972d1502637991e68c5e50","pkg":"sha256:6589611adfb6618a7920e43f951a79901428192ea95c1084fde9f222aecd9537","kwargs":{"code":"func TestRunAndPlan(t *testing.T) {\n\ttask, err := LoadTask(\"testdata/tasks/since\")\n\tif err != nil {\n\t\tt.Fatal(err)\n\t}\n\tcfg := Config{Generators: \"../../generators\", Grow: referenceGrow(t, task)}\n\tsamples, err := Run(context.Background(), cfg, []Task{task}, []Variant{VariantCode, VariantSignatures}, 2)\n\tif err != nil {\n\t\tt.Fatal(err)\n\t}\n\tif len(samples) != 4 || samples[0].Variant != VariantCode || samples[3].Variant != VariantSignatures || samples[3].N != 2 {\n\t\tt.Fatalf(\"samples = %+v\", samples)\n\t}\n\tif got := Plan([]Task{task}, Variants(), 5, 20000); got != \"1 task(s) x 3 variant(s) x 5 sample(s) = 15 grow(s), at most ~300000 tokens in total\\n\" {\n\t\tt.Fatalf(\"plan = %q\", got)\n\t}\n}","file":"evals/design/sample_test.go","name":"TestRunAndPlan"}}
+// sedum:setFunction {"tier":"owned","record":"prov-2026-e6976fa9","gen":"sha256:36e1a83c85979b86a1d983a8b7b8a9c818fb8f21b52e5dfffa2860d20230971c","pkg":"sha256:6589611adfb6618a7920e43f951a79901428192ea95c1084fde9f222aecd9537","kwargs":{"code":"func TestRunAndPlan(t *testing.T) {\n\ttask, err := LoadTask(\"testdata/tasks/since\")\n\tif err != nil {\n\t\tt.Fatal(err)\n\t}\n\tcfg := Config{Generators: \"../../generators\", Grow: referenceGrow(t, task)}\n\tsamples, err := Run(context.Background(), cfg, []Task{task}, []Variant{VariantCode, VariantSignatures}, 2)\n\tif err != nil {\n\t\tt.Fatal(err)\n\t}\n\tif len(samples) != 4 || samples[0].Variant != VariantCode || samples[3].Variant != VariantSignatures || samples[3].N != 2 {\n\t\tt.Fatalf(\"samples = %+v\", samples)\n\t}\n\tif got := Plan([]Task{task}, Variants(), 5, 20000); got != \"1 task(s) x 3 variant(s) x 5 sample(s) = 15 grow(s), at most ~300000 tokens in total\\n\" {\n\t\tt.Fatalf(\"plan = %q\", got)\n\t}\n}","file":"evals/design/sample_test.go","name":"TestRunAndPlan"}}
 func TestRunAndPlan(t *testing.T) {
 	task, err := LoadTask("testdata/tasks/since")
 	if err != nil {

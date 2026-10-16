@@ -1,0 +1,224 @@
+id: prov-2026-e6976fa9
+version: 4
+content_hash: sha256:14263afd3ec82c6efeb45a9a534615e55fc5b44c8b3d3cf6c475ca208e511dbc
+parent_hash: sha256:35eaa109ff2b0a98b8b1d5c20aef144d53640043768738e22a5b8840f0af00fd
+reason: targets live in a package directory
+author: calebcowen@gmail.com
+created_at: "2026-10-16T23:51:22Z"
+spec_hashes:
+  - sha256:203ba69d43a43bc39a675debbb1633cbfc89a05f04d63ca036b21cd5467b2c64
+content:
+  id: prov-2026-e6976fa9
+  title: 'eval design: drawing samples'
+  type: imprint
+  created_at: "2026-10-16"
+  author: calebcowen@gmail.com
+  intent: |-
+    Drawing samples for the behaviour-only-intent eval (prov-2026-d694c4c4): Config, RunSample (prepare, grow through Config.Grow, read the grow log the grow wrote, grade), Run and Plan. Prepare, Grade, Sample, Task and Variant exist; growlog.Read exists in internal/growlog. The tests use the task data in testdata/tasks and the generators in ../../generators; the fake grows write into the package directory (dir/<package>/<file>).
+
+    New file evals/design/sample.go (package design); TRANSCRIBE, do not design: write exactly the code below. Imports (context, fmt, os, path/filepath, strings, time, github.com/livecodelife/sedum/internal/growlog): one addImport each. Declarations: one invocation per declaration (type -> setType, const -> setConst, func -> setFunction, method -> setMethod with the receiver type name), code = the whole declaration including its doc comment, exactly as written, tabs for indentation, no changes of any kind.
+
+    // Config says how samples are drawn.
+    type Config struct {
+    	// Generators is the directory of generator packages copied into each
+    	// sample's project.
+    	Generators string
+    	// Grow runs sedum grow in the prepared project dir. The real one calls the
+    	// herd's Haiku wrapper; tests supply a fake.
+    	Grow func(ctx context.Context, dir string) error
+    	// Keep leaves each sample's project on disk.
+    	Keep bool
+    }
+
+    // logTotals sums the grow log a sample's grow wrote in dir.
+    func logTotals(dir string) (calls, rejected, repairs, prompt, completion int) {
+    	entries, _, err := growlog.Read(filepath.Join(dir, ".sedum", "grow.jsonl"))
+    	if err != nil {
+    		return 0, 0, 0, 0, 0
+    	}
+    	for _, e := range entries {
+    		calls += e.Calls
+    		rejected += e.Rejected
+    		repairs += e.Repairs
+    		prompt += e.PromptTokens
+    		completion += e.CompletionTokens
+    	}
+    	return calls, rejected, repairs, prompt, completion
+    }
+
+    // RunSample draws one sample: prepare a project, grow it, grade it. A failure
+    // of the grow itself is recorded in the sample, not returned; an error is
+    // returned only when the harness could not do its own work.
+    func RunSample(ctx context.Context, cfg Config, t Task, v Variant, n int) (Sample, error) {
+    	s := Sample{Task: t.ID, Variant: v, N: n}
+    	dir, err := os.MkdirTemp("", "design-"+t.ID+"-")
+    	if err != nil {
+    		return s, err
+    	}
+    	if !cfg.Keep {
+    		defer os.RemoveAll(dir)
+    	}
+    	if err := Prepare(t, v, cfg.Generators, dir); err != nil {
+    		return s, err
+    	}
+    	start := time.Now()
+    	growErr := cfg.Grow(ctx, dir)
+    	s.MS = time.Since(start).Milliseconds()
+    	s.Calls, s.Rejected, s.Repairs, s.PromptTokens, s.CompletionTokens = logTotals(dir)
+    	if growErr != nil {
+    		s.Error = firstLine(growErr.Error())
+    		return s, nil
+    	}
+    	compiled, passed, output, err := Grade(t, dir)
+    	if err != nil {
+    		return s, err
+    	}
+    	s.Compiled, s.Passed = compiled, passed
+    	if !passed {
+    		s.Error = firstLine(output)
+    	}
+    	return s, nil
+    }
+
+    // firstLine returns the first non-empty line of s, at most 200 bytes.
+    func firstLine(s string) string {
+    	for _, l := range strings.Split(s, "\n") {
+    		if l = strings.TrimSpace(l); l != "" {
+    			if len(l) > 200 {
+    				l = l[:200]
+    			}
+    			return l
+    		}
+    	}
+    	return ""
+    }
+
+    // Run draws k samples of every task and variant, in order, and returns them.
+    // Every task is checked for isolation first.
+    func Run(ctx context.Context, cfg Config, tasks []Task, variants []Variant, k int) ([]Sample, error) {
+    	for _, t := range tasks {
+    		if err := t.Isolated(); err != nil {
+    			return nil, err
+    		}
+    	}
+    	var samples []Sample
+    	for _, t := range tasks {
+    		for _, v := range variants {
+    			for n := 1; n <= k; n++ {
+    				s, err := RunSample(ctx, cfg, t, v, n)
+    				if err != nil {
+    					return samples, fmt.Errorf("%s/%s/%d: %w", t.ID, v, n, err)
+    				}
+    				samples = append(samples, s)
+    			}
+    		}
+    	}
+    	return samples, nil
+    }
+
+    // Plan describes a run without drawing anything: the cells, the number of
+    // grows, and a rough ceiling on tokens at maxPerGrow tokens a grow.
+    func Plan(tasks []Task, variants []Variant, k, maxPerGrow int) string {
+    	grows := len(tasks) * len(variants) * k
+    	return fmt.Sprintf("%d task(s) x %d variant(s) x %d sample(s) = %d grow(s), at most ~%d tokens in total\n", len(tasks), len(variants), k, grows, grows*maxPerGrow)
+    }
+
+    Tests: the NEW file evals/design/sample_test.go (a spec of this imprint; it exists as a one-line placeholder). Transcribe exactly this test file; imports (context, errors, os, path/filepath, strings, testing, github.com/livecodelife/sedum/internal/growlog): one addImport each; each function and const -> its own invocation. Use the fixture text exactly (tabs, ASCII quotes).
+
+    // referenceGrow writes the task's reference code, taken from its code intent,
+    // as the target file, and logs one grow the way sedum grow does.
+    func referenceGrow(t *testing.T, task Task) func(context.Context, string) error {
+    	return func(_ context.Context, dir string) error {
+    		parts := strings.SplitN(task.Code, ":\n\n", 2)
+    		if len(parts) != 2 {
+    			t.Fatalf("task %s: unexpected code intent", task.ID)
+    		}
+    		if err := os.WriteFile(filepath.Join(dir, task.Package, task.Target[0]), []byte(parts[1]), 0o644); err != nil {
+    			return err
+    		}
+    		return growlog.Append(filepath.Join(dir, ".sedum", "grow.jsonl"), growlog.Entry{Calls: 2, Rejected: 1, Repairs: 1, PromptTokens: 100, CompletionTokens: 10})
+    	}
+    }
+
+    func TestReferenceCodePassesEveryTask(t *testing.T) {
+    	tasks, err := LoadTasks("testdata/tasks")
+    	if err != nil {
+    		t.Fatal(err)
+    	}
+    	for _, task := range tasks {
+    		t.Run(task.ID, func(t *testing.T) {
+    			cfg := Config{Generators: "../../generators", Grow: referenceGrow(t, task)}
+    			s, err := RunSample(context.Background(), cfg, task, VariantCode, 1)
+    			if err != nil {
+    				t.Fatal(err)
+    			}
+    			if !s.Compiled || !s.Passed {
+    				t.Fatalf("the reference code must pass its own hidden tests: %+v", s)
+    			}
+    			if s.Calls != 2 || s.Rejected != 1 || s.Repairs != 1 || s.PromptTokens != 100 || s.CompletionTokens != 10 {
+    				t.Fatalf("the grow log was not read: %+v", s)
+    			}
+    		})
+    	}
+    }
+
+    func TestRunSampleOutcomes(t *testing.T) {
+    	task, err := LoadTask("testdata/tasks/since")
+    	if err != nil {
+    		t.Fatal(err)
+    	}
+    	write := func(content string) func(context.Context, string) error {
+    		return func(_ context.Context, dir string) error {
+    			return os.WriteFile(filepath.Join(dir, "since", "parse.go"), []byte(content), 0o644)
+    		}
+    	}
+    	cases := []struct {
+    		name           string
+    		grow           func(context.Context, string) error
+    		compiled, pass bool
+    		errPart        string
+    	}{
+    		{"does not compile", write("package since\n\nfunc broken( {\n"), false, false, ""},
+    		{"compiles but fails the tests", write("package since\n\nimport \"time\"\n\nfunc parseSince(s string, now time.Time) (time.Time, error) { return now, nil }\n"), true, false, ""},
+    		{"the grow fails", func(context.Context, string) error { return errors.New("model unreachable\nsecond line") }, false, false, "model unreachable"},
+    	}
+    	for _, tc := range cases {
+    		t.Run(tc.name, func(t *testing.T) {
+    			s, err := RunSample(context.Background(), Config{Generators: "../../generators", Grow: tc.grow}, task, VariantBehaviour, 3)
+    			if err != nil {
+    				t.Fatal(err)
+    			}
+    			if s.Compiled != tc.compiled || s.Passed != tc.pass || s.N != 3 || s.Variant != VariantBehaviour {
+    				t.Fatalf("sample = %+v", s)
+    			}
+    			if tc.errPart != "" && s.Error != tc.errPart {
+    				t.Fatalf("error = %q, want %q", s.Error, tc.errPart)
+    			}
+    		})
+    	}
+    }
+
+    func TestRunAndPlan(t *testing.T) {
+    	task, err := LoadTask("testdata/tasks/since")
+    	if err != nil {
+    		t.Fatal(err)
+    	}
+    	cfg := Config{Generators: "../../generators", Grow: referenceGrow(t, task)}
+    	samples, err := Run(context.Background(), cfg, []Task{task}, []Variant{VariantCode, VariantSignatures}, 2)
+    	if err != nil {
+    		t.Fatal(err)
+    	}
+    	if len(samples) != 4 || samples[0].Variant != VariantCode || samples[3].Variant != VariantSignatures || samples[3].N != 2 {
+    		t.Fatalf("samples = %+v", samples)
+    	}
+    	if got := Plan([]Task{task}, Variants(), 5, 20000); got != "1 task(s) x 3 variant(s) x 5 sample(s) = 15 grow(s), at most ~300000 tokens in total\n" {
+    		t.Fatalf("plan = %q", got)
+    	}
+    }
+  affected_scope:
+    - evals/design/sample.go
+    - evals/design/sample_test.go
+  implements: prov-2026-d694c4c4
+  implements_version: 1
+  associated_specs:
+    - path: evals/design/sample_test.go
