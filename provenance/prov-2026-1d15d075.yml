@@ -19,7 +19,7 @@ affected_scope:
   - internal/adopt/command_test.go
 forbidden_scope: []
 implements: prov-2026-95d9ae7e
-implements_version: 1
+implements_version: 2
 related: []
 sealed_at_sha: 37214949dc0ad407d1c569dc342b205e86e66fd3
 associated_specs:
