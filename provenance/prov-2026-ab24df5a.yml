@@ -1,6 +1,6 @@
 id: prov-2026-ab24df5a
 title: A template ending in a blank line keeps one before its closing marker
-status: draft
+status: open
 created_at: "2026-10-15"
 author: calebcowen@gmail.com
 intent: |
