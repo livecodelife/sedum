@@ -4,7 +4,7 @@ Golden cases for the file formats Sedum shares with other tools, so that a tool
 Sedum's authors did not write can check that it has complied rather than
 discovering the rules one breakage at a time.
 
-It covers the **ownership marker**, and the **`pkg` hash** a marker carries.
+It covers the **ownership marker**, the **`pkg` hash** a marker carries, and the two **JSON reports** Sedum prints for other tools (`formats/`: `sedum.regions/1` and `sedum.grow/1`, `prov-2026-bf01cd6b`).
 
 ## Why the marker and nothing else yet
 

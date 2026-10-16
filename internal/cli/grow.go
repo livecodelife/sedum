@@ -85,6 +85,9 @@ Nothing is created that a provenance record did not authorize.`,
 		"Write the current gen and pkg onto markers missing them, where the owning record exists, and change nothing else. "+
 			"No model call. Asserts that the code is current, so a migrated repository's next grow skips instead of re-selecting. "+
 			"Cannot be combined with --check, --execute, --record or --force; with --dry-run it reports what it would stamp.")
+	f.BoolVar(&cfg.JSON, "json", false,
+		"Print the run's report as the sedum.grow/1 JSON document (conformance/formats) instead of text. "+
+			"Each record says whether its regions changed, so a caller runs only the specs whose code moved.")
 	f.BoolVar(&cfg.Check, "check", false,
 		"Report which records are current, stale, need re-rendering, or have no regions yet (unknown), from their markers. "+
 			"No model call, nothing written. Exits non-zero when any record is stale or needs re-rendering; unknown does not fail. "+
@@ -267,6 +270,18 @@ func runGrow(ctx context.Context, out, errOut io.Writer, cfg GrowConfig, respons
 	}
 
 	printWarnings(errOut, result.Warnings)
+	if cfg.JSON {
+		if err := writeJSON(out, buildGrowReport(result, cfg.DryRun, false, cfg.Check)); err != nil {
+			return err
+		}
+		if cfg.Check && result.CheckFailed() {
+			return errors.New("check failed: some records are stale, need re-rendering, or have left orphan regions")
+		}
+		if cfg.RecordTo != "" {
+			return writeRecording(cfg.RecordTo, pipeline.Capture(result))
+		}
+		return nil
+	}
 	if cfg.Check {
 		printClassifications(out, result)
 		printOrphans(out, result)
@@ -390,6 +405,9 @@ func runReplay(out, errOut io.Writer, cfg GrowConfig, stopAfter int, name string
 	}
 
 	printWarnings(errOut, result.Warnings)
+	if cfg.JSON {
+		return writeJSON(out, buildGrowReport(result, cfg.DryRun, true, false))
+	}
 	report(out, result, stopAfter, cfg.DryRun)
 	if name != "" {
 		fmt.Fprintf(out, "\nstopped after %s\n", name)

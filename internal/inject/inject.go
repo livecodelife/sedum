@@ -149,6 +149,12 @@ type Result struct {
 	// Orphan reports that a pruned region's record is no longer current:
 	// removed from the records directory, or deprecated.
 	Orphan bool
+	// Changed reports that the file's bytes for this region changed: an
+	// insertion, a prune, or a replacement whose rendering differs from what
+	// was there. A replacement rendering the same bytes is not a change
+	// (prov-2026-bf01cd6b), which is what lets a caller run only the specs
+	// whose code moved.
+	Changed bool
 }
 
 // Apply runs Phase 7 over every invocation.
@@ -407,6 +413,7 @@ func applyOne(inv Invocation, content string, own ownership) (string, Result, er
 		}
 
 		result.Replaced = true
+		result.Changed = rendered != content[region.Start:region.End]
 		return content[:region.Start] + rendered + content[region.End:], result, nil
 	}
 
@@ -423,6 +430,7 @@ func applyOne(inv Invocation, content string, own ownership) (string, Result, er
 	}
 
 	offset := orderedOffset(regions, where.offset, own, inv.RecordID)
+	result.Changed = true
 	return content[:offset] + rendered + content[offset:], result, nil
 }
 
@@ -681,7 +689,7 @@ func reconcile(rec Reconcile, buffers map[string]string, touched *[]string, clai
 		c := cuts[i]
 		results = append([]Result{{
 			Path: c.path, Action: c.region.Marker.Action, Variant: c.region.Marker.Variant,
-			Record: c.region.Marker.Record, Pruned: true, Held: held,
+			Record: c.region.Marker.Record, Pruned: true, Held: held, Changed: !held,
 		}}, results...)
 		if held {
 			continue
@@ -741,7 +749,7 @@ func pruneOrphans(target Target, buffers map[string]string, touched *[]string, o
 		content = content[:regions[i].Start] + content[regions[i].End:]
 		results = append([]Result{{
 			Path: target.Path, Action: m.Action, Variant: m.Variant, Record: m.Record,
-			Pruned: true, Orphan: true,
+			Pruned: true, Orphan: true, Changed: true,
 		}}, results...)
 	}
 	if len(results) > 0 {
@@ -802,4 +810,11 @@ func checkSyntax(touched []string, buffers map[string]string, packages map[strin
 		}
 	}
 	return errors.Join(problems...)
+}
+
+// Canonical returns the record id a marker's record names: the surviving id
+// when it names an alias of a record owners holds, and the name itself
+// otherwise (prov-2026-bf01cd6b).
+func Canonical(owners map[string]Owner, id string) string {
+	return newOwnership(owners).canonical(id)
 }

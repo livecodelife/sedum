@@ -41,6 +41,10 @@ type GrowConfig struct {
 	// nothing else (prov-2026-cc73cf61).
 	Stamp bool
 
+	// JSON prints the run's report as the sedum.grow/1 document in place of
+	// the text report (prov-2026-bf01cd6b).
+	JSON bool
+
 	Retries int
 	Model   string
 	LogPath string

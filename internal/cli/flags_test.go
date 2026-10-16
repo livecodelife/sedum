@@ -81,6 +81,7 @@ func TestGrowFlagSurface(t *testing.T) {
 		{"check", "", "bool", "false"},
 		{"prune-orphans", "", "bool", "false"},
 		{"stamp", "", "bool", "false"},
+		{"json", "", "bool", "false"},
 		{"stop-after", "", "string", ""},
 		{"retries", "", "int", "3"},
 		{"model", "", "string", ""},
@@ -108,6 +109,17 @@ func TestValidateFlagSurface(t *testing.T) {
 		{"generators", "", "string", ""},
 		{"package", "", "stringSlice", "[]"},
 		{"strict", "", "bool", "false"},
+	})
+}
+
+// sedum regions is read-only and needs no records (prov-2026-bf01cd6b).
+func TestRegionsFlagSurface(t *testing.T) {
+	assertFlags(t, "regions", []flagSpec{
+		{"generators", "", "string", ""},
+		{"output", "", "string", "."},
+		{"records", "", "string", ""},
+		{"record", "", "stringArray", "[]"},
+		{"json", "", "bool", "false"},
 	})
 }
 
@@ -312,7 +324,7 @@ func TestValidateFailsOnARejectedPackage(t *testing.T) {
 }
 
 func TestRootListsEverySubcommand(t *testing.T) {
-	want := map[string]bool{"grow": false, "validate": false, "resolve": false, "actions": false}
+	want := map[string]bool{"grow": false, "validate": false, "resolve": false, "actions": false, "regions": false}
 	for _, c := range NewRootCommand().Commands() {
 		if _, ok := want[c.Name()]; ok {
 			want[c.Name()] = true

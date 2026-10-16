@@ -1046,6 +1046,7 @@ sedum grow --generators ./generators --records ./provenance --output ./build
 | `--force` | Re-select every record even when its markers say it is current, and let a record whose selection comes back empty prune every region it owns (without `--force` that is an error). Ignored with `--execute`. |
 | `--check` | Report each record as current, stale, to re-render, or unknown, and any orphan regions, from markers. No model call, nothing written; exits non-zero when any record is stale or needs re-rendering, or any orphan exists. |
 | `--prune-orphans` | Remove regions whose record was removed or deprecated, in files some current record authorizes; report the rest. Ignored with `--execute`. |
+| `--json` | Print the run's report as the `sedum.grow/1` JSON document (`conformance/formats/`) instead of text. Each record says whether its regions changed — inserted, pruned, or rewritten with different bytes — so a caller runs only the specs whose code moved. |
 | `--stamp` | Write the current `gen` and `pkg` onto markers missing them, where the owning record exists, and nothing else. No model call. Cannot be combined with `--check`, `--execute`, `--record` or `--force`. |
 | `--stop-after <phase>` | Halt after the named phase. One of `resolution`, `files`, `invocations`, `expansion`. |
 | `--retries <n>` | Model output validation retry limit. Default 3. Ignored with `--execute`. |
@@ -1122,6 +1123,24 @@ sedum validate --generators ./generators
 | `--generators <dir>` | Generators directory. Required. |
 | `--package <name>` | Validate a single package. Repeatable. |
 | `--strict` | Treat warnings as errors. |
+
+### `sedum regions`
+
+```
+sedum regions --generators ./generators [--output .] [--records ./provenance] [--record <id>]... [--json]
+```
+
+Lists every region whose marker names a record: its file, action, identifying kwargs, tier, and the `gen` and `pkg` hashes it was written with (`prov-2026-bf01cd6b`). Read-only — no model, nothing written, no records directory required — and it never reads hidden directories, the generators directory or the records directory. With `--records`, a marker naming an alias is reported under the surviving id, and `--record` matches either. An empty hash means the marker has none, which a consumer must read as unknown; `grow --stamp` fills them in.
+
+`--json` prints the `sedum.regions/1` document described in `conformance/formats/`. It is what the provenance library's evidence code hash is computed from, since that library never parses a marker.
+
+| Flag | Description |
+|---|---|
+| `--generators <path>` | Generators directory. Required. |
+| `--output <path>` | Directory to read markers from. Default `.`. |
+| `--records <path>` | Records directory. Optional. |
+| `--record <id>` | List only this record's regions. Repeatable. |
+| `--json` | Print the `sedum.regions/1` JSON document. |
 
 ### `sedum resolve`
 

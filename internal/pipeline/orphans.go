@@ -40,13 +40,44 @@ type Orphan struct {
 // sit in as Phase 7 targets.
 func findOrphans(packages *genpkg.Set, records *record.Set, owners map[string]inject.Owner, output string, skip []string) ([]Orphan, []inject.Target, error) {
 	current := currentRecords(records)
-	skipped := skipSet(skip)
 
 	var (
 		orphans []Orphan
 		targets []inject.Target
 	)
-	err := filepath.WalkDir(output, func(full string, d fs.DirEntry, err error) error {
+	err := walkMarked(packages, output, skip, func(rel string, pkg *genpkg.Package, regions []inject.Region) {
+		authorized := authorizedBy(current, rel)
+		found := false
+		for _, region := range regions {
+			m := region.Marker
+			if !inject.IsOrphan(owners, m) {
+				continue
+			}
+			found = true
+			orphans = append(orphans, Orphan{
+				Path: rel, Action: m.Action, Variant: m.Variant, Record: m.Record, Authorized: authorized,
+			})
+		}
+		if found && authorized {
+			targets = append(targets, inject.Target{Path: rel, Package: pkg})
+		}
+	})
+	if err != nil {
+		return nil, nil, err
+	}
+	sort.SliceStable(orphans, func(i, j int) bool { return orphans[i].Path < orphans[j].Path })
+	return orphans, targets, nil
+}
+
+// walkMarked visits every file under output whose extension a loaded package
+// claims and which carries marked regions, with the package whose comment
+// syntax found them. It skips hidden directories and the skip directories
+// (the generators and records directories, prov-2026-fc05416c), and visits
+// files in lexical order. A file whose extension several packages claim is
+// read with each one's comment syntax until one finds regions.
+func walkMarked(packages *genpkg.Set, output string, skip []string, visit func(rel string, pkg *genpkg.Package, regions []inject.Region)) error {
+	skipped := skipSet(skip)
+	return filepath.WalkDir(output, func(full string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
@@ -70,41 +101,20 @@ func findOrphans(packages *genpkg.Set, records *record.Set, owners map[string]in
 		if err != nil {
 			return err
 		}
-		rel = filepath.ToSlash(rel)
 		data, err := os.ReadFile(full)
 		if err != nil {
 			return err
 		}
-
 		for _, pkg := range candidates {
 			regions, err := inject.FindRegions(pkg.Comment(), string(data))
 			if err != nil || len(regions) == 0 {
 				continue
 			}
-			authorized := authorizedBy(current, rel)
-			found := false
-			for _, region := range regions {
-				m := region.Marker
-				if !inject.IsOrphan(owners, m) {
-					continue
-				}
-				found = true
-				orphans = append(orphans, Orphan{
-					Path: rel, Action: m.Action, Variant: m.Variant, Record: m.Record, Authorized: authorized,
-				})
-			}
-			if found && authorized {
-				targets = append(targets, inject.Target{Path: rel, Package: pkg})
-			}
+			visit(filepath.ToSlash(rel), pkg, regions)
 			break
 		}
 		return nil
 	})
-	if err != nil {
-		return nil, nil, err
-	}
-	sort.SliceStable(orphans, func(i, j int) bool { return orphans[i].Path < orphans[j].Path })
-	return orphans, targets, nil
 }
 
 // currentRecords is every record in the directory that is not deprecated,
