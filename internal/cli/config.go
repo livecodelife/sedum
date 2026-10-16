@@ -37,6 +37,9 @@ type GrowConfig struct {
 	// files some current record authorizes (prov-2026-cc73cf61).
 	PruneOrphans bool
 
+	// RestampGen makes a replay stamp each named record's current gen in place
+	// of the one the recording carries (prov-2026-c637c262).
+	RestampGen bool
 	// ListOrphans prints every orphan region in place of the summary
 	// (prov-2026-3f83335f).
 	ListOrphans bool
@@ -96,6 +99,10 @@ func (c *GrowConfig) Replaying() bool { return c.Execute != "" }
 func (c *GrowConfig) Validate() error {
 	if !c.Replaying() && c.Records == "" {
 		return errors.New("--records is required unless --execute names a recording to replay")
+	}
+
+	if c.RestampGen && (!c.Replaying() || c.Records == "") {
+		return errors.New("--restamp-gen needs --execute and --records: it stamps the current record's gen onto a replay")
 	}
 
 	if c.LocalModel == "" && c.LocalModelServer != "" {

@@ -1,0 +1,107 @@
+id: prov-2026-010fd5b2
+version: 1
+content_hash: sha256:98b5c29d4e151c88f75008946d0c0301d2c28041af12fdaa3392cefc851eb223
+parent_hash: ""
+reason: ""
+author: calebcowen@gmail.com
+created_at: "2026-10-16T05:55:16Z"
+spec_hashes:
+  - sha256:d0d11b58c33ad14e986551a3e6037e54fc5828dc0a4b67ac76130929b64d6d1c
+content:
+  id: prov-2026-010fd5b2
+  title: 'go: internal/pipeline/restamp.go, replay restamp and reconcile helpers'
+  type: imprint
+  created_at: "2026-10-16"
+  author: calebcowen@gmail.com
+  intent: |
+    The Go logic of internal/pipeline/restamp.go (go package, package pipeline): what a replay does with gen and with the regions a recording no longer selects (prov-2026-c637c262).
+
+    Imports, each its own addImport, exactly: fmt, github.com/livecodelife/sedum/internal/inject, github.com/livecodelife/sedum/internal/record, github.com/livecodelife/sedum/internal/recording.
+
+    Declarations, in this order, each exactly one set* call whose code kwarg is the code below verbatim (gofmt-formatted, comments kept). Do not alter, reorder or add anything.
+
+      - setType name Restamp, code exactly:
+          // Restamp is one record whose gen a replay took from the current record
+          // instead of from the recording (prov-2026-c637c262).
+          type Restamp struct {
+          	RecordID string
+          	Old      string
+          	New      string
+          }
+
+      - setMethod name String, receiver Restamp, code exactly:
+          // String is the one-line report: the record and the first eight characters of
+          // each gen, without the algorithm prefix.
+          func (r Restamp) String() string {
+          	return fmt.Sprintf("restamped %s: gen %s -> %s", r.RecordID, shortGen(r.Old), shortGen(r.New))
+          }
+
+      - setFunction name shortGen, code exactly:
+          // shortGen is the first eight hex characters of a gen, "none" when it is empty.
+          func shortGen(gen string) string {
+          	const prefix = "sha256:"
+          	if len(gen) > len(prefix) && gen[:len(prefix)] == prefix {
+          		gen = gen[len(prefix):]
+          	}
+          	if gen == "" {
+          		return "none"
+          	}
+          	if len(gen) > 8 {
+          		return gen[:8]
+          	}
+          	return gen
+          }
+
+      - setFunction name replayGenFor, code exactly:
+          // replayGenFor is the gen a replay stamps on a record's regions. Without
+          // restamp it is what replayGen decides. With restamp it is the current
+          // record's gen, and the second result says what changed; a record that is
+          // missing or deprecated has no current gen and keeps the recorded one, and a
+          // record whose gen did not change reports nothing.
+          func replayGenFor(rec recording.Recording, records *record.Set, recordID string, restamp bool) (string, *Restamp) {
+          	gen := replayGen(rec, records, recordID)
+          	if !restamp {
+          		return gen, nil
+          	}
+          	current := genOf(records, recordID)
+          	if current == "" || current == gen {
+          		return gen, nil
+          	}
+          	return current, &Restamp{RecordID: recordID, Old: gen, New: current}
+          }
+
+      - setFunction name replayReconcile, code exactly:
+          // replayReconcile names the records a replay reconciles: every record the
+          // recording selected for, over its managed files. Whether that prunes or only
+          // reports is the recording's to say (recording.Recording.Complete).
+          func replayReconcile(selections []Selection) []inject.Reconcile {
+          	var out []inject.Reconcile
+          	for _, s := range selections {
+          		if !anyManaged(s.Files) {
+          			continue
+          		}
+          		out = append(out, inject.Reconcile{RecordID: s.RecordID, Targets: targetsOf(s.Files)})
+          	}
+          	return out
+          }
+
+      - setFunction name ReplayWouldChange, code exactly:
+          // ReplayWouldChange reports that a replay's result differs from the tree: a
+          // region it writes with different bytes, or a region of a named record it no
+          // longer selects. It is the verdict of a replay run with --check.
+          func ReplayWouldChange(applied []inject.Result) bool {
+          	for _, r := range applied {
+          		if r.Changed || r.Unselected {
+          			return true
+          		}
+          	}
+          	return false
+          }
+  affected_scope:
+    - internal/pipeline/restamp.go
+  implements: prov-2026-c637c262
+  implements_version: 1
+  associated_specs:
+    - path: internal/pipeline/restamp_test.go
+  tags:
+    - restamp

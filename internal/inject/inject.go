@@ -86,6 +86,12 @@ type Options struct {
 	// partial (OPEN_QUESTIONS section 16).
 	Reconcile []Reconcile
 
+	// ReconcileReport turns reconciliation into a report: a region a record in
+	// Reconcile owns and this run did not select is returned as Unselected and
+	// left in the file. Replay of a partial recording sets it
+	// (prov-2026-c637c262).
+	ReconcileReport bool
+
 	// PruneOrphansIn are the files whose orphans this run removes: owned-tier
 	// regions naming a record Owners does not hold (prov-2026-cc73cf61). Owners
 	// must then hold every current record. Only files some record authorizes
@@ -143,6 +149,9 @@ type Result struct {
 	// Pruned reports that the region's owner did not select it again, so it
 	// was removed.
 	Pruned bool
+	// Unselected reports a region its owner did not select this run, left in
+	// place because the run only reports (Options.ReconcileReport).
+	Unselected bool
 	// Held reports a prune that only --force would carry out: the owner's
 	// selection was empty. Reported by a dry run; a real run fails instead.
 	Held bool
@@ -668,6 +677,17 @@ func reconcile(rec Reconcile, buffers map[string]string, touched *[]string, clai
 
 	if len(cuts) == 0 {
 		return nil, nil
+	}
+
+	if opts.ReconcileReport {
+		var results []Result
+		for _, c := range cuts {
+			results = append(results, Result{
+				Path: c.path, Action: c.region.Marker.Action, Variant: c.region.Marker.Variant,
+				Record: c.region.Marker.Record, Unselected: true,
+			})
+		}
+		return results, nil
 	}
 
 	held := selected == 0 && !opts.Force

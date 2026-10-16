@@ -22,6 +22,8 @@ TITLES = {
     "step4": "provenance migrate: 7 -> 5 records, aliases, versions, manifest",
     "step5": "Grow after migration: 1 call, alias markers rewritten to the survivor",
     "step8": "Stale children + repin",
+    "step13": "Evidence: complete, parent bump, repin, spec edit; check --commit",
+    "step14": "Template edit + replay vs restamp: hashes and evidence",
     "step2prime": "Markers without gen (sedum v0.8.0): one full re-select",
     "step4b": "grow --stamp: same markers become current with 0 calls",
 }
@@ -36,7 +38,7 @@ for line in open(results):
         seq = "pre-gen"
     rows.append((seq, step, status, rest[0] if rest else ""))
 expected = ["step0", "step1", "step2", "step6", "step7v1", "step7b", "step9", "step11", "step12", "step10",
-            "step0", "step1", "step2", "step3", "step3grow", "step4", "step5", "step8", "step2prime", "step4b"]
+            "step0", "step1", "step2", "step3", "step3grow", "step4", "step5", "step8", "step13", "step14", "step2prime", "step4b"]
 print(f"\nsedum {sedum} · provenance {prov[:12]} · sedum v0.8.0 {main[:12]} · stub model\n")
 w = max(len(t) for t in TITLES.values())
 print(f"  {'sequence':8}  {'step':10}  {'what it shows':{w}}  result")
