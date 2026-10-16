@@ -1177,6 +1177,29 @@ Lists every region whose marker names a record: its file, action, identifying kw
 | `--record <id>` | List only this record's regions. Repeatable. |
 | `--json` | Print the `sedum.regions/1` JSON document. |
 
+### `sedum adopt`
+
+```
+sedum adopt --generators ./generators --records ./provenance [--output .] [--recording <path>] [--tests] [--allow-command-adopters] [--dry-run] [--json] <path>...
+```
+
+Brings existing files under Sedum without a model (design: `docs/ADOPT.md`). For each file, the package that claims its extension declares an **adopter** in `sedum.yaml` (`adopt:`), either declarative (`unit_start` with named groups `kind` and `name`, `unit_end` as `dedent`, `blank` or a regexp, optional `header` and `attach_above`, and `actions` mapping each `kind` to an action whose kwargs are among `file`, `name`, `code`) or `command:` (an external program run as `<command> <path>` from the project root that prints `{"spans":[...]}`; it runs only with `--allow-command-adopters`). The adopter splits the file into spans (`header`, `unit`, `residual`) whose text must add up to the file byte for byte. Sedum builds a recording from the units, replays it into a scratch directory so `gen` and `pkg` are stamped, and keeps a file only if stripping every marker gives back the original (blank lines ignored). Files it cannot adopt are skipped and named.
+
+The first version adopts only files whose non-unit content is blank: a file with a license header, floating comments or other code outside units is skipped with its reason (`header`, `floating_comment`, `other_residual`) and line range, as are tests (unless `--tests`), generated files, files already carrying markers, unmanaged paths, files with no template, and files no single open imprint authorizes. The report counts skips by reason. `--dry-run` writes only the recording (default `.sedum/adopt/adopt.json` under `--output`). `--json` prints the report as JSON. The command exits non-zero only when a file was rejected (an adopter failure, a coverage gap or a failed round trip); nothing is written for a rejected file.
+
+An imprint whose `affected_scope` is only patterns is not seen by `grow --check`, which classifies records by their literal paths: list the adopted files in the imprint's scope.
+
+| Flag | Description |
+|---|---|
+| `--generators <path>` | Generators directory. Required. |
+| `--records <path>` | Records directory. Required. |
+| `--output <path>` | Project root the paths are relative to. Default `.`. |
+| `--recording <path>` | Where to write the recording. |
+| `--tests` | Also adopt files the package lists in `test_paths`. |
+| `--allow-command-adopters` | Allow a package's `command:` adopter to run. |
+| `--dry-run` | Write only the recording and the report. |
+| `--json` | Print the report as JSON. |
+
 ### `sedum resolve`
 
 Reports what each authorized path resolved to: its package, the file template that matched, and the captures bound. The primary debugging tool for package resolution and template specificity.
