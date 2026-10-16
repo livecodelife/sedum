@@ -1,0 +1,58 @@
+id: prov-2026-36809902
+title: 'Sedum adopt stage 2: built-in Go adopter'
+type: blueprint
+status: open
+version: 2
+reason: 'lint: glob scopes, a spec, and no implements on a blueprint'
+created_at: "2026-10-16"
+author: unknown@example.com
+intent: |-
+  Stage 2 of `sedum adopt` (docs/ADOPT.md, "Go adopter"): the first real adopter, built into the `go` generator package, so a Go repository can be adopted with no command adopter and no model. Builds on blueprint prov-2026-95d9ae7e (stage 1, branch adopt-core).
+
+  ## Schema
+  `adopt:` gains a third form, `builtin: <name>`, mutually exclusive with `command` and the declarative keys. sedum ships a registry of built-in adopters (stage 2 registers only `go`); an unknown name is a validation error. `adopt.ForPackage` returns the registered adopter for it. A built-in adopter is compiled into sedum, so it needs no `--allow-command-adopters`. generators/go/sedum.yaml declares `adopt: {builtin: go}`.
+
+  ## The go adopter (go/parser + go/ast, gofmt-clean input required)
+  Split(path, src) returns spans that cover the file byte for byte:
+  - header: the `package X` line and its newline, nothing else. A leading comment, `//go:build` line or package doc makes that file report a non-whitespace residual (the v1 core policy), so the file is skipped and named, not guessed at.
+  - units, in source order. Each unit's text starts at its doc comment (the comment group ending on the line directly above the declaration) and ends at the declaration's last line. Text between units must be blank lines; any other text is a residual and the core skips the file.
+    - `func F` -> setFunction {file,name,code}; `func (r *T) M` -> setMethod {file,receiver (no star, no type params),name,code}; `init` functions are named `init#N` by order.
+    - `type`, `var`, `const`: one unit per declaration; a grouped `type (...)`, `var (...)` or `const (...)` block is ONE unit with the action of its keyword and name = the first spec's first name (so iota blocks round-trip as one literal); a name that repeats in a file (e.g. `_`) becomes `_#N`.
+    - `import "x"` (single, ungrouped, no alias, no comments) -> addImport {file,path}. `import (...)` blocks, aliased or dot imports and `import "C"` -> setImports {file, code}, new action (below), one unit per block, name `imports#N`.
+  - Declarations the actions cannot express leave a residual and the file is skipped: floating comments, `//go:embed`/`//go:generate` lines not attached above a declaration, cgo preambles (`import "C"` with a comment above it), and any parse error.
+  Non-gofmt-clean input is skipped with reason `not gofmt-clean` (the stage 1 rule: no normalize).
+
+  ## setImports action
+  generators/go/actions/setImports.go + actions.yaml entry: kwargs file, name, code (literal, a whole `import (...)` block, or one import with alias). Anchor `imports`, identity [file, name]. Template unchanged. Renders like addImport (marker pair around the literal).
+
+  ## Root-level template
+  generators/go/files gains a root-level `{name}.go` so that `main.go` and other files in the repository root are adoptable (the stage 1 "unsupported" case for Go). Capture `name` from the file stem; package name read from the file's `package` line by the adopter and passed as the `pkg` capture.
+
+  ## sync and distribution
+  hack/sync-builtin.sh regenerates internal/builtin/packages/go.zip; the zip is committed and a test asserts the zip matches generators/go (existing drift check).
+
+  ## adopt output
+  For each adopted file the report prints the `provenance edit <id> --add-scope <path>` command (literal path), since an imprint scoped by pattern is invisible to `grow --check`.
+
+  ## Constraints
+  - No new dependency; standard library only (go/parser, go/ast, go/token, go/format).
+  - Round trip: adopting any file the go adopter accepts then stripping markers reproduces the original byte for byte (verified by the stage 1 verifier, and by a test over every .go file under internal/ of this repository that is not generated and not already marked).
+  - Everything the adopter cannot claim is named in the report with its line range; nothing is dropped.
+  - sedum and the go package itself stay free of provenance markers in files this blueprint does not govern. generators/** is exempt from provenance.
+
+  ## Out of scope
+  normalize, build tags and package docs as headers (a later setHeader), the skill/plugin (stage 3), the grow log.
+constraints: []
+affected_scope:
+  - internal/adopt/**
+  - internal/genpkg/**
+  - internal/builtin/**
+forbidden_scope: []
+related: []
+sealed_at_sha: ""
+associated_specs:
+  - path: internal/adopt/go_blueprint_test.go
+    run_command: go test ./internal/adopt -count=1
+associated_traces: []
+monitors: []
+tags: []
