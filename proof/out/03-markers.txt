@@ -1,0 +1,15 @@
+# grow-prep 12432f9
+$ cat app/controllers/users_controller.rb
+
+class UserController < ApplicationController
+  # sedum:anchor:class_body_top
+  # sedum:addBeforeFilter {"tier":"owned","record":"prov-2026-aaaaaaaa","gen":"sha256:3d306425765289d16c383a9cefdf06fce7448d41bd110772cca9edd19120918c","pkg":"sha256:daa707902e170c3d967023f8ca8af503ebedb79c04fdf0665212864601107729","kwargs":{"controller":"users","filter":"authenticate"}}
+before_action :authenticate, prepend: true
+  # /sedum:addBeforeFilter
+  # sedum:addBeforeFilter {"tier":"owned","record":"prov-2026-bbbbbbbb","gen":"sha256:fec31a58abf07ac8f40110214c3682458bdc4ecfe126f7a72121366f53f13046","pkg":"sha256:daa707902e170c3d967023f8ca8af503ebedb79c04fdf0665212864601107729","kwargs":{"controller":"users","filter":"log_request"}}
+before_action :log_request, prepend: true
+  # /sedum:addBeforeFilter
+
+  # sedum:anchor:class_body
+end
+[exit 0]

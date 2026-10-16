@@ -1,0 +1,21 @@
+# grow-prep 12432f9
+$ sedum grow --generators generators --records provenance --model stub --log run.log
+
+created  app/controllers/users_controller.rb  (rails app/controllers/{name}_controller.rb)
+exists   app/controllers/users_controller.rb  (left as it is)
+
+2 path(s) authorized, 1 created, 1 already present, 0 left unmanaged
+
+prov-2026-aaaaaaaa
+  addBeforeFilter controller=users filter=authenticate
+prov-2026-bbbbbbbb
+  addBeforeFilter controller=users filter=log_request
+
+2 invocation(s) selected across 2 record(s)
+
+injected app/controllers/users_controller.rb  addBeforeFilter
+injected app/controllers/users_controller.rb  addBeforeFilter
+
+2 region(s) injected, 0 replaced, 0 left as seeded
+[exit 0]
+model calls: 4 = 2 selections + 2 completeness questions about the empty class_body anchor

@@ -1,0 +1,32 @@
+# grow-prep 12432f9
+$ env GOTOOLCHAIN=local go test -count=1 -run TestGenHashMatchesTheLibraryOnRealRecords -v ./internal/record/
+
+=== RUN   TestGenHashMatchesTheLibraryOnRealRecords
+=== RUN   TestGenHashMatchesTheLibraryOnRealRecords/linespec/v1
+    realrepos_test.go:25: 521 records compared in $PROVENANCE_REAL_REPOS/linespec/provenance
+=== RUN   TestGenHashMatchesTheLibraryOnRealRecords/linespec/v2
+    realrepos_test.go:45: 425 records compared in <tmp>
+=== RUN   TestGenHashMatchesTheLibraryOnRealRecords/sedum/v1
+    realrepos_test.go:25: 142 records compared in $PROVENANCE_REAL_REPOS/sedum/provenance
+=== RUN   TestGenHashMatchesTheLibraryOnRealRecords/sedum/v2
+    realrepos_test.go:45: 124 records compared in <tmp>
+=== RUN   TestGenHashMatchesTheLibraryOnRealRecords/scion/v1
+    realrepos_test.go:25: 253 records compared in $PROVENANCE_REAL_REPOS/scion/provenance
+=== RUN   TestGenHashMatchesTheLibraryOnRealRecords/scion/v2
+    realrepos_test.go:45: 218 records compared in <tmp>
+=== RUN   TestGenHashMatchesTheLibraryOnRealRecords/linespec-provenance-ui/v1
+    realrepos_test.go:25: 184 records compared in $PROVENANCE_REAL_REPOS/linespec-provenance-ui/provenance
+=== RUN   TestGenHashMatchesTheLibraryOnRealRecords/linespec-provenance-ui/v2
+    realrepos_test.go:45: 171 records compared in <tmp>
+--- PASS: TestGenHashMatchesTheLibraryOnRealRecords (4.74s)
+    --- PASS: TestGenHashMatchesTheLibraryOnRealRecords/linespec/v1 (0.18s)
+    --- PASS: TestGenHashMatchesTheLibraryOnRealRecords/linespec/v2 (2.63s)
+    --- PASS: TestGenHashMatchesTheLibraryOnRealRecords/sedum/v1 (0.08s)
+    --- PASS: TestGenHashMatchesTheLibraryOnRealRecords/sedum/v2 (0.69s)
+    --- PASS: TestGenHashMatchesTheLibraryOnRealRecords/scion/v1 (0.10s)
+    --- PASS: TestGenHashMatchesTheLibraryOnRealRecords/scion/v2 (0.45s)
+    --- PASS: TestGenHashMatchesTheLibraryOnRealRecords/linespec-provenance-ui/v1 (0.05s)
+    --- PASS: TestGenHashMatchesTheLibraryOnRealRecords/linespec-provenance-ui/v2 (0.55s)
+PASS
+ok  	github.com/livecodelife/sedum/internal/record	4.894s
+[exit 0]

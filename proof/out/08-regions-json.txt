@@ -1,0 +1,22 @@
+# grow-prep 12432f9
+$ sedum regions --generators generators --output . --json
+
+{
+  "format": "sedum.regions/1",
+  "regions": [
+    {
+      "record": "prov-2026-aaaaaaaa",
+      "file": "app/controllers/users_controller.rb",
+      "action": "addBeforeFilter",
+      "variant": "",
+      "tier": "owned",
+      "identity": {
+        "controller": "users",
+        "filter": "authenticate"
+      },
+      "gen": "sha256:d6809966490baafda5f99acc660b25021f82491892486b8e32ad500e8c60ba59",
+      "pkg": "sha256:daa707902e170c3d967023f8ca8af503ebedb79c04fdf0665212864601107729"
+    }
+  ]
+}
+[exit 0]
