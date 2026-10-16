@@ -96,6 +96,52 @@ When two packages claim `.go`, the one whose file template matches a path most s
 
 ---
 
+## With a real model
+
+Every capture above uses a stub model, so the call counts are exact. The same build has also grown real code with a real model: the `provenance` CLI's commands, grown by Claude Haiku 5.5 through this branch's sedum (via the herd's `sedum-haiku` wrapper), from one imprint per command, with the `cobra` and `go` generator packages. The gate for each is a hand-written `<cmd>_test.go`; all are green. Files are at [`provenance@658d54b/cmd/provenance`](https://github.com/livecodelife/provenance/tree/658d54b/cmd/provenance) (branch `cli`). Figures from prov-cli.
+
+Calls are the first grow plus any regrows after a record revision; the reason for each revision is listed.
+
+| Command | Record | Model calls | Record revision | Grown files |
+|---|---|---|---|---|
+| `provenance migrate` | prov-2026-76a125e6 | 2 | wiring only; its logic is a hand-written bridge until its v2 revise | [`main.go`](https://github.com/livecodelife/provenance/blob/658d54b/cmd/provenance/main.go), [`migrate_cmd.go`](https://github.com/livecodelife/provenance/blob/658d54b/cmd/provenance/migrate_cmd.go) |
+| `provenance open` | prov-2026-6db88b75 | 2 |  | [`open_cmd.go`](https://github.com/livecodelife/provenance/blob/658d54b/cmd/provenance/open_cmd.go), [`open_run.go`](https://github.com/livecodelife/provenance/blob/658d54b/cmd/provenance/open_run.go) |
+| `provenance create` | prov-2026-44a07768 | 2 + 1 | a missing import | [`create_cmd.go`](https://github.com/livecodelife/provenance/blob/658d54b/cmd/provenance/create_cmd.go), [`create_run.go`](https://github.com/livecodelife/provenance/blob/658d54b/cmd/provenance/create_run.go) |
+| `provenance revise` | prov-2026-5f69977b | 1 + 1 | printed to os.Stdout instead of the command's writer | [`revise_cmd.go`](https://github.com/livecodelife/provenance/blob/658d54b/cmd/provenance/revise_cmd.go), [`revise_run.go`](https://github.com/livecodelife/provenance/blob/658d54b/cmd/provenance/revise_run.go) |
+| `provenance edit` | prov-2026-57b8a95b | 1 |  | [`edit_cmd.go`](https://github.com/livecodelife/provenance/blob/658d54b/cmd/provenance/edit_cmd.go), [`edit_run.go`](https://github.com/livecodelife/provenance/blob/658d54b/cmd/provenance/edit_run.go) |
+| `provenance status` | prov-2026-12b1ca97 | 2 + 2 | grouped field types misread | [`status_cmd.go`](https://github.com/livecodelife/provenance/blob/658d54b/cmd/provenance/status_cmd.go), [`status_run.go`](https://github.com/livecodelife/provenance/blob/658d54b/cmd/provenance/status_run.go) |
+| `provenance lint` | prov-2026-a03e6bc3 | 2 |  | [`lint_cmd.go`](https://github.com/livecodelife/provenance/blob/658d54b/cmd/provenance/lint_cmd.go), [`lint_run.go`](https://github.com/livecodelife/provenance/blob/658d54b/cmd/provenance/lint_run.go) |
+| `provenance run-specs` | prov-2026-c31c9c59 | 1 + 2 | an unused variable | [`run_specs_cmd.go`](https://github.com/livecodelife/provenance/blob/658d54b/cmd/provenance/run_specs_cmd.go), [`run_specs_run.go`](https://github.com/livecodelife/provenance/blob/658d54b/cmd/provenance/run_specs_run.go) |
+| `provenance check --staged` | prov-2026-063f1395 | 1 + 1 | an "except" list misread | [`check_cmd.go`](https://github.com/livecodelife/provenance/blob/658d54b/cmd/provenance/check_cmd.go), [`check_run.go`](https://github.com/livecodelife/provenance/blob/658d54b/cmd/provenance/check_run.go) |
+| `provenance hooks install` | prov-2026-d1d789de | 1 | hook scripts byte-identical to linespec's | [`hooks_cmd.go`](https://github.com/livecodelife/provenance/blob/658d54b/cmd/provenance/hooks_cmd.go), [`hooks_install_cmd.go`](https://github.com/livecodelife/provenance/blob/658d54b/cmd/provenance/hooks_install_cmd.go), [`hooks_install_run.go`](https://github.com/livecodelife/provenance/blob/658d54b/cmd/provenance/hooks_install_run.go) |
+| `provenance complete` | prov-2026-41fb548c | 1 + 1 | message wording | [`complete_cmd.go`](https://github.com/livecodelife/provenance/blob/658d54b/cmd/provenance/complete_cmd.go), [`complete_run.go`](https://github.com/livecodelife/provenance/blob/658d54b/cmd/provenance/complete_run.go) |
+| `provenance deprecate` | prov-2026-35439261 | 1 |  | [`deprecate_cmd.go`](https://github.com/livecodelife/provenance/blob/658d54b/cmd/provenance/deprecate_cmd.go), [`deprecate_run.go`](https://github.com/livecodelife/provenance/blob/658d54b/cmd/provenance/deprecate_run.go) |
+
+**25 calls for 12 commands**, 8 of them after a record revision. 4 more regrew `open`, `create`, `revise` and `edit` when the cobra package's `setRun` began passing the command's writer: a package change, picked up by regrowing. A regrow of unchanged records makes **0** calls. **Every fix was a record revision, never a code edit.** Two of those fixes, the missing import and the unused variable, are what the Go checker now catches in the same call, or will once the queued unused-variable check lands. `common_run.go` and `migrate_run.go` are the CLI's two remaining hand-written bridge files, to be regrown once its records are on v2.
+
+---
+
+## Upgrading from v0.8.0
+
+What a repository generated by sedum v0.8.0 sees on its first run of this version.
+
+- **Old markers read as stale.** A v0.8.0 marker carries no `gen` or `pkg`, and an unknown hash is stale, never current. So the first `grow` re-selects every record that owns regions: one full model pass. To skip that, run `sedum grow --stamp` once. It writes the current hashes onto markers missing them, with no model call, and asserts the existing code is current. The lifecycle testbed shows both paths with v0.8.0's own binary: step `2′` (one full re-select) and step `4b` (`--stamp`, then 0 calls) in `evals/lifecycle/`.
+- **Markers are byte-identical until rewritten.** Reading a v0.8.0 marker and writing it back unchanged produces the same bytes, because absent `gen` and `pkg` are omitted, not written empty (conformance case `round-trip/absent-gen-and-pkg-stay-absent`). Only a region that is actually regenerated or stamped gains the attributes.
+- **A marker's record now means its owner.** In v0.8.0 it named the last record to write the region, and any later record could take the region over. Now a different record selecting it is an error naming both. A repository where one record's region was later rewritten by another - typically a v1 supersession - must migrate its records first (`provenance migrate`), which folds such chains into one record whose aliases own the old markers. The testbed's `step3grow` shows the refusal before migrating, and `step5` the clean grow after.
+- **Recordings stay compatible.** Recordings gain optional `gen` and `created_at` per record. A v0.8.0 recording, which has neither, still replays: replay takes `gen` from `--records` when given, and otherwise writes none, which reads as stale. Older sedum versions read new recordings, because recording decoding is lenient. `grow --record` now re-selects every record, since a recording captures selections.
+- **Behaviour changes worth knowing.** Records sharing a file now grow in one run (the duplicate-path error is gone); a deprecated record is no longer grown; `grow` reports orphan regions; and the completeness follow-up no longer asks about anchors another record already fills.
+
+## Known limits
+
+- **Changed kwarg defaults and `--var` values need `--force`.** A marker records every kwarg its region was rendered from, defaults and variables included, and re-rendering replays them verbatim. Neither `gen` nor `pkg` covers them, so a changed default or `--var` reaches existing regions only with `--force`. The `--check` and `--force` help says so (`prov-2026-9621daed`).
+- **Re-selection can churn kwargs.** When a record changes, the model selects again and may bind kwargs differently on regions whose meaning did not change. Rebuilt prior selections and the "already present" list in the prompt reduce this (`prov-2026-cc73cf61`); `--dry-run` shows the diff first. They do not eliminate it.
+- **A record with no regions costs a call on every grow.** There is nowhere to keep its hash, so it is selected each time and `--check` reports it as unknown rather than stale. This is a decided trade-off (DESIGN.md), narrow in practice: records that only create files, or that sedum cannot inject anything for, already make no call.
+- **The Go checker is a parser, not a type checker.** It catches code that does not parse, is not gofmt-clean, or uses a package it does not import. It infers an import's name from its path, and errs toward silence when it cannot. It does not catch unused variables or unused imports yet; that AST-level check is queued.
+- **One syntax checker.** The registry holds only `go`. Other languages get a checker by adding one to Sedum; packages cannot supply their own, by design.
+- **Formatter-friendly markers are the template author's job.** A template that ends in a blank line keeps one before its closing marker, which is what gofmt wants after a top-level declaration (`prov-2026-ab24df5a`). Sedum does not know which targets need it.
+
+---
+
 ## Records on this branch
 
 | Record | Type | Title |
