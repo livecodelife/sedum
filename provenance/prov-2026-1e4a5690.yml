@@ -1,9 +1,9 @@
 id: prov-2026-1e4a5690
 title: 'adopt: the recording builder'
 type: imprint
-status: implemented
-version: 4
-reason: 'stage 2: header kwargs become captures'
+status: open
+version: 7
+reason: 'revert: header kwargs are not needed; a file''s package comes from its path (specs refreshed)'
 created_at: "2026-10-16"
 author: calebcowen@gmail.com
 intent: |-
@@ -12,23 +12,18 @@ intent: |-
   - `type Adopted struct { Candidate Candidate; Spans []Span }`.
   - `func BuildRecording(items []Adopted) (recording.Recording, error)`: SedumVersion is recording.Version; Packages holds, for every package used, its Name mapped to recording.Package{Extensions: copy of the package's Extensions}; Records has one recording.Record per distinct Candidate.Record.ID, in order of first appearance of that ID after sorting items by Candidate.Path; each carries RecordID, Gen and CreatedAt from the record (empty strings stay empty), Files (one recording.File per item of that record, in path order, Captures copied; nil/empty Captures stay nil) and exactly one Phase named recording.DefaultPhase whose Invocations are, file by file in path order, one recording.Invocation per KindUnit span of that file in span order with Action and a copy of Kwargs (a nil Kwargs becomes an empty non-nil map). An item with no unit spans is an error naming the path. Two items with the same Path are an error. The result has Complete false.
   Tests (build_test.go), each its OWN setFunction invocation, building Candidate values with &genpkg.Package{Name: "py", Extensions: []string{".py"}} and &record.Record{ID: "imp-1", Gen: "sha256:aa", CreatedAt: "2026-10-16"}: TestBuildRecordingTwoFiles (items for b.py and a.py given in that order, each with a header span and two unit spans: Files sorted a.py then b.py, Invocations a's two then b's two, Packages["py"].Extensions equals [".py"], one Record, Gen and CreatedAt carried, SedumVersion equals recording.Version); TestBuildRecordingTwoRecords (a.py under imp-1 and z.py under imp-2: two Records in that order); TestBuildRecordingErrors (no unit spans, and a duplicate path); TestBuildRecordingRoundTripsThroughWrite (recording.Write then recording.Read gives a recording that reflect.DeepEqual's the original for the two-file case).
-
-  Stage 2 (prov-2026-36809902): a header span can carry kwargs (the Go adopter sets pkg to the file's real package name). In BuildRecording, after Captures are copied into caps (and before the File is appended), merge into caps the Kwargs of every KindHeader span of the item: for each key k and value v, `caps[k] = fmt.Sprint(v)`, creating caps first when it is nil. A header kwarg overrides a captured value of the same name. With no header kwargs, nothing changes (nil stays nil). New test in the NEW file build_header_test.go (package adopt; imports testing, genpkg and record exactly as build_test.go does), its OWN setFunction TestBuildRecordingHeaderCaptures: one item for "a.go" with Package &genpkg.Package{Name: "go", Extensions: []string{".go"}}, Record &record.Record{ID: "imp-1", Gen: "sha256:aa", CreatedAt: "2026-10-16"}, Captures map[string]string{"pkg": "dir", "name": "a"}, Spans {Kind: KindHeader, Text: "package foo\n", Kwargs: map[string]any{"pkg": "foo"}} and {Kind: KindUnit, Text: "func F() {}\n", Action: "setFunction", Kwargs: map[string]any{"file": "a.go", "name": "F", "code": "func F() {}"}}; the resulting Files[0].Captures equals {"pkg": "foo", "name": "a"} (compare each key), and the item's own Candidate.Captures map is not modified (pkg still "dir").
 constraints: []
 affected_scope:
   - internal/adopt/build.go
   - internal/adopt/build_test.go
-  - internal/adopt/build_header_test.go
 forbidden_scope: []
 implements: prov-2026-95d9ae7e
 implements_version: 2
 related: []
-sealed_at_sha: 594a59d0238c5a998589220a64edd619f087d641
+sealed_at_sha: ""
 associated_specs:
   - path: internal/adopt/build_test.go
     run_command: go test ./internal/adopt -run 'TestBuildRecording' -count=1
-  - path: internal/adopt/build_header_test.go
-    run_command: go test ./internal/adopt -run 'BuildRecordingHeaderCaptures' -count=1
 associated_traces: []
 monitors: []
 tags: []
