@@ -1,7 +1,7 @@
 id: prov-2026-d87e7f92
 title: 'adopt: the span contract and coverage check'
 type: imprint
-status: open
+status: implemented
 version: 2
 reason: tests grown into the placeholder spec file
 created_at: "2026-10-16"
@@ -25,7 +25,7 @@ forbidden_scope: []
 implements: prov-2026-95d9ae7e
 implements_version: 1
 related: []
-sealed_at_sha: ""
+sealed_at_sha: 340286555b2b2829beafb93d65f348909d2a96d5
 associated_specs:
   - path: internal/adopt/span_test.go
     run_command: go test ./internal/adopt -run 'Span|Coverage|Residual' -count=1
