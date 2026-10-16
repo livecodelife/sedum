@@ -8,6 +8,13 @@
 # The work tree is work/ (gitignored); fixtures/ is never modified.
 set -euo pipefail
 
+# Run from inside a git hook (e.g. a provenance spec run by pre-commit), the hook's GIT_DIR,
+# GIT_INDEX_FILE, GIT_WORK_TREE... would point every git command here at the enclosing repo.
+for v in $(env | sed -n 's/^\(GIT_[A-Za-z0-9_]*\)=.*/\1/p'); do unset "$v"; done
+# Isolate git from the user's global and system config (herd rule, COMMON.md "Git in tests and
+# scripts"). HOME itself is left alone: Go's build and module caches live under it.
+GIT_CONFIG_GLOBAL="$(mktemp -t lifecycle-gitconfig.XXXXXX)"; export GIT_CONFIG_GLOBAL GIT_CONFIG_NOSYSTEM=1
+
 TB="$(cd "$(dirname "$0")" && pwd)"
 W="$TB/work"
 SEDUM="${SEDUM:-$TB/bin/sedum}"                 # built from sedum-grow-prep
@@ -54,7 +61,11 @@ v1_lint() {  # the v1 records are valid v1; linespec is optional so the demo run
 	ok "linespec provenance lint"
 }
 
-commit() { git -C "$W" add -A && git -C "$W" commit -qm "$1"; }
+work_git_guard() {  # never let a work/ git command land in another repository
+	local top; top=$(git -C "$W" rev-parse --show-toplevel 2>/dev/null) || fail "work/ is not a git repo"
+	[ "$top" = "$(cd "$W" && pwd -P)" ] || fail "git in work/ resolves to $top, not work/; refusing"
+}
+commit() { work_git_guard; git -C "$W" add -A && git -C "$W" commit -qm "$1"; }
 
 grow() {  # grow <binary> <record ids...> [-- extra flags]; output in $W/.stub/last.out
 	local bin="$1"; shift
@@ -141,6 +152,7 @@ step0() {
 	(cd "$W" && go mod init testbed >/dev/null 2>&1)
 	# work/ is its own git repo: migrate orders versions by git history and refuses a dirty records dir
 	git -C "$W" init -q
+	work_git_guard
 	git -C "$W" config user.name testbed; git -C "$W" config user.email testbed@example.invalid
 	printf '.stub/\n.sedum/\n' >"$W/.gitignore"
 	printf 'provenance:\n  enforcement: none\n  dir: provenance\n' >"$W/.linespec.yml"
@@ -403,6 +415,7 @@ ylist() {  # ylist <id> <key>: items of a top-level list
 step4() {
 	say "4. provenance migrate"
 	[ -x "$PROVENANCE" ] || fail "bin/provenance missing (tools/build.sh)"
+	work_git_guard   # migrate reads git history and writes in work/
 	(cd "$W" && "$PROVENANCE" migrate --plan --json) >"$W/.stub/plan.json" || fail "migrate --plan"
 	python3 -I - "$W/.stub/plan.json" "$NOTES_OLD" "$NOTES" "$BUG1" "$BP_API" <<'PY' || fail "plan"
 import json, sys
@@ -483,7 +496,7 @@ today() {
 	say "passed: 0-2, 2', 3, 4, 4b, 5, 6, 7 (sedum half), 7b, 9, 10, 11, 12"
 }
 
-trap 'stub_stop' EXIT
+trap 'stub_stop; rm -f "$GIT_CONFIG_GLOBAL"' EXIT
 if [ $# -eq 0 ]; then sed -n '2,8p' "$0"; exit 2; fi
 for s in "$@"; do
 	case "$s" in

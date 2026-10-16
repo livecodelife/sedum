@@ -11,6 +11,14 @@
 # Needs: go, python3, git, curl. linespec is optional (only the v1 lint uses it).
 set -euo pipefail
 
+# Run from inside a git hook (e.g. a provenance spec run by pre-commit), the hook's GIT_DIR,
+# GIT_INDEX_FILE, GIT_WORK_TREE... would point every git command here at the enclosing repo.
+for v in $(env | sed -n 's/^\(GIT_[A-Za-z0-9_]*\)=.*/\1/p'); do unset "$v"; done
+# Isolate git from the user's global and system config (herd rule, COMMON.md "Git in tests and
+# scripts"). HOME itself is left alone: Go's build and module caches live under it.
+GIT_CONFIG_GLOBAL="$(mktemp -t lifecycle-gitconfig.XXXXXX)"; export GIT_CONFIG_GLOBAL GIT_CONFIG_NOSYSTEM=1
+trap 'rm -f "$GIT_CONFIG_GLOBAL"' EXIT
+
 HERE="$(cd "$(dirname "$0")" && pwd)"
 ROOT="$(git -C "$HERE" rev-parse --show-toplevel)"
 
