@@ -2,8 +2,8 @@ id: prov-2026-520ee992
 title: 'adopt: the orchestrator'
 type: imprint
 status: open
-version: 1
-reason: ""
+version: 3
+reason: tests grown into the placeholder spec file
 created_at: "2026-10-16"
 author: calebcowen@gmail.com
 intent: |-
@@ -49,7 +49,8 @@ intent: |-
   intent: adopt py files
   created_at: "2026-10-16"
   affected_scope: ["*.py"]
-  plus the given files under `proj/` (the project root), returning Config{Root: proj, Generators: gen, Records: prov, Paths: []string{"."}}. Tests: TestRunAdopts (a.py = "def f():\n    return 1\n\ndef g():\n    return 2\n": report Totals.Adopted 1 and Units 2; the file on disk now contains "# sedum:setThing"; Verify with Comment{Prefix: "#"} of the original against the file on disk passes; the recording file exists at proj/.sedum/adopt/adopt.json); TestRunDryRunTouchesNothing (same input with DryRun: file bytes unchanged, recording written, FileReport Detail "dry run"); TestRunSkipsResidualFiles (b.py = "import os\n\ndef f():\n    return 1\n" is skipped with ReasonOtherResidual; c.py = "# licence\n\ndef f():\n    return 1\n" is skipped with ReasonHeader; both unchanged on disk; Totals.SkippedByReason has one of each); TestRunTwiceSkipsAdopted (run, then run again: second report has Adopted 0 and the file skipped with ReasonAlreadyAdopted).
+  plus the given files under `proj/` (the project root), returning Config{Root: proj, Generators: gen, Records: prov, Paths: []string{"."}}.
+  Tests: write exactly the helper and then TestRunAdopts (a.py = "def f():\n    return 1\n\ndef g():\n    return 2\n": report Totals.Adopted 1 and Units 2; the file on disk now contains "# sedum:setThing"; Verify with Comment{Prefix: "#"} of the original against the file on disk passes; the recording file exists at proj/.sedum/adopt/adopt.json).
 constraints: []
 affected_scope:
   - internal/adopt/run.go
