@@ -921,3 +921,23 @@ func TestDryRunWritesNothing(t *testing.T) {
 		t.Errorf("a dry run wrote to the file:\n%s", got)
 	}
 }
+
+// A template ending in a blank line keeps exactly one before its closing
+// marker; any other template renders as before (prov-2026-ab24df5a).
+func TestATrailingBlankLineInATemplateSurvivesOnce(t *testing.T) {
+	pkg := loadPackage(t)
+	kwargs := map[string]any{"controller": "users", "filter": "auth"}
+
+	for _, c := range []struct{ content, want string }{
+		{"before_action :auth\n", "before_action :auth\n  # /sedum:addBeforeFilter\n"},
+		{"before_action :auth", "before_action :auth\n  # /sedum:addBeforeFilter\n"},
+		{"before_action :auth\n\n", "before_action :auth\n\n  # /sedum:addBeforeFilter\n"},
+		{"before_action :auth\n\n\n\n", "before_action :auth\n\n  # /sedum:addBeforeFilter\n"},
+	} {
+		root := output(t)
+		mustApply(t, []Invocation{invocation(t, pkg, "addBeforeFilter", "", c.content, "PR-014", kwargs)}, Options{Output: root})
+		if got := read(t, root); !strings.Contains(got, c.want) {
+			t.Errorf("template %q rendered:\n%s\nwant it to contain %q", c.content, got, c.want)
+		}
+	}
+}

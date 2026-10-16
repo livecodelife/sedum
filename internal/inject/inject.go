@@ -425,7 +425,16 @@ func renderRegion(inv Invocation, marker Marker, indent string) (string, error) 
 	// The template's own trailing newline is normalized away so that a
 	// template written with one and a template written without produce the
 	// same region.
+	//
+	// A template that ends in a blank line keeps exactly one before the
+	// closing marker (prov-2026-ab24df5a). Some targets' formatters want a
+	// declaration separated from a comment that follows it - gofmt rewrites a
+	// top-level func followed directly by its closing marker - and only the
+	// template author knows what the region holds; Sedum knows no language.
 	body := strings.TrimRight(inv.Content, "\n")
+	if strings.HasSuffix(inv.Content, "\n\n") && body != "" {
+		body += "\n"
+	}
 
 	var b strings.Builder
 	b.WriteString(indent)
