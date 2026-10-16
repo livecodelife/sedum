@@ -85,6 +85,8 @@ affected_scope:
   - internal/selection/selection.go
   - internal/selection/prompt.go
   - internal/selection/*_test.go
+  - internal/selection/completeness.go
+  - testdata/generators/chi/**
   - internal/cli/grow.go
   - internal/cli/config.go
   - internal/cli/*_test.go
