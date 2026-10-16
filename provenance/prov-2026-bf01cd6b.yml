@@ -70,6 +70,7 @@ affected_scope:
   - PRD.md
   - conformance/README.md
   - conformance/formats/**
+  - testdata/generators/go/**
 forbidden_scope: []
 type: blueprint
 supersedes: ""
