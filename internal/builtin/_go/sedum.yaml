@@ -1,0 +1,24 @@
+name: go
+extensions: [".go"]
+comment_prefix: "//"
+
+# Every file this package touches must parse and be gofmt-clean before it is
+# written (prov-2026-5403d162). The check is Sedum's built-in go checker; no
+# external program runs.
+syntax: go
+
+# Most declarations need no new import, so completeness never asks about the
+# imports anchor (prov-2026-73d32e29). decls stays: a file with no
+# declarations is worth a question.
+optional_anchors: [imports]
+
+# go.mod and go.sum belong to `go mod`, never to a template, in every Go
+# repository (prov-2026-7a704b59).
+unmanaged:
+  - go.mod
+  - go.sum
+  - "**/go.mod"
+  - "**/go.sum"
+
+test_paths:
+  - "**/*_test.go"
