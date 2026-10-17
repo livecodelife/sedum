@@ -1,0 +1,49 @@
+id: prov-2026-d694c4c4
+version: 2
+content_hash: sha256:72f0fcfb0b67ac6b181dfa76e8e35ac94ea46ddb5c8e86221fa104a21264d224
+parent_hash: sha256:f6614782d29ba5fd079a21be8aebb19b28569174b20e44eaa6a973263d465805
+reason: the eval's result files
+author: calebcowen@gmail.com
+created_at: "2026-10-17T00:09:04Z"
+spec_hashes:
+  - sha256:53f769047590f2f1855f6174695baa2ccffc4a57550e046548214590390254d5
+content:
+  id: prov-2026-d694c4c4
+  title: 'Eval: how much design does the cheap model do from a behaviour-only intent'
+  type: blueprint
+  created_at: "2026-10-16"
+  author: calebcowen@gmail.com
+  intent: |-
+    An eval that measures how much DESIGN the cheap model does when it is only told behaviour (COMMON.md, "Roles and cost split": the capable model plans and writes, a cheap model only grows; this tests where that line can move). Today every Haiku grow in the herd is a transcription: the intent carries the exact code. The question: given an intent that states only behaviour, how often does Haiku 5.5 produce code that passes the hidden tests, and what does it cost in retries, repairs and tokens, compared with intents that carry more?
+
+    ## Three intent variants per task (the independent variable)
+    - `behaviour`: what the code must do, in prose, with the package it lives in, the file it goes in and the names of the exported identifiers it must provide, and nothing about signatures, helpers, algorithms or code.
+    - `signatures`: `behaviour` plus the exact declarations (type definitions and function signatures, bodies elided), as the herd's intents give them today for helpers.
+    - `code` (the control): the full code to transcribe, the practice today. A model that fails here is a harness problem, not a design problem.
+
+    ## Tasks (the oracle is a hidden test file, never shown to the model)
+    Five small tasks taken from sedum's own history, each with the exact test file the herd already wrote and Haiku already passed in the `code` variant: growlog Append and clipError (internal/growlog/entry.go), growlog Summarize (summary.go), cli parseSince (growlogcmd.go), adopt GoAdopter.Split's receiver and name helpers (goadopter.go), adopt Report.Text (report.go). A task is a directory evals/design/tasks/<id>/ holding task.yaml (id, the package dir and file names, the three intents), the hidden test file(s), and the minimal compile context (the files the new code builds against) so a task runs without the rest of the repository.
+
+    ## Measurement, per cell (task x variant x model), K samples (default 5, `-n`)
+    compiles (go vet), passes the hidden tests (go test), model calls, rejected answers (retries), verification repairs, prompt and completion tokens, wall time. The rates are reported with their sample size and the same "n is small" caution as the existing evals (a rate over 5 samples is a direction, not a number). Retries, repairs and tokens come from the grow log (.sedum/grow.jsonl, prov-2026-7a13f569) the run writes into its scratch project, so the eval also exercises it.
+
+    ## How a sample runs
+    Copy the task's context into a fresh temp Go module with the go generator package and one open imprint whose intent is the variant, scope the target file only; run `sedum grow` through the herd's `sedum-haiku` wrapper (claude-haiku-5-5 only; the harness refuses any other model and never prints the key); then copy the hidden test in and run go vet and go test. The temp project is deleted afterwards; with `-keep` it stays.
+
+    ## Output
+    A table to stdout (variant rows x task columns: pass/N, compile/N, mean retries, mean tokens) and a JSON file in evals/results/ with the sedum commit, the binary version, the model, K, every sample's numbers and the task file hashes, so a result is re-runnable and comparable over time (same convention as the existing results).
+
+    ## Constraints
+    - Lives in evals/ like the other evals: nothing under internal/ or cmd/ imports it, and the runner is behind the `eval` build tag so `go test ./...` never calls a model. Its offline parts (task loading, variant rendering, result aggregation, the table) are ordinary tests with stub samples.
+    - Standard library plus what evals/ already uses. The model call is the only network access; a dry-run prints the plan and the token budget without calling anything.
+    - The hidden tests are never in the model's scope, intent or context, and the harness asserts that before every sample.
+    - No other model than claude-haiku-5-5 (Caleb); the harness has no --model flag.
+
+    ## Out of scope
+    Grading style or readability; tasks larger than one file; changing how the herd writes intents (this only measures; the decision to move the capable/cheap line is Caleb's, made from the numbers).
+  affected_scope:
+    - evals/design/**
+    - evals/cmd/design/**
+    - evals/results/design-*.json
+  associated_specs:
+    - path: evals/design/design_blueprint_test.go
