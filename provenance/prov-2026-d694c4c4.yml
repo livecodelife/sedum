@@ -1,7 +1,7 @@
 id: prov-2026-d694c4c4
 title: 'Eval: how much design does the cheap model do from a behaviour-only intent'
 type: blueprint
-status: open
+status: implemented
 version: 2
 reason: the eval's result files
 created_at: "2026-10-16"
@@ -41,7 +41,7 @@ affected_scope:
   - evals/results/design-*.json
 forbidden_scope: []
 related: []
-sealed_at_sha: ""
+sealed_at_sha: b681a436baf486c5679c579c722b97f3bc22a08c
 associated_specs:
   - path: evals/design/design_blueprint_test.go
     run_command: go test ./evals/design -count=1
