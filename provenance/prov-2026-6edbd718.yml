@@ -1,7 +1,7 @@
 id: prov-2026-6edbd718
 title: 'cli: the grow log wiring'
 type: imprint
-status: open
+status: implemented
 version: 4
 reason: markers regrown for the failed-verification cost
 created_at: "2026-10-16"
@@ -368,7 +368,7 @@ forbidden_scope: []
 implements: prov-2026-7a13f569
 implements_version: 2
 related: []
-sealed_at_sha: ""
+sealed_at_sha: 316f645134c32996968b6242ab35756a1fc7bebc
 associated_specs:
   - path: internal/cli/growlogwire_test.go
     run_command: go test ./internal/cli -run 'TestGrowLogEntries|TestGrowLogFailure|TestGrowLogModel|TestGrowLogSettings|TestWriteGrowLog' -count=1
