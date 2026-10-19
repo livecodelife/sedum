@@ -1,6 +1,6 @@
 id: prov-2026-d2f1bdf2
 title: 'sedum-binder-final-2b-le12k-e5 becomes the default shipped model'
-status: open
+status: implemented
 version: 7
 reason: 'release_test.go: the model URL test follows the release asset''s name'
 created_at: "2026-10-06"
@@ -46,7 +46,7 @@ implements: prov-2026-d554bfc3
 implements_version: 1
 related:
   - prov-2026-668746b1
-sealed_at_sha: ""
+sealed_at_sha: b32ec17c9f9665d7c736d4472464071b58b3d213
 associated_specs:
   - path: internal/selection/bundled_test.go
     type: go
