@@ -1,9 +1,9 @@
 id: prov-2026-b5c21813
 title: grow --repair feeds project verification failures back to the model
 type: blueprint
-status: implemented
-version: 4
-reason: 'merge main (#5, #6) into grow-repair'
+status: open
+version: 5
+reason: a failed verification carries the cost of its calls
 created_at: "2026-10-16"
 author: calebcowen@gmail.com
 intent: |
@@ -43,7 +43,8 @@ intent: |
 
   ## Generate first
   A new package internal/verify (config load, scratch tree, command runner, failure message) and its tests are grown by sedum-haiku via the go package. The hooks in selection.go (an optional Verify callback in selection.Options and the second budget), pipeline.go, grow.go, config.go, flags_test.go, the format doc and README/PRD are handwritten, because those files are not region-owned.
-constraints: []
+constraints:
+  - A selection that still fails verification after the allowed repairs returns an error that holds the record, the repairs, the model calls, the rejected answers and the prompt and completion tokens spent, so a caller that records cost does not lose it; its message is unchanged.
 affected_scope:
   - internal/verify/**
   - internal/selection/selection.go
@@ -79,9 +80,11 @@ affected_scope:
   - internal/selection/repair_test.go
   - evals/lifecycle/**
   - .sedum/context.md
+  - internal/selection/verifyerror.go
+  - internal/selection/verifyerror_test.go
 forbidden_scope: []
 related: []
-sealed_at_sha: 050cd34997ff7e2b4d97cde8d3c701a1bd85014b
+sealed_at_sha: ""
 associated_specs:
   - path: internal/verify/verify_test.go
     run_command: go test ./internal/verify -count=1
