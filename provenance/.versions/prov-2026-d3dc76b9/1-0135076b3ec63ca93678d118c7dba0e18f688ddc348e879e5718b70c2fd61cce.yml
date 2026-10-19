@@ -1,0 +1,67 @@
+id: prov-2026-d3dc76b9
+version: 1
+content_hash: sha256:0135076b3ec63ca93678d118c7dba0e18f688ddc348e879e5718b70c2fd61cce
+parent_hash: ""
+reason: ""
+author: calebcowen@gmail.com
+created_at: "2026-10-19T19:04:26Z"
+spec_hashes:
+  - sha256:fd41501e80eeb54ff64d1be05e72fce79ec8a3ef664947244cd6409fb265ff93
+content:
+  id: prov-2026-d3dc76b9
+  title: 'selection: a failed verification carries its cost'
+  type: imprint
+  created_at: "2026-10-19"
+  author: calebcowen@gmail.com
+  intent: |-
+    The typed error of a verification that still fails after the allowed repairs (prov-2026-b5c21813): it holds what the record's model calls cost, so a caller that records cost does not lose it. selection.go (hand-written, added to this imprint's scope after the grow) returns it in place of its formatted error; the message text is unchanged.
+
+    New file internal/selection/verifyerror.go (package selection); TRANSCRIBE, do not design: write exactly the code below. Imports (fmt): one addImport each. Declarations: one invocation per declaration (type -> setType, const -> setConst, func -> setFunction, method -> setMethod with the receiver type name), code = the whole declaration including its doc comment, exactly as written, tabs for indentation, no changes of any kind.
+
+    // VerifyError is the error for a record whose selection still failed the
+    // project's verification after every repair it was allowed. It carries what the
+    // record's calls cost, so a caller that records cost does not lose it.
+    type VerifyError struct {
+    	RecordID         string
+    	Repairs          int
+    	Calls            int
+    	Rejected         int
+    	Completeness     int
+    	PromptTokens     int
+    	CompletionTokens int
+    	Failure          string
+    }
+
+    // Error describes the failure with the repairs, calls and rejections spent.
+    func (e *VerifyError) Error() string {
+    	return fmt.Sprintf("record %s: the selection did not verify after %d repair attempt(s) (%d model call(s), %d answer(s) rejected by validation):\n%s",
+    		e.RecordID, e.Repairs, e.Calls, e.Rejected, e.Failure)
+    }
+
+    Tests: the NEW file internal/selection/verifyerror_test.go (a spec of this imprint; it exists as a one-line placeholder). Transcribe exactly this test file; imports (errors, fmt, strings, testing): one addImport each; each function and const -> its own invocation. Use the fixture text exactly (tabs, ASCII quotes).
+
+    func TestVerifyErrorMessage(t *testing.T) {
+    	err := &VerifyError{RecordID: "r1", Repairs: 2, Calls: 3, Rejected: 1, Failure: "tsc failed"}
+    	want := "record r1: the selection did not verify after 2 repair attempt(s) (3 model call(s), 1 answer(s) rejected by validation):\ntsc failed"
+    	if got := err.Error(); got != want {
+    		t.Fatalf("Error() = %q, want %q", got, want)
+    	}
+    }
+
+    func TestVerifyErrorIsFoundThroughWrapping(t *testing.T) {
+    	var err error = fmt.Errorf("grow: %w", &VerifyError{RecordID: "r2", PromptTokens: 10, CompletionTokens: 4})
+    	var ve *VerifyError
+    	if !errors.As(err, &ve) || ve.RecordID != "r2" || ve.PromptTokens != 10 || ve.CompletionTokens != 4 {
+    		t.Fatalf("errors.As found %+v", ve)
+    	}
+    	if !strings.Contains(err.Error(), "r2") {
+    		t.Fatalf("message lost the record: %v", err)
+    	}
+    }
+  affected_scope:
+    - internal/selection/verifyerror.go
+    - internal/selection/verifyerror_test.go
+  implements: prov-2026-b5c21813
+  implements_version: 5
+  associated_specs:
+    - path: internal/selection/verifyerror_test.go

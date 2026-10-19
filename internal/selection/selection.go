@@ -422,8 +422,11 @@ func Select(ctx context.Context, client Client, req Request, opts Options) (Answ
 						log.Info("selection failed verification", "record", req.RecordID,
 							"attempt", i+1, "repairs", answer.Repairs, "failure", failure)
 						if answer.Repairs >= opts.Repair {
-							return Answer{}, fmt.Errorf("record %s: the selection did not verify after %d repair attempt(s) (%d model call(s), %d answer(s) rejected by validation):\n%s",
-								req.RecordID, answer.Repairs, answer.Calls, answer.Rejected, failure)
+							return Answer{}, &VerifyError{
+								RecordID: req.RecordID, Repairs: answer.Repairs, Calls: answer.Calls, Rejected: answer.Rejected,
+								Completeness: answer.Completeness, PromptTokens: answer.PromptTokens, CompletionTokens: answer.CompletionTokens,
+								Failure: failure,
+							}
 						}
 						answer.Repairs++
 						messages = append(messages,

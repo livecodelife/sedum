@@ -2,8 +2,8 @@ id: prov-2026-6edbd718
 title: 'cli: the grow log wiring'
 type: imprint
 status: implemented
-version: 2
-reason: tests grown into the placeholder spec file
+version: 4
+reason: markers regrown for the failed-verification cost
 created_at: "2026-10-16"
 author: calebcowen@gmail.com
 intent: |-
@@ -157,6 +157,11 @@ intent: |-
   	if errors.As(err, &rej) {
   		e.Record, e.Calls, e.Rejected, e.Completeness = rej.RecordID, rej.Calls, rej.Rejected, rej.Completeness
   		e.PromptTokens, e.CompletionTokens = rej.PromptTokens, rej.CompletionTokens
+  	}
+  	var ver *selection.VerifyError
+  	if errors.As(err, &ver) {
+  		e.Record, e.Calls, e.Rejected, e.Completeness, e.Repairs = ver.RecordID, ver.Calls, ver.Rejected, ver.Completeness, ver.Repairs
+  		e.PromptTokens, e.CompletionTokens = ver.PromptTokens, ver.CompletionTokens
   	}
   	if e.Calls > 0 {
   		e.Model = model
@@ -342,18 +347,33 @@ intent: |-
   		t.Fatalf("an unwritable log must warn, got %q", errOut.String())
   	}
   }
+
+  Stage 2 addition (a failed verification keeps its cost): growLogFailure also reads a *selection.VerifyError (errors.As) exactly as shown above, so a grow that failed its project verification records the record, calls, rejected, completeness, repairs and tokens it spent. New test in the NEW file internal/cli/growlogwire_failure_test.go (package cli; imports fmt, testing, time, github.com/livecodelife/sedum/internal/selection; addImport each), its OWN setFunction, exactly:
+  func TestGrowLogFailureKeepsTheCostOfAFailedVerification(t *testing.T) {
+  	ver := &selection.VerifyError{RecordID: "r7", Repairs: 3, Calls: 4, Rejected: 1, Completeness: 2, PromptTokens: 900, CompletionTokens: 120, Failure: "tsc"}
+  	e := growLogFailure(fmt.Errorf("grow: %w", ver), "m", time.Now(), time.Second)
+  	if e.Outcome != "failed" || e.Record != "r7" || e.Model != "m" || e.Calls != 4 || e.Rejected != 1 || e.Completeness != 2 || e.Repairs != 3 {
+  		t.Fatalf("entry = %+v", e)
+  	}
+  	if e.PromptTokens != 900 || e.CompletionTokens != 120 {
+  		t.Fatalf("tokens = %d/%d", e.PromptTokens, e.CompletionTokens)
+  	}
+  }
 constraints: []
 affected_scope:
   - internal/cli/growlogwire.go
   - internal/cli/growlogwire_test.go
+  - internal/cli/growlogwire_failure_test.go
 forbidden_scope: []
 implements: prov-2026-7a13f569
 implements_version: 2
 related: []
-sealed_at_sha: c2e516c24e41af468b4cc2d3b63e24d01c4edef5
+sealed_at_sha: 316f645134c32996968b6242ab35756a1fc7bebc
 associated_specs:
   - path: internal/cli/growlogwire_test.go
     run_command: go test ./internal/cli -run 'TestGrowLogEntries|TestGrowLogFailure|TestGrowLogModel|TestGrowLogSettings|TestWriteGrowLog' -count=1
+  - path: internal/cli/growlogwire_failure_test.go
+    run_command: go test ./internal/cli -run 'TestGrowLogFailureKeepsTheCost' -count=1
 associated_traces: []
 monitors: []
 tags: []
