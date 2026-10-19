@@ -2,8 +2,8 @@ id: prov-2026-d3dc76b9
 title: 'selection: a failed verification carries its cost'
 type: imprint
 status: open
-version: 1
-reason: ""
+version: 2
+reason: selection.go returns the typed error (hand-written call site)
 created_at: "2026-10-19"
 author: calebcowen@gmail.com
 intent: |-
@@ -55,6 +55,7 @@ constraints: []
 affected_scope:
   - internal/selection/verifyerror.go
   - internal/selection/verifyerror_test.go
+  - internal/selection/selection.go
 forbidden_scope: []
 implements: prov-2026-b5c21813
 implements_version: 5
