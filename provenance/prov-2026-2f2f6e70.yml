@@ -1,0 +1,106 @@
+id: prov-2026-2f2f6e70
+title: 'growlog: Read'
+type: imprint
+status: implemented
+version: 2
+reason: tests grown into the placeholder spec file
+created_at: "2026-10-16"
+author: calebcowen@gmail.com
+intent: |-
+  Reading the grow log back (prov-2026-7a13f569): Read returns the entries in order and the count of malformed lines it skipped.
+
+  New file internal/growlog/read.go (package growlog); standard library only. TRANSCRIBE, do not design: write exactly the code below. Imports (bufio, encoding/json, fmt, os, strings): one addImport each. Declarations: one invocation per declaration (type -> setType, const -> setConst, func -> setFunction, method -> setMethod with the receiver type name), code = the whole declaration including its doc comment, exactly as written, tabs for indentation, no changes of any kind.
+
+  // Read returns the entries of the grow log at path in file order, and the
+  // number of malformed lines it skipped. Blank lines are ignored. A missing file
+  // is an error.
+  func Read(path string) ([]Entry, int, error) {
+  	f, err := os.Open(path)
+  	if err != nil {
+  		return nil, 0, fmt.Errorf("open grow log: %w", err)
+  	}
+  	defer f.Close()
+  	var entries []Entry
+  	malformed := 0
+  	sc := bufio.NewScanner(f)
+  	sc.Buffer(make([]byte, 0, 64*1024), 1024*1024)
+  	for sc.Scan() {
+  		line := strings.TrimSpace(sc.Text())
+  		if line == "" {
+  			continue
+  		}
+  		var e Entry
+  		if err := json.Unmarshal([]byte(line), &e); err != nil {
+  			malformed++
+  			continue
+  		}
+  		entries = append(entries, e)
+  	}
+  	if err := sc.Err(); err != nil {
+  		return entries, malformed, fmt.Errorf("read grow log %s: %w", path, err)
+  	}
+  	return entries, malformed, nil
+  }
+
+  Tests: the NEW file internal/growlog/read_test.go (the imprint's spec; it exists as a one-line placeholder). Transcribe exactly this test file; imports (os, path/filepath, sync, testing): one addImport each; each function -> setFunction with its name. Use the fixture text exactly (tabs, ASCII quotes).
+
+  func TestReadSkipsMalformedLines(t *testing.T) {
+  	path := filepath.Join(t.TempDir(), "grow.jsonl")
+  	data := "{\"v\":1,\"record\":\"a\"}\n\nnot json\n{\"v\":1,\"record\":\"b\"}\n"
+  	if err := os.WriteFile(path, []byte(data), 0o644); err != nil {
+  		t.Fatal(err)
+  	}
+  	entries, malformed, err := Read(path)
+  	if err != nil {
+  		t.Fatal(err)
+  	}
+  	if len(entries) != 2 || malformed != 1 {
+  		t.Fatalf("entries = %d, malformed = %d, want 2 and 1", len(entries), malformed)
+  	}
+  	if entries[0].Record != "a" || entries[1].Record != "b" {
+  		t.Fatalf("entries out of order: %+v", entries)
+  	}
+  }
+
+  func TestReadMissingFile(t *testing.T) {
+  	if _, _, err := Read(filepath.Join(t.TempDir(), "none.jsonl")); err == nil {
+  		t.Fatal("want an error for a missing file")
+  	}
+  }
+
+  func TestAppendConcurrent(t *testing.T) {
+  	path := filepath.Join(t.TempDir(), "grow.jsonl")
+  	var wg sync.WaitGroup
+  	for i := 0; i < 20; i++ {
+  		wg.Add(1)
+  		go func() {
+  			defer wg.Done()
+  			if err := Append(path, Entry{Record: "r", Model: "m", Outcome: "ok"}); err != nil {
+  				t.Error(err)
+  			}
+  		}()
+  	}
+  	wg.Wait()
+  	entries, malformed, err := Read(path)
+  	if err != nil {
+  		t.Fatal(err)
+  	}
+  	if len(entries) != 20 || malformed != 0 {
+  		t.Fatalf("entries = %d, malformed = %d, want 20 and 0", len(entries), malformed)
+  	}
+  }
+constraints: []
+affected_scope:
+  - internal/growlog/read.go
+  - internal/growlog/read_test.go
+forbidden_scope: []
+implements: prov-2026-7a13f569
+implements_version: 1
+related: []
+sealed_at_sha: 3acfa18e3550892d38a926089bad936fe6cc0238
+associated_specs:
+  - path: internal/growlog/read_test.go
+    run_command: go test ./internal/growlog -run 'TestReadSkipsMalformedLines|TestReadMissingFile|TestAppendConcurrent' -count=1
+associated_traces: []
+monitors: []
+tags: []

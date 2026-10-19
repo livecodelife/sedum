@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/spf13/cobra"
 
@@ -263,6 +264,7 @@ func runGrow(ctx context.Context, out, errOut io.Writer, cfg GrowConfig, respons
 		return err
 	}
 
+	started := time.Now()
 	result, err := pipeline.Run(ctx, pipeline.Config{
 		Generators: cfg.Generators,
 		Records:    cfg.Records,
@@ -288,6 +290,7 @@ func runGrow(ctx context.Context, out, errOut io.Writer, cfg GrowConfig, respons
 		Prompt:         pc.text,
 		Prior:          pc.prior,
 	})
+	writeGrowLog(errOut, cfg, result, err, started)
 	if err != nil {
 		return err
 	}

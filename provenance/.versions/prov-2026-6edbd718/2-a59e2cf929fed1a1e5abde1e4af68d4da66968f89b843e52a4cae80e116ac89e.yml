@@ -1,0 +1,358 @@
+id: prov-2026-6edbd718
+version: 2
+content_hash: sha256:a59e2cf929fed1a1e5abde1e4af68d4da66968f89b843e52a4cae80e116ac89e
+parent_hash: sha256:9cd6ad0e33e14d656c756a0c8524cb6a9c089607c6478259b56aad293cbd86eb
+reason: tests grown into the placeholder spec file
+author: calebcowen@gmail.com
+created_at: "2026-10-16T23:30:18Z"
+spec_hashes:
+  - sha256:be40213d5876fb2cb06a6db5e635192d907714f68300ad144e279c3945e4bf1b
+content:
+  id: prov-2026-6edbd718
+  title: 'cli: the grow log wiring'
+  type: imprint
+  created_at: "2026-10-16"
+  author: calebcowen@gmail.com
+  intent: |-
+    The grow log wiring (prov-2026-7a13f569): turning a finished `sedum grow` (pipeline.Result, or the error it returned) into grow log entries and appending them. The location and switches come from the environment (SEDUM_GROW_LOG, SEDUM_GROW_LOG_SKIPS), not flags, because the grow flag surface is a contract test that every record using flags_test.go as a spec would have to follow. GrowConfig is in config.go. pipeline.Selection, inject.Result, pipeline.Classification, genpkg.Set/Package/Action/Kwarg, selection.Rejection and recording.Version/Invocation already exist.
+
+    New file internal/cli/growlogwire.go (package cli); standard library only. TRANSCRIBE, do not design: write exactly the code below. Imports (errors, fmt, io, os, path/filepath, time, github.com/livecodelife/sedum/internal/genpkg, github.com/livecodelife/sedum/internal/growlog, github.com/livecodelife/sedum/internal/pipeline, github.com/livecodelife/sedum/internal/recording, github.com/livecodelife/sedum/internal/selection): one addImport each. Declarations: one invocation per declaration (type -> setType, const -> setConst, func -> setFunction, method -> setMethod with the receiver type name), code = the whole declaration including its doc comment, exactly as written, tabs for indentation, no changes of any kind.
+
+    // defaultGrowLogPath is where sedum grow appends its persistent grow log.
+    const defaultGrowLogPath = ".sedum/grow.jsonl"
+
+    // growLogSettings reads the grow log's switches from the environment:
+    // SEDUM_GROW_LOG names the file, or is "off" to write no log, and
+    // SEDUM_GROW_LOG_SKIPS=1 also logs records skipped as current.
+    func growLogSettings(getenv func(string) string) (path string, on, skips bool) {
+    	path = getenv("SEDUM_GROW_LOG")
+    	if path == "off" {
+    		return "", false, false
+    	}
+    	if path == "" {
+    		path = defaultGrowLogPath
+    	}
+    	return path, true, getenv("SEDUM_GROW_LOG_SKIPS") == "1"
+    }
+
+    // growLogModel names the model a grow used, as the log records it.
+    func growLogModel(cfg GrowConfig) string {
+    	switch {
+    	case cfg.LocalModel != "":
+    		return "local:" + filepath.Base(cfg.LocalModel)
+    	case cfg.Model != "":
+    		return cfg.Model
+    	}
+    	return "bundled"
+    }
+
+    // growLogMode maps a pipeline mode to the log's mode names.
+    func growLogMode(m pipeline.Mode) string {
+    	switch m {
+    	case pipeline.ModeSkip:
+    		return "skip"
+    	case pipeline.ModeRerender:
+    		return "rerender"
+    	}
+    	return "select"
+    }
+
+    // literalInvocation reports whether inv carries model-written code: a
+    // non-empty kwarg that the action's package declares as type literal.
+    func literalInvocation(set *genpkg.Set, inv recording.Invocation) bool {
+    	if set == nil {
+    		return false
+    	}
+    	for _, p := range set.Packages {
+    		a, ok := p.Actions[inv.Action]
+    		if !ok {
+    			continue
+    		}
+    		for name, k := range a.Kwargs {
+    			if v, ok := inv.Kwargs[name]; ok && k.Type == "literal" && v != nil && v != "" {
+    				return true
+    			}
+    		}
+    		return false
+    	}
+    	return false
+    }
+
+    // growLogEntries builds one entry per record a finished grow handled. A record
+    // skipped as current gets an entry only when skips is set. ms is the wall time
+    // of the whole run, which every entry of the run shares.
+    func growLogEntries(res *pipeline.Result, model string, at time.Time, elapsed time.Duration, skips bool) []growlog.Entry {
+    	if res == nil {
+    		return nil
+    	}
+    	selections := map[string]pipeline.Selection{}
+    	for _, s := range res.Selections {
+    		selections[s.RecordID] = s
+    	}
+    	type tally struct {
+    		regions growlog.Regions
+    		files   map[string]bool
+    	}
+    	tallies := map[string]*tally{}
+    	for _, in := range res.Injections {
+    		t := tallies[in.Record]
+    		if t == nil {
+    			t = &tally{files: map[string]bool{}}
+    			tallies[in.Record] = t
+    		}
+    		switch {
+    		case in.Pruned:
+    			t.regions.Pruned++
+    		case in.Replaced:
+    			t.regions.Replaced++
+    		case in.Skipped, in.Unselected, in.Held:
+    			t.regions.Unchanged++
+    		default:
+    			t.regions.Injected++
+    		}
+    		t.files[in.Path] = true
+    	}
+    	var out []growlog.Entry
+    	for _, c := range res.Classifications {
+    		if c.Mode == pipeline.ModeNone || (c.Mode == pipeline.ModeSkip && !skips) {
+    			continue
+    		}
+    		e := growlog.Entry{
+    			TS:      at.UTC().Format(time.RFC3339),
+    			Sedum:   recording.Version,
+    			Record:  c.RecordID,
+    			Mode:    growLogMode(c.Mode),
+    			MS:      elapsed.Milliseconds(),
+    			Outcome: "ok",
+    		}
+    		if s, ok := selections[c.RecordID]; ok {
+    			e.Calls, e.Rejected, e.Completeness, e.Repairs = s.Calls, s.Rejected, s.Completeness, s.Repairs
+    			e.PromptTokens, e.CompletionTokens = s.PromptTokens, s.CompletionTokens
+    			for _, inv := range s.Invocations {
+    				e.Invocations++
+    				if literalInvocation(res.Packages, inv) {
+    					e.Literal++
+    				} else {
+    					e.Declarative++
+    				}
+    			}
+    		}
+    		if e.Calls > 0 {
+    			e.Model = model
+    		}
+    		if t := tallies[c.RecordID]; t != nil {
+    			e.Regions, e.Files = t.regions, len(t.files)
+    		}
+    		out = append(out, e)
+    	}
+    	return out
+    }
+
+    // growLogFailure builds the entry for a grow that returned err. When the error
+    // is a selection.Rejection it names the record and carries what the refused
+    // calls cost.
+    func growLogFailure(err error, model string, at time.Time, elapsed time.Duration) growlog.Entry {
+    	e := growlog.Entry{
+    		TS:      at.UTC().Format(time.RFC3339),
+    		Sedum:   recording.Version,
+    		Mode:    "select",
+    		MS:      elapsed.Milliseconds(),
+    		Outcome: "failed",
+    		Error:   err.Error(),
+    	}
+    	var rej *selection.Rejection
+    	if errors.As(err, &rej) {
+    		e.Record, e.Calls, e.Rejected, e.Completeness = rej.RecordID, rej.Calls, rej.Rejected, rej.Completeness
+    		e.PromptTokens, e.CompletionTokens = rej.PromptTokens, rej.CompletionTokens
+    	}
+    	if e.Calls > 0 {
+    		e.Model = model
+    	}
+    	return e
+    }
+
+    // writeGrowLog appends the entries of a finished grow to the grow log. It
+    // writes nothing for a run that changes nothing (--dry-run, --check, --stamp,
+    // --stop-after) or when SEDUM_GROW_LOG is off, and a log that cannot be
+    // written is a warning on errOut, never a failed grow.
+    func writeGrowLog(errOut io.Writer, cfg GrowConfig, res *pipeline.Result, runErr error, started time.Time) {
+    	path, on, skips := growLogSettings(os.Getenv)
+    	if !on || cfg.DryRun || cfg.Check || cfg.Stamp || cfg.StopAfter != "" {
+    		return
+    	}
+    	elapsed := time.Since(started)
+    	model := growLogModel(cfg)
+    	entries := growLogEntries(res, model, started, elapsed, skips)
+    	if runErr != nil {
+    		entries = []growlog.Entry{growLogFailure(runErr, model, started, elapsed)}
+    	}
+    	for _, e := range entries {
+    		if err := growlog.Append(path, e); err != nil {
+    			fmt.Fprintf(errOut, "warning: %v\n", err)
+    			return
+    		}
+    	}
+    }
+
+    Tests: the NEW file internal/cli/growlogwire_test.go (the imprint's spec; it exists as a one-line placeholder). Transcribe exactly this test file; imports (bytes, errors, fmt, os, path/filepath, strings, testing, time, github.com/livecodelife/sedum/internal/genpkg, github.com/livecodelife/sedum/internal/inject, github.com/livecodelife/sedum/internal/pipeline, github.com/livecodelife/sedum/internal/recording, github.com/livecodelife/sedum/internal/selection): one addImport each; each function -> setFunction with its name. Use the fixture text exactly (tabs, ASCII quotes).
+
+    func growLogResult() *pipeline.Result {
+    	return &pipeline.Result{
+    		Packages: &genpkg.Set{Packages: []*genpkg.Package{{
+    			Name: "go",
+    			Actions: map[string]*genpkg.Action{
+    				"setFunction": {Kwargs: map[string]genpkg.Kwarg{"code": {Type: "literal"}}},
+    				"addImport":   {Kwargs: map[string]genpkg.Kwarg{"path": {Type: "string"}}},
+    			},
+    		}}},
+    		Classifications: []pipeline.Classification{
+    			{RecordID: "r1", Mode: pipeline.ModeSelect},
+    			{RecordID: "r2", Mode: pipeline.ModeSkip},
+    		},
+    		Selections: []pipeline.Selection{{
+    			RecordID: "r1", Calls: 2, Rejected: 1, Completeness: 1, Repairs: 1, PromptTokens: 100, CompletionTokens: 20,
+    			Invocations: []recording.Invocation{
+    				{Action: "setFunction", Kwargs: map[string]any{"code": "func F() {}"}},
+    				{Action: "addImport", Kwargs: map[string]any{"path": "fmt"}},
+    			},
+    		}},
+    		Injections: []inject.Result{
+    			{Path: "a.go", Record: "r1"},
+    			{Path: "a.go", Record: "r1", Replaced: true},
+    			{Path: "b.go", Record: "r1", Pruned: true},
+    		},
+    	}
+    }
+
+    func TestGrowLogEntries(t *testing.T) {
+    	at := time.Date(2026, 10, 16, 12, 0, 0, 0, time.UTC)
+    	entries := growLogEntries(growLogResult(), "m", at, 1500*time.Millisecond, false)
+    	if len(entries) != 1 {
+    		t.Fatalf("got %d entries, want 1 (the skipped record is left out): %+v", len(entries), entries)
+    	}
+    	e := entries[0]
+    	if e.Record != "r1" || e.Mode != "select" || e.Model != "m" || e.Outcome != "ok" || e.TS != "2026-10-16T12:00:00Z" || e.MS != 1500 || e.Sedum != recording.Version {
+    		t.Fatalf("entry = %+v", e)
+    	}
+    	if e.Calls != 2 || e.Rejected != 1 || e.Completeness != 1 || e.Repairs != 1 || e.PromptTokens != 100 || e.CompletionTokens != 20 {
+    		t.Fatalf("cost = %+v", e)
+    	}
+    	if e.Invocations != 2 || e.Literal != 1 || e.Declarative != 1 {
+    		t.Fatalf("invocations = %+v", e)
+    	}
+    	if e.Regions.Injected != 1 || e.Regions.Replaced != 1 || e.Regions.Pruned != 1 || e.Regions.Unchanged != 0 || e.Files != 2 {
+    		t.Fatalf("regions = %+v, files = %d", e.Regions, e.Files)
+    	}
+    }
+
+    func TestGrowLogEntriesSkips(t *testing.T) {
+    	entries := growLogEntries(growLogResult(), "m", time.Now(), 0, true)
+    	if len(entries) != 2 {
+    		t.Fatalf("got %d entries, want 2", len(entries))
+    	}
+    	if s := entries[1]; s.Record != "r2" || s.Mode != "skip" || s.Model != "" || s.Calls != 0 {
+    		t.Fatalf("skip entry = %+v", s)
+    	}
+    	if growLogEntries(nil, "m", time.Now(), 0, true) != nil {
+    		t.Fatal("a nil result has no entries")
+    	}
+    }
+
+    func TestGrowLogFailure(t *testing.T) {
+    	rej := &selection.Rejection{RecordID: "r9", Calls: 3, Rejected: 3, PromptTokens: 10, CompletionTokens: 2}
+    	e := growLogFailure(fmt.Errorf("wrap: %w", rej), "m", time.Now(), time.Second)
+    	if e.Outcome != "failed" || e.Record != "r9" || e.Calls != 3 || e.Rejected != 3 || e.Model != "m" || !strings.HasPrefix(e.Error, "wrap:") {
+    		t.Fatalf("rejection entry = %+v", e)
+    	}
+    	e = growLogFailure(errors.New("no endpoint"), "m", time.Now(), 0)
+    	if e.Record != "" || e.Model != "" || e.Outcome != "failed" || e.Error != "no endpoint" {
+    		t.Fatalf("plain failure entry = %+v", e)
+    	}
+    }
+
+    func TestGrowLogModel(t *testing.T) {
+    	cases := []struct {
+    		cfg  GrowConfig
+    		want string
+    	}{
+    		{GrowConfig{Model: "claude-haiku-5-5"}, "claude-haiku-5-5"},
+    		{GrowConfig{LocalModel: "/models/tiny.gguf"}, "local:tiny.gguf"},
+    		{GrowConfig{}, "bundled"},
+    	}
+    	for _, tc := range cases {
+    		if got := growLogModel(tc.cfg); got != tc.want {
+    			t.Errorf("growLogModel(%+v) = %q, want %q", tc.cfg, got, tc.want)
+    		}
+    	}
+    }
+
+    func TestGrowLogSettings(t *testing.T) {
+    	env := func(m map[string]string) func(string) string { return func(k string) string { return m[k] } }
+    	path, on, skips := growLogSettings(env(nil))
+    	if path != defaultGrowLogPath || !on || skips {
+    		t.Fatalf("defaults = %q %v %v", path, on, skips)
+    	}
+    	path, on, skips = growLogSettings(env(map[string]string{"SEDUM_GROW_LOG": "x/log.jsonl", "SEDUM_GROW_LOG_SKIPS": "1"}))
+    	if path != "x/log.jsonl" || !on || !skips {
+    		t.Fatalf("custom = %q %v %v", path, on, skips)
+    	}
+    	if _, on, _ = growLogSettings(env(map[string]string{"SEDUM_GROW_LOG": "off"})); on {
+    		t.Fatal("off must turn the log off")
+    	}
+    }
+
+    func TestWriteGrowLog(t *testing.T) {
+    	dir := t.TempDir()
+    	path := filepath.Join(dir, "grow.jsonl")
+    	t.Setenv("SEDUM_GROW_LOG", path)
+    	t.Setenv("SEDUM_GROW_LOG_SKIPS", "")
+    	lines := func() int {
+    		data, err := os.ReadFile(path)
+    		if err != nil {
+    			return 0
+    		}
+    		return strings.Count(string(data), "\n")
+    	}
+    	var errOut bytes.Buffer
+    	base := GrowConfig{Model: "m"}
+    	writeGrowLog(&errOut, base, growLogResult(), nil, time.Now())
+    	if lines() != 1 {
+    		t.Fatalf("a normal grow wrote %d lines, want 1", lines())
+    	}
+    	for name, cfg := range map[string]GrowConfig{
+    		"dry run":    {Model: "m", DryRun: true},
+    		"check":      {Model: "m", Check: true},
+    		"stamp":      {Model: "m", Stamp: true},
+    		"stop after": {Model: "m", StopAfter: "files"},
+    	} {
+    		writeGrowLog(&errOut, cfg, growLogResult(), nil, time.Now())
+    		if lines() != 1 {
+    			t.Fatalf("%s must not append, file has %d lines", name, lines())
+    		}
+    	}
+    	writeGrowLog(&errOut, base, nil, errors.New("boom"), time.Now())
+    	if lines() != 2 {
+    		t.Fatalf("a failed grow wrote %d lines, want 2", lines())
+    	}
+    	t.Setenv("SEDUM_GROW_LOG", "off")
+    	writeGrowLog(&errOut, base, growLogResult(), nil, time.Now())
+    	if lines() != 2 || errOut.Len() != 0 {
+    		t.Fatalf("off must append nothing: %d lines, warning %q", lines(), errOut.String())
+    	}
+    	blocked := filepath.Join(dir, "file")
+    	if err := os.WriteFile(blocked, nil, 0o644); err != nil {
+    		t.Fatal(err)
+    	}
+    	t.Setenv("SEDUM_GROW_LOG", filepath.Join(blocked, "x", "grow.jsonl"))
+    	writeGrowLog(&errOut, base, growLogResult(), nil, time.Now())
+    	if !strings.HasPrefix(errOut.String(), "warning: ") {
+    		t.Fatalf("an unwritable log must warn, got %q", errOut.String())
+    	}
+    }
+  affected_scope:
+    - internal/cli/growlogwire.go
+    - internal/cli/growlogwire_test.go
+  implements: prov-2026-7a13f569
+  implements_version: 2
+  associated_specs:
+    - path: internal/cli/growlogwire_test.go

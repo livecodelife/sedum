@@ -1,0 +1,172 @@
+id: prov-2026-87743cfa
+version: 1
+content_hash: sha256:6dfcc9ac8080abb2ed397f5d95b0a22a5c29648033a3e18fffc317e58adc8321
+parent_hash: ""
+reason: ""
+author: calebcowen@gmail.com
+created_at: "2026-10-16T23:31:05Z"
+spec_hashes:
+  - sha256:55feb8da8d74ead61adcf05dfbc90d4ec717e9510e8f14e0e89bf1e838d3bd23
+content:
+  id: prov-2026-87743cfa
+  title: 'cli: the sedum grow-log command'
+  type: imprint
+  created_at: "2026-10-16"
+  author: calebcowen@gmail.com
+  intent: |-
+    The `sedum grow-log` command (prov-2026-7a13f569): summarize the persistent grow log with internal/growlog (Read, Filter, Summarize, Summary.Text/JSON, which exist). defaultGrowLogPath is a const in root.go and is NOT defined here. This file defines newGrowLogCommand but does not register it: root.go does (hand-written).
+
+    New file internal/cli/growlogcmd.go (package cli); standard library only. TRANSCRIBE, do not design: write exactly the code below. Imports (fmt, io, strconv, strings, time, github.com/livecodelife/sedum/internal/growlog, github.com/spf13/cobra): one addImport each. Declarations: one invocation per declaration (type -> setType, const -> setConst, func -> setFunction, method -> setMethod with the receiver type name), code = the whole declaration including its doc comment, exactly as written, tabs for indentation, no changes of any kind.
+
+    // parseSince reads --since: a Go duration ("36h"), a number of days ("7d"), a
+    // date ("2026-10-01") or an RFC3339 time. The empty string is the zero time.
+    func parseSince(s string, now time.Time) (time.Time, error) {
+    	if s == "" {
+    		return time.Time{}, nil
+    	}
+    	if days, ok := strings.CutSuffix(s, "d"); ok {
+    		if n, err := strconv.Atoi(days); err == nil {
+    			return now.AddDate(0, 0, -n), nil
+    		}
+    	}
+    	if d, err := time.ParseDuration(s); err == nil {
+    		return now.Add(-d), nil
+    	}
+    	for _, layout := range []string{"2006-01-02", time.RFC3339} {
+    		if t, err := time.Parse(layout, s); err == nil {
+    			return t, nil
+    		}
+    	}
+    	return time.Time{}, fmt.Errorf("--since %q is not a duration (36h), a number of days (7d), a date (2026-10-01) or an RFC3339 time", s)
+    }
+
+    // runGrowLog prints the summary of the grow log at path.
+    func runGrowLog(out io.Writer, path string, asJSON bool, since, record, model string, now time.Time) error {
+    	from, err := parseSince(since, now)
+    	if err != nil {
+    		return err
+    	}
+    	entries, malformed, err := growlog.Read(path)
+    	if err != nil {
+    		return err
+    	}
+    	s := growlog.Summarize(entries, growlog.Filter{Since: from, Record: record, Model: model})
+    	s.Malformed = malformed
+    	if asJSON {
+    		b, err := s.JSON()
+    		if err != nil {
+    			return err
+    		}
+    		_, err = out.Write(b)
+    		return err
+    	}
+    	_, err = io.WriteString(out, s.Text())
+    	return err
+    }
+
+    // newGrowLogCommand builds `sedum grow-log`.
+    func newGrowLogCommand() *cobra.Command {
+    	var asJSON bool
+    	var since, record, model string
+    	cmd := &cobra.Command{
+    		Use:   "grow-log [path]",
+    		Short: "Summarize the persistent grow log",
+    		Long:  "Summarize the persistent grow log (default " + defaultGrowLogPath + "): per model, how many grows, failures, model calls, retries (answers the model had refused), repairs (verification send-backs), tokens and the share of invocations that carried model-written code.",
+    		Args:  cobra.MaximumNArgs(1),
+    		RunE: func(cmd *cobra.Command, args []string) error {
+    			path := defaultGrowLogPath
+    			if len(args) == 1 {
+    				path = args[0]
+    			}
+    			return runGrowLog(cmd.OutOrStdout(), path, asJSON, since, record, model, time.Now())
+    		},
+    	}
+    	cmd.Flags().BoolVar(&asJSON, "json", false, "print the summary as JSON")
+    	cmd.Flags().StringVar(&since, "since", "", "only entries since a duration (36h), days (7d), a date (2026-10-01) or an RFC3339 time")
+    	cmd.Flags().StringVar(&record, "record", "", "only entries for this record id")
+    	cmd.Flags().StringVar(&model, "model", "", "only entries for this model")
+    	return cmd
+    }
+
+    Tests: the NEW file internal/cli/growlogcmd_test.go (the imprint's spec; it exists as a one-line placeholder). Transcribe exactly this test file; imports (bytes, path/filepath, strings, testing, time, github.com/livecodelife/sedum/internal/growlog): one addImport each; each function -> setFunction with its name. Use the fixture text exactly (tabs, ASCII quotes).
+
+    func TestParseSince(t *testing.T) {
+    	now := time.Date(2026, 10, 16, 12, 0, 0, 0, time.UTC)
+    	cases := []struct {
+    		in   string
+    		want time.Time
+    		bad  bool
+    	}{
+    		{"", time.Time{}, false},
+    		{"7d", time.Date(2026, 10, 9, 12, 0, 0, 0, time.UTC), false},
+    		{"36h", time.Date(2026, 10, 15, 0, 0, 0, 0, time.UTC), false},
+    		{"2026-10-01", time.Date(2026, 10, 1, 0, 0, 0, 0, time.UTC), false},
+    		{"2026-10-01T06:00:00Z", time.Date(2026, 10, 1, 6, 0, 0, 0, time.UTC), false},
+    		{"yesterday", time.Time{}, true},
+    	}
+    	for _, tc := range cases {
+    		got, err := parseSince(tc.in, now)
+    		if (err != nil) != tc.bad {
+    			t.Errorf("parseSince(%q) error = %v, want error %v", tc.in, err, tc.bad)
+    			continue
+    		}
+    		if !tc.bad && !got.Equal(tc.want) {
+    			t.Errorf("parseSince(%q) = %v, want %v", tc.in, got, tc.want)
+    		}
+    	}
+    }
+
+    func TestRunGrowLog(t *testing.T) {
+    	path := filepath.Join(t.TempDir(), "grow.jsonl")
+    	for _, e := range []growlog.Entry{
+    		{TS: "2026-10-10T00:00:00Z", Record: "r1", Mode: "select", Model: "haiku", Outcome: "ok", Calls: 2, Rejected: 1},
+    		{TS: "2026-10-15T00:00:00Z", Record: "r2", Mode: "select", Model: "stub", Outcome: "ok", Calls: 1},
+    	} {
+    		if err := growlog.Append(path, e); err != nil {
+    			t.Fatal(err)
+    		}
+    	}
+    	now := time.Date(2026, 10, 16, 0, 0, 0, 0, time.UTC)
+    	var out bytes.Buffer
+    	if err := runGrowLog(&out, path, false, "", "", "", now); err != nil {
+    		t.Fatal(err)
+    	}
+    	if !strings.Contains(out.String(), "grow log: 2 line(s), 0 malformed") || !strings.Contains(out.String(), "haiku") {
+    		t.Fatalf("text output:\n%s", out.String())
+    	}
+    	out.Reset()
+    	if err := runGrowLog(&out, path, true, "3d", "", "", now); err != nil {
+    		t.Fatal(err)
+    	}
+    	if !strings.Contains(out.String(), `"entries": 1`) {
+    		t.Fatalf("--since 3d should keep one entry:\n%s", out.String())
+    	}
+    	out.Reset()
+    	if err := runGrowLog(&out, path, true, "", "", "haiku", now); err != nil {
+    		t.Fatal(err)
+    	}
+    	if !strings.Contains(out.String(), `"entries": 1`) {
+    		t.Fatalf("--model haiku should keep one entry:\n%s", out.String())
+    	}
+    }
+
+    func TestRunGrowLogErrors(t *testing.T) {
+    	var out bytes.Buffer
+    	if err := runGrowLog(&out, filepath.Join(t.TempDir(), "none.jsonl"), false, "", "", "", time.Now()); err == nil {
+    		t.Fatal("a missing log must be an error")
+    	}
+    	path := filepath.Join(t.TempDir(), "grow.jsonl")
+    	if err := growlog.Append(path, growlog.Entry{TS: "2026-10-10T00:00:00Z", Outcome: "ok"}); err != nil {
+    		t.Fatal(err)
+    	}
+    	if err := runGrowLog(&out, path, false, "yesterday", "", "", time.Now()); err == nil {
+    		t.Fatal("a bad --since must be an error")
+    	}
+    }
+  affected_scope:
+    - internal/cli/growlogcmd.go
+    - internal/cli/growlogcmd_test.go
+  implements: prov-2026-7a13f569
+  implements_version: 2
+  associated_specs:
+    - path: internal/cli/growlogcmd_test.go
