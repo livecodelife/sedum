@@ -83,6 +83,8 @@ release's published `checksums.txt`**, and installs into `$HOME/.local/bin`. Set
 `SEDUM_INSTALL_DIR` to install elsewhere and `SEDUM_VERSION` to pin a version
 rather than take the latest.
 
+`sedum adopt`, the grow log and provenance v2 record handling need v0.8.0 or later (see `CHANGELOG.md`).
+
 With Go:
 
 ```sh
