@@ -185,12 +185,12 @@ func TestFetchScriptPinsTheNewDefaultModel(t *testing.T) {
 	}
 }
 
-func TestFetchScriptKeepsTheModelURLAndBundledFilename(t *testing.T) {
+func TestFetchScriptNamesTheNewModelAssetAndKeepsTheBundledFilename(t *testing.T) {
 	sh := read(t, "hack/fetch-release-assets.sh")
 
-	const url = `MODEL_URL="https://github.com/livecodelife/sedum/releases/download/model-assets/sedum-default-model.gguf"`
+	const url = `MODEL_URL="https://github.com/livecodelife/sedum/releases/download/model-assets/Qwen3.5-2B.Q8_0.gguf"`
 	if !strings.Contains(sh, url) {
-		t.Errorf("MODEL_URL changed; the record keeps it and the bundled filename as they were:\n  want %s", url)
+		t.Errorf("MODEL_URL must name the Qwen3.5-2B.Q8_0.gguf asset on model-assets:\n  want %s", url)
 	}
 	if !strings.Contains(sh, `"$DIST/sedum-default-model.gguf"`) {
 		t.Error("the staged model filename is no longer sedum-default-model.gguf, which bundled.go looks up")
