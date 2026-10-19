@@ -1,6 +1,6 @@
 id: prov-2026-be853555
 title: 'Version 0.6.0: local goinfer-serve backend and zero-setup default'
-status: open
+status: implemented
 version: 2
 reason: 'release_test.go: the model URL test follows the release asset''s name'
 created_at: "2026-09-29"
@@ -29,7 +29,7 @@ related:
   - prov-2026-a1ccdd65
   - prov-2026-668746b1
   - prov-2026-4746d9ed
-sealed_at_sha: ""
+sealed_at_sha: b03e74dce59e0c8ed7e3f9ed92fa3f8576f286aa
 associated_specs:
   - path: internal/cli/release_test.go
     run_command: go test -count=1 ./$(dirname {{path}})
