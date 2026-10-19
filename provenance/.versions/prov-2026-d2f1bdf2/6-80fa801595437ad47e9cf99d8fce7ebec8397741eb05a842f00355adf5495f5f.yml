@@ -1,0 +1,68 @@
+id: prov-2026-d2f1bdf2
+version: 6
+content_hash: sha256:80fa801595437ad47e9cf99d8fce7ebec8397741eb05a842f00355adf5495f5f
+parent_hash: sha256:82974d1205e2bf707a7dd510dee589c6afe593769c52427c112ebb7c4c9976c4
+reason: the new default is hosted under its own name on the model-assets release, so the release URL names that asset
+author: calebcowen@gmail.com
+created_at: "2026-10-19T18:15:42Z"
+spec_hashes:
+  - sha256:597c71ff26ca824bc35a97887a2e91793f68e7a8b34984f2f900ae56d275b20d
+  - sha256:7113081ded3b93aae46a83b2133d35c7dddd199a97bc149b397d7297ef963442
+  - sha256:31e5ec0e0f2157c22dee82d834e8b4edca6ef5f7264f0bb1b3555e081701828e
+content:
+  id: prov-2026-d2f1bdf2
+  title: sedum-binder-final-2b-le12k-e5 becomes the default shipped model
+  type: blueprint
+  created_at: "2026-10-06"
+  author: calebcowen@gmail.com
+  intent: |-
+    The checkpoint sedum-binder-final-2b-le12k-e5, a Q8_0 gguf of 2012012768
+    bytes, replaces the current model as the zero-flag default shipped beside the
+    sedum binary. The bundled filename stays sedum-default-model.gguf, as the
+    comment in bundled.go already says a re-tuned default should, so lookup code,
+    goreleaser and install.sh need no change. What changes is the asset the
+    release URL names, and the sha256 that hack/fetch-release-assets.sh pins for
+    it: 5185a0b25d5a13262fa6dfcdb1b2091b7bb64f130d65cdb5322c99c992dd052e.
+    This supersedes the default named by [[prov-2026-668746b1]] but not its
+    bundling mechanism.
+
+    The maintainer, not this work, uploads the file to the model-assets release,
+    under its own name, Qwen3.5-2B.Q8_0.gguf, beside the previous default, which
+    stays in place so the release that shipped it remains reproducible. The release
+    asset URL names that file. If the file served there is not the one pinned, the
+    pinned checksum does not match and a release build fails its checksum check:
+    that is the intended failure, a build must never ship an unverified model. The
+    order is upload first, then tag.
+
+    A per-run --model or --local-model still overrides the default and is covered
+    by a spec. The evals under evals/ published results for the old default;
+    none of them are claimed for this checkpoint, and the new one is not
+    measured here.
+  constraints:
+    - --model and --local-model still take precedence over the bundled default and a spec proves it, with both a bundled model present and absent.
+    - README and docs wording about the default model names the new checkpoint and carries no claim about its eval results.
+    - Results under evals/results are not edited, and no published figure is attributed to the new default.
+    - MODEL_SHA in hack/fetch-release-assets.sh is exactly 5185a0b25d5a13262fa6dfcdb1b2091b7bb64f130d65cdb5322c99c992dd052e, the sha256 of Qwen3.5-2B.Q8_0.gguf from the sedum-binder-final-2b-le12k-e5 directory.
+    - MODEL_URL in hack/fetch-release-assets.sh names the asset Qwen3.5-2B.Q8_0.gguf on the model-assets release, and the file is staged and bundled as sedum-default-model.gguf.
+    - The previous default asset stays on the model-assets release, so the release that shipped it can be rebuilt.
+    - Sedum work does not publish, upload, or tag anything. The maintainer uploads the asset to the model-assets release, and a release build fails its checksum until the URL serves the pinned file; this must be stated wherever the pin or the URL is changed.
+  affected_scope:
+    - hack/fetch-release-assets.sh
+    - README.md
+  forbidden_scope:
+    - evals/results/**
+  implements: prov-2026-d554bfc3
+  implements_version: 1
+  related:
+    - prov-2026-668746b1
+  associated_specs:
+    - path: internal/selection/bundled_test.go
+      type: go
+    - path: internal/cli/flags_test.go
+      type: go
+    - path: internal/cli/release_test.go
+      type: go
+  tags:
+    - sedum
+    - release
+    - model
