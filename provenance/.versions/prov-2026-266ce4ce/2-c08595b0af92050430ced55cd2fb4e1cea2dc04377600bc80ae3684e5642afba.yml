@@ -1,0 +1,37 @@
+id: prov-2026-266ce4ce
+version: 2
+content_hash: sha256:c08595b0af92050430ced55cd2fb4e1cea2dc04377600bc80ae3684e5642afba
+parent_hash: sha256:6609cee6441a55c3155fa3cfc2261ee4a27ae1a9033cf0fb96859ea32b218a75
+reason: 'release_test.go: the model URL test follows the release asset''s name'
+author: calebcowen@gmail.com
+created_at: "2026-10-19T18:16:53Z"
+spec_hashes:
+  - sha256:87794bd28173787fec494ec339698daece91b49e5d003d4b434116fbf2ff98b0
+content:
+  id: prov-2026-266ce4ce
+  title: 'Version 0.7.0: opt-in JSON Schema structured output for sedum grow'
+  type: blueprint
+  created_at: "2026-09-30"
+  author: calebcowen@gmail.com
+  intent: |
+    0.6.0 -> 0.7.0: minor, additive. --response-schema is new
+    ([[prov-2026-91c54941]]): sedum grow can now compile the record's catalog
+    into a JSON Schema and send it as structured output to OpenAI-compatible
+    endpoints, default off. No existing invocation's behavior changes - the
+    request sedum grow sends is byte-for-byte identical to today's when the
+    flag is not given.
+  constraints:
+    - This record touches only the version constant. The tag-vs-constant check in .github/workflows/release.yml, not a file change here, is what actually gates and runs the release.
+    - The tag is pushed only once this commit is on main, so CI builds the commit the constant and the tag both name.
+  affected_scope:
+    - internal/recording/version.go
+  implements: prov-2026-d554bfc3
+  implements_version: 1
+  related:
+    - prov-2026-91c54941
+    - prov-2026-4bcabb2f
+  associated_specs:
+    - path: internal/cli/release_test.go
+  tags:
+    - sedum
+    - release
