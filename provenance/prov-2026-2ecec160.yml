@@ -1,0 +1,30 @@
+id: prov-2026-2ecec160
+title: Marker v2 and per-record recordings
+type: blueprint
+status: draft
+version: 1
+reason: ""
+created_at: "2026-10-20"
+author: calebcowen@gmail.com
+intent: Sedum markers stop carrying the kwargs a region was rendered from. A marker keeps the region's identity and two content hashes, and a recording under .sedum/recordings keeps what is needed to rebuild the region without a model. MARKER_V2.md is the specification.
+constraints:
+  - A v2 marker carries v, tier, record, gen, pkg, writer, id (the identity kwargs), kwargs (the hash of all resolved kwargs) and body (the hash of the region text); no kwarg name, code included, is special-cased. A marker without v reads as today.
+  - 'kwargs are hashed in a canonical form: sorted keys at every depth, integers written the same whatever their spelling, defaults included and unset optional kwargs absent.'
+  - The body hash covers the text between the marker lines, indentation included, with line endings normalized.
+  - Every normal grow writes one recording per record under .sedum/recordings, including for skipped and re-rendered records; --record names another directory and forces no re-select.
+  - A region whose recording is missing, unreadable or does not match its marker counts as stale.
+  - A re-render reads its kwargs from the recording; a region whose text no longer hashes to its body is not overwritten by a re-render without --force, and grow --check reports it as edited.
+  - A model-free migration builds recordings from existing markers and rewrites the markers to v2 without changing any region's text; migrating twice changes nothing.
+affected_scope:
+  - MARKER_V2.md
+  - internal/**
+  - conformance/**
+forbidden_scope: []
+related: []
+sealed_at_sha: ""
+associated_specs:
+  - path: internal/inject/markerv2_doc_test.go
+    run_command: go test ./internal/inject -run TestMarkerV2SpecSections -count=1
+associated_traces: []
+monitors: []
+tags: []
