@@ -1,8 +1,8 @@
 id: prov-2026-4746d9ed
 title: Sedum is installable and versioned, so a caller can pin it
 status: implemented
-version: 3
-reason: 'release_test.go: the model URL test follows the release asset''s name'
+version: 4
+reason: 'ci.yml: move the provenance CLI pin to 4aaa1bb, as provisio-mgr asked'
 created_at: "2026-08-20"
 author: calebcowen@gmail.com
 intent: |
@@ -93,6 +93,7 @@ constraints:
   - Tests pass before anything is published. The release job depends on the test job rather than running beside it.
   - No integration surface is added. This record touches distribution and identity only; the six surfaces of prov-2026-b5465dfa are unchanged, and nothing here creates a runtime API or a linking path.
   - CI runs provenance lint (strict), lists stale records and checks the commits of a pull request, with the CLI pinned to a full commit SHA.
+  - The provenance CLI that CI installs is pinned to commit 4aaa1bb5eafabc4386a8cf70c02282c402deedac.
 affected_scope:
   - go.mod
   - go.sum
@@ -111,7 +112,7 @@ type: blueprint
 related:
   - prov-2026-b5465dfa
   - prov-2026-59535684
-sealed_at_sha: c5f0bbdde7f706d920631bc8ebe67faf19d8f221
+sealed_at_sha: a0b194076efb51c9c810c543e0fd7302e54d55e3
 associated_specs:
   - path: internal/cli/release_test.go
     run_command: go test -count=1 ./$(dirname {{path}})
