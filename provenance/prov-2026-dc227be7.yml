@@ -1,6 +1,6 @@
 id: prov-2026-dc227be7
 title: M7 - Recording and replay
-status: open
+status: implemented
 version: 7
 reason: specs refreshed for the new Validate parameter and the hidden-action tests
 reason_kind: ""
@@ -158,7 +158,7 @@ related:
   - prov-2026-59535684
   - prov-2026-b5465dfa
   - prov-2026-36c8a99c
-sealed_at_sha: ""
+sealed_at_sha: c232faaad2291c14cc1a547e88a83b638eb4d78b
 associated_specs:
   - path: internal/recording/recording_test.go
     run_command: go test -count=1 ./$(dirname {{path}})
