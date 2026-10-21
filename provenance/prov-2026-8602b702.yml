@@ -1,6 +1,6 @@
 id: prov-2026-8602b702
 title: 'sedum grow --prior-recording shows the model its own earlier selections on a retry'
-status: open
+status: implemented
 version: 6
 reason: 'specs refreshed: the Validate call sites in the spec test file take the added parameter'
 created_at: "2026-10-06"
@@ -74,7 +74,7 @@ related:
   - prov-2026-e4bab53b
   - prov-2026-88e36921
   - prov-2026-4bcabb2f
-sealed_at_sha: ""
+sealed_at_sha: be690311fc9776cf8f0ec6ae467d71f939846baf
 associated_specs:
   - path: internal/cli/flags_test.go
     type: go
