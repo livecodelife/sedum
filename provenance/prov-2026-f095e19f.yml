@@ -1,6 +1,6 @@
 id: prov-2026-f095e19f
 title: M6 - Model invocation and output validation (sedum grow, sedum actions)
-status: open
+status: implemented
 version: 7
 reason: 'specs refreshed: the Validate call sites in the spec test file take the added parameter'
 reason_kind: ""
@@ -125,7 +125,7 @@ type: blueprint
 implements: prov-2026-d554bfc3
 implements_version: 1
 related: []
-sealed_at_sha: ""
+sealed_at_sha: 93b6e1ee905deb74e460dddbd925157f386a94ef
 associated_specs:
   - path: internal/catalog/catalog_test.go
     run_command: go test -count=1 ./$(dirname {{path}})
