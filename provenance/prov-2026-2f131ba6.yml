@@ -1,6 +1,6 @@
 id: prov-2026-2f131ba6
 title: Model configuration is --model plus two environment variables
-status: open
+status: implemented
 version: 2
 reason: 'specs refreshed: the Validate call sites in the spec test file take the added parameter'
 created_at: "2026-08-14"
@@ -64,7 +64,7 @@ type: imprint
 implements: prov-2026-f095e19f
 implements_version: 1
 related: []
-sealed_at_sha: ""
+sealed_at_sha: 8492060ea95c87248c1e1a81e70f65ac589b4d21
 associated_specs:
   - path: internal/selection/selection_test.go
     run_command: go test -count=1 ./$(dirname {{path}})
