@@ -1,62 +1,9 @@
 id: prov-2026-e6969eb3
 title: A local eval harness, because the measurements it replaces were shell loops and grep
 status: implemented
-version: 5
-reason: |-
-  [[prov-2026-945fa0aa]] added a throughput line dividing every token in the
-  usage block by the wall clock. On this server most of those tokens are never
-  computed, so the headline overstates the work by about four times.
-
-  ## What the server actually does
-
-  LM Studio's llama.cpp backend selects a slot by longest-common-prefix
-  similarity and keeps everything up to the divergence point. A case's prompt is
-  byte-identical across its samples, so the second and later samples land on a
-  slot holding the whole thing:
-
-      slot get_availabl: selected slot by LCP similarity, sim_best = 1.000
-      slot update_slots: new prompt, n_keep = 1799, task.n_tokens = 1799
-      slot update_slots: n_past was set to 1798
-      prompt eval time =     746.79 ms /     1 tokens
-             eval time =  194531.80 ms /   603 tokens (3.10 tokens per second)
-
-  Of 1799 prompt tokens, **one** is evaluated. Across today's runs, 63 prompt
-  evaluations computed a single token, three computed the full 1799 as cold
-  starts, and the remainder were the completeness re-prompts, which share the
-  prefix and diverge after it.
-
-  So generation is not merely the larger cost, it is essentially the whole cost:
-  746 ms against 194.5 s, or 99.6%.
-
-  ## Three claims this retires
-
-  **Prefix caching is not an optimization waiting to be enabled.** 945fa0aa
-  argued for it at length and [[prov-2026-6f728c95]] recorded that it had not
-  been turned on. Neither is right: it was never off, and there is no flag,
-  because the backend does it by construction.
-
-  **A prompt-heavy token split does not diagnose a slow case.** The reasoning
-  that a large prompt means the catalog is re-read every call assumed the prompt
-  was recomputed. Billed and computed are different quantities, and only the
-  second is time.
-
-  **The headline number is wrong rather than imprecise.** A metric that counts
-  work the machine skipped will make a case look faster the larger its prompt
-  is, which is backwards.
-
-  ## The fix
-
-  The headline throughput is completion tokens per second, because those are the
-  tokens the machine produced. Prompt tokens stay on the line, labelled as
-  billed, because they remain what a hosted endpoint charges for and what a rate
-  limit is denominated in - the two questions [[prov-2026-98ab639c]] needs them
-  for.
-
-  What the harness still cannot see is how much of a prompt was recomputed: the
-  usage block reports the prompt length whether the prefix was reused or not.
-  That is a property of the protocol rather than a gap to fill, and the line says
-  billed rather than implying otherwise.
-reason_kind: fix
+version: 6
+reason: 'specs refreshed: the Validate call sites in the spec test file take the added parameter'
+reason_kind: ""
 created_at: "2026-08-15"
 author: calebcowen@gmail.com
 aliases:
@@ -214,7 +161,7 @@ related:
   - prov-2026-6d87dc11
   - prov-2026-c5697387
   - prov-2026-369544c1
-sealed_at_sha: c5f6349238c7b43c890b0c5a6c7418aae0ce85ba
+sealed_at_sha: ef451cdb437bf78f170c142d7e28dd89a49abc86
 associated_specs:
   - path: evals/run_test.go
     run_command: go test -count=1 ./$(dirname {{path}})

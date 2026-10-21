@@ -1,7 +1,8 @@
 id: prov-2026-e3d7b9ac
 title: 'A kwarg may be declared literal: a string the template emits as source'
 status: implemented
-version: 1
+version: 2
+reason: 'specs refreshed: the Validate call sites in the spec test file take the added parameter'
 created_at: "2026-08-17"
 author: calebcowen@gmail.com
 intent: |
@@ -107,7 +108,7 @@ type: blueprint
 implements: prov-2026-d554bfc3
 implements_version: 1
 related: []
-sealed_at_sha: 62d37068fe36fe25ea7cdb4f8a2debe53745bc30
+sealed_at_sha: 69187dc4712af19e05893d7b8ceed50a7fe01e7a
 associated_specs:
   - path: internal/selection/selection_test.go
     run_command: go test ./$(dirname {{path}})

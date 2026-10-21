@@ -112,9 +112,12 @@ func (v Violation) String() string {
 //
 // What it does not carry is the re-prompt loop. A recording has nothing to
 // re-prompt, so the violations are returned and the caller halts on them.
-func Validate(files []resolve.File, invocations []recording.Invocation) []Violation {
+//
+// allowUnexposed puts the actions a package hides from the model into the
+// catalog, for a recording an adopter wrote rather than a model.
+func Validate(files []resolve.File, invocations []recording.Invocation, allowUnexposed bool) []Violation {
 	packages := expand.Packages(files)
-	cat := catalog.Build(packages, catalog.Options{})
+	cat := catalog.Build(packages, catalog.Options{IncludeUnexposed: allowUnexposed})
 	return validate(cat, packages, files, invocations)
 }
 

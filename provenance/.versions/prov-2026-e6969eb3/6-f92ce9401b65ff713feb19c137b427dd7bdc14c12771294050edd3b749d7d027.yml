@@ -1,0 +1,178 @@
+id: prov-2026-e6969eb3
+version: 6
+content_hash: sha256:f92ce9401b65ff713feb19c137b427dd7bdc14c12771294050edd3b749d7d027
+parent_hash: sha256:160734c26156793b32fa6245f94a0ae00cd516b6290f284816c93094433fd056
+reason: 'specs refreshed: the Validate call sites in the spec test file take the added parameter'
+author: calebcowen@gmail.com
+created_at: "2026-10-21T21:23:31Z"
+spec_hashes:
+  - sha256:1979b197cc80b3697c2b87195e78aa43b63b6b105d6a2c50dcc8213a7e5a2265
+  - sha256:654df446d8403cf37e7c3b9113a5859a3372491b48b9316af7c3981d84e32b47
+  - sha256:bfb92c0bce770edebbd3e8c14f97c81fcf062599cf9daaac84294dcbe9d2bd17
+content:
+  id: prov-2026-e6969eb3
+  title: A local eval harness, because the measurements it replaces were shell loops and grep
+  type: blueprint
+  created_at: "2026-08-15"
+  author: calebcowen@gmail.com
+  aliases:
+    - prov-2026-0811425c
+    - prov-2026-096a4d4b
+    - prov-2026-6f728c95
+    - prov-2026-e323b805
+  intent: |
+    A package under evals/ that runs a case against a model N times and reports how
+    often each action was selected. Built from a prototype rather than designed
+    ahead of one, so what is recorded here is what it turned out to be.
+
+    ## Why
+
+    The measurement that corrected [[prov-2026-6d87dc11]] was nineteen shell loops
+    with grep -c. One run's output was lost before it could be read, two more were
+    mangled by a bad sed, and every number in that record was hand-tallied. The
+    finding was worth having and the method was not repeatable, which is the whole
+    argument.
+
+    It also could not answer its own follow-ups. Whether descriptions move the rate,
+    whether the positional effect holds on another model, whether a tighter package
+    beats a looser one - all of them are the same measurement with one axis changed,
+    and all of them were out of reach at that cost per run.
+
+    ## It is not part of Sedum
+
+    Nothing under internal/ or cmd/ imports it, it is not compiled into the binary,
+    and its runner sits behind a build tag so go test ./... never reaches it.
+
+    That separation is load-bearing rather than tidy. Sedum does not run or grade
+    the code it generates; a harness that eventually does both would make that
+    non-goal untrue by adjacency if it shipped as part of the tool. Living in the
+    repository is a convenience for keeping fixtures current, and the boundary is
+    the build tag plus the import direction, not the directory.
+
+    Go's internal rule permits evals/ to import internal/, which is what makes this
+    worth doing at all: it calls pipeline.Run and reads Selections directly instead
+    of parsing stdout. Every parsing defect in the manual measurement disappears
+    because there is no parsing.
+
+    ## Rates, not verdicts
+
+    Nothing here fails a build on a selection rate. What is measured is a sampled
+    distribution, and an assertion over a coin flip is a flaky test wearing a suit.
+    The runner fails on exactly one condition - a case that produced nothing to
+    measure - because that is a broken harness rather than a poor model.
+
+    A rate is also not evidence on its own. It needs its sample size, its model and
+    the build it was taken on, which is why the report prints all three on the
+    header line and why Compare exists at all. The git-worktree A/B that
+    prov-2026-6d87dc11 needed is the operation this replaces.
+
+    ## Three outcomes, and the bug that came from conflating two
+
+    The first version had two: a run worked or it failed. Its first real run
+    reported four of six samples "failed" and never said why, because the error was
+    only printed when nothing at all scored.
+
+    Those four were not failures. Retries are zero here on purpose - the question is
+    what one call produces - so a model answering something Phase 5 rejects shows up
+    as no answer, and that is one of the more interesting things to know about a
+    model rather than noise to drop. Three outcomes now:
+
+    - valid: answered and accepted. Scored.
+    - invalid: answered and rejected. A measurement, reported as its own rate.
+    - failed: never reached the model. Outside every denominator, because an
+      unreachable endpoint is not a model that chose badly.
+
+    Rerun after the fix: 6 of 8 valid first calls, with the two rejections named.
+
+    ## The matrix
+
+    A single cell says almost nothing, because every question worth asking is
+    comparative. A case declares each axis even where only one value exists, so that
+    growing the matrix adds files rather than changing a schema that results are
+    already recorded against.
+
+    Model, framework, application, its complexity tier, how tightly the generator
+    package constrains the model, and whether the arm used Sedum at all.
+
+    Two are declared and not runnable, and they are the two that matter most.
+
+    **The baseline arm** asks the same model for the same application with no
+    generator package and no action vocabulary. Without that column a good number
+    here is unfalsifiable, because there is nothing it is good compared to.
+
+    **Behavioral pass rate** is the fraction of an application's linespec contracts
+    that pass once the selection is applied and the target runs. Selection
+    completeness is a proxy and this is the thing it is a proxy for. It costs a
+    container and a database per sample rather than one model call, which is why it
+    is reserved rather than built - and reserving it now is the cheap half, because
+    adding the field later means rewriting every result recorded without it.
+
+    ## What the first run said
+
+    todo-rails, qwen2.5-coder-14b, n=8, retries 0: 6 of 8 valid first calls;
+    addColumn selected in 1 of the 6, every other expected action in 6 of 6.
+
+    Two things worth carrying forward. The positional correlation from
+    prov-2026-6d87dc11 reproduced through an independent path - addColumn was
+    selected exactly when it was selected first, one sample for both. And the rate
+    is well below the 6-of-13 measured by hand, which is either small-sample
+    variance or something systematic about running samples back to back in one
+    process. Unexplained, and now cheap to investigate, which is the point.
+
+    ## Known rough edges, recorded rather than hidden
+
+    Invalid is told from failed by matching an error string, because
+    internal/selection exports no type for a rejected response. The honest fix is a
+    sentinel there and it should land before anything depends on the validity rate.
+
+    Only the sedum arm runs. Behavior is not measured. Both are declared and both
+    are rejected at run time rather than silently skipped.
+  constraints:
+    - Nothing in internal/ or cmd/ imports evals/, and the runner stays behind a build tag so go test ./... never reaches it. The boundary is the import direction and the tag, not the directory.
+    - The harness reports rates and never fails a build on one. The single failing condition is a case that produced nothing to measure, which is a broken harness rather than a poor model.
+    - Every reported rate carries its sample size, model and build. A rate recorded without them cannot be re-run and will be believed longer than it is true.
+    - Valid, invalid and failed stay distinct. An answer Phase 5 rejected is a measurement; a run that never reached the model is excluded from every denominator.
+    - Retries are zero. The question is what one call produces, and a retry loop would fold Phase 5's recovery into a number meant to describe a first answer.
+    - A case declares every axis of the matrix even where one value exists, because a schema that grows after results exist means rewriting the results.
+    - The baseline arm and the behavioral pass rate are reserved in the schema and rejected at run time until implemented. An unimplemented axis is never silently skipped.
+    - The harness's own logic is covered by deterministic tests that need no model and run in the default suite. Only the model-dependent runner is tagged.
+    - Expectations are what a complete answer contains, never what the model usually produces. Fitting the expectation to observed behavior would make every rate 100% by construction.
+    - Phase 5 reports Calls, Rejected and Completeness alongside the invocations. Three counts rather than one, because a rejected answer, a completeness observation and a total are three different facts drawn from two budgets.
+    - 'First-call validity is recoverable at any retry budget: a sample with zero rejections validated on its first call, whatever the budget allowed. The budget stops being a trade-off between two measurements.'
+    - A rejected answer is a typed error carrying the same counts and every attempt's violations. Callers classify with errors.As rather than by matching a message, and the diagnostic text stays as informative as it is today.
+    - The completeness call is counted separately from validation attempts. It draws from its own budget, and folding the two together would report a complete answer as a rejected one.
+    - Nothing about what Phase 5 accepts, rejects or asks about changes. This record adds reporting and changes no decision.
+    - An eval entry records the counts per sample, additively. The schema does not move, a reader ignores what it does not recognise, and no existing field changes meaning - so entries written before this remain readable and keep meaning what they meant.
+    - Cost per sample is reported in calls, not only in seconds. Two entries at different retry budgets compare on calls, which is the comparison seconds could never support.
+    - Every model call's prompt and completion token counts leave Phase 5 with the calls that made them, per record and summed per sample.
+    - A server that reports no usage is recorded as reporting none, never as zero tokens. A zero would average into a rate as though it were measured.
+    - The client returns the message and its token counts and nothing else. The interface stays incapable of carrying a tool call, which is the property the string return was protecting rather than the string itself.
+    - Tokens are reported beside calls, never instead of them. A call is what a retry budget is spent from; tokens are what a call costs. Neither derives the other.
+    - Entry fields are additive and the schema does not move, so entries written before this stay readable and keep meaning what they meant.
+    - A server configuration in the documentation is read off the running server, never reconstructed from what a server of that kind plausibly takes. The command that reads it is written beside it so the next person can check.
+    - What the server does not expose is described as unknown rather than assumed. Prefix caching is unmeasured on these entries and says so.
+    - A claim about how a measurement was produced is corrected the moment it is found wrong, because unlike a wrong number it survives re-running.
+    - Whether prefix caching helps is an open question needing repeated conditions, not a flag to add and assert. The wall clock is the only external signal and it is worth plus or minus 31% here.
+    - Throughput is completion tokens over wall clock. Those are the tokens the machine produced, and a metric counting skipped work would make a case look faster the larger its prompt is.
+    - Prompt tokens are reported as billed, never as work. They are what a hosted endpoint charges and what a rate limit counts, and they are not what the local clock measures.
+    - The harness does not claim to know how much of a prompt was recomputed. The usage block cannot say, so the report does not imply it.
+    - A token split is not evidence about where a case spends its time. Only the completion half is time on a server that reuses prefixes.
+  affected_scope:
+    - evals/**
+    - internal/selection/**
+    - internal/pipeline/**
+    - PRD.md
+  implements: prov-2026-d554bfc3
+  implements_version: 1
+  related:
+    - prov-2026-6d87dc11
+    - prov-2026-c5697387
+    - prov-2026-369544c1
+  associated_specs:
+    - path: evals/run_test.go
+    - path: evals/README.md
+    - path: internal/selection/selection_test.go
+  tags:
+    - sedum
+    - evals
+    - measurement

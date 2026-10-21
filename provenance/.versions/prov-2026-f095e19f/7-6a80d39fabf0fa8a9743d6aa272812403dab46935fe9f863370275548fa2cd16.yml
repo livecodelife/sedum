@@ -1,0 +1,149 @@
+id: prov-2026-f095e19f
+version: 7
+content_hash: sha256:6a80d39fabf0fa8a9743d6aa272812403dab46935fe9f863370275548fa2cd16
+parent_hash: sha256:f743909f3a3a5f19b9a64eb747020e05ea11e6557938898d191cdb4fea69d5db
+reason: 'specs refreshed: the Validate call sites in the spec test file take the added parameter'
+author: calebcowen@gmail.com
+created_at: "2026-10-21T21:23:21Z"
+spec_hashes:
+  - sha256:0369e879548b4c3d8502143797c84ba4bb2705ac3de82e025b537584b9b9aaac
+  - sha256:bfb92c0bce770edebbd3e8c14f97c81fcf062599cf9daaac84294dcbe9d2bd17
+  - sha256:f9fd255c07f0b379b7bcd70c49c77c9e5cc45105865152ba14bdafaa23a6fc6a
+  - sha256:8610736d9d6ccedd935988c879d098e482acf556d6411451bb93c8fb5b380a02
+  - sha256:c9ce311c5e3eef8b10e4f296d3e19e0c4feeaae41915839d1901e1f494390def
+  - sha256:c2eb18b22e67a2b017fb7ed4a55c5635c6323298bc05e4f6a06d25a1cd330c10
+  - sha256:bada3e57ac702a34f6b54d7bb9420726b580409ed0564ae85be999771abdc3c3
+content:
+  id: prov-2026-f095e19f
+  title: M6 - Model invocation and output validation (sedum grow, sedum actions)
+  type: blueprint
+  created_at: "2026-08-07"
+  author: calebcowen@gmail.com
+  aliases:
+    - prov-2026-369544c1
+    - prov-2026-c5697387
+    - prov-2026-6d87dc11
+    - prov-2026-206fa618
+  intent: |
+    Implement Phases 4 and 5, closing the loop. Delivers `sedum grow` end to end
+    and `sedum actions`.
+
+    Phase 4 - one model call per provenance record. The prompt carries the record's
+    intent, its constraints, the paths created for it in Phase 3, and the action
+    catalog: the union of exposed actions across every package the record's paths
+    resolved to, with kwarg schemas and variant lists.
+
+    Variant lists are included deliberately. Without them there is an invisible
+    cliff - name: index gets a full implementation while name: search falls to
+    _default, and the model has no way to know it fell off. Exposing the list lets
+    it prefer covered values where intent maps cleanly and take the fallback
+    knowingly where it does not.
+
+    The response is structured output, not tool calls: a JSON array of
+    {action, kwargs} objects. This keeps the mechanism working with models that
+    lack tool-calling support, which is most of the open-weight range worth
+    evaluating. The client is sashabaranov/go-openai against an OpenAI-compatible
+    endpoint, so a local server (LM Studio, vLLM, Ollama) and a hosted API are the
+    same code path; --model names the model and endpoint plus credentials come from
+    the environment.
+
+    Phase 5 - deterministic validation, each check producing a specific
+    re-promptable error: the action name exists and is exposed in this record's
+    catalog; all required kwargs are present; no unknown kwargs; every value
+    matches its declared type; the discriminator value is a declared variant or
+    _default exists; the rendered injects_into path was created in Phase 3. On
+    failure, re-prompt with the specific violations appended, up to --retries.
+    The loop costs one model call - no compilation, no service startup, no test
+    execution.
+
+    `sedum actions` prints a package's catalog exactly as the model would receive
+    it, with --all to include unexposed actions marked as such and --json to emit
+    the raw payload. It is the authoring feedback loop for exposure and catalog
+    clarity, and it shares the catalog builder with Phase 4 rather than
+    reimplementing it - if the two could drift, the command stops being evidence.
+
+    Testable: end-to-end generation from a Rails provenance record with no
+    hand-written invocation list; each validation rule demonstrably triggers a
+    correct re-prompt against a recorded/stubbed model response; retry exhaustion
+    halts with the accumulated violations; `sedum actions --json` output is
+    byte-identical to the catalog embedded in the Phase 4 prompt.
+  constraints:
+    - The model selects actions from a closed vocabulary and binds their arguments. It does not write code, choose file paths, name files, or make structural decisions. Anything it returns outside the declared schema is rejected, never interpreted.
+    - Structured JSON output, not tool calls. Tool-calling support must not be a requirement for a model to work with Sedum.
+    - The catalog contains only exposed actions from the packages this record's paths resolved to. An unexposed action is not merely rejected if selected - it is absent from the option set, making that invalidity unrepresentable.
+    - Every Phase 5 check produces an error specific enough to re-prompt with. A generic "invalid output" is a defect, because the retry loop's whole value is that the model is told exactly what was wrong.
+    - Retries are bounded by --retries (default 3). Exhaustion halts the run and reports every accumulated violation.
+    - Nothing downstream of Phase 5 consults the model. Once output validates, the remainder of the run is a pure function of that output and the packages.
+    - sedum actions and the Phase 4 prompt build the catalog through the same code path. Divergence between them would make the authoring feedback loop lie.
+    - Model configuration comes from --model plus the environment. No credentials, endpoints, or model names are read from a generator package or a provenance record.
+    - A model call is made only when --execute is absent. Under replay Phase 4 is skipped entirely and --retries and --model are ignored.
+    - Requirements are derived from templates, never declared per variant. actions.yaml's shape does not change, so no existing package needs editing and no committed artifact needs migrating.
+    - The effective requirement is the union of the declared required kwargs and the selected template's referenced values. A declared requirement applies to every variant; a derived one applies when its template is selected.
+    - Derivation is exact because the template grammar has no conditionals, loops, or field access. If that grammar ever gains one, this derivation becomes an approximation and this record has to be revisited before it does.
+    - Phase 5 reports a missing derived kwarg as a re-promptable violation naming the kwarg and the variant that needs it. It must not be discovered in Phase 6, which is the failure mode this record exists to close.
+    - The catalog states each variant's needs, so the first call has what it needs. The retry loop is a backstop for mistakes, not a channel for information the catalog could have carried.
+    - A template referencing a value its action does not declare is a load-time error. A single-template action declaring an always-rendered kwarg optional is a load-time warning, never an error.
+    - A composite's derived requirements are the union of its children's, resolved per child against the template that child selects.
+    - Derived requirements are additive to sedum actions --json, not to the prompt alone. A caller doing its own selection submits invocations through replay's terminal validation and has no retry loop, so it needs the fact at least as much as the model does.
+    - description is optional on both a kwarg and an action, and absent means absent. Nothing is invented to fill it, because a synthesised description is worse than none.
+    - Descriptions are passed through untouched. Sedum does not parse, validate, or derive anything from one, and no check consults one.
+    - A description must never carry a rule. A constraint the model can read and Phase 5 cannot enforce is worse than no constraint - if a rule matters, it belongs in the schema where it is checked.
+    - The catalog and sedum actions both emit them, through the one builder, so the loop where an author sees what the model will see stays closed.
+    - Additive to actions.yaml. A package declaring no descriptions behaves exactly as it does today, so no existing package needs editing.
+    - Descriptions reach the prompt and nothing else. They are not recorded on markers and not written into recordings - a description describes an argument, not a region.
+    - The addition is additive to sedum actions --json, which is a supported surface with readers other than the prompt. The catalog's shape is free to grow and not free to change; no existing field is removed or repurposed to make room for a description.
+    - Unfilled anchors are computed from the markers Phase 3 actually planted and the anchors the validated invocations actually fill. Nothing is inferred from a package's declarations about what a file ought to contain.
+    - An unfilled anchor is never a hard error. A template may plant a region a given change does not need, and a run that refused to proceed would make every such template a liability.
+    - The observation is fed back at most once per record. If the model declines again, its answer stands and the run continues - the judgment stays the model's.
+    - A completeness re-prompt is not a validation retry. It is reported differently and drawn from a separate budget, because one says the answer was wrong and the other says it may be incomplete.
+    - A response that leaves no anchor unfilled is never re-prompted, so the common case costs nothing.
+    - Only marker anchors participate. start_of_file, end_of_file and the match anchors name no region a file can be observed to be missing.
+    - The completeness observation is Phase 4's and does not run under --execute. A replayed recording is a caller's own selection, so an unfilled anchor there is a decision rather than an oversight, and there is nobody to re-prompt.
+    - Planted markers per created file are computed once and shared with prov-2026-14c832bf's Phase 5 check and its file list. Three consumers, one function - not three call sites each reading files for themselves. It lives in expand rather than genpkg, because the per-file mapping needs resolve.File and resolve imports genpkg; genpkg keeps the MarkersIn primitive it already has.
+    - The unfilled set is also a completeness metric, and is reported as one. It is derived from the package and the record rather than from hand-authored expectations, which is what makes it worth more to the eval harness (prov-2026-e6969eb3) than the counts it has today.
+    - The rate this record is measured against is a rate, not a certainty. Any claim here about how often selection misses states its sample size and the build it was taken on, because a measurement recorded without them cannot be re-run and will be believed longer than it is true.
+    - A change to the catalog is not evidence for or against this record until it has been A/B'd against the same record and package. The one A/B run so far covers derived requirements only; descriptions are untested.
+    - An anchor no action in the run can fill is excluded from the unfilled set before any re-prompt decision. It is not an omission the model can act on.
+    - Fillability is computed across every package the run loaded, not per package. An action's rendered target may be a file another package owns, and a per-package rule would drop anchors something else could fill.
+    - The subtraction is silent at run time. Phase 0 already names every dead anchor at load, and repeating it per sample would charge an authoring warning by the sample.
+    - An anchor that is fillable and unfilled still produces the observation. This narrows which anchors are asked about and changes nothing about what happens when one is.
+    - An unfilled anchor remains never a hard error, and the observation is still fed back at most once per record.
+    - '"An action targets this marker" is defined once, in genpkg, and read by both a9e59197''s load-time warning and the run-time fillable set. Two copies would let the run ask about an anchor load already called dead, which is the exact disagreement this record exists to remove.'
+    - A package planting an anchor no action fills stays legal. Planting a region for a later record is the case prov-2026-6d87dc11's own rule was written for, and the defect is asking about it rather than tolerating it.
+  affected_scope:
+    - internal/selection/**
+    - internal/catalog/**
+    - internal/cli/grow.go
+    - internal/cli/grow_test.go
+    - internal/cli/actions.go
+    - internal/cli/actions_test.go
+    - internal/cli/flags_test.go
+    - internal/pipeline/**
+    - internal/expand/**
+    - internal/inject/**
+    - internal/cli/resolve.go
+    - internal/cli/resolve_test.go
+    - internal/cli/config.go
+    - internal/cli/config_test.go
+    - testdata/**
+    - PRD.md
+    - go.mod
+    - go.sum
+    - internal/genpkg/**
+    - testdata/generators/rails/actions/actions.yaml
+    - internal/pipeline/pipeline_test.go
+    - evals/**
+  implements: prov-2026-d554bfc3
+  implements_version: 1
+  associated_specs:
+    - path: internal/catalog/catalog_test.go
+    - path: internal/selection/selection_test.go
+    - path: internal/pipeline/pipeline_test.go
+    - path: internal/cli/actions_test.go
+    - path: internal/genpkg/genpkg_test.go
+    - path: internal/expand/expand_test.go
+    - path: internal/genpkg/anchors_test.go
+  tags:
+    - sedum
+    - m6
+    - model

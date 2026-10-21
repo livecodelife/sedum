@@ -1478,7 +1478,7 @@ func TestValidateRejectsAnUnknownActionForANonModelCaller(t *testing.T) {
 
 	violations := Validate(files, []recording.Invocation{
 		{Action: "createControllerMethd", Kwargs: map[string]any{"controller": "users", "name": "index"}},
-	})
+	}, false)
 
 	if len(violations) == 0 {
 		t.Fatal("an action that does not exist was accepted")
@@ -1494,7 +1494,7 @@ func TestValidateRejectsAMissingRequiredKwarg(t *testing.T) {
 
 	violations := Validate(files, []recording.Invocation{
 		{Action: "createControllerMethod", Kwargs: map[string]any{"controller": "users"}},
-	})
+	}, false)
 
 	if len(violations) == 0 {
 		t.Fatal("an invocation omitting a required kwarg was accepted")
@@ -1533,13 +1533,13 @@ func TestValidateAcceptsAnIntKwargDecodedFromARecording(t *testing.T) {
 		return rec.Records[0].Phases[0].Invocations
 	}
 
-	if violations := Validate(files, read(t, "3")); len(violations) > 0 {
+	if violations := Validate(files, read(t, "3"), false); len(violations) > 0 {
 		t.Errorf("an int kwarg from a recording was rejected: %v", violations)
 	}
 
 	// And the check still bites on replay: int means integral there too, or the
 	// fix would have bought agreement by accepting everything.
-	violations := Validate(files, read(t, "2.5"))
+	violations := Validate(files, read(t, "2.5"), false)
 	if len(violations) == 0 {
 		t.Fatal("a fractional value bound to an int kwarg was accepted")
 	}
@@ -1561,7 +1561,7 @@ func TestValidateAcceptsACorrectInvocation(t *testing.T) {
 
 	if violations := Validate(files, []recording.Invocation{
 		{Action: "createControllerMethod", Kwargs: map[string]any{"controller": "users", "name": "index", "collection": "users"}},
-	}); len(violations) > 0 {
+	}, false); len(violations) > 0 {
 		t.Errorf("a correct invocation was rejected: %v", violations)
 	}
 }

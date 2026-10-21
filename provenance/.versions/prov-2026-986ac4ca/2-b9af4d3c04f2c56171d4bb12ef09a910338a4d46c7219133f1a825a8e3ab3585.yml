@@ -1,0 +1,52 @@
+id: prov-2026-986ac4ca
+version: 2
+content_hash: sha256:b9af4d3c04f2c56171d4bb12ef09a910338a4d46c7219133f1a825a8e3ab3585
+parent_hash: sha256:de2482601732b9606f5b3ace62413046fae779a6bc9a3ddfc6895546abde97dd
+reason: 'specs refreshed: the Validate call sites in the spec test file take the added parameter'
+author: calebcowen@gmail.com
+created_at: "2026-10-21T21:23:32Z"
+spec_hashes:
+  - sha256:bfb92c0bce770edebbd3e8c14f97c81fcf062599cf9daaac84294dcbe9d2bd17
+  - sha256:7667544d700ffa6e5ab85431cfe8d9e0de2c76ac435a6b2f55f27f018e1c99e7
+content:
+  id: prov-2026-986ac4ca
+  title: A rejected sample keeps the text that says why it was rejected
+  type: blueprint
+  created_at: "2026-08-19"
+  author: calebcowen@gmail.com
+  intent: |
+    A rejected sample stores the slugs it was rejected under and not the text that
+    says what the answer looked like.
+
+    decode builds that text - "invocation 2 is not readable as {action, kwargs}:
+    ...; it was <the offending entry>" - and the entry stores "the model's output
+    did not validate within 3 attempt(s)".
+
+    This is the defect [[prov-2026-eb283c56]] added `rules` to work around. The
+    description A/B produced 7 rejections in one arm and 11 in the other and every
+    one rendered as that sentence, so a run could say the model failed more often
+    and not whether it failed differently. Slugs became countable and the prose was
+    left "for reading" - but the prose never arrives, so the only way to learn what
+    an answer looked like is to reproduce it.
+
+    It cost something concrete today. Five of fifty samples on the 4B described row
+    were rejected under invocation_shape, and deciding whether that was an extra key,
+    trailing content, or kwargs sent as a non-object took reading the decoder and
+    inferring from violation counts rather than reading the answer. The reversal in
+    [[prov-2026-ddb398f3]] was made on that inference.
+  constraints:
+    - Each rejected sample stores the detail text of every violation it was rejected under, in attempt order, beside the slugs it already stores. The text includes the offending entry as decode already truncates it, because a rejection nobody can read is a measurement of nothing.
+    - 'An entry written before this field reads as absent rather than as empty, on the rule the schema already holds itself to: a dash is not a zero.'
+    - No rule is added, removed or renamed and no answer's verdict changes. This record stores what a rejection already said, so entries drawn before and after it are comparable.
+  affected_scope:
+    - evals/run.go
+    - evals/results.go
+    - evals/run_test.go
+    - evals/results_test.go
+  forbidden_scope:
+    - cmd/**
+  related:
+    - prov-2026-eb283c56
+  associated_specs:
+    - path: internal/selection/selection_test.go
+    - path: evals/results_test.go

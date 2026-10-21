@@ -1,6 +1,7 @@
 id: prov-2026-39b815a1
 status: draft
-version: 1
+version: 2
+reason: 'specs refreshed: the Validate call sites in the spec test file take the added parameter'
 created_at: "2026-08-18"
 author: calebcowen@gmail.com
 title: 'Sedum speaks the Anthropic wire format, and a wire format is part of a model row''s identity'
