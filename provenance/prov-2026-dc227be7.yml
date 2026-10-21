@@ -1,32 +1,9 @@
 id: prov-2026-dc227be7
 title: M7 - Recording and replay
-status: implemented
-version: 2
-reason: |-
-  `typeOf` recognised `float64` and not `json.Number`, so an int kwarg passed
-  validation when a model bound it and failed when a recording replayed it:
-
-      [kwarg_type] addCountElementsRule: kwarg "count" is declared int but was
-      bound to 1
-
-  A model response is decoded plainly, so a number arrives as `float64`. A
-  recording is decoded with `UseNumber` (prov-2026-88e36921), deliberately, so
-  that a kwarg written as 1000000 does not render as 1e+06 — and `json.Number`
-  is a named string type, so it matched neither `case string` nor `case
-  float64` and fell to the default. The bare "bound to 1", with no type named,
-  is `describe` hitting that same default.
-
-  prov-2026-6903db40 exported the validator precisely so replay and the model
-  path could not diverge. They diverged anyway, one layer below where it was
-  looking: identical validation over differently decoded values is not
-  identical validation. So the fix is in `typeOf` and `describe`, where the two
-  representations meet, rather than in either caller — normalising at the
-  decoder would give back the `1e+06` that `UseNumber` exists to prevent.
-
-  Found from outside: a recording of a run whose output was reviewed and correct
-  could not be executed, so a recording was not the reproducibility surface it
-  is meant to be.
-reason_kind: fix
+status: open
+version: 7
+reason: specs refreshed for the new Validate parameter and the hidden-action tests
+reason_kind: ""
 created_at: "2026-08-07"
 author: calebcowen@gmail.com
 aliases:
@@ -134,6 +111,32 @@ constraints:
   - A diagnostic about a number names what it was, never a bare value.
   - Recordings keep decoding with UseNumber; nothing normalises numbers at the decoder.
   - A recording of a valid run replays.
+  - 'A hidden action is an action whose package declares it with exposed: false.'
+  - pipeline.ReplayConfig has an exported boolean field AllowUnexposed that tells replay to accept hidden actions.
+  - ReplayConfig.AllowUnexposed is false when left unset.
+  - With AllowUnexposed false, a recorded invocation of a hidden action is reported as a violation with the unknown_action rule.
+  - The unknown_action rule is the selection package's RuleUnknownAction constant.
+  - With AllowUnexposed false, a hand-edited recording that names no hidden action validates as with the default.
+  - With AllowUnexposed true, replay validates the recording against a catalog that includes the hidden actions.
+  - With AllowUnexposed true, the only difference from false is the catalog's contents.
+  - With AllowUnexposed true, required kwargs are checked as with false.
+  - With AllowUnexposed true, kwarg types are checked as with false.
+  - With AllowUnexposed true, targets are checked as with false.
+  - With AllowUnexposed true, scope checks apply as with false.
+  - The selection package's Validate function takes the resolved files as its first parameter, a slice of resolve.File.
+  - The selection package's Validate function takes the recorded invocations as its second parameter, a slice of recording.Invocation.
+  - The selection package's Validate function takes allowUnexposed, a bool, as its third parameter.
+  - Validate returns a slice of the selection package's Violation type, one per rule broken.
+  - Validate returns an empty result when the invocations are valid.
+  - Validate gets the packages by calling the expand package's Packages function with the resolved files.
+  - The expand package's Packages function takes a slice of resolve.File and returns a slice of pointers to genpkg.Package.
+  - Validate builds its catalog by calling the catalog package's Build function.
+  - The catalog package's Build function takes the slice of pointers to genpkg.Package as its first parameter.
+  - The catalog package's Build function takes a catalog.Options value as its second parameter.
+  - The catalog package's Build function returns a catalog.Catalog.
+  - Validate sets the IncludeUnexposed field (a bool) of the catalog.Options it passes to Build to the value of allowUnexposed.
+  - Replay passes the value of ReplayConfig.AllowUnexposed to Validate as allowUnexposed.
+  - The selection package's Select function validates a model's answer against a catalog that excludes hidden actions.
 affected_scope:
   - internal/selection/**
   - internal/recording/**
@@ -155,7 +158,7 @@ related:
   - prov-2026-59535684
   - prov-2026-b5465dfa
   - prov-2026-36c8a99c
-sealed_at_sha: 0cfeb0c36d338b910d2e56525389f427c72abf32
+sealed_at_sha: ""
 associated_specs:
   - path: internal/recording/recording_test.go
     run_command: go test -count=1 ./$(dirname {{path}})
