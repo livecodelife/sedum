@@ -63,7 +63,7 @@ jobs:
           export PROVENANCE_BIN_DIR="$RUNNER_TEMP/bin"
           curl -fsSL "https://raw.githubusercontent.com/livecodelife/provenance/v${PROVENANCE_VERSION}/install.sh" | sh
           echo "$PROVENANCE_BIN_DIR" >> "$GITHUB_PATH"
-          provenance version
+          "$PROVENANCE_BIN_DIR/provenance" version
 
       # Fails the run on any problem (no session, 5xx, a record skipped as
       # diverged / server ahead / invalid id): a red run is the signal.
