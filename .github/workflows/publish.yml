@@ -1,0 +1,85 @@
+# Publish this repository's provenance records to Provisio after a merge to main.
+# Copy to .github/workflows/publish.yml and replace OWNER/REPO below (done: livecodelife/sedum).
+#
+# Needs, once per repository (Caleb):
+#   - GitHub Environment "provisio-publish", deployment branches limited to main
+#   - Environment secret PROVISIO_TOKEN: a personal token (pvt_...) with scope
+#     records:write, expires_in_days 90
+#   - repository variable PROVISIO_PROJECT: the project at:// URI
+#   - repository variable PROVISIO_PUBLISH = true, to switch publishing on
+#
+# First-run procedure:
+#   1. Merge this file. Until step 2 is done the Plan step of the push run fails
+#      with "needs a Provisio session"; that is expected.
+#   2. Set the secret PROVISIO_TOKEN and the variable PROVISIO_PROJECT.
+#   3. Run it by hand (Actions > Publish records > Run workflow) with plan_only on
+#      and read the plan in the log. Nothing is published.
+#   4. Set PROVISIO_PUBLISH=true. From then on every push to main publishes.
+#      (Or publish the backlog once by hand: run it with plan_only off.)
+# While PROVISIO_PUBLISH is not "true", a push only runs the Plan step.
+
+name: Publish records
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      plan_only:
+        description: Only print the plan, publish nothing
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+# Merges queue up instead of racing. A lost race is a skip anyway: every write
+# carries the head it was planned against.
+concurrency:
+  group: provisio-publish
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    name: Publish records
+    runs-on: ubuntu-latest
+    # Never on forks. There is no pull_request trigger in this file.
+    if: github.repository == 'livecodelife/sedum' && github.ref == 'refs/heads/main'
+    environment: provisio-publish
+    env:
+      PROVENANCE_VERSION: "2.0.0"
+    steps:
+      # Full history: publish reads the source commit and the [id@N] commit of each version.
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      # install.sh comes from the same tag as the binary and checks the download
+      # against that release's checksums.txt. Bump the tag and version together.
+      - name: Install provenance
+        run: |
+          set -eu
+          export PROVENANCE_BIN_DIR="$RUNNER_TEMP/bin"
+          curl -fsSL "https://raw.githubusercontent.com/livecodelife/provenance/v${PROVENANCE_VERSION}/install.sh" | sh
+          echo "$PROVENANCE_BIN_DIR" >> "$GITHUB_PATH"
+          provenance version
+
+      # Fails the run on any problem (no session, 5xx, a record skipped as
+      # diverged / server ahead / invalid id): a red run is the signal.
+      - name: Plan
+        env:
+          PROVISIO_TOKEN: ${{ secrets.PROVISIO_TOKEN }}
+          PROVISIO_PROJECT: ${{ vars.PROVISIO_PROJECT }}
+        run: |
+          set -eu
+          provenance publish --all --plan --project "$PROVISIO_PROJECT"
+
+      - name: Publish
+        if: (github.event_name == 'push' && vars.PROVISIO_PUBLISH == 'true') || (github.event_name == 'workflow_dispatch' && inputs.plan_only == false)
+        env:
+          PROVISIO_TOKEN: ${{ secrets.PROVISIO_TOKEN }}
+          PROVISIO_PROJECT: ${{ vars.PROVISIO_PROJECT }}
+        run: |
+          set -eu
+          provenance publish --all --yes --project "$PROVISIO_PROJECT"
