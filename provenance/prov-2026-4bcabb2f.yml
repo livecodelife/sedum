@@ -1,6 +1,6 @@
 id: prov-2026-4bcabb2f
 title: No response_format is sent, because constraining it collapsed selection
-status: open
+status: implemented
 version: 2
 reason: 'specs refreshed: the Validate call sites in the spec test file take the added parameter'
 created_at: "2026-08-14"
@@ -76,7 +76,7 @@ implements: prov-2026-f095e19f
 implements_version: 1
 related:
   - prov-2026-abd43bb4
-sealed_at_sha: ""
+sealed_at_sha: 1ca805fe1975577976f62bd7c13691f0e49b3421
 associated_specs:
   - path: internal/selection/selection_test.go
     run_command: go test -count=1 ./$(dirname {{path}})
