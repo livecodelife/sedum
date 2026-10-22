@@ -1,7 +1,7 @@
 id: prov-2026-f4185cd9
 title: The unparenValue function removes one outer pair of parentheses
 type: imprint
-status: open
+status: implemented
 version: 3
 reason: the operation is unparen with no argument; helper is unparenValue with no error result
 created_at: "2026-10-22"
@@ -32,7 +32,7 @@ forbidden_scope: []
 implements: prov-2026-899109e9
 implements_version: 1
 related: []
-sealed_at_sha: ""
+sealed_at_sha: 1666b40623605cb08b98626776eba343a5c446d7
 associated_specs:
   - path: internal/transform/trim_test.go
     run_command: go test ./$(dirname {{path}})
