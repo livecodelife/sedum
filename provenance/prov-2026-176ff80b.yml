@@ -1,7 +1,7 @@
 id: prov-2026-176ff80b
 title: The Operations variable lists the closed set of built-in operation names
 type: imprint
-status: open
+status: implemented
 version: 2
 reason: unwrap replaced by unparen, which takes no argument
 created_at: "2026-10-22"
@@ -19,7 +19,7 @@ forbidden_scope: []
 implements: prov-2026-d9cb29e4
 implements_version: 1
 related: []
-sealed_at_sha: ""
+sealed_at_sha: 22d66551b613e141f2792983d9cd44660c0ecfdf
 associated_specs:
   - path: internal/transform/trim_test.go
     run_command: go test ./$(dirname {{path}})
