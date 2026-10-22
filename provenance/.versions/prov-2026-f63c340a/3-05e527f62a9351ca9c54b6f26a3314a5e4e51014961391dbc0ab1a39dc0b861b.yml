@@ -1,0 +1,49 @@
+id: prov-2026-f63c340a
+version: 3
+content_hash: sha256:05e527f62a9351ca9c54b6f26a3314a5e4e51014961391dbc0ab1a39dc0b861b
+parent_hash: sha256:919c99b562b2b649ec34a3cffc3fbc443c80f826f46640b22f3ab1fac5565817
+reason: one requirement per constraint, no history framing
+author: calebcowen@gmail.com
+created_at: "2026-10-22T07:30:22Z"
+spec_hashes:
+  - sha256:456197baf6d48ad6ef4fb32d00ebed3f454ab2aa6a4038dd2ff3214fcb630c0c
+content:
+  id: prov-2026-f63c340a
+  title: A quote transform renders a value as a string literal
+  type: blueprint
+  created_at: "2026-10-15"
+  author: calebcowen@gmail.com
+  intent: |
+    A string kwarg the model binds - a command's short description, a flag's
+    usage text - often has to land inside a string literal in the generated
+    file. Templates write `"{{short}}"` today, so a model-supplied double quote
+    or backslash breaks the build, and nothing in Phase 5 can see it: the value
+    is a valid string, the template is valid, and only the target's compiler
+    objects. Kwarg descriptions asking the model to avoid quotes are a rule in a
+    description, which the PRD forbids (prov-2026-c5697387).
+
+    A new built-in operation, quote, renders its input as a complete
+    double-quoted string literal: the value JSON-encoded, without HTML escaping.
+    That is a valid string literal in Go, JavaScript, TypeScript, Java and C#
+    for any input, so a template writes `{{short|quote}}` with no quotes of its
+    own and model output can no longer break compilation through a string.
+
+    Requested by provisio-mgr in #provisio (2026-10-15); prov-cli's cobra
+    package needs it before its first grow.
+  constraints:
+    - quote's output is exactly what encoding/json produces for the value as a string with SetEscapeHTML(false), without the trailing newline - quotes included.
+    - quote takes a scalar; a list is refused as for every operation except join. An int or bool is quoted as its text.
+    - quote takes no argument and consults no op_exceptions table.
+    - quote is added to the closed Operations list, so packages referencing it load and the catalog shows it like any other op.
+    - The PRD's built-in operation list names quote and says templates use it without surrounding quotes.
+    - A quote reference that supplies an argument, as in quote:x, is rejected with an error naming the operation.
+  affected_scope:
+    - internal/transform/transform.go
+    - internal/transform/ops.go
+    - internal/transform/*_test.go
+    - PRD.md
+  related:
+    - prov-2026-73127e53
+    - prov-2026-c5697387
+  associated_specs:
+    - path: internal/transform/quote_test.go
