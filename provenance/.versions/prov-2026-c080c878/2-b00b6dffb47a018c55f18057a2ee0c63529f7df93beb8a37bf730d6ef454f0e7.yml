@@ -1,0 +1,39 @@
+id: prov-2026-c080c878
+version: 2
+content_hash: sha256:b00b6dffb47a018c55f18057a2ee0c63529f7df93beb8a37bf730d6ef454f0e7
+parent_hash: sha256:ad2be587bea9d234d5c4a663221f03e3138b9235e1e602e9a0f1113c0ec547d6
+reason: one requirement per constraint
+author: calebcowen@gmail.com
+created_at: "2026-10-22T07:30:36Z"
+spec_hashes:
+  - sha256:d1130eb95e1390182569514891d95c3aa8a70dc6df9d3932e03a549d5c8e832f
+content:
+  id: prov-2026-c080c878
+  title: The trimPrefixLiteral function removes a leading literal and the blanks after it
+  type: imprint
+  created_at: "2026-10-22"
+  author: calebcowen@gmail.com
+  intent: The trimPrefixLiteral function, in internal/transform/ops.go, removes a leading literal and the spaces and tabs that directly follow it from a string.
+  constraints:
+    - The function is a package-level function named trimPrefixLiteral in package transform, not a method.
+    - 'The function receives two positional string arguments: first the value, then the literal prefix.'
+    - The function returns a single string and no error.
+    - 'Only the first occurrence at the very start is removed: with the prefix as two slashes, the value "// // twice" returns "// twice".'
+    - When the value does not begin with the literal prefix, the function returns the value unchanged.
+    - The function reads no other state and does not modify its arguments.
+    - 'The function adds no imports: the strings package it uses is already imported by the file as a value.'
+    - When the value begins with the literal prefix, the function returns the value with that prefix removed.
+    - The function also removes every space and tab that directly follows the removed prefix.
+    - A value that is exactly the prefix returns the empty string.
+    - A value that is the prefix followed only by spaces and tabs returns the empty string.
+    - The empty value returns the empty string.
+    - Only the space character and the tab character count as blanks to remove.
+    - A newline after the prefix is kept.
+  affected_scope:
+    - internal/transform/ops.go
+  implements: prov-2026-899109e9
+  implements_version: 1
+  associated_specs:
+    - path: internal/transform/trim_test.go
+  tags:
+    - transform
