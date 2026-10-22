@@ -390,9 +390,11 @@ Templates and path patterns reference transforms with pipe syntax: `{{collection
 
 Shipped in Sedum's core, always available, pure `string -> string`:
 
-`pascal`, `camel`, `snake`, `kebab`, `upper`, `lower`, `plural`, `singular`, `prefix:X`, `suffix:X`, `join:X`, `quote`
+`pascal`, `camel`, `snake`, `kebab`, `upper`, `lower`, `plural`, `singular`, `prefix:X`, `suffix:X`, `join:X`, `quote`, `trimprefix:X`, `unparen`
 
 `quote` renders its input as a complete double-quoted string literal: the value JSON-encoded, without HTML escaping (`prov-2026-f63c340a`). That is a valid string literal in Go, JavaScript, TypeScript, Java and C# for any input, so a template writes `{{usage|quote}}` with **no quotes of its own**, and a quote or backslash the model bound cannot break the generated file. Writing `"{{usage}}"` instead leaves the file one model-supplied `"` away from not compiling, and no Phase 5 check can see it; a kwarg description asking the model to avoid quotes would be a rule in a description, which this document rules out.
+
+`trimprefix:X` removes the literal X from the start of the value, with the spaces and tabs after it, and leaves a value without that start alone. `unparen` removes one outer pair of parentheses when the opening one is the one the closing one matches. Both exist so a template can tolerate a model that writes the delimiters the template already supplies: `{{why|trimprefix://}}`, `{{params|unparen}}`.
 
 `join:X` is the one exception to `string -> string`: it takes a **list** and renders its members joined by the separator `X`, which is the only way a `list` kwarg reaches a file. A value still holding a list when it reaches the template is an error — including a bare `{{words}}`, which would otherwise emit Go's own slice formatting. `join` over an empty list is an error too, since the empty string is a plausible-looking value everywhere a joined list is going.
 

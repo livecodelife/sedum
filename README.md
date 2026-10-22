@@ -608,7 +608,7 @@ Templates and path patterns reference transforms with pipe syntax: `{{collection
 
 Shipped in Sedum's core, always available, pure `string -> string`:
 
-`pascal`, `camel`, `snake`, `kebab`, `upper`, `lower`, `plural`, `singular`, `prefix:X`, `suffix:X`, `join:X`
+`pascal`, `camel`, `snake`, `kebab`, `upper`, `lower`, `plural`, `singular`, `prefix:X`, `suffix:X`, `join:X`, `quote`, `trimprefix:X`, `unparen`
 
 `join:X` is the one exception to `string -> string`: it takes a **list** and renders its members joined by the separator `X`, which is the only way a `list` kwarg reaches a file. A value still holding a list when it reaches the template is an error — including a bare `{{words}}`, which would otherwise emit Go's own slice formatting. `join` over an empty list is an error too, since the empty string is a plausible-looking value everywhere a joined list is going.
 
