@@ -2,20 +2,24 @@ id: prov-2026-899109e9
 title: Built-in operations can trim a leading literal and unwrap an outer delimiter pair
 type: blueprint
 status: open
-version: 2
-reason: one requirement per constraint, shorter intent, README in scope
+version: 4
+reason: the spec file is committed with the record that owns it, so it stays in scope
 created_at: "2026-10-22"
 author: calebcowen@gmail.com
-intent: 'A value a model binds often arrives with punctuation the template already supplies, such as a description starting with the comment leader the template writes, or a parameter list carrying its own parentheses. Rendering it as is duplicates that punctuation and breaks the generated file. Two built-in operations repair this inside the template: trimprefix removes a leading literal and the blanks after it, and unwrap removes one outer delimiter pair. Neither changes a value without the shape it removes. For example, unwrap with the pair () turns "(a: string)" into "a: string".'
+intent: 'A value a model binds often arrives with punctuation the template already supplies, such as a description starting with the comment leader the template writes, or a parameter list carrying its own parentheses. Rendering it as is duplicates that punctuation and breaks the generated file. Two built-in operations repair this inside the template: trimprefix removes a leading literal and the blanks after it, and unparen removes one outer pair of parentheses. Neither changes a value without the shape it removes. For example, unparen turns "(a: string)" into "a: string".'
 constraints:
   - trimprefix is a member of the closed Operations list.
-  - unwrap is a member of the closed Operations list.
+  - unparen is a member of the closed Operations list.
   - trimprefix is a parameterized operation that takes a literal argument written after a colon.
-  - unwrap is a parameterized operation that takes a literal argument written after a colon.
-  - A reference to trimprefix or unwrap with no argument is rejected by the argument check, naming the operation.
-  - A reference to trimprefix or unwrap with an empty argument is rejected by the argument check, naming the operation.
-  - A reference to trimprefix or unwrap with an argument containing the two characters {{ is rejected by the argument check, naming the operation.
-  - Both operations take one scalar string and return a string.
+  - unparen is not a parameterized operation and takes no argument.
+  - A reference to trimprefix with no argument is rejected by the argument check, naming the operation.
+  - A reference to trimprefix with an empty argument is rejected by the argument check, naming the operation.
+  - A reference to trimprefix with an argument containing the two characters {{ is rejected by the argument check, naming the operation.
+  - A reference to unparen that supplies an argument, as in unparen:x, is rejected by the shared argument check, naming the operation.
+  - trimprefix takes one scalar string.
+  - trimprefix returns a string.
+  - unparen takes one scalar string.
+  - unparen returns a string.
   - Both operations refuse a list value, as every operation except join does.
   - Both operations handle an int or bool value as its text.
   - Neither operation consults an op_exceptions table.
@@ -25,37 +29,36 @@ constraints:
   - 'trimprefix removes only the first occurrence at the very start: with X as two slashes, "// // twice" becomes "// twice".'
   - trimprefix returns the value unchanged when it does not begin with X, including when X occurs only later in the value.
   - trimprefix treats a value with blanks before X as not beginning with X and returns it unchanged.
-  - trimprefix of a value that is exactly X, or X followed only by spaces and tabs, is the empty string.
+  - trimprefix of a value that is exactly X is the empty string.
+  - trimprefix of a value that is X followed only by spaces and tabs is the empty string.
   - trimprefix of the empty string is the empty string.
-  - 'unwrap requires its argument to be exactly two characters, counted as Unicode characters and not bytes: an opening delimiter X then a closing delimiter Y.'
-  - unwrap with an argument that is not exactly two characters fails with an error that names the operation unwrap and states that its argument must be exactly two characters, an opening and a closing delimiter.
-  - That error also quotes the argument unwrap received.
-  - unwrap fails on an argument that is not two characters whenever it is applied, whatever the value is.
-  - unwrap removes the first and last character of a value that starts with X, ends with Y, and whose opening X is the one the final Y closes.
-  - 'Nesting is counted from the first character, adding one for each X and subtracting one for each Y: the outer pair is removed only when the count first returns to zero at the last character.'
-  - unwrap with the pair () leaves "(a)(b)" unchanged.
-  - unwrap with the pair () turns "((a))" into "(a)".
-  - 'unwrap with the pair () turns "(a: () => void)" into "a: () => void".'
-  - unwrap with the pair () turns "()" into the empty string.
-  - 'unwrap with the pair () turns "(a: string)" into "a: string".'
-  - unwrap returns the value unchanged when it does not start with X.
-  - unwrap returns the value unchanged when it does not end with Y.
-  - unwrap returns the value unchanged when it is shorter than two characters.
-  - 'When X and Y are the same character there is no nesting: a value of at least two characters that starts and ends with it loses its first and last character.'
-  - unwrap removes at most one pair per application.
-  - 'unwrap leaves the blanks inside the pair as they were: with the pair {}, "{ a, b }" becomes " a, b ".'
-  - trimprefix and unwrap can be written as a transform in a template expression.
-  - trimprefix and unwrap can be written as a step of a declared pipeline.
+  - unparen removes the first and last character of a value that starts with ( and ends with ), when that opening ( is the one the final ) closes.
+  - Characters are Unicode characters, so a multi-byte character inside the parentheses is kept whole.
+  - 'Nesting is counted from the first character, adding one for each ( and subtracting one for each ): the outer pair is removed only when the count first returns to zero at the last character.'
+  - unparen leaves "(a)(b)" unchanged.
+  - unparen turns "((a))" into "(a)".
+  - 'unparen turns "(a: () => void)" into "a: () => void".'
+  - unparen turns "()" into the empty string.
+  - 'unparen turns "(a: string)" into "a: string".'
+  - unparen returns the value unchanged when it does not start with (.
+  - unparen returns the value unchanged when it does not end with ).
+  - unparen returns the value unchanged when it is shorter than two characters.
+  - unparen removes at most one pair per application.
+  - unparen leaves the blanks inside the pair as they were.
+  - trimprefix can be written as a transform in a template expression.
+  - unparen can be written as a transform in a template expression.
+  - trimprefix and unparen can be written as a step of a declared pipeline.
   - Every existing operation, template and pipeline behaves exactly as it did.
-  - The PRD's built-in operation list names trimprefix:X and unwrap:XY.
-  - The PRD describes what trimprefix and unwrap do, with an example of each.
-  - The README's list of built-in operations names trimprefix:X and unwrap:XY.
+  - The PRD's built-in operation list names trimprefix:X.
+  - The PRD's built-in operation list names unparen.
+  - The PRD describes what trimprefix and unparen do, with an example of each.
+  - The README's list of built-in operations names trimprefix:X and unparen.
 affected_scope:
   - internal/transform/transform.go
   - internal/transform/ops.go
-  - internal/transform/trim_test.go
   - PRD.md
   - README.md
+  - internal/transform/trim_test.go
 forbidden_scope: []
 related: []
 sealed_at_sha: ""

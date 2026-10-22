@@ -2,9 +2,9 @@ package transform
 
 import "testing"
 
-// trimprefix removes a literal leader from the start of a value and unwrap
-// removes one matching outer pair, so a model that writes the delimiters its
-// template already supplies still renders valid code.
+// trimprefix removes a literal leader from the start of a value and unparen
+// removes one matching outer pair of parentheses, so a model that writes the
+// delimiters its template already supplies still renders valid code.
 func TestTrimprefixRemovesALeadingLiteral(t *testing.T) {
 	e := newEngine(t, Config{})
 
@@ -25,7 +25,7 @@ func TestTrimprefixRemovesALeadingLiteral(t *testing.T) {
 	}
 }
 
-func TestUnwrapRemovesOneMatchingOuterPair(t *testing.T) {
+func TestUnparenRemovesOneMatchingOuterPair(t *testing.T) {
 	e := newEngine(t, Config{})
 
 	cases := []struct{ in, want string }{
@@ -41,51 +41,35 @@ func TestUnwrapRemovesOneMatchingOuterPair(t *testing.T) {
 		{"(", "("},
 	}
 	for _, c := range cases {
-		if got := apply(t, e, "unwrap:()", c.in); got != c.want {
-			t.Errorf("unwrap:()(%q) = %q, want %q", c.in, got, c.want)
+		if got := apply(t, e, "unparen", c.in); got != c.want {
+			t.Errorf("unparen(%q) = %q, want %q", c.in, got, c.want)
 		}
 	}
 }
 
-func TestUnwrapAcceptsOtherDelimiterPairs(t *testing.T) {
+func TestTrimOperationsAreBuiltinWithTheRightArguments(t *testing.T) {
 	e := newEngine(t, Config{})
 
-	if got := apply(t, e, "unwrap:<>", "<T, U>"); got != "T, U" {
-		t.Errorf("unwrap:<>(%q) = %q, want %q", "<T, U>", got, "T, U")
+	if !Parameterized("trimprefix") {
+		t.Error("trimprefix is not parameterized")
 	}
-	if got := apply(t, e, "unwrap:{}", "{ a, b }"); got != " a, b " {
-		t.Errorf("unwrap:{}(%q) = %q, want %q", "{ a, b }", got, " a, b ")
+	if err := e.Check(ParseRef("trimprefix")); err == nil {
+		t.Error("trimprefix without an argument was accepted")
 	}
-}
-
-func TestTrimOperationsAreBuiltinAndTakeLiteralArguments(t *testing.T) {
-	e := newEngine(t, Config{})
-
-	for _, op := range []string{"trimprefix", "unwrap"} {
-		if !Parameterized(op) {
-			t.Errorf("%s is not parameterized", op)
-		}
-		if err := e.Check(ParseRef(op)); err == nil {
-			t.Errorf("%s without an argument was accepted", op)
-		}
-		if err := e.Check(ParseRef(op + ":{{x}}")); err == nil {
-			t.Errorf("%s with a dynamic argument was accepted", op)
-		}
+	if err := e.Check(ParseRef("trimprefix:{{x}}")); err == nil {
+		t.Error("trimprefix with a dynamic argument was accepted")
 	}
 	if err := e.Check(ParseRef("trimprefix://")); err != nil {
 		t.Errorf("trimprefix:// rejected: %v", err)
 	}
-	if err := e.Check(ParseRef("unwrap:()")); err != nil {
-		t.Errorf("unwrap:() rejected: %v", err)
+
+	if Parameterized("unparen") {
+		t.Error("unparen is parameterized")
 	}
-}
-
-func TestUnwrapRefusesAnArgumentThatIsNotAPair(t *testing.T) {
-	e := newEngine(t, Config{})
-
-	for _, arg := range []string{"(", "(()", "abc"} {
-		if _, err := e.Apply(ParseRef("unwrap:"+arg), "(x)"); err == nil {
-			t.Errorf("unwrap:%s was accepted, want an error naming the two characters it needs", arg)
-		}
+	if err := e.Check(ParseRef("unparen")); err != nil {
+		t.Errorf("unparen rejected: %v", err)
+	}
+	if err := e.Check(ParseRef("unparen:()")); err == nil {
+		t.Error("unparen with an argument was accepted")
 	}
 }
