@@ -1,0 +1,34 @@
+id: prov-2026-90ce1056
+version: 3
+content_hash: sha256:1853d47d4126db536b165f1baada793157637d116361616594641c9ee92997e5
+parent_hash: sha256:d44fe7e414ee5a700dcc3a4b8dda42da31a17e533c6e3536e2218b77830fede6
+reason: remove unwrap and the Parameterized function constraints; restore the closed-set and imports constraints
+author: calebcowen@gmail.com
+created_at: "2026-10-22T07:34:49Z"
+spec_hashes:
+  - sha256:fdc85ade541ab8e4f7affd1c585b2e8ec047c1af03a378f7c5dab393e1e41712
+  - sha256:d2a1132afb1b26fc731abd12ecbe13cd34e1d569415ceb85d96f2f7045e7007b
+content:
+  id: prov-2026-90ce1056
+  title: The parameterized variable marks which built-in operations take a literal argument
+  type: imprint
+  created_at: "2026-10-22"
+  author: calebcowen@gmail.com
+  intent: The parameterized variable, in internal/transform/transform.go, records which built-in operations take a literal argument.
+  constraints:
+    - parameterized is an unexported package-level variable of type map from string to bool.
+    - parameterized maps prefix to true.
+    - parameterized maps suffix to true.
+    - parameterized maps join to true.
+    - parameterized maps trimprefix to true.
+    - parameterized has no entry for any other operation name, so the other operations, unparen included, take no argument.
+    - The declaration adds no imports.
+  affected_scope:
+    - internal/transform/transform.go
+  implements: prov-2026-d9cb29e4
+  implements_version: 1
+  associated_specs:
+    - path: internal/transform/trim_test.go
+    - path: internal/transform/transform_test.go
+  tags:
+    - transform
