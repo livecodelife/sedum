@@ -1,7 +1,7 @@
 id: prov-2026-ed6e0b88
 title: The operate method applies one built-in operation to a value
 type: imprint
-status: open
+status: implemented
 version: 2
 reason: unwrap replaced by unparen; dispatch order and fall-through stated; one requirement per constraint
 created_at: "2026-10-22"
@@ -40,7 +40,7 @@ forbidden_scope: []
 implements: prov-2026-d9cb29e4
 implements_version: 1
 related: []
-sealed_at_sha: ""
+sealed_at_sha: 2f01cfc3932c15dd6aa1fc1d4e7043bf506eda0c
 associated_specs:
   - path: internal/transform/trim_test.go
     run_command: go test ./$(dirname {{path}})
