@@ -1,8 +1,8 @@
 id: prov-2026-1cdeb03b
 title: A list renders through join, and never as Go slice syntax
 status: open
-version: 2
-reason: state join's argument check now that further parameterized built-ins share it
+version: 3
+reason: one requirement per constraint, no history framing
 created_at: "2026-09-02"
 author: calebcowen@gmail.com
 intent: |
@@ -69,8 +69,9 @@ constraints:
   - No rendering path emits Go's slice formatting into output.
   - A pipe is not usable as a separator, and the grammar refuses one at compile rather than rendering something unintended.
   - Every existing template, transform and pipeline behaves exactly as it did.
-  - A join reference with no separator, with an empty separator, or with a separator containing the two characters {{ is rejected by the argument check every parameterized operation shares, naming the operation.
-  - join stays in the set of parameterized operations when other operations are added to it, and the operate method reads a list for join before any other operation flattens the value to a scalar.
+  - A join reference with no separator is rejected, naming the operation.
+  - A join reference with an empty separator is rejected, naming the operation.
+  - A join reference with a separator containing the two characters {{ is rejected, naming the operation.
 affected_scope:
   - internal/transform/transform.go
   - internal/transform/ops.go
