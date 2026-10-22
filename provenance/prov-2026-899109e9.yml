@@ -1,7 +1,7 @@
 id: prov-2026-899109e9
 title: Built-in operations can trim a leading literal and remove an outer pair of parentheses
 type: blueprint
-status: open
+status: implemented
 version: 4
 reason: the spec file is committed with the record that owns it, so it stays in scope
 created_at: "2026-10-22"
@@ -61,7 +61,7 @@ affected_scope:
   - internal/transform/trim_test.go
 forbidden_scope: []
 related: []
-sealed_at_sha: ""
+sealed_at_sha: 8a5d6aeb51a8dedcf3becfeede922c36a1000418
 associated_specs:
   - path: internal/transform/trim_test.go
     run_command: go test ./$(dirname {{path}})
