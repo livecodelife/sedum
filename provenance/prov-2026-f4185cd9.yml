@@ -1,36 +1,31 @@
 id: prov-2026-f4185cd9
-title: The unwrapPair function removes one outer delimiter pair
+title: The unparenValue function removes one outer pair of parentheses
 type: imprint
 status: open
-version: 2
-reason: one requirement per constraint
+version: 3
+reason: the operation is unparen with no argument; helper is unparenValue with no error result
 created_at: "2026-10-22"
 author: calebcowen@gmail.com
-intent: The unwrapPair function, in internal/transform/ops.go, removes the outer delimiter pair of a string when the opening delimiter is the one the final closing delimiter closes, and rejects a pair argument that is not two characters.
+intent: The unparenValue function, in internal/transform/ops.go, removes the outer pair of parentheses of a string when the opening parenthesis is the one the final closing parenthesis closes.
 constraints:
-  - The function is a package-level function named unwrapPair in package transform, not a method.
-  - 'The function receives two positional string arguments: first the value, then the pair, a string holding the opening delimiter followed by the closing delimiter.'
-  - 'The function returns two results: the resulting string, then an error.'
-  - 'When the pair''s two characters are the same character there is no nesting: a value of at least two characters that starts and ends with it has its first and last character removed.'
-  - 'The function adds no imports: the fmt package it uses for building the error is already imported by the file as a value.'
-  - When the pair does not hold exactly two characters, counted as Unicode characters and not bytes, the function returns a non-nil error.
-  - In that case the function returns the empty string as its first result.
-  - The function returns that error whatever the value is.
-  - That error names the operation unwrap.
-  - That error states that the argument must be exactly two characters, an opening and a closing delimiter.
-  - That error quotes the pair it received.
-  - With a valid pair and a value shorter than two characters, the function returns the value unchanged and a nil error.
-  - With a valid pair and a value that does not start with the opening delimiter, the function returns the value unchanged and a nil error.
-  - With a valid pair and a value that does not end with the closing delimiter, the function returns the value unchanged and a nil error.
-  - When the two characters of the pair differ, the function scans the value from its first character, adding one for each opening delimiter and subtracting one for each closing delimiter.
+  - The function is a package-level function named unparenValue in package transform, not a method.
+  - 'The function receives one positional string argument: the value.'
+  - The function returns a single string and no error.
+  - Characters are Unicode characters, not bytes.
+  - When the value starts with ( and ends with ), and that opening ( is the one the final ) closes, the function returns the value without its first and last character.
+  - The function scans the value from its first character, adding one for each ( and subtracting one for each ).
   - The outer pair is removed only when that count first returns to zero at the last character of the value, and not earlier.
-  - With the pair (), the value "(a)(b)" is returned unchanged.
-  - With the pair (), the value "((a))" returns "(a)".
-  - 'With the pair (), the value "(a: () => void)" returns "a: () => void".'
-  - With the pair (), the value "()" returns the empty string.
-  - On removal the function returns the value without its first and last character and a nil error.
-  - On removal the inside is left exactly as it was, so blanks inside the pair are kept.
+  - The value "(a)(b)" is returned unchanged.
+  - The value "((a))" returns "(a)".
+  - 'The value "(a: () => void)" returns "a: () => void".'
+  - The value "()" returns the empty string.
+  - 'The value "(a: string)" returns "a: string".'
+  - A value that does not start with ( is returned unchanged.
+  - A value that does not end with ) is returned unchanged.
+  - A value shorter than two characters, including the empty value, is returned unchanged.
+  - On removal the inside is left exactly as it was, so blanks inside the parentheses are kept.
   - At most one pair is removed.
+  - The function adds no imports.
 affected_scope:
   - internal/transform/ops.go
 forbidden_scope: []

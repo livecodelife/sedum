@@ -1,0 +1,43 @@
+id: prov-2026-f4185cd9
+version: 3
+content_hash: sha256:9f9fffc24033f08411a65f16c452c9cbbb2476cb2d5cee9c8248c632a6a8a00d
+parent_hash: sha256:8c536e7ae0f480973c3b6e829e5e912362a4d2bf69b2bbda0b2aa92ecc6a9627
+reason: the operation is unparen with no argument; helper is unparenValue with no error result
+author: calebcowen@gmail.com
+created_at: "2026-10-22T07:34:29Z"
+spec_hashes:
+  - sha256:fdc85ade541ab8e4f7affd1c585b2e8ec047c1af03a378f7c5dab393e1e41712
+content:
+  id: prov-2026-f4185cd9
+  title: The unparenValue function removes one outer pair of parentheses
+  type: imprint
+  created_at: "2026-10-22"
+  author: calebcowen@gmail.com
+  intent: The unparenValue function, in internal/transform/ops.go, removes the outer pair of parentheses of a string when the opening parenthesis is the one the final closing parenthesis closes.
+  constraints:
+    - The function is a package-level function named unparenValue in package transform, not a method.
+    - 'The function receives one positional string argument: the value.'
+    - The function returns a single string and no error.
+    - Characters are Unicode characters, not bytes.
+    - When the value starts with ( and ends with ), and that opening ( is the one the final ) closes, the function returns the value without its first and last character.
+    - The function scans the value from its first character, adding one for each ( and subtracting one for each ).
+    - The outer pair is removed only when that count first returns to zero at the last character of the value, and not earlier.
+    - The value "(a)(b)" is returned unchanged.
+    - The value "((a))" returns "(a)".
+    - 'The value "(a: () => void)" returns "a: () => void".'
+    - The value "()" returns the empty string.
+    - 'The value "(a: string)" returns "a: string".'
+    - A value that does not start with ( is returned unchanged.
+    - A value that does not end with ) is returned unchanged.
+    - A value shorter than two characters, including the empty value, is returned unchanged.
+    - On removal the inside is left exactly as it was, so blanks inside the parentheses are kept.
+    - At most one pair is removed.
+    - The function adds no imports.
+  affected_scope:
+    - internal/transform/ops.go
+  implements: prov-2026-899109e9
+  implements_version: 1
+  associated_specs:
+    - path: internal/transform/trim_test.go
+  tags:
+    - transform
