@@ -1,5 +1,5 @@
 id: prov-2026-899109e9
-title: Built-in operations can trim a leading literal and unwrap an outer delimiter pair
+title: Built-in operations can trim a leading literal and remove an outer pair of parentheses
 type: blueprint
 status: open
 version: 4
