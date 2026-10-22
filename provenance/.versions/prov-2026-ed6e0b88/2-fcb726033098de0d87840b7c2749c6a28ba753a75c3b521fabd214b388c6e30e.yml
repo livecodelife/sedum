@@ -1,0 +1,53 @@
+id: prov-2026-ed6e0b88
+version: 2
+content_hash: sha256:fcb726033098de0d87840b7c2749c6a28ba753a75c3b521fabd214b388c6e30e
+parent_hash: sha256:8327b2b42a3640b8d3c807aceea5085e4859f4b24bf23f53b1463d9e3f1263f7
+reason: unwrap replaced by unparen; dispatch order and fall-through stated; one requirement per constraint
+author: calebcowen@gmail.com
+created_at: "2026-10-22T07:35:01Z"
+spec_hashes:
+  - sha256:fdc85ade541ab8e4f7affd1c585b2e8ec047c1af03a378f7c5dab393e1e41712
+  - sha256:d2a1132afb1b26fc731abd12ecbe13cd34e1d569415ceb85d96f2f7045e7007b
+content:
+  id: prov-2026-ed6e0b88
+  title: The operate method applies one built-in operation to a value
+  type: imprint
+  created_at: "2026-10-22"
+  author: calebcowen@gmail.com
+  intent: The operate method of Engine, in internal/transform/ops.go, applies one built-in operation, named by a transform reference, to a value and returns the resulting text.
+  constraints:
+    - operate is a method on a pointer to Engine, named operate, in package transform.
+    - 'operate receives two positional arguments: a Ref r, which is the reference with its Name and Arg strings, then a value v of the empty interface type.'
+    - 'operate returns two results: the resulting string, then an error.'
+    - 'operate works in this order: first the plural and singular value forms, then join, then the scalar extraction, then the dispatch on r.Name.'
+    - When r.Name is plural and v is a Value whose Plural field is not empty, operate returns that Plural field and a nil error.
+    - When r.Name is singular and v is a Value whose Singular field is not empty, operate returns that Singular field and a nil error.
+    - When r.Name is plural or singular but v is not a Value, or its matching field is empty, control continues as for any other name.
+    - When r.Name is join, operate returns the result of the package function joinList called with r.Arg (a string) and v (the empty interface), which returns a string and an error; this happens before v is flattened to a scalar.
+    - For every other name, operate calls the package function scalar with v, which takes the empty interface and returns a string and an error.
+    - When scalar returns an error, operate returns an empty string and that error.
+    - pascal returns the Engine method joinWords called with the scalar string that scalar returned, the string pascal, and false for its lower-first flag; joinWords returns a string.
+    - camel returns the Engine method joinWords called with the scalar string that scalar returned, the string camel, and true for its lower-first flag.
+    - snake returns the scalar string that scalar returned, converted by ToSnake from the strcase package.
+    - kebab returns the scalar string that scalar returned, converted by ToKebab from the strcase package.
+    - upper returns the scalar string that scalar returned, converted to upper case as a whole by ToUpper from the strings package.
+    - lower returns the scalar string that scalar returned, converted to lower case as a whole by ToLower from the strings package.
+    - plural returns the plural method of the engine's inflector field called with the scalar string that scalar returned; the method takes a string and returns a string.
+    - singular returns the singular method of the engine's inflector field called with the scalar string that scalar returned; the method takes a string and returns a string.
+    - prefix returns r.Arg followed by the scalar string that scalar returned.
+    - suffix returns the scalar string that scalar returned followed by r.Arg.
+    - quote returns the result of the package function quote called with the scalar string that scalar returned, which returns a string and an error.
+    - trimprefix returns the string from the package function trimPrefixLiteral, called with the scalar string that scalar returned then r.Arg, and a nil error; trimPrefixLiteral takes two strings and returns a string.
+    - unparen returns the string from the package function unparenValue, called with the scalar string that scalar returned, and a nil error; unparenValue takes one string and returns a string.
+    - For any other name, operate returns an empty string and the error from the package function checkOperation called with r, which takes a Ref and returns an error.
+    - operate uses ToSnake and ToKebab from github.com/iancoleman/strcase, imported as a value.
+    - operate uses ToUpper and ToLower from the standard strings package, imported as a value.
+  affected_scope:
+    - internal/transform/ops.go
+  implements: prov-2026-d9cb29e4
+  implements_version: 1
+  associated_specs:
+    - path: internal/transform/trim_test.go
+    - path: internal/transform/transform_test.go
+  tags:
+    - transform
