@@ -22,6 +22,10 @@ type RegionsConfig struct {
 	Records string
 	// Only names the records whose regions to list. Empty lists every record.
 	Only []string
+	// Exclude adds directories to the ones the walk skips, besides the
+	// vendored names and the exclude list in .sedum/config.yml
+	// (prov-2026-fc05416c).
+	Exclude []string
 }
 
 // RegionEntry is one region whose marker names a record.
@@ -52,6 +56,11 @@ type RegionsReport struct {
 // not: a consumer reads that as unknown, never as current, and grow --stamp is
 // how a marker gains them.
 func Regions(cfg RegionsConfig) (*RegionsReport, error) {
+	rules, err := projectSkipRules(cfg.Output, cfg.Exclude)
+	if err != nil {
+		return nil, err
+	}
+
 	packages, findings, err := genpkg.Load(cfg.Generators, genpkg.Options{})
 	if err != nil {
 		return nil, err
@@ -81,7 +90,7 @@ func Regions(cfg RegionsConfig) (*RegionsReport, error) {
 	}
 
 	report := &RegionsReport{Format: RegionsFormat, Regions: []RegionEntry{}}
-	err = walkMarked(packages, cfg.Output, []string{cfg.Generators, cfg.Records}, func(rel string, pkg *genpkg.Package, regions []inject.Region) {
+	err = walkMarked(packages, cfg.Output, []string{cfg.Generators, cfg.Records}, rules, func(rel string, pkg *genpkg.Package, regions []inject.Region) {
 		for _, region := range regions {
 			m := region.Marker
 			if m.Record == "" {
