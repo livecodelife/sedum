@@ -1,0 +1,38 @@
+id: prov-2026-c080c878
+title: The trimPrefixLiteral function removes a leading literal and the blanks after it
+type: imprint
+status: implemented
+version: 3
+reason: spec rewritten for unparen
+created_at: "2026-10-22"
+author: calebcowen@gmail.com
+intent: The trimPrefixLiteral function, in internal/transform/ops.go, removes a leading literal and the spaces and tabs that directly follow it from a string.
+constraints:
+  - The function is a package-level function named trimPrefixLiteral in package transform, not a method.
+  - 'The function receives two positional string arguments: first the value, then the literal prefix.'
+  - The function returns a single string and no error.
+  - 'Only the first occurrence at the very start is removed: with the prefix as two slashes, the value "// // twice" returns "// twice".'
+  - When the value does not begin with the literal prefix, the function returns the value unchanged.
+  - The function reads no other state and does not modify its arguments.
+  - 'The function adds no imports: the strings package it uses is already imported by the file as a value.'
+  - When the value begins with the literal prefix, the function returns the value with that prefix removed.
+  - The function also removes every space and tab that directly follows the removed prefix.
+  - A value that is exactly the prefix returns the empty string.
+  - A value that is the prefix followed only by spaces and tabs returns the empty string.
+  - The empty value returns the empty string.
+  - Only the space character and the tab character count as blanks to remove.
+  - A newline after the prefix is kept.
+affected_scope:
+  - internal/transform/ops.go
+forbidden_scope: []
+implements: prov-2026-899109e9
+implements_version: 1
+related: []
+sealed_at_sha: 2fb1d66a6e8d936f260180a54bddbabe4b9a1c94
+associated_specs:
+  - path: internal/transform/trim_test.go
+    run_command: go test ./$(dirname {{path}})
+associated_traces: []
+monitors: []
+tags:
+  - transform

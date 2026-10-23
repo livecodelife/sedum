@@ -1,0 +1,36 @@
+id: prov-2026-90ce1056
+version: 1
+content_hash: sha256:9329ce0e39eb800f297c4284dcb35a5f2bff70d1fd3ce887aabcd17194f14cc3
+parent_hash: ""
+reason: ""
+author: calebcowen@gmail.com
+created_at: "2026-10-22T07:31:07Z"
+spec_hashes:
+  - sha256:d1130eb95e1390182569514891d95c3aa8a70dc6df9d3932e03a549d5c8e832f
+  - sha256:d2a1132afb1b26fc731abd12ecbe13cd34e1d569415ceb85d96f2f7045e7007b
+content:
+  id: prov-2026-90ce1056
+  title: The parameterized variable marks which built-in operations take a literal argument
+  type: imprint
+  created_at: "2026-10-22"
+  author: calebcowen@gmail.com
+  intent: The parameterized variable, in internal/transform/transform.go, records which built-in operations take a literal argument.
+  constraints:
+    - parameterized is an unexported package-level variable of type map from string to bool.
+    - parameterized maps prefix to true.
+    - parameterized maps suffix to true.
+    - parameterized maps join to true.
+    - parameterized maps trimprefix to true.
+    - parameterized maps unwrap to true.
+    - parameterized has no entry for any other operation name, so the other operations take no argument.
+    - The exported function Parameterized, which takes an operation name as a string and returns a bool, reads this map and is not governed by this record.
+    - The declaration adds no imports.
+  affected_scope:
+    - internal/transform/transform.go
+  implements: prov-2026-d9cb29e4
+  implements_version: 1
+  associated_specs:
+    - path: internal/transform/trim_test.go
+    - path: internal/transform/transform_test.go
+  tags:
+    - transform

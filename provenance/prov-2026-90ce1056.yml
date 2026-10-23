@@ -1,0 +1,33 @@
+id: prov-2026-90ce1056
+title: The parameterized variable marks which built-in operations take a literal argument
+type: imprint
+status: implemented
+version: 3
+reason: remove unwrap and the Parameterized function constraints; restore the closed-set and imports constraints
+created_at: "2026-10-22"
+author: calebcowen@gmail.com
+intent: The parameterized variable, in internal/transform/transform.go, records which built-in operations take a literal argument.
+constraints:
+  - parameterized is an unexported package-level variable of type map from string to bool.
+  - parameterized maps prefix to true.
+  - parameterized maps suffix to true.
+  - parameterized maps join to true.
+  - parameterized maps trimprefix to true.
+  - parameterized has no entry for any other operation name, so the other operations, unparen included, take no argument.
+  - The declaration adds no imports.
+affected_scope:
+  - internal/transform/transform.go
+forbidden_scope: []
+implements: prov-2026-d9cb29e4
+implements_version: 1
+related: []
+sealed_at_sha: bd9677d340e302e82871e2e772d481876ff4a5e0
+associated_specs:
+  - path: internal/transform/trim_test.go
+    run_command: go test ./$(dirname {{path}})
+  - path: internal/transform/transform_test.go
+    run_command: go test ./$(dirname {{path}})
+associated_traces: []
+monitors: []
+tags:
+  - transform

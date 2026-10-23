@@ -1,0 +1,31 @@
+id: prov-2026-176ff80b
+title: The Operations variable lists the closed set of built-in operation names
+type: imprint
+status: implemented
+version: 2
+reason: unwrap replaced by unparen, which takes no argument
+created_at: "2026-10-22"
+author: calebcowen@gmail.com
+intent: The Operations variable, in internal/transform/transform.go, is the single declaration of the built-in operation names every package can reference.
+constraints:
+  - Operations is an exported package-level variable of type slice of string.
+  - Operations holds each name once and holds no pipeline names.
+  - Package loading and reference checking read Operations as the only declaration of the built-in vocabulary.
+  - The declaration adds no imports.
+  - Operations holds, in this order, the names pascal, camel, snake, kebab, upper, lower, plural, singular, prefix, suffix, join, quote, trimprefix and unparen.
+affected_scope:
+  - internal/transform/transform.go
+forbidden_scope: []
+implements: prov-2026-d9cb29e4
+implements_version: 1
+related: []
+sealed_at_sha: 22d66551b613e141f2792983d9cd44660c0ecfdf
+associated_specs:
+  - path: internal/transform/trim_test.go
+    run_command: go test ./$(dirname {{path}})
+  - path: internal/transform/transform_test.go
+    run_command: go test ./$(dirname {{path}})
+associated_traces: []
+monitors: []
+tags:
+  - transform

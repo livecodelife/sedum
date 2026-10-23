@@ -1,0 +1,71 @@
+id: prov-2026-899109e9
+version: 3
+content_hash: sha256:aa8c03d25b2adacb3e7d739f67e9394994afec65045c21cdf932395c080eb7b5
+parent_hash: sha256:cb3dbeb0159b07c5e626b791a0fb6cd5984c9d64721405f97b8a41fb7cc30d6a
+reason: unwrap becomes the argument-less unparen; one requirement per constraint; spec refreshed
+author: calebcowen@gmail.com
+created_at: "2026-10-22T07:33:56Z"
+spec_hashes:
+  - sha256:fdc85ade541ab8e4f7affd1c585b2e8ec047c1af03a378f7c5dab393e1e41712
+content:
+  id: prov-2026-899109e9
+  title: Built-in operations can trim a leading literal and unwrap an outer delimiter pair
+  type: blueprint
+  created_at: "2026-10-22"
+  author: calebcowen@gmail.com
+  intent: 'A value a model binds often arrives with punctuation the template already supplies, such as a description starting with the comment leader the template writes, or a parameter list carrying its own parentheses. Rendering it as is duplicates that punctuation and breaks the generated file. Two built-in operations repair this inside the template: trimprefix removes a leading literal and the blanks after it, and unparen removes one outer pair of parentheses. Neither changes a value without the shape it removes. For example, unparen turns "(a: string)" into "a: string".'
+  constraints:
+    - trimprefix is a member of the closed Operations list.
+    - unparen is a member of the closed Operations list.
+    - trimprefix is a parameterized operation that takes a literal argument written after a colon.
+    - unparen is not a parameterized operation and takes no argument.
+    - A reference to trimprefix with no argument is rejected by the argument check, naming the operation.
+    - A reference to trimprefix with an empty argument is rejected by the argument check, naming the operation.
+    - A reference to trimprefix with an argument containing the two characters {{ is rejected by the argument check, naming the operation.
+    - A reference to unparen that supplies an argument, as in unparen:x, is rejected by the shared argument check, naming the operation.
+    - trimprefix takes one scalar string.
+    - trimprefix returns a string.
+    - unparen takes one scalar string.
+    - unparen returns a string.
+    - Both operations refuse a list value, as every operation except join does.
+    - Both operations handle an int or bool value as its text.
+    - Neither operation consults an op_exceptions table.
+    - trimprefix with argument X, applied to a value that begins with X, removes X and returns the remainder.
+    - trimprefix also removes every space and tab that directly follows the removed X.
+    - trimprefix keeps a newline that follows X.
+    - 'trimprefix removes only the first occurrence at the very start: with X as two slashes, "// // twice" becomes "// twice".'
+    - trimprefix returns the value unchanged when it does not begin with X, including when X occurs only later in the value.
+    - trimprefix treats a value with blanks before X as not beginning with X and returns it unchanged.
+    - trimprefix of a value that is exactly X is the empty string.
+    - trimprefix of a value that is X followed only by spaces and tabs is the empty string.
+    - trimprefix of the empty string is the empty string.
+    - unparen removes the first and last character of a value that starts with ( and ends with ), when that opening ( is the one the final ) closes.
+    - Characters are Unicode characters, so a multi-byte character inside the parentheses is kept whole.
+    - 'Nesting is counted from the first character, adding one for each ( and subtracting one for each ): the outer pair is removed only when the count first returns to zero at the last character.'
+    - unparen leaves "(a)(b)" unchanged.
+    - unparen turns "((a))" into "(a)".
+    - 'unparen turns "(a: () => void)" into "a: () => void".'
+    - unparen turns "()" into the empty string.
+    - 'unparen turns "(a: string)" into "a: string".'
+    - unparen returns the value unchanged when it does not start with (.
+    - unparen returns the value unchanged when it does not end with ).
+    - unparen returns the value unchanged when it is shorter than two characters.
+    - unparen removes at most one pair per application.
+    - unparen leaves the blanks inside the pair as they were.
+    - trimprefix can be written as a transform in a template expression.
+    - unparen can be written as a transform in a template expression.
+    - trimprefix and unparen can be written as a step of a declared pipeline.
+    - Every existing operation, template and pipeline behaves exactly as it did.
+    - The PRD's built-in operation list names trimprefix:X.
+    - The PRD's built-in operation list names unparen.
+    - The PRD describes what trimprefix and unparen do, with an example of each.
+    - The README's list of built-in operations names trimprefix:X and unparen.
+  affected_scope:
+    - internal/transform/transform.go
+    - internal/transform/ops.go
+    - PRD.md
+    - README.md
+  associated_specs:
+    - path: internal/transform/trim_test.go
+  tags:
+    - transform

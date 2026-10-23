@@ -71,8 +71,45 @@ func (e *Engine) operate(r Ref, v any) (string, error) {
 		return s + r.Arg, nil
 	case "quote":
 		return quote(s)
+	case "trimprefix":
+		return trimPrefixLiteral(s, r.Arg), nil
+	case "unparen":
+		return unparenValue(s), nil
 	}
 	return "", checkOperation(r)
+}
+
+// trimPrefixLiteral removes prefix from the start of s together with the spaces
+// and tabs that follow it, and returns s unchanged when it does not start with
+// prefix. Only the first occurrence is removed.
+func trimPrefixLiteral(s, prefix string) string {
+	if prefix == "" || !strings.HasPrefix(s, prefix) {
+		return s
+	}
+	return strings.TrimLeft(strings.TrimPrefix(s, prefix), " \t")
+}
+
+// unparenValue removes one outer pair of parentheses when the opening one at
+// the start is the one the final closing one matches, so "(a)(b)" is left alone
+// and "((a))" loses one pair.
+func unparenValue(s string) string {
+	runes := []rune(s)
+	if len(runes) < 2 || runes[0] != '(' || runes[len(runes)-1] != ')' {
+		return s
+	}
+	depth := 0
+	for i, r := range runes {
+		switch r {
+		case '(':
+			depth++
+		case ')':
+			depth--
+			if depth == 0 && i != len(runes)-1 {
+				return s
+			}
+		}
+	}
+	return string(runes[1 : len(runes)-1])
 }
 
 // joinWords is pascal and camel. It normalizes to snake form, splits on the

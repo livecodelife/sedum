@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- Two built-in transforms: `trimprefix:X` (strip a leading literal and the blanks after it) and `unparen` (strip one matching outer pair of parentheses).
+
 ## 0.8.0
 
 The first release since 0.7.0 that understands provenance v2 records and can

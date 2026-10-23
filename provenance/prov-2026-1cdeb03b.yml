@@ -1,7 +1,8 @@
 id: prov-2026-1cdeb03b
 title: A list renders through join, and never as Go slice syntax
 status: implemented
-version: 1
+version: 3
+reason: one requirement per constraint, no history framing
 created_at: "2026-09-02"
 author: calebcowen@gmail.com
 intent: |
@@ -60,14 +61,17 @@ intent: |
   separators and anchors invented, a boundary written where it can never match.
   A list is the same move as a variant applied to a value that has no fixed set.
 constraints:
-  - "`join` is a parameterized built-in, taking the separator as its literal argument, and is available in every package without declaration."
-  - "`join` over a list renders each member as text and joins them with the separator, in the order bound."
-  - "`join` over a value that is not a list is an error naming what it received."
-  - "`join` over an empty list is an error rather than the empty string."
-  - "A reference whose value is still a list when it reaches the template is an error, whether or not any transform was applied, and the diagnostic names the list."
-  - "No rendering path emits Go's slice formatting into output."
-  - "A pipe is not usable as a separator, and the grammar refuses one at compile rather than rendering something unintended."
-  - "Every existing template, transform and pipeline behaves exactly as it did."
+  - '`join` is a parameterized built-in, taking the separator as its literal argument, and is available in every package without declaration.'
+  - '`join` over a list renders each member as text and joins them with the separator, in the order bound.'
+  - '`join` over a value that is not a list is an error naming what it received.'
+  - '`join` over an empty list is an error rather than the empty string.'
+  - A reference whose value is still a list when it reaches the template is an error, whether or not any transform was applied, and the diagnostic names the list.
+  - No rendering path emits Go's slice formatting into output.
+  - A pipe is not usable as a separator, and the grammar refuses one at compile rather than rendering something unintended.
+  - Every existing template, transform and pipeline behaves exactly as it did.
+  - A join reference with no separator is rejected, naming the operation.
+  - A join reference with an empty separator is rejected, naming the operation.
+  - A join reference with a separator containing the two characters {{ is rejected, naming the operation.
 affected_scope:
   - internal/transform/transform.go
   - internal/transform/ops.go
@@ -79,7 +83,7 @@ affected_scope:
 forbidden_scope: []
 type: blueprint
 related: []
-sealed_at_sha: b77dd6c3698d4ee95e3bd78c9ec63f44802b9780
+sealed_at_sha: 957fad4cf0f1ce80a9b9ddd279ac2ad3046158d6
 associated_specs:
   - path: internal/transform/transform_test.go
     run_command: go test ./$(dirname {{path}})
