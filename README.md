@@ -1095,6 +1095,20 @@ After a record's selection passes validation, Sedum builds the files Phase 7 wou
 
 Two things to know. **Commands run as you.** They come only from `.sedum/config.yml` and `--verify`, never from a generator package, but `grow` in a checkout you do not trust executes that file's commands, as `make` executes a Makefile. **Records are verified one at a time**, in the order they are selected, each against the tree plus its own selection; a command that needs a later record's regions can fail on a record that is fine once the run finishes.
 
+### Skipped directories
+
+The marker walk behind `sedum grow`'s orphan scan and `sedum regions` never enters hidden directories, the generators directory, the records directory, or any directory named `node_modules`, `.next`, `vendor`, `dist` or `target`, at any depth below `--output`. A checkout with hundreds of megabytes of vendored dependencies is not read file by file. `--output` itself is never skipped, so pointing it at (or inside) such a directory still works. A file a record names is read wherever it sits.
+
+A project can skip more, in `<output>/.sedum/config.yml`:
+
+```yaml
+exclude:
+  - generated          # a name: every directory of that name, at any depth
+  - docs/gen/          # a path: exactly docs/gen under the output
+```
+
+`SEDUM_EXCLUDE` holds more entries for one run, comma-separated (`SEDUM_EXCLUDE=scratch,docs/gen`); they are added to the config's, never replace them, and blank items are ignored. Entries are directories, not globs. An absolute path, an entry with a `..` element, or an empty entry in the config list is an error naming the entry, before any file is read. There is no `--exclude` flag, deliberately: the flag sets of `grow` and `regions` are contract-tested. `.gitignore` is not consulted.
+
 ### Supplementary context: `--prompt`, `--prompt-file`, `--prior-recording`
 
 These let a tool above Sedum feed a retry: the validator's failure output, and what the model chose last time. Sedum only accepts text and a file; it never runs the command that produced them.
@@ -1167,7 +1181,7 @@ sedum validate --generators ./generators
 sedum regions --generators ./generators [--output .] [--records ./provenance] [--record <id>]... [--json]
 ```
 
-Lists every region whose marker names a record: its file, action, identifying kwargs, tier, and the `gen` and `pkg` hashes it was written with (`prov-2026-bf01cd6b`). Read-only — no model, nothing written, no records directory required — and it never reads hidden directories, the generators directory or the records directory. With `--records`, a marker naming an alias is reported under the surviving id, and `--record` matches either. An empty hash means the marker has none, which a consumer must read as unknown; `grow --stamp` fills them in.
+Lists every region whose marker names a record: its file, action, identifying kwargs, tier, and the `gen` and `pkg` hashes it was written with (`prov-2026-bf01cd6b`). Read-only — no model, nothing written, no records directory required — and it never reads hidden directories, the generators directory, the records directory, or a vendored or excluded directory (see [Skipped directories](#skipped-directories)). With `--records`, a marker naming an alias is reported under the surviving id, and `--record` matches either. An empty hash means the marker has none, which a consumer must read as unknown; `grow --stamp` fills them in.
 
 `--json` prints the `sedum.regions/1` document described in `conformance/formats/`. It is what the provenance library's evidence code hash is computed from, since that library never parses a marker.
 
