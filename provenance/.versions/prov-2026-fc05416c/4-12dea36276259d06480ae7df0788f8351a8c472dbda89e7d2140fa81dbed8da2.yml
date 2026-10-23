@@ -1,0 +1,93 @@
+id: prov-2026-fc05416c
+version: 4
+content_hash: sha256:12dea36276259d06480ae7df0788f8351a8c472dbda89e7d2140fa81dbed8da2
+parent_hash: sha256:5de431b2f5cc796ba457c1ffbb22880d1f32020f48af9fab6d36904c142d477c
+reason: Associate the vendored-directory walk spec
+author: calebcowen@gmail.com
+created_at: "2026-10-23T19:52:11Z"
+spec_hashes:
+  - sha256:b69fed63bdc4ec6cc1c13dd60dab39d12973b62e8a943e16998ef41aaf13ea48
+  - sha256:6013a1208eec43fc6aa7d43d911f5b435e24eef0b888a8f25cb5e36e2422ef5f
+content:
+  id: prov-2026-fc05416c
+  title: Grow's marker scans skip the generators, records, vendored and excluded directories
+  type: imprint
+  created_at: "2026-10-15"
+  author: calebcowen@gmail.com
+  intent: |-
+    prov-cli found (#provisio, 2026-10-15) that grow's orphan scan read the
+    markers in its cobra package's golden fixtures under generators/, and
+    reported them as orphans in an authorized file, because the cobra blueprint
+    authorizes generators/cobra/**. --prune-orphans would have edited the
+    fixtures and --check failed on them. Generator packages - their templates,
+    fixtures and goldens - are not application code, whatever markers they
+    carry. provisio-mgr decided: grow's marker scans skip the --generators
+    directory entirely, and the records directory with it.
+
+    The orphan walk skips both directories wherever they sit under the output
+    tree, and the per-record scans behind classification and --check ignore any
+    target inside them.
+
+    The same marker walk, which backs grow's orphan scan and `sedum regions`,
+    also never enters vendored or build-output directories. scion-agent reported
+    (#provisio, 2026-10-22) that `provenance complete` hung for over 30 minutes
+    on a checkout with 622 MB of gitignored node_modules, because every vendored
+    .ts and .js file was read for markers; sedum-grow reproduced it with 60,000
+    files (469 MB), where the walk took 13.4 seconds against 0.009 seconds once
+    the directory is skipped. Any directory named node_modules, .next, vendor,
+    dist or target is skipped at any depth below the output directory. The output
+    directory itself is never skipped, so an --output that is or sits inside such
+    a directory is still read.
+
+    A project can skip more directories. An `exclude:` list of strings in
+    <output>/.sedum/config.yml names them, and a SEDUM_EXCLUDE environment
+    variable holding a comma-separated list of entries of the same kind names
+    more; `sedum grow` and `sedum regions` both read it. The environment's
+    entries are added to the config's entries and never replace them. No
+    --exclude flag exists: the flag-surface tests of grow and regions
+    (internal/cli/flags_test.go) are exact contract tests, and an environment
+    variable avoids changing that surface, the way prov-2026-6edbd718 chose
+    environment variables. An entry without a slash names a directory of that
+    name at any depth, like the built-in names. An entry with a slash is a
+    slash-separated path relative to the output directory and names exactly that
+    directory. Entries are directories, never globs. A trailing slash on an entry
+    is ignored. An absolute path, or a path containing .., is an error that names
+    the entry, raised before any file is read. An empty entry in the config's
+    list is an error too, but blank items in SEDUM_EXCLUDE, such as the empty
+    string between two commas, are ignored. Honouring .gitignore is not part of
+    this behaviour.
+
+    The per-record scans behind classification and --check are unchanged: a file
+    a record names is read wherever it sits.
+  constraints:
+    - Skipping compares cleaned absolute paths, so ./generators and an absolute path name the same directory.
+    - Nothing is skipped when the directory is outside the output tree.
+    - The built-in skipped directory names are node_modules, .next, vendor, dist and target, matched against a directory's own name at any depth below the output directory.
+    - The output directory itself is never skipped, whatever its name or location.
+    - The exclude setting is a YAML list of strings under the key exclude in <output>/.sedum/config.yml; an absent key or file adds nothing.
+    - An entry without a slash skips every directory of that name at any depth below the output directory.
+    - An entry with a slash is a slash-separated path relative to the output directory and skips exactly that directory.
+    - A trailing slash on an entry is ignored, so "docs/gen/" and "docs/gen" are the same entry.
+    - An entry is a directory name or path; glob characters have no special meaning.
+    - A marked file inside a skipped directory is not reported by the orphan scan or by sedum regions.
+    - The per-record scans behind classification and --check read a file a record names wherever it sits, including inside a vendored or excluded directory.
+    - The SEDUM_EXCLUDE environment variable is a comma-separated list of entries, read by sedum grow and sedum regions, and its entries are appended to the config file entries.
+    - An unset or empty SEDUM_EXCLUDE adds nothing, and blank items in it, such as an empty string between two commas, are ignored without error.
+    - An absolute path, or an entry containing a .. path element, in the config list or in SEDUM_EXCLUDE makes the command fail with an error that names the entry, before any file is read.
+    - An empty string entry in the config exclude list makes the command fail with an error before any file is read.
+    - The config structs that sedum grow and sedum regions load carry the exclude entries in an Exclude field, a list of strings.
+    - No --exclude flag is added to sedum grow or sedum regions; their flag sets are unchanged.
+  affected_scope:
+    - internal/pipeline/orphans.go
+    - internal/pipeline/classify.go
+    - internal/pipeline/pipeline.go
+    - internal/pipeline/*_test.go
+    - internal/pipeline/regions.go
+    - internal/cli/regions.go
+    - internal/cli/grow.go
+    - internal/cli/config.go
+  implements: prov-2026-5403d162
+  implements_version: 1
+  associated_specs:
+    - path: internal/pipeline/orphans_test.go
+    - path: internal/pipeline/vendored_test.go
