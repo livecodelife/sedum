@@ -1,6 +1,7 @@
 package pipeline
 
 import (
+	"fmt"
 	"io/fs"
 	"os"
 	"path"
@@ -8,9 +9,12 @@ import (
 	"sort"
 	"strings"
 
+	"gopkg.in/yaml.v3"
+
 	"github.com/livecodelife/sedum/internal/genpkg"
 	"github.com/livecodelife/sedum/internal/inject"
 	"github.com/livecodelife/sedum/internal/record"
+	"github.com/livecodelife/sedum/internal/verify"
 )
 
 // Orphan is an owned-tier region whose record is no longer current: removed
@@ -38,14 +42,14 @@ type Orphan struct {
 //
 // It returns the orphans and, for --prune-orphans, the authorized files they
 // sit in as Phase 7 targets.
-func findOrphans(packages *genpkg.Set, records *record.Set, owners map[string]inject.Owner, output string, skip []string) ([]Orphan, []inject.Target, error) {
+func findOrphans(packages *genpkg.Set, records *record.Set, owners map[string]inject.Owner, output string, skip []string, rules *skipRules) ([]Orphan, []inject.Target, error) {
 	current := currentRecords(records)
 
 	var (
 		orphans []Orphan
 		targets []inject.Target
 	)
-	err := walkMarked(packages, output, skip, func(rel string, pkg *genpkg.Package, regions []inject.Region) {
+	err := walkMarked(packages, output, skip, rules, func(rel string, pkg *genpkg.Package, regions []inject.Region) {
 		authorized := authorizedBy(current, rel)
 		found := false
 		for _, region := range regions {
@@ -71,11 +75,12 @@ func findOrphans(packages *genpkg.Set, records *record.Set, owners map[string]in
 
 // walkMarked visits every file under output whose extension a loaded package
 // claims and which carries marked regions, with the package whose comment
-// syntax found them. It skips hidden directories and the skip directories
-// (the generators and records directories, prov-2026-fc05416c), and visits
-// files in lexical order. A file whose extension several packages claim is
+// syntax found them. It skips hidden directories, the skip directories (the
+// generators and records directories) and the directories rules skips
+// (vendored and excluded ones, prov-2026-fc05416c), and visits files in
+// lexical order. A file whose extension several packages claim is
 // read with each one's comment syntax until one finds regions.
-func walkMarked(packages *genpkg.Set, output string, skip []string, visit func(rel string, pkg *genpkg.Package, regions []inject.Region)) error {
+func walkMarked(packages *genpkg.Set, output string, skip []string, rules *skipRules, visit func(rel string, pkg *genpkg.Package, regions []inject.Region)) error {
 	skipped := skipSet(skip)
 	return filepath.WalkDir(output, func(full string, d fs.DirEntry, err error) error {
 		if err != nil {
@@ -90,6 +95,15 @@ func walkMarked(packages *genpkg.Set, output string, skip []string, visit func(r
 			// (prov-2026-fc05416c).
 			if skipped[absClean(full)] {
 				return filepath.SkipDir
+			}
+			if full != output {
+				rel, err := filepath.Rel(output, full)
+				if err != nil {
+					return err
+				}
+				if rules.skips(filepath.ToSlash(rel), d.Name()) {
+					return filepath.SkipDir
+				}
 			}
 			return nil
 		}
@@ -186,4 +200,100 @@ func absClean(p string) string {
 		return filepath.Clean(abs)
 	}
 	return filepath.Clean(p)
+}
+
+// vendoredDirs are the directory names the marker walk never enters, at any
+// depth below the output directory (prov-2026-fc05416c).
+var vendoredDirs = []string{"node_modules", ".next", "vendor", "dist", "target"}
+
+// skipRules are the directories the marker walk skips besides hidden ones and
+// the generators and records directories: the vendored names, and the project's
+// exclude entries. A name matches a directory of that name at any depth; a path
+// matches exactly that directory under the output.
+type skipRules struct {
+	names map[string]bool
+	paths map[string]bool
+}
+
+// CheckExclude reports the first exclude entry that cannot name a directory:
+// empty, absolute, or containing a .. element. The error names the entry.
+func CheckExclude(entries []string) error {
+	_, err := newSkipRules(entries)
+	return err
+}
+
+func newSkipRules(entries []string) (*skipRules, error) {
+	rules := &skipRules{names: map[string]bool{}, paths: map[string]bool{}}
+	for _, name := range vendoredDirs {
+		rules.names[name] = true
+	}
+	for _, entry := range entries {
+		trimmed := strings.TrimRight(strings.TrimSpace(entry), "/")
+		switch {
+		case trimmed == "":
+			return nil, fmt.Errorf("exclude entry %q is empty", entry)
+		case strings.HasPrefix(trimmed, "/") || filepath.IsAbs(trimmed):
+			return nil, fmt.Errorf("exclude entry %q is an absolute path: name a directory relative to the output directory", entry)
+		}
+		for _, part := range strings.Split(trimmed, "/") {
+			if part == ".." {
+				return nil, fmt.Errorf("exclude entry %q contains ..: name a directory under the output directory", entry)
+			}
+		}
+		if strings.Contains(trimmed, "/") {
+			rules.paths[path.Clean(trimmed)] = true
+		} else {
+			rules.names[trimmed] = true
+		}
+	}
+	return rules, nil
+}
+
+// skips reports whether the directory at rel (slash-separated, relative to the
+// output directory, never the output itself) is skipped.
+func (r *skipRules) skips(rel, name string) bool {
+	return r.names[name] || r.paths[rel]
+}
+
+// excludeEnv names the environment variable holding a comma-separated list of
+// exclude entries.
+const excludeEnv = "SEDUM_EXCLUDE"
+
+// projectSkipRules builds the rules for a run over output: the vendored names,
+// the exclude list in the output's .sedum/config.yml, the entries of
+// SEDUM_EXCLUDE, and extra, which the caller supplies. A missing config file
+// adds nothing, and blank items in the variable are ignored.
+func projectSkipRules(output string, extra []string) (*skipRules, error) {
+	configured, err := configExclude(output)
+	if err != nil {
+		return nil, err
+	}
+	var fromEnv []string
+	for _, item := range strings.Split(os.Getenv(excludeEnv), ",") {
+		if strings.TrimSpace(item) != "" {
+			fromEnv = append(fromEnv, item)
+		}
+	}
+	if err := CheckExclude(fromEnv); err != nil {
+		return nil, fmt.Errorf("%s: %w", excludeEnv, err)
+	}
+	entries := append(append(configured, fromEnv...), extra...)
+	return newSkipRules(entries)
+}
+
+func configExclude(output string) ([]string, error) {
+	data, err := os.ReadFile(filepath.Join(output, filepath.FromSlash(verify.ConfigPath)))
+	if os.IsNotExist(err) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	var file struct {
+		Exclude []string `yaml:"exclude"`
+	}
+	if err := yaml.Unmarshal(data, &file); err != nil {
+		return nil, fmt.Errorf("%s: %w", verify.ConfigPath, err)
+	}
+	return file.Exclude, nil
 }
