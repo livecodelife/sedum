@@ -1,6 +1,6 @@
 id: prov-2026-fc05416c
 title: Grow's marker scans skip the generators, records, vendored and excluded directories
-status: open
+status: implemented
 version: 7
 reason: Re-stamp the version hash after round-4 edits
 created_at: "2026-10-15"
@@ -48,7 +48,7 @@ type: imprint
 implements: prov-2026-5403d162
 implements_version: 1
 related: []
-sealed_at_sha: ""
+sealed_at_sha: fe45f0cd2e07e0fdab23374149fbfa6b81951cca
 associated_specs:
   - path: internal/pipeline/orphans_test.go
     run_command: go test ./$(dirname {{path}})
