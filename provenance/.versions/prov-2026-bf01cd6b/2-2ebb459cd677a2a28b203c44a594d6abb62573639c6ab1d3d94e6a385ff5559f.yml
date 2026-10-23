@@ -1,0 +1,46 @@
+id: prov-2026-bf01cd6b
+version: 2
+content_hash: sha256:2ebb459cd677a2a28b203c44a594d6abb62573639c6ab1d3d94e6a385ff5559f
+parent_hash: sha256:ab4492683314f6250d0d29fb859d1f0adb80c8359f188452d93221f74c1bab1a
+reason: sedum regions gains --exclude and skips vendored directories
+author: calebcowen@gmail.com
+created_at: "2026-10-23T19:51:22Z"
+spec_hashes:
+  - sha256:2021566423bd5790b3f3a5aef2085030833ce8eeaf8ccf2f0cc5e13e717b440c
+  - sha256:c6fe2888dd15aee826a51fc200c4443175a68c9926fe713352bd323a0f73a846
+content:
+  id: prov-2026-bf01cd6b
+  title: sedum regions and a JSON grow report feed provenance evidence
+  type: blueprint
+  created_at: "2026-10-15"
+  author: calebcowen@gmail.com
+  constraints:
+    - sedum regions writes nothing, calls no model, and needs no records directory; it reads only files under --output.
+    - Both JSON documents carry a format string with a version, and add fields only additively; the shapes are documented in the PRD and README.
+    - gen and pkg are reported verbatim from markers, "" when absent; Sedum never computes or fills them in this command.
+    - A region counts as changed only when its bytes changed; identical rewrites are unchanged.
+    - Text output is unchanged when --json is not given.
+    - conformance/formats/ documents both formats with an example of each, and Sedum's tests check real output against the documented keys, so a TypeScript consumer can rely on them (provisio-mgr,
+  affected_scope:
+    - internal/cli/regions.go
+    - internal/cli/root.go
+    - internal/cli/grow.go
+    - internal/cli/config.go
+    - internal/cli/report.go
+    - internal/cli/*_test.go
+    - internal/pipeline/regions.go
+    - internal/pipeline/orphans.go
+    - internal/pipeline/*_test.go
+    - internal/inject/inject.go
+    - internal/inject/*_test.go
+    - PRD.md
+    - conformance/README.md
+    - conformance/formats/**
+    - testdata/generators/go/**
+  related:
+    - prov-2026-9621daed
+    - prov-2026-cc73cf61
+    - prov-2026-fc05416c
+  associated_specs:
+    - path: internal/pipeline/regions_test.go
+    - path: internal/cli/report_test.go

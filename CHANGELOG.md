@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- The marker walk (`grow`'s orphan scan, `sedum regions`) skips `node_modules`, `.next`, `vendor`, `dist` and `target` at any depth, so a checkout with large vendored trees is no longer read file by file. Add more with `exclude:` in `.sedum/config.yml` or `SEDUM_EXCLUDE`.
 - Two built-in transforms: `trimprefix:X` (strip a leading literal and the blanks after it) and `unparen` (strip one matching outer pair of parentheses).
 
 ## 0.8.0

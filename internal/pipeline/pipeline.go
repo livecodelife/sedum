@@ -54,6 +54,11 @@ type Config struct {
 	Lang       []string
 	Only       []string
 
+	// Exclude adds directories to the ones the marker walk skips, besides the
+	// vendored names and the exclude list in .sedum/config.yml
+	// (prov-2026-fc05416c).
+	Exclude []string
+
 	// Variables are the run's values for the project facts packages declare,
 	// as supplied on the command line. They are resolved against the loaded
 	// packages' declarations before any phase writes anything
@@ -234,6 +239,13 @@ func Run(ctx context.Context, cfg Config) (result *Result, err error) {
 		result.Prompt = cfg.Prompt
 	}
 
+	// The exclude entries are checked before any generator package, record or
+	// marker is read (prov-2026-fc05416c).
+	skipRules, err := projectSkipRules(cfg.Output, cfg.Exclude)
+	if err != nil {
+		return nil, err
+	}
+
 	// Phase 0 - load and validate generator packages.
 	packages, findings, err := genpkg.Load(cfg.Generators, genpkg.Options{})
 	if err != nil {
@@ -382,7 +394,7 @@ func Run(ctx context.Context, cfg Config) (result *Result, err error) {
 		log.Info("classified record", "record", c.RecordID, "mode", c.Mode.String(),
 			"stale", len(c.Stale), "rerender", len(c.Rerender), "stale_seeded", len(c.StaleSeeded))
 	}
-	orphans, orphanTargets, err := findOrphans(packages, records, owners, cfg.Output, scanSkip)
+	orphans, orphanTargets, err := findOrphans(packages, records, owners, cfg.Output, scanSkip, skipRules)
 	if err != nil {
 		return nil, err
 	}
