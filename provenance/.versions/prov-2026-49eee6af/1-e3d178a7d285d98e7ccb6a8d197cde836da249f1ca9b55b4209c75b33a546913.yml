@@ -1,0 +1,29 @@
+id: prov-2026-49eee6af
+version: 1
+content_hash: sha256:e3d178a7d285d98e7ccb6a8d197cde836da249f1ca9b55b4209c75b33a546913
+parent_hash: ""
+reason: ""
+author: calebcowen@gmail.com
+created_at: "2026-10-26T20:41:00Z"
+spec_hashes:
+  - sha256:87794bd28173787fec494ec339698daece91b49e5d003d4b434116fbf2ff98b0
+content:
+  id: prov-2026-49eee6af
+  title: 'Version 0.9.1: markers migrate skips scope paths no loaded package claims'
+  type: blueprint
+  created_at: "2026-10-26"
+  author: calebcowen@gmail.com
+  intent: '0.9.0 -> 0.9.1: patch. sedum markers migrate skipped nothing it could not judge and failed on scope paths no loaded package claims; it now skips and counts them, and judges a file against the package that declares its actions. See CHANGELOG.md.'
+  constraints:
+    - This record touches only the version constant and the changelog. The tag-vs-constant check in .github/workflows/release.yml gates the release.
+    - The tag is pushed only once this commit is on main.
+  affected_scope:
+    - internal/recording/version.go
+    - CHANGELOG.md
+  implements: prov-2026-d554bfc3
+  implements_version: 1
+  associated_specs:
+    - path: internal/cli/release_test.go
+  tags:
+    - sedum
+    - release
