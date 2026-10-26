@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- **Marker v2.** Every region is written with a marker that carries `"v":2`, an `id` object of its identifying kwargs, and `kwargs` and `body` hashes in place of the kwargs object. Each `grow` that writes also writes `.sedum/recordings/<record-id>.json` (or the directory `--record` names), which holds the kwargs a re-render needs; a missing recording costs a re-select, never a failure. `grow --check` reports a region whose text no longer matches its `body` as `edited` and fails; a re-render over a hand edit is refused, and `--force` overwrites it. v1 regions are listed as `unverifiable` and keep re-rendering from their own kwargs. `--record <file>.json` keeps re-selecting every record. `sedum markers migrate` rewrites an existing tree with no model. A v2 marker cannot be read by an older Sedum, so upgrade before sharing a tree. New corpora: `conformance/markers/v2cases.json` and `conformance/kwargshash/cases.json`.
 - The marker walk (`grow`'s orphan scan, `sedum regions`) skips `node_modules`, `.next`, `vendor`, `dist` and `target` at any depth, so a checkout with large vendored trees is no longer read file by file. Add more with `exclude:` in `.sedum/config.yml` or `SEDUM_EXCLUDE`.
 - Two built-in transforms: `trimprefix:X` (strip a leading literal and the blanks after it) and `unparen` (strip one matching outer pair of parentheses).
 

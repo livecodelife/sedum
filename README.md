@@ -50,10 +50,10 @@ failure. That property is what the harness under `evals/` measures.
 | `sedum render` | Working |
 | `sedum generators install` | Working |
 
-Recording and replay are live: `--record` captures what a run resolved and what
-the model decided, and `--execute` replays that with no model involved. A
-recording is plain JSON and hand-editing one is a supported workflow rather than
-a trick — see [Recorded Executions](#recorded-executions).
+Recording and replay are live: every `grow` writes one recording per record into
+`.sedum/recordings/`, `--record <file>.json` captures a whole run to one file, and `--execute` replays
+a recording with no model involved. A recording is plain JSON and hand-editing one is a supported
+workflow rather than a trick — see [Recorded Executions](#recorded-executions).
 
 Two limits are worth knowing before pointing this at a real project.
 
@@ -782,10 +782,10 @@ An action targeting a marker that no file template in its package plants also wa
 
 ## Ownership and Idempotency
 
-Every injected region is wrapped in ownership markers naming the action that produced it, the ownership tier, the record that owns it, the hashes of that record (`gen`) and of the action and templates it was rendered from (`pkg`), and the kwargs it was rendered from:
+Every injected region is wrapped in ownership markers naming the action that produced it, the ownership tier, the record that owns it, the hashes of that record (`gen`) and of the action and templates it was rendered from (`pkg`), the identifying kwargs, and hashes of all the kwargs it was rendered from and of its own text:
 
 ```ruby
-  # sedum:createControllerMethod:index {"tier":"owned","record":"PR-014","gen":"sha256:…","pkg":"sha256:…","kwargs":{"collection":"users","controller":"users"}}
+  # sedum:createControllerMethod:index {"v":2,"tier":"owned","record":"PR-014","gen":"sha256:…","pkg":"sha256:…","id":{"controller":"users","name":"index"},"kwargs":"sha256:…","body":"sha256:…"}
 def index
   @users = User.all
   render json: @users
@@ -801,7 +801,7 @@ Sedum's own marker lines take the indentation of the anchor they land at, copied
 
 Re-running a generation replaces the region an action owns rather than appending beside it. Reruns and partial regeneration are safe without a sidecar cache or resolution manifest.
 
-This produces the audit trail as a side effect: grepping markers yields file -> action -> variant -> arguments with no maintained state, and ownership is visible in the diff a human reviews.
+This produces the audit trail as a side effect: grepping markers yields file -> action -> variant -> identifying kwargs with no maintained state, and ownership is visible in the diff a human reviews.
 
 ### Ownership tiers
 
@@ -817,11 +817,24 @@ An action declares its tier in `actions.yaml`, defaulting to `owned`. A template
 
 **The `tier` key is not yet accepted in `actions.yaml`** — decoding is strict, so declaring one is currently an error, and the precedence rule above is the rule for when it lands. Both tiers are honored when *read* from a marker, which is what makes adding the key later an addition rather than a migration: the field is already on every marker Sedum has ever written.
 
-### Recorded kwargs
+### Marker v2 and recorded kwargs
 
-The kwargs serialized on the opening marker make a region self-describing. A reader — human or tooling — can see what the region was parameterized with without consulting a recording or rerunning resolution.
+A v1 marker, one with no `v` key, serializes every kwarg its region was rendered from, so the region is self-describing. A v1 region that needs re-rendering is re-rendered from those kwargs, with no recording.
 
-Nothing currently reads them back. They are written for the same reason the tier field is: markers are durable artifacts, and changing their shape after generated codebases exist is expensive.
+Sedum writes every region as a v2 marker, which keeps in the file only what identifies the region and what detects drift:
+
+```ruby
+# sedum:createControllerMethod:index {"v":2,"tier":"owned","record":"PR-014","gen":"sha256:…","pkg":"sha256:…","id":{"controller":"users","name":"index"},"kwargs":"sha256:…","body":"sha256:…"}
+```
+
+- `v` is `2`. A marker whose `v` is present and is not 2 is foreign: Sedum reports it and never matches, rewrites or prunes it.
+- `id` is the identifying kwargs, with their resolved values: the action's declared `identity`, else its required kwargs. `sedum regions` and the orphan scan read a region's identity from it, with no recording.
+- `kwargs` is a hash, not an object: `sha256:` and 64 lowercase hex digits over the canonical encoding of every resolved kwarg the region was rendered from, `code` included. A kwarg the invocation omits takes its declared default before hashing, so spelling a default out changes nothing.
+- `body` is the same kind of hash over the region's text between the marker lines, line endings normalized to `\n`, so a hand edit is detectable. The keys are written in the order `v`, `tier`, `record`, `gen`, `pkg`, `writer`, `id`, `kwargs`, `body`.
+
+The kwargs themselves live in the region's recording (see *Recordings*, below). Both encodings are pinned in `conformance/kwargshash/cases.json`, and the marker in `conformance/markers/v2cases.json`.
+
+**A v2 marker is unreadable to a Sedum older than marker v2**, because `kwargs` is a string where that Sedum expects an object. Upgrade every checkout before one of them runs `grow` over a tree another has written, and use `sedum markers migrate` to rewrite an existing tree.
 
 The marker carries the ID of the record that **owns** the region — as an attribute, not as part of a region's identity. A region is identified by its action, its variant, and its selecting kwargs, so two records can never silently produce two copies of one definition; a record selecting a region another record owns is an error naming both, and refining a region means revising its owner (`prov-2026-375f5d4a`). A record also owns regions whose marker names one of its `aliases`.
 
@@ -838,18 +851,18 @@ Two promises follow, and Sedum keeps both.
 **An unrecognised key survives the round trip.** It is retained on read and re-emitted when the region is rewritten, including when a rerun replaces the region's contents:
 
 ```ruby
-  # sedum:createControllerMethod:index {"tier":"owned","record":"PR-014","kwargs":{"controller":"users"},"verified_by":"spec/users.linespec"}
+  # sedum:createControllerMethod:index {"v":2,"tier":"owned","record":"PR-014","id":{"controller":"users"},"verified_by":"spec/users.linespec"}
 ```
 
 Rerun that region and `verified_by` is still there. This is the half that does not come free — ignoring a key on read is what a JSON decoder does anyway; preserving it on write is a separate promise, and Sedum's own writer had to be taught not to drop it.
 
 That promise is what makes the object usable by anything other than Sedum. A tool built above Sedum records its own per-region state under its own keys and finds it intact after the next run, with no schema change and no sidecar file keyed by region — which would reintroduce exactly the maintained state markers exist to avoid.
 
-Preservation is transparent: Sedum does not read, validate, interpret, or reorder a carried key, and a carried key may not shadow one Sedum models. The modelled keys are `tier`, `record`, `gen`, `pkg`, `writer`, and `kwargs`. `gen` and `pkg` are omitted when unknown, and unknown must be read as stale; see the PRD's *The gen and pkg hashes*. Carried keys are written after them in sorted order, so a marker with none is byte-identical to one written before any of this existed.
+Preservation is transparent: Sedum does not read, validate, interpret, or reorder a carried key, and a carried key may not shadow one Sedum models. The modelled keys are `v`, `tier`, `record`, `gen`, `pkg`, `writer`, `id`, `kwargs` and `body`, emitted in that order. `gen` and `pkg` are omitted when unknown, and unknown must be read as stale; see the PRD's *The gen and pkg hashes*. Carried keys are written after them in sorted order, so a marker with none is byte-identical to one written before any of this existed.
 
 `writer` names the tool that last wrote the region, and is omitted when that tool is Sedum. It exists because a demoted tier is otherwise unattributable — a region reading `seeded` cannot say whether a package author declared it or another tool demoted it.
 
-There is no version token. Additive evolution is already free under the object; a token would earn its place only for a breaking change, meaning an existing field whose meaning changes.
+The `v` key is the version token, and it exists because the move from a `kwargs` object to a `kwargs` hash changed the meaning of an existing field. Marker v2 is `"v":2`; a marker with no `v` is v1, and keeps reading as it always did. Every other change stays an addition under the object.
 
 ### What grow does per record
 
@@ -858,20 +871,46 @@ There is no version token. Additive evolution is already free under the object; 
 | The record's owned regions | `grow` | Model call |
 | --- | --- | --- |
 | none yet | select (a normal grow) | yes |
-| some region's `gen` differs from the record's, or is unknown | re-select, then reconcile | yes |
-| `--force`, or `--record` | re-select, then reconcile | yes |
-| every `gen` and every `pkg` matches | skip: nothing expanded, no file written | no |
-| every `gen` matches, some `pkg` differs | re-render those regions in place from their markers | no |
+| some region's `gen` differs from the record's, or is unknown, or a v2 region's recording is missing or does not vouch for it | re-select, then reconcile | yes |
+| `--force`, or `--record` with a path ending in `.json` | re-select, then reconcile | yes |
+| every `gen` and every `pkg` matches, and every region's text matches its `body` | skip: nothing expanded, no file written | no |
+| every `gen` matches, some `pkg` differs | re-render those regions in place: a v2 region from the kwargs of its recording entry, a v1 region from the kwargs on its own marker | no |
+| every `gen` matches, some region's text no longer matches its `body` | edited: a re-render over the edit is refused and fails the run; otherwise nothing is written | no |
 
-A re-rendered region is rebuilt from the action and kwargs on its own marker, which is a one-line recording; nothing is pruned, because nothing was re-selected. A region that can no longer be re-rendered - its action is gone, or it would now render into another file - sends its record to re-select instead. Seeded regions decide nothing and are never rewritten, but a seeded region whose record's `gen` has moved is reported so a person can look.
+A v2 region is vouched for when its record's recording exists, parses, and holds an entry for the region whose `kwargs_hash` is the marker's `kwargs` and equals the hash of the entry's own `kwargs`. A missing or unreadable recording costs a re-select and never fails a run. A re-rendered region is rebuilt from the action and kwargs the recording or its own marker holds, which is a one-line recording; nothing is pruned, because nothing was re-selected. A region that can no longer be re-rendered - its action is gone, or it would now render into another file - sends its record to re-select instead. Seeded regions decide nothing and are never rewritten, but a seeded region whose record's `gen` has moved is reported so a person can look.
+
+**An edited region.** A region whose text no longer hashes to its `body` was changed by hand. Re-selecting overwrites it, as it always has, but a re-render never does: it is refused, nothing is written for that record, and the run fails naming the region. `--force` re-selects every record and so overwrites the edit. v1 regions carry no `body`, so they cannot be reported as edited.
 
 So a second `grow` over unchanged records makes no model call and writes no file.
 
-**`--check`** classifies every record the same way and reports it as current, stale, to re-render, or unknown (no regions yet), with no model call and nothing written, Phase 3's files included. It exits non-zero when any record is stale or needs re-rendering; unknown does not fail. It suits CI and pre-commit hooks, and cannot be combined with `--execute`, `--record`, `--dry-run`, `--force` or `--stop-after`.
+**`--check`** classifies every record the same way and reports it, with no model call and nothing written, Phase 3's files included:
 
-**`--record` re-selects every record.** A recording captures selections, and a record that was skipped or re-rendered made none. Its invocations cannot be rebuilt from markers either: a composite's regions name its unexposed children, which recording validation rejects.
+```
+current    prov-2026-aaaaaaaa
+stale      prov-2026-bbbbbbbb
+             internal/x/y.go  setFunction  (no recording)
+re-render  prov-2026-cccccccc (package changed)
+             internal/x/z.go  setFunction
+edited     prov-2026-dddddddd
+             internal/x/w.go  setFunction  (hand-edited: body hash differs)
+unknown    prov-2026-eeeeeeee (no regions yet)
+unverifiable prov-2026-aaaaaaaa
+             internal/x/v.go  setFunction
 
-**A limit, by decision.** A marker records every kwarg its region was rendered from, including package defaults and `--var` values bound at the time. Re-rendering replays them verbatim, and neither `gen` nor `pkg` covers them, so a changed kwarg default or `--var` value reaches an existing region only with `--force`.
+1 current, 1 stale, 1 to re-render, 1 edited, 1 unknown
+```
+
+A stale v2 region names why: `no recording`, `recording unreadable`, `recording has no entry for this region` or `recording does not match the marker`. `unverifiable` lists the current v1 regions, which have no `body` to compare, and `foreign` lines name regions whose marker version is not known. `--check` exits non-zero when any record is stale, needs re-rendering or is edited, or any orphan exists; unknown, unverifiable and foreign do not fail. It suits CI and pre-commit hooks, and cannot be combined with `--dry-run`, `--force`, `--stop-after` or `--record` with a path ending in `.json`. With `--json` each record's `mode` is one of `skip`, `select`, `re-select`, `re-render`, `edited` or `none`, and an edited region has the change `edited`.
+
+**`--record`.** `--record <dir>` says where the recordings go (default `.sedum/recordings` under `--output`) and forces nothing. `--record <file>.json` instead writes one recording of the whole run to that file and re-selects every record: a recording captures selections, and a record that was skipped or re-rendered made none, and its invocations cannot be rebuilt from markers either, since a composite's regions name its unexposed children, which recording validation rejects.
+
+**A limit, by decision.** A region is re-rendered from the kwargs it was written with, including package defaults and `--var` values bound at the time: a v2 region's come from its recording entry, a v1 region's from its marker. Re-rendering replays them verbatim, and neither `gen` nor `pkg` covers them, so a changed kwarg default or `--var` value reaches an existing region only with `--force`.
+
+### Recordings
+
+Every `grow` that writes also writes one recording per record into `.sedum/recordings/<record-id>.json` under `--output`, or into the directory `--record` names. A record that was selected or re-selected has its file written whole; a re-rendered record's file is rewritten with the entries of the regions just written; a skipped, edited or ungrown record's file is left alone. `--dry-run` and `--check` write nothing.
+
+Each file is a valid recording holding exactly one record, so `--execute` accepts it, with one addition: `regions`, one entry per region written, sorted by file, action, variant and identity, each with `path`, `action`, `variant`, `tier`, `pkg`, `id`, the resolved `kwargs`, `kwargs_hash` and `body`. `phases` still holds what the model selected, which is what a re-select shows the model as its prior selection and what `--execute` replays. The files carry no timestamp or run identifier, and are meant to be committed. With `.sedum/` ignored on a clean checkout every v2 region is stale (`no recording`), and the first `grow` re-selects every record with a model.
 
 ### Retired records, orphans, and stamping
 
@@ -1022,7 +1061,7 @@ so a tool Sedum's authors did not write can check that it complies rather than
 discovering the rules one breakage at a time. Sedum's own test suite reads the
 same corpus, which is what keeps it honest.
 
-Today it covers one format, the ownership marker, and that is a deliberate
+Today it covers one format, the ownership marker, and the hashes it carries, and that is a deliberate
 scope. A tool above Sedum reads `sedum.yaml` and `actions.yaml`, so a misreading
 is its own problem and fails on its own side. It writes recordings, and replay
 validates those terminally at ingestion, so a malformed one is refused before
@@ -1030,6 +1069,8 @@ anything is written. The marker is the only format a foreign tool writes into
 files that Sedum will later re-read and rewrite with no validation gate in
 between — a writer that gets it wrong corrupts state silently, and the first
 breakage looks like a bug in Sedum.
+
+`conformance/markers/v2cases.json` pins the v2 marker the same way, and `conformance/kwargshash/cases.json` pins the encodings of the `kwargs` and `body` hashes.
 
 Cases live in `conformance/markers/cases.json`, each citing the provenance
 record that decided the behavior and what goes wrong for an implementation that
@@ -1056,11 +1097,11 @@ sedum grow --generators ./generators --records ./provenance --output ./build
 | `--output <dir>` | Output directory. Defaults to the current directory. |
 | `--lang <name>` | Prefer the named package where an extension is contested. Repeatable. |
 | `--only <id>` | Generate only the named provenance record. Repeatable. |
-| `--record <path>` | Write a recording of the run to the given path. Re-selects every record, so the recording holds a selection for each. |
+| `--record <path>` | Where per-record recordings go: a directory (default `.sedum/recordings` under `--output`), which forces nothing. A path ending in `.json` instead writes one recording of the whole run to that file and re-selects every record, so the recording holds a selection for each. |
 | `--execute <path>` | Replay a recording. Skips model invocation. Mutually exclusive with `--record`. |
 | `--dry-run` | Run every phase, write nothing. Reports the files that would be created, the injections that would be applied, and the regions that would be pruned. |
-| `--force` | Re-select every record even when its markers say it is current, and let a record whose selection comes back empty prune every region it owns (without `--force` that is an error). Ignored with `--execute`. |
-| `--check` | Report each record as current, stale, to re-render, or unknown, and any orphan regions, from markers. No model call, nothing written; exits non-zero when any record is stale or needs re-rendering, or any orphan exists. With `--execute`, `--check` is a dry replay: it writes nothing and exits non-zero when replaying the recording would change the tree (a stale `gen`, a changed region, or a region the recording no longer selects). A recording written by `--record` without `--only` is complete: replaying it prunes the regions of the records it names that it no longer selects. A partial recording prunes nothing and reports them as `unselected`. |
+| `--force` | Re-select every record even when its markers say it is current, overwrite a region a re-render refused because its text was edited by hand, and let a record whose selection comes back empty prune every region it owns (without `--force` that is an error). A changed kwarg default or `--var` value reaches an existing region only this way. Ignored with `--execute`. |
+| `--check` | Report each record as current, stale, to re-render, edited, or unknown, and any orphan regions, from markers and recordings. A region whose text no longer matches its `body` hash is edited; v1 regions have no `body` and are listed as unverifiable. No model call, nothing written; exits non-zero when any record is stale, edited or needs re-rendering, or any orphan exists. With `--execute`, `--check` is a dry replay: it writes nothing and exits non-zero when replaying the recording would change the tree (a stale `gen`, a changed region, or a region the recording no longer selects). A recording written by `--record` without `--only` is complete: replaying it prunes the regions of the records it names that it no longer selects. A partial recording prunes nothing and reports them as `unselected`. |
 | `--prune-orphans` | Remove regions whose record was removed or deprecated, in files some current record authorizes; report the rest. Ignored with `--execute`. |
 | `--restamp-gen` | With `--execute` and `--records`: stamp each recorded record's current `gen` onto its regions in place of the `gen` the recording carries, so a replay after a record edit reads as current. The recorded selection must still pass replay's own checks. Asserts the selection still satisfies the edited record. |
 | `--orphans` | Print every orphan region, one line each, in place of the per-fate summary (counts and the busiest directories) that `grow` and `--check` print by default. The `--json` report always lists them all. |
@@ -1174,6 +1215,22 @@ sedum validate --generators ./generators
 | `--generators <dir>` | Generators directory. Required. |
 | `--package <name>` | Validate a single package. Repeatable. |
 | `--strict` | Treat warnings as errors. |
+
+### `sedum markers migrate`
+
+```
+sedum markers migrate --generators ./generators --records ./provenance [--output .] [--dry-run] [--var <name>=<value>]...
+```
+
+Rewrites every v1 marker under `--output` as a v2 marker and writes the recording of each record those markers name, with no model call. A region's text is never changed, and a migrated marker keeps the `gen` and `pkg` of the marker it replaces, so `grow --check` reports the same classes after migration as before. A region whose kwargs cannot be hashed, or whose action its package no longer declares, is refused and keeps its v1 marker; a region whose marker names no record, or a record not in the records directory, is left as it is. The report lists `migrated`, `refused` and `left` regions and a count line; any refusal makes the command exit non-zero. Migrating a second time changes nothing.
+
+| Flag | Description |
+|---|---|
+| `--generators <path>` | Generators directory. Required. |
+| `--records <path>` | Records directory. Required. |
+| `--output <path>` | Directory to read markers from. Default `.`. |
+| `--dry-run` | Report what would be migrated and write nothing. |
+| `--var <name>=<value>` | Bind a variable a generator package declares. Repeatable. |
 
 ### `sedum regions`
 
