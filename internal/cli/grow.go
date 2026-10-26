@@ -509,8 +509,9 @@ func runReplay(out, errOut io.Writer, cfg GrowConfig, stopAfter int, name string
 		return fmt.Errorf("check failed: replaying %s would change the tree (stale gen, a changed region, or a region the recording no longer selects)", cfg.Execute)
 	}
 	// The recordings of the records replayed are written after the report, so
-	// a later grow finds what this replay wrote.
-	if !cfg.DryRun && !cfg.Check {
+	// a later grow finds what this replay wrote. A replay stopped at a phase
+	// boundary injected nothing, so it leaves the recordings as they are.
+	if !cfg.DryRun && !cfg.Check && stopAfter == 0 {
 		return pipeline.WriteReplayRecordings(rec, result, filepath.Join(cfg.Output, ".sedum", "recordings"))
 	}
 	return nil
