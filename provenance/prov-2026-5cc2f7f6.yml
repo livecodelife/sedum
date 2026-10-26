@@ -25,6 +25,10 @@ affected_scope:
   - internal/recording/regionkey.go
   - internal/pipeline/capture.go
   - internal/pipeline/recordings.go
+  - internal/pipeline/recordings_test.go
+  - internal/recording/dir_test.go
+  - internal/recording/regionkey_test.go
+  - internal/recording/regions_test.go
 forbidden_scope: []
 related: []
 sealed_at_sha: ""
