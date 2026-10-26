@@ -19,12 +19,15 @@ constraints:
   - Two regions have equal keys exactly when their path, action, variant and id are equal
 affected_scope:
   - internal/recording/regionkey.go
+  - internal/recording/regionkey_test.go
 forbidden_scope: []
 implements: prov-2026-5cc2f7f6
 implements_version: 1
 related: []
 sealed_at_sha: ""
-associated_specs: []
+associated_specs:
+  - path: internal/recording/regionkey_test.go
+    run_command: go test ./internal/recording/ -run '^(TestRegionKey|TestSortingKeys)' -count=1
 associated_traces: []
 monitors: []
 tags:
