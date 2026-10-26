@@ -1,0 +1,113 @@
+id: prov-2026-66bea9f3
+version: 3
+content_hash: sha256:c99a29c211199700a8d26c2f1fb584eafeb3dba10a97533bad970bfaf7008102
+parent_hash: sha256:cd3ca1dfa0d898e9ecdc71e22dee19ba8197d7b9a17ad07c258f201e0f5d6e3c
+reason: 'Marker v2: attributes, parsing, emission and region hashing'
+author: calebcowen@gmail.com
+created_at: "2026-10-26T16:02:51Z"
+spec_hashes:
+  - sha256:05043df07fc082b984a9491a5b3fa5b8eee195fad6f972b3fabf0e4d4670818a
+  - sha256:eb1995a7392c649458492e47b54ec3b71b370dc0e818607a768b2548a95b7176
+  - sha256:0b817f67a4bef48e52717b980b698119c7269f63c410971f719968b0414e792b
+  - sha256:f9fd255c07f0b379b7bcd70c49c77c9e5cc45105865152ba14bdafaa23a6fc6a
+content:
+  id: prov-2026-66bea9f3
+  title: Markers carry gen and pkg hashes as first-class attributes
+  type: blueprint
+  created_at: "2026-10-15"
+  author: calebcowen@gmail.com
+  intent: |
+    First step of hash-aware grow (provenance DESIGN.md, "Sedum: hash-aware
+    grow"). Every region Sedum writes records the two inputs that decide whether
+    it is current, so a later grow can skip, re-render, or re-select per record
+    from markers alone, with no manifest or lockfile:
+
+      # sedum:createControllerMethod:index {"tier":"owned","record":"prov-…","gen":"sha256:…","pkg":"sha256:…","kwargs":{…}}
+
+    - gen: the gen_hash of the record that wrote the region, at write time.
+      SHA-256 over DESIGN.md's canonical encoding of exactly the fields Sedum
+      reads: intent, constraints, affected_scope, forbidden_scope.
+    - pkg: a hash of the action definition and its templates at render time.
+      A pkg mismatch alone means re-render from the marker's own kwargs, no
+      model call.
+
+    This blueprint only writes and parses the two attributes. Nothing reads them
+    to decide anything yet; skip / re-render / re-select is a later blueprint.
+
+    ## gen_hash sits behind a small seam
+
+    The canonical gen_hash belongs to the shared record library prov-lib is
+    building in ~/workspace/provenance. Sedum gets a tiny internal package
+    (internal/genhash) whose one function takes the four fields as plain values
+    and returns "sha256:<hex>". Its interim body implements DESIGN.md's encoding
+    directly; when the library lands, the body delegates to it through a go.mod
+    replace directive and the interim code is deleted. The signature is being
+    agreed with prov-lib in #provisio so the swap touches one file.
+
+    ## pkg is Sedum's own hash
+    pkg covers everything that changes what a template renders for fixed
+    kwargs: the resolved action declaration (kwargs schema with defaults,
+    discriminator, variants, injects_into, anchors, identity), the content of
+    each of its templates, and the package's transforms and op_exceptions. The
+    package-wide part is deliberately conservative: an unrelated transform edit
+    costs a re-render, never a model call, while missing a real input would leave
+    a stale region looking current. It is computed once at package load and
+    carried on the Action.
+  constraints:
+    - An absent gen or pkg means unknown and must read as stale to later consumers, never as current. Replay without records (no record to hash) writes no gen.
+    - A marker already carrying gen or pkg as an unknown key (written by a foreign tool) is promoted to the declared field on parse and never also re-emitted from Extra.
+    - Both values use the form "sha256:" + 64 lowercase hex. The interim gen_hash follows DESIGN.md exactly (sorted keys, UTF-8 NFC, trimmed and collapsed whitespace, list order kept) and switches to prov-lib's implementation without changing its callers.
+    - A composite's regions carry the pkg hash of the child action named on the marker, since that is what re-rendering replays.
+    - pkg is deterministic across loads, machines and map iteration order; the encoding is documented in conformance/ so a harness can compute it without linking Sedum (TOOL_BOUNDARIES.md section 4).
+    - The marker conformance corpus gains cases for parsing, emission order, omission when empty, and promotion from Extra; corpus_version increments.
+    - No grow behavior changes in this record beyond writing the attributes.
+    - gen and pkg are declared attributes, not Extra keys. A v1 marker's declared order is tier, record, gen, pkg, writer, kwargs and a v2 marker's is v, tier, record, gen, pkg, writer, id, kwargs, body; gen and pkg are omitted when empty, so a marker written without them stays byte-identical to one written before they existed.
+    - inject.Marker has the field Version of type int, 0 for a v1 marker and 2 for a v2 marker, the field Foreign of type bool, the field KwargsHash of type string and the field Body of type string; KwargsHash and Body are empty on a v1 marker.
+    - On a v2 marker the Marker's Kwargs field holds only the identity kwargs, the id object; on a v1 marker it holds every kwarg.
+    - Marker.Open writes a v2 attribute object when Version is 2, from an attrsV2 value whose id is Kwargs, whose kwargs is KwargsHash and whose body is Body, and writes the v1 object otherwise.
+    - 'parseOpen reads the key v of the attribute object: absent is a v1 marker with Version 0, the number 2 is a v2 marker with Version 2, and any other value, including 1, a string or a fractional number, is a foreign marker.'
+    - 'parseOpen reads a v1 marker''s kwargs as an object, and a v1 marker whose kwargs is not an object is an error whose text is marker for its label carries attributes that are not readable as JSON: kwargs must be an object.'
+    - 'parseOpen reads a v2 marker''s id as Kwargs, kwargs as KwargsHash and body as Body, and a v2 marker whose kwargs is not a string is an error whose text is marker for its label carries attributes that are not readable as JSON: kwargs must be a string.'
+    - A v2 marker with no id, kwargs or body reads with those fields empty, and no error.
+    - A foreign marker is returned by parseOpen with Foreign true, Version 0, its Action and Variant, the default tier and writer, no record, gen, pkg, kwargs, KwargsHash or Body, and every attribute key as read in Extra.
+    - An attribute key parseOpen does not model is carried in Extra, and on a v1 marker that includes the keys id and body; on a v2 marker the keys v, tier, record, gen, pkg, writer, id, kwargs and body are never put in Extra.
+    - FindRegions sets each Region's BodyHash to inject.BodyHash of the text from the first byte after the opening marker line's newline to the first byte of the closing marker line, whatever the marker's version, with marker lines and their indentation excluded and line endings as they are in the file.
+    - applyOne builds a marker with Version 2 whose Kwargs holds the entries of the invocation's Kwargs named by selectingKwargs for its action, and whose KwargsHash is KwargsHash of all the invocation's Kwargs.
+    - 'When KwargsHash fails, applyOne returns an error whose text is action followed by the label, the text : kwargs cannot be recorded on a marker: and the cause, and writes nothing.'
+    - applyOne never matches, replaces or reports as owned a region whose marker is Foreign, and leaves it as it is.
+    - renderRegion receives an Invocation, a Marker and an indent string and returns the rendered region, the body hash and an error; the body hash is BodyHash of exactly the text written between the marker lines, and a v2 marker is written with that hash as its Body.
+    - The inject.Result of a written region has the field Marker, the marker written including its Body hash, and the field Kwargs, the invocation's resolved kwargs; both are the zero value for a pruned, skipped, unselected or held region.
+  affected_scope:
+    - internal/inject/marker.go
+    - internal/inject/inject.go
+    - internal/inject/*_test.go
+    - internal/genhash/*.go
+    - internal/genpkg/schema.go
+    - internal/genpkg/load.go
+    - internal/genpkg/pkghash.go
+    - internal/genpkg/*_test.go
+    - internal/record/record.go
+    - internal/record/*_test.go
+    - internal/expand/expand.go
+    - internal/expand/*_test.go
+    - internal/pipeline/pipeline.go
+    - internal/pipeline/replay.go
+    - internal/pipeline/*_test.go
+    - internal/pipeline/capture.go
+    - internal/recording/recording.go
+    - internal/recording/*_test.go
+    - conformance/README.md
+    - conformance/markers/cases.json
+    - conformance/pkghash/cases.json
+    - go.mod
+    - go.sum
+    - PRD.md
+  related:
+    - prov-2026-72775ae5
+    - prov-2026-c6580f1e
+    - prov-2026-36c8a99c
+  associated_specs:
+    - path: internal/genhash/genhash_test.go
+    - path: internal/genpkg/pkghash_test.go
+    - path: internal/inject/conformance_test.go
+    - path: internal/pipeline/pipeline_test.go
