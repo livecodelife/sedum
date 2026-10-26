@@ -1,0 +1,32 @@
+id: prov-2026-679969df
+version: 1
+content_hash: sha256:5ceff32d08c2a29974c107c0dd43d78b5c8e4f1f882a999438c78f511cec25bf
+parent_hash: ""
+reason: ""
+author: calebcowen@gmail.com
+created_at: "2026-10-26T20:41:40Z"
+spec_hashes:
+  - sha256:89c13d56a42055f1fbbdecf634b5fa7793f38d79bfde50a53a2d02de69a1dd5c
+content:
+  id: prov-2026-679969df
+  title: 'go: internal/pipeline/classify.go, rerenderOrSkip'
+  type: imprint
+  created_at: "2026-10-26"
+  author: calebcowen@gmail.com
+  intent: The rerenderOrSkip function finishes classifying a record whose regions are current, re-rendering the pkg-stale ones.
+  constraints:
+    - The function lives in internal/pipeline/classify.go, package pipeline, and adds no imports
+    - rerenderOrSkip receives a pointer to the Classification, the record pointer, the record's resolved files, the slice of current inject.OwnedRegion and a slice of recording.Region, the Regions of the record's recording, empty when it has none, and returns a Mode.
+    - A v2 region needing a re-render is re-rendered from the Kwargs of the entry with its recording.RegionKey.
+    - A v2 region needing a re-render that has no such entry sends its record to re-select.
+    - A v1 region needing a re-render is re-rendered from the kwargs on its own marker, with no model call and no recording needed.
+    - A pkg-stale region whose action no longer exists, or whose re-rendered path is not the file it sits in, sends its record to re-select.
+  affected_scope:
+    - internal/pipeline/classify.go
+    - internal/pipeline/classify_v2_test.go
+  implements: prov-2026-9621daed
+  implements_version: 11
+  associated_specs:
+    - path: internal/pipeline/classify_v2_test.go
+  tags:
+    - marker-v2
