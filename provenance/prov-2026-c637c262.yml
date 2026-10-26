@@ -2,8 +2,8 @@ id: prov-2026-c637c262
 title: Replay can restamp gen and reconcile a complete recording
 type: blueprint
 status: open
-version: 8
-reason: 'Marker v2 records: remove cross-record duplicates and tighten shapes'
+version: 9
+reason: Blueprints state behaviour; function detail lives in imprints
 created_at: "2026-10-16"
 author: calebcowen@gmail.com
 intent: |-
@@ -21,7 +21,6 @@ constraints:
   - --restamp-gen needs --records and is an error without it.
   - --restamp-gen stamps each named record's current gen on its regions in place of the recorded gen.
   - A record the recording names that is missing or deprecated is not restamped; it is reported and its regions are written with the recorded gen.
-  - 'Replay prints one line for each restamped record: restamped <id>: gen <old8> -> <new8>.'
   - A recording written by a run that re-selected every record without --only has the top-level key complete with the value true, and other recordings omit it.
   - Replaying a complete recording prunes the owned regions of the records it names that it no longer selects, in files the recording covers.
   - Replaying a partial recording prunes nothing and reports each region it no longer selects as unselected.
@@ -29,7 +28,6 @@ constraints:
   - grow --execute <recording> --check writes nothing and exits non-zero when replaying would change anything.
   - Both complete-recording behaviours respect --dry-run
   - --record is rejected with --execute, whatever the value of --record
-  - runReplay calls pipeline.WriteReplayRecordings, which receives the replayed recording.Recording, a pointer to Result and the recordings directory string and returns an error, after printing the replay report, when the replay is not a dry run or a check
 affected_scope:
   - internal/recording/recording.go
   - internal/pipeline/replay.go
