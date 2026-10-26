@@ -12,25 +12,14 @@ constraints:
   - sedum markers migrate writes the recordings of the records the markers name
   - sedum markers migrate calls no model
   - A region's text is never changed by migration
-  - gen on a marker is kept as it was
-  - pkg on a marker is kept as it was
-  - A region whose kwargs cannot be hashed is refused and reported
-  - A refused region keeps its v1 marker
-  - A v1 region whose marker names no record is left as it is and reported
-  - A v1 region whose marker names a record that is not in the records directory is left as it is and reported
+  - A migrated marker keeps the gen and pkg of the marker it replaces
+  - A region that cannot be migrated is refused and reported, and keeps its v1 marker
+  - A v1 region whose marker names no known record is left as it is and reported
+  - sedum markers migrate --dry-run writes nothing
   - grow --check reports the same current and stale classes after migration as before it
   - Re-rendering a migrated region from its recording reproduces its body
   - Migrating a second time changes nothing
   - The markers command is registered on the root command
-  - The markers migrate command takes the flag --output, the directory the markers are read from
-  - The markers migrate command takes the flag --dry-run
-  - With --dry-run the markers migrate command writes no file and no recording
-  - A refused region makes the markers migrate command exit with a non-zero status
-  - A migrated record's recording has the gen found on its markers, not the current gen of the record
-  - A region whose action its package no longer declares is refused
-  - The markers migrate command takes the required flag --generators, the generator packages directory
-  - The markers migrate command takes the required flag --records, the provenance records directory
-  - The markers migrate command takes the repeatable flag --var, a name=value binding of a package variable
 affected_scope:
   - internal/pipeline/migrate.go
   - internal/cli/markers.go
