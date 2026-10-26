@@ -1,0 +1,36 @@
+id: prov-2026-1dd3221d
+version: 1
+content_hash: sha256:678a4b20fcaa6060ac16fa072de5206c0248d4b862bcbb649f5de519e268fece
+parent_hash: ""
+reason: ""
+author: calebcowen@gmail.com
+created_at: "2026-10-26T20:41:33Z"
+spec_hashes:
+  - sha256:111cdfeb8a7dad24e3265d6fa79d07d02edbee9e30562843b62fb197fe2f4cbe
+content:
+  id: prov-2026-1dd3221d
+  title: 'go: internal/inject/marker.go, Marker'
+  type: imprint
+  created_at: "2026-10-26"
+  author: calebcowen@gmail.com
+  intent: The Marker struct is one region's opening marker as read and as written.
+  constraints:
+    - The type lives in internal/inject/marker.go, package inject
+    - The file imports, stated once here for every declaration in the file, the standard library packages bytes, encoding/json, fmt, sort and strings, and github.com/livecodelife/sedum/internal/genpkg, all as values
+    - Marker is an exported struct with the fields Action, Variant, Record, Gen, Pkg and Writer of type string, Tier of type Tier, Kwargs of type map[string]any, Extra of type map[string]json.RawMessage, Version of type int, Foreign of type bool, and KwargsHash and Body of type string
+    - Version is 0 for a v1 marker and 2 for a v2 marker
+    - Foreign is true for a marker whose v is not 2 and not absent
+    - On a v1 marker Kwargs holds every kwarg the region was rendered from
+    - On a v2 marker Kwargs holds only the identity kwargs, the id object
+    - KwargsHash holds the kwargs hash of a v2 marker and is empty on any other marker
+    - Body holds the body hash of a v2 marker and is empty on any other marker
+    - Extra holds every attribute key the marker format does not model, as read
+  affected_scope:
+    - internal/inject/marker.go
+    - internal/inject/markerv2_test.go
+  implements: prov-2026-a3771fbf
+  implements_version: 1
+  associated_specs:
+    - path: internal/inject/markerv2_test.go
+  tags:
+    - marker-v2
