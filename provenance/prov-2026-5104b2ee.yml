@@ -9,11 +9,11 @@ author: calebcowen@gmail.com
 intent: The MigrateConfig type holds what a marker migration reads.
 constraints:
   - The type lives in the new file internal/pipeline/migrate.go, package pipeline
-  - The file imports, stated once here for every declaration in the file, the standard library packages errors, fmt, io/fs, os, path/filepath, sort and strings, and the packages github.com/livecodelife/sedum/internal/genpkg, github.com/livecodelife/sedum/internal/inject, github.com/livecodelife/sedum/internal/record, github.com/livecodelife/sedum/internal/recording and github.com/livecodelife/sedum/internal/resolve, all as values
   - MigrateConfig is an exported struct with the fields Generators, Records and Output of type string
   - MigrateConfig has the field Variables of type map[string]string
   - MigrateConfig has the field DryRun of type bool
   - MigrateConfig has no field for excluded directories, so Migrate passes none
+  - The file imports, stated once here for every declaration in the file, the standard library packages errors, fmt, io/fs, os, path, path/filepath, sort and strings, and the packages github.com/livecodelife/sedum/internal/genpkg, github.com/livecodelife/sedum/internal/inject, github.com/livecodelife/sedum/internal/record, github.com/livecodelife/sedum/internal/recording and github.com/livecodelife/sedum/internal/resolve, all as values
 affected_scope:
   - internal/pipeline/migrate.go
   - internal/pipeline/migrate_test.go
