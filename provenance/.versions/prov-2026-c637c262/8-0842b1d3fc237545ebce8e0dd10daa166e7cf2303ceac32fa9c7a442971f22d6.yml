@@ -1,0 +1,53 @@
+id: prov-2026-c637c262
+version: 8
+content_hash: sha256:0842b1d3fc237545ebce8e0dd10daa166e7cf2303ceac32fa9c7a442971f22d6
+parent_hash: sha256:a7b865b0c850721665779be970995ca265eaf9d7c63a5bb1706bb8c9c2607de6
+reason: 'Marker v2 records: remove cross-record duplicates and tighten shapes'
+author: calebcowen@gmail.com
+created_at: "2026-10-26T16:30:20Z"
+spec_hashes:
+  - sha256:c847c33719b4f2d4e6499eff51a935cf8d4208983212a9f5dd62859ed122053a
+content:
+  id: prov-2026-c637c262
+  title: Replay can restamp gen and reconcile a complete recording
+  type: blueprint
+  created_at: "2026-10-16"
+  author: calebcowen@gmail.com
+  intent: |-
+    Three features of `sedum grow --execute`.
+
+    ## 1. --restamp-gen
+    `grow --execute <recording> --records <dir> --restamp-gen` stamps each named record's current gen on its regions instead of the recorded one. It is an explicit assertion, like `--stamp`: the person says the recorded selection still satisfies the edited record. Every recorded invocation is still validated against the current packages, and every path against the current record's scope.
+
+    ## 2. Complete recordings reconcile
+    A recording written by a run that re-selected every record, without --only, has the top-level key `complete` with the value true. Replaying a complete recording prunes the owned regions of the records it names that it no longer selects, in files the recording covers, in the same all-or-nothing write. Replaying a partial recording prunes nothing and reports each such region as unselected.
+
+    ## 3. --check with --execute
+    `grow --execute <recording> --check` is a dry replay that writes nothing and exits non-zero when replaying would change anything.
+  constraints:
+    - --restamp-gen needs --records and is an error without it.
+    - --restamp-gen stamps each named record's current gen on its regions in place of the recorded gen.
+    - A record the recording names that is missing or deprecated is not restamped; it is reported and its regions are written with the recorded gen.
+    - 'Replay prints one line for each restamped record: restamped <id>: gen <old8> -> <new8>.'
+    - A recording written by a run that re-selected every record without --only has the top-level key complete with the value true, and other recordings omit it.
+    - Replaying a complete recording prunes the owned regions of the records it names that it no longer selects, in files the recording covers.
+    - Replaying a partial recording prunes nothing and reports each region it no longer selects as unselected.
+    - The sedum.grow/1 report names a region a partial recording no longer selects as change unselected.
+    - grow --execute <recording> --check writes nothing and exits non-zero when replaying would change anything.
+    - Both complete-recording behaviours respect --dry-run
+    - --record is rejected with --execute, whatever the value of --record
+    - runReplay calls pipeline.WriteReplayRecordings, which receives the replayed recording.Recording, a pointer to Result and the recordings directory string and returns an error, after printing the replay report, when the replay is not a dry run or a check
+  affected_scope:
+    - internal/recording/recording.go
+    - internal/pipeline/replay.go
+    - internal/pipeline/restamp.go
+    - internal/pipeline/restamp_test.go
+    - internal/cli/grow.go
+    - internal/cli/config.go
+    - internal/cli/flags_test.go
+    - conformance/formats/**
+    - README.md
+    - PRD.md
+    - internal/cli/report.go
+  associated_specs:
+    - path: internal/pipeline/restamp_test.go

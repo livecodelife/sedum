@@ -1,39 +1,35 @@
 id: prov-2026-c637c262
 title: Replay can restamp gen and reconcile a complete recording
 type: blueprint
-status: implemented
-version: 4
-reason: 'JSON report: name the unselected regions a partial replay leaves, found after the branch was pushed'
+status: open
+version: 8
+reason: 'Marker v2 records: remove cross-record duplicates and tighten shapes'
 created_at: "2026-10-16"
 author: calebcowen@gmail.com
-intent: |
-  Two gaps in `sedum grow --execute` found by migrate-dry's lifecycle testbed (step 14) and prov-cli's 88-region report (#provisio, 2026-10-16). Both are fixed with sedum's own checks and never by editing a hash.
+intent: |-
+  Three features of `sedum grow --execute`.
 
   ## 1. --restamp-gen
-  A recording carries the gen of the record version it was selected from (b9298192). After the record is edited, replaying that recording stamps the OLD gen, so `--check` keeps calling the region stale, and the only way out was a model regrow. `grow --execute <recording> --records <dir> --restamp-gen` stamps each named record's CURRENT gen instead of the recorded one. It is an explicit assertion, like `--stamp`: the person says the recorded selection still satisfies the edited record.
-  - Needs --records; without it, an error (there is no current gen to take).
-  - Guarded by checks that already run: every recorded invocation is validated against the current packages, and every path against the current record's affected_scope and forbidden_scope. A failing check is the same terminal error as today, so a restamp never papers over a selection that no longer fits.
-  - A record the recording names that is missing or deprecated is not restamped; it is reported and its regions are written with the recorded gen as today.
-  - Report: one line per record, `restamped <id>: gen <old8> -> <new8>`, also in the run log. Without the flag nothing changes.
+  `grow --execute <recording> --records <dir> --restamp-gen` stamps each named record's current gen on its regions instead of the recorded one. It is an explicit assertion, like `--stamp`: the person says the recorded selection still satisfies the edited record. Every recorded invocation is still validated against the current packages, and every path against the current record's scope.
 
   ## 2. Complete recordings reconcile
-  Replay never prunes (375f5d4a): a recording may be partial. So after a kwargs edit that changes an identity kwarg (get -> post), replay writes the new region and leaves the old one beside it, owned by a live record, neither orphan nor stale.
-  - `--record` re-selects every record, so a recording it writes WITHOUT --only is complete. The recording gets a top-level `"complete": true` (additive; omitted otherwise; older recordings and every foreign writer read as partial).
-  - Replaying a complete recording reconciles the records it names, like grow: their owned regions the recording no longer selects are pruned in the same all-or-nothing write, in files the recording covers only. Records not named are untouched.
-  - Replaying a partial recording prunes nothing and reports each such region as `unselected <path> <action> (record <id>)`, with a one-line count, so the leftover is visible.
-  - Both behaviours respect --dry-run.
+  A recording written by a run that re-selected every record, without --only, has the top-level key `complete` with the value true. Replaying a complete recording prunes the owned regions of the records it names that it no longer selects, in files the recording covers, in the same all-or-nothing write. Replaying a partial recording prunes nothing and reports each such region as unselected.
 
-  ## 3. --check verifies both
-  `grow --execute <recording> --check` is a dry replay that writes nothing and exits non-zero when replaying would change anything: a stale gen (with or without --restamp-gen, so a restamp is verified by running the same command with the flag) or an unselected/stray region of a record the recording covers. A clean exit means the tree already is what the recording produces. The existing `--check` without --execute is unchanged.
-
-  ## Not in scope
-  Evidence: a completed record whose code moved stays stale [code] until prov-cli's `evidence refresh`. Replay with an edited recording needs nothing new.
-
-  ## Generate first
-  internal/pipeline/restamp.go (restampGen, reconcile-by-recording helpers) and its tests are grown by sedum-haiku via the go package. The thin wiring in recording.go, replay.go, grow.go, config.go, flags_test.go and the README/PRD flag tables is handwritten, because these files are not region-owned.
+  ## 3. --check with --execute
+  `grow --execute <recording> --check` is a dry replay that writes nothing and exits non-zero when replaying would change anything.
 constraints:
-  - 'Merged with main (orphan summary, PR #4): both flags coexist, and records pinned to the merged flag test are refreshed.'
+  - --restamp-gen needs --records and is an error without it.
+  - --restamp-gen stamps each named record's current gen on its regions in place of the recorded gen.
+  - A record the recording names that is missing or deprecated is not restamped; it is reported and its regions are written with the recorded gen.
+  - 'Replay prints one line for each restamped record: restamped <id>: gen <old8> -> <new8>.'
+  - A recording written by a run that re-selected every record without --only has the top-level key complete with the value true, and other recordings omit it.
+  - Replaying a complete recording prunes the owned regions of the records it names that it no longer selects, in files the recording covers.
+  - Replaying a partial recording prunes nothing and reports each region it no longer selects as unselected.
   - The sedum.grow/1 report names a region a partial recording no longer selects as change unselected.
+  - grow --execute <recording> --check writes nothing and exits non-zero when replaying would change anything.
+  - Both complete-recording behaviours respect --dry-run
+  - --record is rejected with --execute, whatever the value of --record
+  - runReplay calls pipeline.WriteReplayRecordings, which receives the replayed recording.Recording, a pointer to Result and the recordings directory string and returns an error, after printing the replay report, when the replay is not a dry run or a check
 affected_scope:
   - internal/recording/recording.go
   - internal/pipeline/replay.go
@@ -45,28 +41,10 @@ affected_scope:
   - conformance/formats/**
   - README.md
   - PRD.md
-  - internal/inject/inject.go
-  - internal/pipeline/pipeline.go
-  - provenance/.versions/**
-  - .provenance/**
-  - provenance/prov-2026-010fd5b2.yml
-  - provenance/prov-2026-5176a0b7.yml
-  - provenance/prov-2026-59535684.yml
-  - provenance/prov-2026-5d9b8590.yml
-  - provenance/prov-2026-6fc3d13d.yml
-  - provenance/prov-2026-8602b702.yml
-  - provenance/prov-2026-86a21f53.yml
-  - provenance/prov-2026-91c54941.yml
-  - provenance/prov-2026-9621daed.yml
-  - provenance/prov-2026-aa4b736d.yml
-  - provenance/prov-2026-b5465dfa.yml
-  - provenance/prov-2026-cc73cf61.yml
-  - provenance/prov-2026-d2f1bdf2.yml
-  - provenance/prov-2026-e4bab53b.yml
   - internal/cli/report.go
 forbidden_scope: []
 related: []
-sealed_at_sha: eff37db80716b322cd15ddd2364140d793cad842
+sealed_at_sha: ""
 associated_specs:
   - path: internal/pipeline/restamp_test.go
     run_command: go test ./internal/pipeline -count=1 -run 'Restamp|Reconcile'
