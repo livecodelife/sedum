@@ -15,6 +15,7 @@ constraints:
   - When CanonicalKwargs returns an error the function returns an empty string and that error unchanged
   - 'Otherwise the function returns the text sha256: followed by the 64 lower-case hex digits of the SHA-256 of the canonical bytes'
   - The hash of empty kwargs is sha256:44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a
+  - The hash of a kwargs map that holds a declared default's value is the hash of the invocation's resolved kwargs, so spelling the default out in the invocation does not change it
 affected_scope:
   - internal/inject/canon.go
 forbidden_scope: []
