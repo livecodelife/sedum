@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.9.2
+
+- `sedum markers migrate` stages every replacement file beside the file it replaces, writes the recordings, and only then renames, so a migration that fails part-way leaves the tree unchanged and files that were locked stay locked.
+
 ## 0.9.1
 
 - `sedum markers migrate` skips, and counts in its report, the scope paths no loaded package claims instead of failing on them, and judges a file's regions against the package that declares their actions.
