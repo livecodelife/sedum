@@ -1,0 +1,37 @@
+id: prov-2026-13b9ece1
+version: 1
+content_hash: sha256:6de36a4d85e815419ab4695b5e04071741a62badf4e2dcbf091f4084d6393cf2
+parent_hash: ""
+reason: ""
+author: calebcowen@gmail.com
+created_at: "2026-10-26T20:41:32Z"
+spec_hashes:
+  - sha256:07559d09acab019446fafb3377ae11f1dcdddc5615525b712e7e0629dc14e9cf
+content:
+  id: prov-2026-13b9ece1
+  title: 'go: internal/cli/grow.go, printClassifications'
+  type: imprint
+  created_at: "2026-10-26"
+  author: calebcowen@gmail.com
+  intent: The printClassifications function prints grow --check's report.
+  constraints:
+    - The function lives in internal/cli/grow.go, package cli, and adds no imports
+    - grow --check, implemented in internal/cli/grow.go by printClassifications, prints for a record in ModeEdited the word edited padded to ten characters, a space and the record id.
+    - 'grow --check prints under it, for each edited region, thirteen spaces, the path, two spaces, the region''s label and the text two spaces and (hand-edited: body hash differs).'
+    - The label of a region is what label, defined in internal/cli/grow.go, which receives an action and a variant string and returns a string, returns.
+    - grow --check prints a stale region's line with the text two spaces, an opening parenthesis, its Reason and a closing parenthesis after the label, when the Reason is not empty.
+    - grow --check prints, after the record lines, the word unverifiable padded to ten characters, a space and the record id for each record with unverifiable regions.
+    - grow --check prints each unverifiable region under its record as thirteen spaces, the path, two spaces and the label.
+    - grow --check prints for each foreign region the word foreign, a space, the path, two spaces, the label and the text two spaces and (marker version not known; left alone).
+    - grow --check's final line is N current, N stale, N to re-render, N edited, N unknown, in that order, and a record in ModeEdited counts only as edited.
+    - printClassifications receives an io.Writer and a pointer to pipeline.Result, and returns nothing
+    - printClassifications prints nothing for the Rerender regions of a record in ModeEdited, only its edited regions
+  affected_scope:
+    - internal/cli/grow.go
+    - internal/cli/check_v2_test.go
+  implements: prov-2026-9621daed
+  implements_version: 11
+  associated_specs:
+    - path: internal/cli/check_v2_test.go
+  tags:
+    - marker-v2
