@@ -1,0 +1,38 @@
+id: prov-2026-c61e438c
+title: 'go: internal/pipeline/migrate.go, stageFile'
+type: imprint
+status: implemented
+version: 1
+reason: ""
+created_at: "2026-10-26"
+author: calebcowen@gmail.com
+intent: The stageFile function writes new content to a new file beside a target file and returns that file's path.
+constraints:
+  - The function lives in internal/pipeline/migrate.go, package pipeline, and adds no imports
+  - 'The function is unexported, named stageFile, and receives three positional arguments: target string, content string and mode of type fs.FileMode'
+  - The function returns the path of the new file as a string and an error
+  - It creates the new file with os.CreateTemp from the standard library package os, in the directory that filepath.Dir from path/filepath returns for target
+  - The name of the new file starts with .sedum-migrate- followed by a random string
+  - It writes content to the new file as its whole text
+  - It sets the permission bits of the new file to mode, whatever the process umask
+  - It closes the new file before returning
+  - It never changes target
+  - On success it returns the new file's path and a nil error
+  - When creating, writing, setting the mode of or closing the new file fails it removes the new file
+  - When creating, writing, setting the mode of or closing the new file fails it returns an empty path and that error
+  - fs.FileMode is the type from io/fs, which the file already imports
+affected_scope:
+  - internal/pipeline/migrate.go
+  - internal/pipeline/migrate_atomic_test.go
+forbidden_scope: []
+implements: prov-2026-0a398351
+implements_version: 3
+related: []
+sealed_at_sha: eddb36c9b0f8dfe885b472435aa04226620949b9
+associated_specs:
+  - path: internal/pipeline/migrate_atomic_test.go
+    run_command: go test -count=1 ./internal/pipeline/ -run 'TestMigrateRewritesAReadOnly|TestMigrateThatCannotWriteOne'
+associated_traces: []
+monitors: []
+tags:
+  - marker-v2
