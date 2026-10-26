@@ -405,16 +405,34 @@ func Migrate(cfg MigrateConfig) (*MigrateReport, error) {
 	report.Recordings = ids
 
 	if !cfg.DryRun {
+		// Every replacement file is staged beside the file it replaces before
+		// anything is changed, so a file that cannot be replaced stops the
+		// migration with the tree as it was. A rename needs the directory to
+		// be writable, not the file, so a locked file is replaced and stays
+		// locked.
+		staged := make([]string, 0, len(rewrites))
+		discard := func() {
+			for _, tmp := range staged {
+				_ = os.Remove(tmp)
+			}
+		}
 		for _, w := range rewrites {
-			if err := os.WriteFile(w.path, []byte(w.content), w.mode); err != nil {
+			tmp, err := stageFile(w.path, w.content, w.mode)
+			if err != nil {
+				discard()
 				return nil, err
 			}
-			if err := os.Chmod(w.path, w.mode); err != nil {
-				return nil, err
-			}
+			staged = append(staged, tmp)
 		}
 		for _, rec := range built {
 			if err := recording.WriteRecords(dir, rec); err != nil {
+				discard()
+				return nil, err
+			}
+		}
+		for i, w := range rewrites {
+			if err := os.Rename(staged[i], w.path); err != nil {
+				discard()
 				return nil, err
 			}
 		}
@@ -467,4 +485,30 @@ func packageDeclaringActions(packages *genpkg.Set, rel, text string, found *genp
 		}
 	}
 	return best
+}
+
+// stageFile writes content to a new file in the directory of target, with the
+// given mode, and returns its path. The file is removed again on failure.
+func stageFile(target, content string, mode fs.FileMode) (string, error) {
+	tmp, err := os.CreateTemp(filepath.Dir(target), ".sedum-migrate-*")
+	if err != nil {
+		return "", err
+	}
+	name := tmp.Name()
+	fail := func(err error) (string, error) {
+		_ = tmp.Close()
+		_ = os.Remove(name)
+		return "", err
+	}
+	if _, err := tmp.WriteString(content); err != nil {
+		return fail(err)
+	}
+	if err := tmp.Chmod(mode); err != nil {
+		return fail(err)
+	}
+	if err := tmp.Close(); err != nil {
+		_ = os.Remove(name)
+		return "", err
+	}
+	return name, nil
 }
