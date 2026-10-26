@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.9.1
+
+- `sedum markers migrate` skips, and counts in its report, the scope paths no loaded package claims instead of failing on them, and judges a file's regions against the package that declares their actions.
+
 ## 0.9.0
 
 - **Marker v2.** Every region is written with a marker that carries `"v":2`, an `id` object of its identifying kwargs, and `kwargs` and `body` hashes in place of the kwargs object. Each `grow` that writes also writes `.sedum/recordings/<record-id>.json` (or the directory `--record` names), which holds the kwargs a re-render needs; a missing recording costs a re-select, never a failure. `grow --check` reports a region whose text no longer matches its `body` as `edited` and fails; a re-render over a hand edit is refused, and `--force` overwrites it. v1 regions are listed as `unverifiable` and keep re-rendering from their own kwargs. `--record <file>.json` keeps re-selecting every record. `sedum markers migrate` rewrites an existing tree with no model. A v2 marker cannot be read by an older Sedum, so upgrade before sharing a tree. New corpora: `conformance/markers/v2cases.json` and `conformance/kwargshash/cases.json`.
