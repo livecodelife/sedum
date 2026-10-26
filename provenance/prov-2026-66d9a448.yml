@@ -1,0 +1,27 @@
+id: prov-2026-66d9a448
+title: 'go: internal/cli/report.go, buildGrowReport'
+type: imprint
+status: draft
+version: 1
+reason: ""
+created_at: "2026-10-26"
+author: calebcowen@gmail.com
+intent: The buildGrowReport function builds the sedum.grow/1 JSON document for a run.
+constraints:
+  - The function lives in internal/cli/report.go, package cli, and adds no imports
+  - The function receives a pointer to pipeline.Result and the bools dryRun, replay and check, and returns a growReport
+  - A record whose classification is edited has the mode text edited, taken from Mode.String.
+  - Under check, each edited region of a record is listed in that record's regions with its file, action, variant and the change edited.
+  - An edited region does not set its record's changed flag.
+affected_scope:
+  - internal/cli/report.go
+forbidden_scope: []
+implements: prov-2026-bf01cd6b
+implements_version: 11
+related: []
+sealed_at_sha: ""
+associated_specs: []
+associated_traces: []
+monitors: []
+tags:
+  - marker-v2
