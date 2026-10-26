@@ -1,7 +1,7 @@
 id: prov-2026-5cc2f7f6
 title: Grow writes a recording per record holding what rebuilds its regions
 type: blueprint
-status: open
+status: implemented
 version: 1
 reason: ""
 created_at: "2026-10-26"
@@ -33,7 +33,7 @@ affected_scope:
   - internal/pipeline/recordings_merge_test.go
 forbidden_scope: []
 related: []
-sealed_at_sha: ""
+sealed_at_sha: 4f296864ab2df5bb9d14390e048e4d77cdae295b
 associated_specs:
   - path: internal/pipeline/recordings_test.go
     run_command: go test ./internal/pipeline/ -run '^TestCapture|^(TestWriteReplayRecordings|TestAReplayedRecordingsFiles)|^TestWriteRecordings|^TestRegionsOf' -count=1
