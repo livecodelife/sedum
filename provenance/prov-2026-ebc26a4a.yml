@@ -36,6 +36,8 @@ constraints:
   - The migrated slice is in file order and each element holds the Package argument
   - Content with no v1 region is returned as it is, with empty slices
   - A package declares an action when the action's name is a key of the package's Actions map
+  - A region whose marker names no record, or a record the known function does not accept, is left even when its action is not declared by the package
+  - A region is first tested for being foreign or v2, then for being left, then for being refused
 affected_scope:
   - internal/pipeline/migrate.go
 forbidden_scope: []
