@@ -1,6 +1,6 @@
 id: prov-2026-23653fdc
 title: A dry run injects into what Phase 3 would have written
-status: open
+status: implemented
 version: 3
 reason: Documentation describes marker v2
 created_at: "2026-08-14"
@@ -60,7 +60,7 @@ type: imprint
 implements: prov-2026-f095e19f
 implements_version: 1
 related: []
-sealed_at_sha: ""
+sealed_at_sha: f59beca31a2d30209c78c74d8970e22bcf4e3be5
 associated_specs:
   - path: internal/inject/inject_test.go
     run_command: go test -count=1 ./$(dirname {{path}})
