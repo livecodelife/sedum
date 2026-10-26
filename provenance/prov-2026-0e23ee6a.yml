@@ -12,7 +12,7 @@ constraints:
   - The file imports, stated once here, the standard library packages encoding/json and strings, as values
   - The function is exported, named RegionKey, and receives positionally the path, action and variant as strings and the id as a map[string]any, and returns a string
   - The result is the path, the action, the variant and the JSON encoding of the id, in that order, joined by the NUL character
-  - The JSON encoding of the id has its keys sorted, as encoding/json encodes a map
+  - The id is encoded exactly as encoding/json marshals a map, with its keys sorted and its escaping of <, > and & included
   - A nil id is encoded as {}
   - An id that cannot be encoded is encoded as {}
   - Sorting keys as strings orders regions by path, then action, then variant, then id
