@@ -24,12 +24,15 @@ constraints:
   - A key whose value is null is written, and an absent key is not, so the two encode differently
 affected_scope:
   - internal/inject/canon.go
+  - internal/inject/canon_test.go
 forbidden_scope: []
 implements: prov-2026-8bba6ce4
 implements_version: 1
 related: []
 sealed_at_sha: ""
-associated_specs: []
+associated_specs:
+  - path: internal/inject/canon_test.go
+    run_command: go test ./internal/inject/ -run '^TestCanonicalKwargs' -count=1
 associated_traces: []
 monitors: []
 tags:
