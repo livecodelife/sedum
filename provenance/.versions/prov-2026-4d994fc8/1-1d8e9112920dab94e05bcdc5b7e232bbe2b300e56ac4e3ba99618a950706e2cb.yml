@@ -1,0 +1,44 @@
+id: prov-2026-4d994fc8
+version: 1
+content_hash: sha256:1d8e9112920dab94e05bcdc5b7e232bbe2b300e56ac4e3ba99618a950706e2cb
+parent_hash: ""
+reason: ""
+author: calebcowen@gmail.com
+created_at: "2026-10-26T20:41:36Z"
+spec_hashes:
+  - sha256:eb0e91c6de851e6f6d1df3c40fc026e29990dbb5aa78a2c35ff69a02cacb5d53
+  - sha256:d061431b8ba15724aa9dfb37632134e32a9fa28aadb555e9bc9a9b4caa7cb7f7
+content:
+  id: prov-2026-4d994fc8
+  title: 'go: internal/pipeline/recordings.go, WriteReplayRecordings'
+  type: imprint
+  created_at: "2026-10-26"
+  author: calebcowen@gmail.com
+  intent: The WriteReplayRecordings function writes the per-record recordings a replay produced, keeping what was replayed.
+  constraints:
+    - 'The function lives in internal/pipeline/recordings.go, package pipeline, and adds no imports: fmt and recording come from the file''s import list'
+    - The function is exported, named WriteReplayRecordings, receives positionally the replayed recording.Recording, a pointer to Result and a directory string, and returns an error
+    - For each Record of the replayed recording it writes a file holding that Record
+    - A record whose id equals the RecordID of an entry of the Result's Restamps, a slice of Restamp with the string fields RecordID, Old and New, has its Gen set to that entry's New
+    - The written Recording has the replayed recording's SedumVersion
+    - The written Recording has the replayed recording's Packages
+    - The written Recording has the replayed recording's Variables
+    - The files are written with recording.WriteRecords, which receives a directory string and a recording.Recording and returns an error
+    - A write failure returns an error whose text is writing recording for record, a space, the record id, a colon, a space and the cause
+    - That Record's Regions are the regions the replay wrote for its id, as regionsOf, defined in this package, which receives a pointer to Result and a record id and returns a slice of recording.Region, returns for it
+    - That Record's Regions also hold each entry the record's existing recording holds for a region the replay did not write
+    - For a region the replay wrote, the existing entry with the same path, action, variant and id is replaced by the replay's entry
+    - The existing recording is read with recording.ReadRecord, which receives a directory string and a record id string and returns a recording.Recording and an error, and its first Record holds the existing entries
+    - A recording file that cannot be read, or that holds no Record, holds nothing to keep, and the write replaces it
+    - That Record's files and phases are those of the replayed Record, not those of the existing recording
+  affected_scope:
+    - internal/pipeline/recordings.go
+    - internal/pipeline/recordings_test.go
+    - internal/pipeline/recordings_merge_test.go
+  implements: prov-2026-5cc2f7f6
+  implements_version: 1
+  associated_specs:
+    - path: internal/pipeline/recordings_test.go
+    - path: internal/pipeline/recordings_merge_test.go
+  tags:
+    - marker-v2
