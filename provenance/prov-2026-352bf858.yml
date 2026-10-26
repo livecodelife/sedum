@@ -1,0 +1,36 @@
+id: prov-2026-352bf858
+title: 'go: internal/pipeline/capture.go, regionsOf'
+type: imprint
+status: draft
+version: 1
+reason: ""
+created_at: "2026-10-26"
+author: calebcowen@gmail.com
+intent: The regionsOf function lists, as recording regions, the regions a run wrote for one record.
+constraints:
+  - 'The function lives in internal/pipeline/capture.go, package pipeline, and adds no imports: recording comes from the file''s import list'
+  - The function is unexported, named regionsOf, receives positionally a pointer to Result and a record id string, and returns a slice of recording.Region
+  - It reads the Injections of the Result, each an inject.Result, and takes those whose Record equals the record id
+  - It leaves out an injection that is Pruned, Skipped, Unselected, Held or Orphan
+  - It leaves out an injection whose Marker has a Version other than 2
+  - Each entry has Path, Action and Variant from the injection
+  - Each entry has Tier as the string of the marker's Tier
+  - Each entry has Pkg and KwargsHash from the marker
+  - Each entry has ID from the marker's Kwargs
+  - Each entry has Kwargs from the injection's Kwargs
+  - Each entry has Body from the marker's Body
+  - A region rewritten with the same bytes is included
+  - The entries keep the order of Injections
+  - It returns nil when there are none
+affected_scope:
+  - internal/pipeline/capture.go
+forbidden_scope: []
+implements: prov-2026-5cc2f7f6
+implements_version: 1
+related: []
+sealed_at_sha: ""
+associated_specs: []
+associated_traces: []
+monitors: []
+tags:
+  - marker-v2
