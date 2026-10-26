@@ -1,0 +1,36 @@
+id: prov-2026-dee37812
+title: 'go: internal/inject/inject.go, applyOne'
+type: imprint
+status: draft
+version: 1
+reason: ""
+created_at: "2026-10-26"
+author: calebcowen@gmail.com
+intent: The applyOne function injects one invocation into one file's content and writes a v2 marker.
+constraints:
+  - The function lives in internal/inject/inject.go, package inject, and adds no imports
+  - The function receives an Invocation, the content string and an ownership value, and returns the new content, a Result and an error
+  - The marker it builds has Version 2
+  - The marker's Kwargs holds the entries of the invocation's Kwargs whose names selectingKwargs, defined in this file, which receives a pointer to the action and returns a slice of names, returns for the invocation's action
+  - A selecting name the invocation's Kwargs does not hold is left out of the marker's Kwargs
+  - The marker's KwargsHash is KwargsHash, defined in internal/inject/canon.go, which receives a map[string]any and returns a string and an error, called with all of the invocation's Kwargs
+  - 'A KwargsHash error returns an error whose text is action, a space, the marker''s label, and the text : kwargs cannot be recorded on a marker: followed by the cause, and nothing is written'
+  - The marker's Body is the body hash that renderRegion, defined in this file, returns
+  - A region in the file whose marker is Foreign is never compared with the invocation's identity
+  - A region in the file whose marker is Foreign is left exactly as it is
+  - A v1 marker being replaced is replaced by the v2 marker
+  - An inserted or replaced region's Result has Marker set to the marker written
+  - An inserted or replaced region's Result has Kwargs set to the invocation's Kwargs map
+  - Result.Changed is true exactly when the region's bytes differ from what the file held
+affected_scope:
+  - internal/inject/inject.go
+forbidden_scope: []
+implements: prov-2026-a3771fbf
+implements_version: 1
+related: []
+sealed_at_sha: ""
+associated_specs: []
+associated_traces: []
+monitors: []
+tags:
+  - marker-v2
