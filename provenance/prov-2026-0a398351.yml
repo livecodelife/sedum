@@ -24,6 +24,8 @@ affected_scope:
   - internal/pipeline/migrate.go
   - internal/cli/markers.go
   - internal/cli/root.go
+  - internal/pipeline/migrate_test.go
+  - internal/cli/markers_test.go
 forbidden_scope: []
 related: []
 sealed_at_sha: ""
