@@ -8,6 +8,10 @@
 //	?   one character within one segment
 //	[…] one character from a set, as path.Match reads it
 //
+// A segment written exactly as the path's segment also matches it, so a path
+// that carries bracket characters, such as a Next.js [id] route folder, is
+// covered by the entry that names it.
+//
 // Segment-by-segment matching over path.Match is what keeps * from crossing a
 // separator, which is the whole difference between config/*.yml and
 // config/**.yml.
@@ -107,9 +111,14 @@ func matchSegments(pattern, target []string) bool {
 		if len(target) == 0 {
 			return false
 		}
-		ok, err := path.Match(pattern[0], target[0])
-		if err != nil || !ok {
-			return false
+		// A segment written exactly as the path's segment matches it before
+		// any character-class reading, so a route folder such as [id] is
+		// covered by the entry that names it.
+		if pattern[0] != target[0] {
+			ok, err := path.Match(pattern[0], target[0])
+			if err != nil || !ok {
+				return false
+			}
 		}
 		pattern, target = pattern[1:], target[1:]
 	}
