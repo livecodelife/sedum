@@ -2,8 +2,8 @@ id: prov-2026-c637c262
 title: Replay can restamp gen and reconcile a complete recording
 type: blueprint
 status: open
-version: 9
-reason: Blueprints state behaviour; function detail lives in imprints
+version: 10
+reason: Cover the tests and corpora of its imprints
 created_at: "2026-10-16"
 author: calebcowen@gmail.com
 intent: |-
@@ -40,6 +40,7 @@ affected_scope:
   - README.md
   - PRD.md
   - internal/cli/report.go
+  - internal/cli/record_v2_test.go
 forbidden_scope: []
 related: []
 sealed_at_sha: ""
