@@ -91,6 +91,17 @@ func buildGrowReport(result *pipeline.Result, dryRun, replay, check bool) growRe
 		}
 	}
 
+	// Under --check nothing is written, so an edited region is reported from
+	// the classification; it is not a change.
+	if check {
+		for _, c := range result.Classifications {
+			for _, e := range c.Edited {
+				r := add(c.RecordID, c.Mode.String())
+				r.Regions = append(r.Regions, regionChange{File: e.Path, Action: e.Action, Variant: e.Variant, Change: "edited"})
+			}
+		}
+	}
+
 	for _, inj := range result.Injections {
 		if inj.Orphan {
 			continue // reported under orphans: its record is gone
