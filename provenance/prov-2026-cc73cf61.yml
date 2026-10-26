@@ -1,8 +1,8 @@
 id: prov-2026-cc73cf61
 title: Orphans, deprecated records, stamping, and prompt context for grow
 status: open
-version: 8
-reason: 'Marker v2 records: remove cross-record duplicates and tighten shapes'
+version: 9
+reason: Blueprints state behaviour; function detail lives in imprints
 created_at: "2026-10-15"
 author: calebcowen@gmail.com
 intent: |-
@@ -37,15 +37,6 @@ constraints:
   - A deprecated record is never grown and owns no regions; --only naming one is an error that says it is deprecated.
   - --check reports orphans and exits non-zero when there are any.
   - The steering list and the rebuilt prior name no hash, and the steering list names only regions owned by other records in this record's files.
-  - selectAll, defined in internal/pipeline/pipeline.go, chooses the prior selection of each re-selected record.
-  - A re-selected record's prior selection is the one --prior-recording supplies when it names the record.
-  - Otherwise the prior selection is the invocations in the phases of the record's recording, when that recording is readable and its phases hold at least one invocation.
-  - Otherwise the prior selection is what priorFromMarkers, defined in internal/pipeline/pipeline.go, which receives a record id, a slice of inject.OwnedRegion and the owners and returns a slice of recording.Invocation, builds from the record's owned regions.
-  - Prior selections include only exposed actions, whether they come from a recording's phases or from markers.
-  - Prior selections include only the kwargs the action declares, whether they come from a recording's phases or from markers.
-  - A prior selection that exceeds MaxPriorBytes is left out rather than failing the run, whatever its source.
-  - An explicit --prior-recording still wins.
-  - priorFromMarkers over a v2 region with no recording yields only the identity kwargs of that region that its action declares.
   - The PRD and README describe orphans, deprecated records, --prune-orphans, --stamp, and the prompt context; the flag-surface test lists the flags.
   - --stamp makes no model call
   - --stamp writes only a missing gen or pkg onto markers owned by an existing, non-deprecated record
@@ -56,7 +47,7 @@ constraints:
   - --prune-orphans removes orphans only in files some record in the directory authorizes
   - --prune-orphans removes orphans only inside Phase 7's all-or-nothing write
   - Orphans in other files are reported and not touched
-  - selectAll reads the recording of a record from the recordings directory of the run with recording.ReadRecord
+  - 'A re-selected record is shown its earlier selections: those --prior-recording supplies, else the invocations in the phases of its recording, else the selections rebuilt from its markers.'
 affected_scope:
   - internal/record/record.go
   - internal/record/*_test.go
