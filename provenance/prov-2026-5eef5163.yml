@@ -14,12 +14,15 @@ constraints:
   - runReplay receives the output writer and the error writer as io.Writer, a GrowConfig, the stopAfter int, the stop-point name string and a pointer to runlog.Log, and returns an error
 affected_scope:
   - internal/cli/grow.go
+  - internal/cli/record_v2_test.go
 forbidden_scope: []
 implements: prov-2026-c637c262
 implements_version: 9
 related: []
 sealed_at_sha: ""
-associated_specs: []
+associated_specs:
+  - path: internal/cli/record_v2_test.go
+    run_command: go test ./internal/cli/ -run '^TestReplayWritesRecordings$' -count=1
 associated_traces: []
 monitors: []
 tags:
