@@ -24,6 +24,7 @@ constraints:
   - Trailing blank lines take part in the body hash
 affected_scope:
   - internal/inject/canon.go
+  - internal/inject/canon_test.go
 forbidden_scope: []
 related: []
 sealed_at_sha: ""
