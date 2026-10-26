@@ -1,0 +1,49 @@
+id: prov-2026-a3771fbf
+title: A v2 marker names a region and carries hashes of its kwargs and its text
+type: blueprint
+status: draft
+version: 1
+reason: ""
+created_at: "2026-10-26"
+author: calebcowen@gmail.com
+intent: A region's marker should carry what identifies the region and what detects drift, and a reader should be able to tell hand-edited text from generated text by the body hash on the marker.
+constraints:
+  - Every region Sedum injects is written with a v2 marker
+  - A v2 marker's attribute object has the key v with the number 2
+  - A v2 marker has the key tier, always written, with the value owned or seeded
+  - A v2 marker has the key record, the id of the owning record, omitted when empty
+  - A v2 marker has the key gen, the gen hash of the record that wrote the region, omitted when empty
+  - A v2 marker has the key pkg, the hash of the package the region was rendered from, omitted when empty
+  - A v2 marker has the key writer only when the writer is not sedum
+  - A v2 marker has the key id, an object of the identity kwargs of the region with their resolved values, omitted when empty
+  - 'A v2 marker has the key kwargs as a string: the hash of every resolved kwarg the region was rendered from, omitted when empty'
+  - 'A v2 marker has the key body as a string: the hash of the region''s text between its marker lines, omitted when empty'
+  - A v2 marker's keys are written in the order v, tier, record, gen, pkg, writer, id, kwargs, body
+  - Attribute keys Sedum does not model follow the nine keys, in sorted order
+  - A v2 marker never has the v1 kwargs object
+  - A marker with no v key is read as a v1 marker
+  - A marker whose v is the number 2 is read as a v2 marker
+  - A marker whose v is any other value, including 1, a string or a fractional number, is read as a foreign marker
+  - A foreign region is found by FindRegions
+  - An injection never matches a foreign region
+  - An injection never replaces a foreign region
+  - A foreign region is never pruned
+  - A v1 marker's attribute key Sedum does not model, including the keys id and body, is carried in Extra
+  - A v2 marker's attribute key other than the nine it models is carried in Extra
+  - A v1 marker whose kwargs is not an object is a read error
+  - A v2 marker whose kwargs is not a string is a read error
+  - FindRegions reports, for each region, the hash of the text actually present between its marker lines
+  - OwnedRegion.BodyState says whether a region's text still hashes to the body hash on its marker
+  - A region's identity is computed from its identity kwargs alone
+affected_scope:
+  - internal/inject/marker.go
+  - internal/inject/inject.go
+  - internal/inject/scan.go
+forbidden_scope: []
+related: []
+sealed_at_sha: ""
+associated_specs: []
+associated_traces: []
+monitors: []
+tags:
+  - marker-v2
