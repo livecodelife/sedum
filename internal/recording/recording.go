@@ -80,6 +80,26 @@ type Record struct {
 	CreatedAt string  `json:"created_at,omitempty"`
 	Files     []File  `json:"files"`
 	Phases    []Phase `json:"phases"`
+	// Regions holds every region of the record after expansion, with the
+	// kwargs each was rendered from, so a region can be rebuilt without the
+	// model (prov-2026-446c050c). Omitted when empty.
+	Regions []Region `json:"regions,omitempty"`
+}
+
+// Region is one region after expansion, with the kwargs it was rendered from
+// (prov-2026-e95f5ccd). ID holds the identity kwargs and Kwargs every resolved
+// kwarg. KwargsHash and Body are the hashes written on the region's marker;
+// Tier is owned or seeded and Pkg is the pkg hash on the marker.
+type Region struct {
+	Path       string         `json:"path"`
+	Action     string         `json:"action"`
+	Variant    string         `json:"variant"`
+	Tier       string         `json:"tier"`
+	Pkg        string         `json:"pkg"`
+	ID         map[string]any `json:"id"`
+	Kwargs     map[string]any `json:"kwargs"`
+	KwargsHash string         `json:"kwargs_hash"`
+	Body       string         `json:"body"`
 }
 
 // File is one authorized path with the resolution decided for it: which package
