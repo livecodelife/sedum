@@ -15,12 +15,15 @@ constraints:
   - BodyHash is the body hash of the text actually present between the marker lines
 affected_scope:
   - internal/inject/marker.go
+  - internal/inject/markerv2_test.go
 forbidden_scope: []
 implements: prov-2026-a3771fbf
 implements_version: 1
 related: []
 sealed_at_sha: ""
-associated_specs: []
+associated_specs:
+  - path: internal/inject/markerv2_test.go
+    run_command: go test ./internal/inject/ -run '^TestRegionFields$' -count=1
 associated_traces: []
 monitors: []
 tags:
