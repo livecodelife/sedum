@@ -1,0 +1,26 @@
+id: prov-2026-e63294fa
+title: 'go: internal/pipeline/migrate.go, migratedRegion'
+type: imprint
+status: draft
+version: 1
+reason: ""
+created_at: "2026-10-26"
+author: calebcowen@gmail.com
+intent: The migratedRegion type is one region a migration rewrote, with what its recording needs.
+constraints:
+  - The type lives in internal/pipeline/migrate.go, package pipeline, and adds no imports
+  - migratedRegion is an unexported struct with the fields Path of type string, Package of type pointer to genpkg.Package, Region of type inject.Region and Entry of type recording.Region
+  - Region holds the region as it was read, with its v1 marker, and Entry holds the entry its recording gets
+  - Package holds the generator package whose comment syntax found the region
+affected_scope:
+  - internal/pipeline/migrate.go
+forbidden_scope: []
+implements: prov-2026-0a398351
+implements_version: 1
+related: []
+sealed_at_sha: ""
+associated_specs: []
+associated_traces: []
+monitors: []
+tags:
+  - marker-v2
