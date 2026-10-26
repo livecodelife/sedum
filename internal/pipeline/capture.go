@@ -56,9 +56,46 @@ func Capture(result *Result) recording.Recording {
 			Invocations: s.Invocations,
 		}}
 
+		rec.Regions = regionsOf(result, s.RecordID)
+
 		out.Records = append(out.Records, rec)
 	}
 
+	return out
+}
+
+// regionsOf lists, as recording regions, the regions a run wrote for one
+// record (prov-2026-5cc2f7f6). Only a region written with a v2 marker has
+// something to record: a pruned, skipped, unselected, held or orphan region
+// was not written, and a v1 marker carries no hashes. A region rewritten with
+// the same bytes is included, because its entry still has to say what is on
+// the marker. The entries keep the order of the injections; sorting is the
+// recording writer's.
+func regionsOf(result *Result, recordID string) []recording.Region {
+	var out []recording.Region
+	for _, in := range result.Injections {
+		if in.Record != recordID {
+			continue
+		}
+		if in.Pruned || in.Skipped || in.Unselected || in.Held || in.Orphan {
+			continue
+		}
+		m := in.Marker
+		if m.Version != 2 {
+			continue
+		}
+		out = append(out, recording.Region{
+			Path:       in.Path,
+			Action:     in.Action,
+			Variant:    in.Variant,
+			Tier:       string(m.Tier),
+			Pkg:        m.Pkg,
+			ID:         m.Kwargs,
+			Kwargs:     in.Kwargs,
+			KwargsHash: m.KwargsHash,
+			Body:       m.Body,
+		})
+	}
 	return out
 }
 
