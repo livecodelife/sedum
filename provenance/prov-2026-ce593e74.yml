@@ -1,7 +1,7 @@
 id: prov-2026-ce593e74
 title: 'go: internal/pipeline/migrate.go, Migrate'
 type: imprint
-status: draft
+status: implemented
 version: 1
 reason: ""
 created_at: "2026-10-26"
@@ -38,17 +38,34 @@ constraints:
   - It returns a nil error when regions are refused or left, which the markers command reports
   - It calls buildMigrationRecording with the record id, the record's migrated regions, the record set, the resolved files, the owners, the variables and the existing recording pointer or nil
   - A resolution whose file resolve.Create cannot reconcile with its file template is still migrated, with no error, using only its path, package, template and captures
+  - After loading the records and before resolving paths it examines every path in every record's scope, held in the record's Paths slice of strings
+  - It asks the package set's Unmanaged, which receives a path string and returns the declaring package name, the matching entry and a bool, whether a package declares the path unmanaged
+  - It asks the package set's ForExtension, which receives a lower-cased extension string and returns a slice of pointers to genpkg.Package, which packages claim the path's extension
+  - The extension of a path is what the path package's Ext, imported as a value from the standard library, returns for it, lower-cased
+  - A scope path that no package declares unmanaged and whose extension is empty is left out of the migration and counted
+  - A scope path a package declares unmanaged is kept, whatever its extension
+  - A scope path whose extension a package claims is kept
+  - The report's Skipped is the number of scope paths left out, counted once for each occurrence in each record's scope, and is 0 when none were left out
+  - A migration whose scope holds a path no package claims still migrates the regions of the paths a package claims
+  - Before passing a visited file's text to migrateContent it replaces the package the walk reached the file through with the result of packageDeclaringActions, defined in this package, which receives the package set, the file's relative path string, the file's text string and that package pointer, and returns a pointer to genpkg.Package
+  - A scope path that no package declares unmanaged and whose extension no package claims is left out of the migration and counted
+  - A path left out of the migration is never resolved, created or read
+  - A path left out of the migration is never an error
+  - A region is judged against the package packageDeclaringActions returns
 affected_scope:
   - internal/pipeline/migrate.go
   - internal/pipeline/migrate_test.go
+  - internal/pipeline/migrate_unclaimed_test.go
 forbidden_scope: []
 implements: prov-2026-0a398351
 implements_version: 1
 related: []
-sealed_at_sha: ""
+sealed_at_sha: 9cb1786af1441e49964e3e5193f649dabeda276e
 associated_specs:
   - path: internal/pipeline/migrate_test.go
     run_command: go test ./internal/pipeline/ -run '^(TestMigrateRewritesTheMarkers|TestMigrateKeeps|TestMigrateReRendering|TestMigratingASecondTime|TestMigrateDryRun|TestMigrateRefusedAndLeft|TestMigrateAddsToAnExisting|TestMigrateReadsNothing|TestMigrateGroups|TestMigrateSorts|TestMigrateReports|TestMigrateRuns)' -count=1
+  - path: ./internal/pipeline/migrate_unclaimed_test.go
+    run_command: go test -count=1 ./internal/pipeline/ -run 'TestMigrateSkipsScopePaths|TestMigrateReportsNoSkipped|TestMigrateJudgesRegions|TestMigrateProcessesTheFiles'
 associated_traces: []
 monitors: []
 tags:

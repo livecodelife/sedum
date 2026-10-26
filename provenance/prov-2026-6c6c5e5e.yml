@@ -1,0 +1,38 @@
+id: prov-2026-6c6c5e5e
+title: 'go: internal/pipeline/migrate.go, packageDeclaringActions'
+type: imprint
+status: implemented
+version: 1
+reason: ""
+created_at: "2026-10-26"
+author: calebcowen@gmail.com
+intent: The packageDeclaringActions function picks, among the packages that claim a file's extension, the one whose actions the file's regions name.
+constraints:
+  - 'The function lives in internal/pipeline/migrate.go, package pipeline, and adds no imports: path, strings, genpkg and inject come from the file''s import list'
+  - 'The function is unexported, named packageDeclaringActions, and receives four positional arguments: the package set as a pointer to genpkg.Set, the file''s path relative to the output directory as a string, the file''s text as a string, and found, the package the walk reached the file through, as a pointer to genpkg.Package'
+  - It returns a pointer to genpkg.Package and no error
+  - It takes the candidate packages from the set's ForExtension, imported from genpkg, which receives an extension string and returns a slice of pointers to genpkg.Package, called with the lower-cased extension the standard library path package's Ext returns for the relative path
+  - It scores a package by finding the file's regions with inject.FindRegions, which receives the package's Comment, a value from the package's Comment method with no arguments, and the text, and returns a slice of inject.Region and an error
+  - A package's score is the number of those regions whose marker's Action, read as the Region's Marker field's Action, is a key of the package's Actions map
+  - A package whose comment syntax cannot parse the file, so that FindRegions returns an error, scores -1
+  - The best package starts as found with found's own score
+  - It returns found when no candidate scores higher than found
+  - It reads no file, writes nothing and changes none of its arguments
+  - A candidate replaces the best package only when its score is greater than the best score
+  - Among equal scores the first one reached wins, found before the candidates in the order ForExtension returns them
+  - The found argument is never nil, because the caller passes the package the walk reached the file through
+affected_scope:
+  - internal/pipeline/migrate.go
+  - internal/pipeline/migrate_unclaimed_test.go
+forbidden_scope: []
+implements: prov-2026-0a398351
+implements_version: 1
+related: []
+sealed_at_sha: 0f1de83ca7dfe628237990175232f45ca5d676be
+associated_specs:
+  - path: ./internal/pipeline/migrate_unclaimed_test.go
+    run_command: go test -count=1 ./internal/pipeline/ -run TestMigrateJudgesRegions
+associated_traces: []
+monitors: []
+tags:
+  - marker-v2

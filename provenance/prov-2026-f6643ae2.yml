@@ -1,7 +1,7 @@
 id: prov-2026-f6643ae2
 title: 'go: internal/cli/markers.go, newMarkersMigrateCommand'
 type: imprint
-status: draft
+status: implemented
 version: 1
 reason: ""
 created_at: "2026-10-26"
@@ -35,17 +35,24 @@ constraints:
   - The Why of a refused region whose action is undeclared is the text action no longer declared by its package
   - The Why of a refused region whose kwargs cannot be hashed is the error text of inject.KwargsHash
   - The lines are printed in the order migrated, then refused, then left
+  - When the report's Skipped is above zero it prints, after the left lines and before the final line, the line skipped N scope paths no generator package claims, where N is Skipped
+  - When the report's Skipped is zero it prints no skipped line
+  - The skipped line is printed the same way with and without --dry-run
+  - A report with skipped paths and no refused region makes the command return no error
 affected_scope:
   - internal/cli/markers.go
   - internal/cli/markers_test.go
+  - internal/cli/markers_unclaimed_test.go
 forbidden_scope: []
 implements: prov-2026-0a398351
 implements_version: 1
 related: []
-sealed_at_sha: ""
+sealed_at_sha: 4e8e1713bcddf80d30a5c706ede3cf58d556914d
 associated_specs:
   - path: internal/cli/markers_test.go
     run_command: go test ./internal/cli/ -run '^TestMarkersMigrate' -count=1
+  - path: ./internal/cli/markers_unclaimed_test.go
+    run_command: go test -count=1 ./internal/cli/ -run 'TestMarkersMigrateSkipsScopePaths'
 associated_traces: []
 monitors: []
 tags:
