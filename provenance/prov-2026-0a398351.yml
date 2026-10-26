@@ -34,7 +34,15 @@ affected_scope:
 forbidden_scope: []
 related: []
 sealed_at_sha: ""
-associated_specs: []
+associated_specs:
+  - path: internal/pipeline/migrate_test.go
+    run_command: go test ./internal/pipeline/ -run '^(TestMigrateRewritesTheMarkers|TestMigrateKeeps|TestMigrateReRendering|TestMigratingASecondTime|TestMigrateDryRun|TestMigrateRefusedAndLeft|TestMigrateAddsToAnExisting|TestMigrateReadsNothing|TestMigrateGroups|TestMigrateSorts|TestMigrateReports|TestMigrateRuns|TestMigrateConfigHas|TestMigrateNoteHas|TestMigrateReportHas|TestMigratedRegionHas|TestSplitOpeningLine|TestMigrateContent|TestBuildMigrationRecording)' -count=1
+  - path: internal/pipeline/migrate_unclaimed_test.go
+    run_command: go test -count=1 ./internal/pipeline/ -run 'TestMigrateSkipsScopePaths|TestMigrateReportsNoSkipped|TestMigrateJudgesRegions|TestMigrateProcessesTheFiles'
+  - path: internal/cli/markers_test.go
+    run_command: go test ./internal/cli/ -run '^(TestMarkersMigrate|TestRootHasMarkers$|TestMarkersCommand$)' -count=1
+  - path: internal/cli/markers_unclaimed_test.go
+    run_command: go test -count=1 ./internal/cli/ -run 'TestMarkersMigrateSkipsScopePaths'
 associated_traces: []
 monitors: []
 tags:
