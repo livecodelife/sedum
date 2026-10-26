@@ -772,7 +772,7 @@ func TestGrowRefusesToReRenderOverHandEdits(t *testing.T) {
 
 		out, err := f.check()
 		v2WantError(t, err, v2CheckFailed)
-		if !strings.Contains(out, "stale      "+v2Record+"\n") || strings.Contains(out, "edited") {
+		if !strings.Contains(out, "stale      "+v2Record+"\n") || strings.Contains(out, "\nedited ") || strings.HasPrefix(out, "edited ") {
 			t.Errorf("a stale record is never edited:\n%s", out)
 		}
 		if out, err := f.grow(); err != nil {
