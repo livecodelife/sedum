@@ -1,0 +1,84 @@
+id: prov-2026-ce593e74
+version: 2
+content_hash: sha256:dba82c6c1156d0d0242c23eea474306897bd399b1a00edd9c1d75013aceb2f15
+parent_hash: sha256:7cc364238b1e34e4a35b3ed6da65236364bfb76f1b2c1c3633ec1ddb3b200c93
+reason: Migration stages every replacement before changing anything and renames each over its original
+author: calebcowen@gmail.com
+created_at: "2026-10-26T21:10:38Z"
+spec_hashes:
+  - sha256:9ceca0fddd19d25feac052dffbeb239a9c8cb3cc60f4c65d38ede93e39e5f750
+  - sha256:99ed02fa14e96598eed5723d0cf6368a74aafaf9e2f3fe816dba455ace99feb1
+  - sha256:00c12b949b6e02e84985ca1d138ab16c7169ef85f24cdab04e879b0630d07058
+content:
+  id: prov-2026-ce593e74
+  title: 'go: internal/pipeline/migrate.go, Migrate'
+  type: imprint
+  created_at: "2026-10-26"
+  author: calebcowen@gmail.com
+  intent: The Migrate function rewrites every v1 marker under an output directory to v2 and writes the recordings for the records they name.
+  constraints:
+    - The function lives in internal/pipeline/migrate.go, package pipeline, and adds no imports
+    - The function is exported, named Migrate, receives one MigrateConfig value and returns a pointer to MigrateReport and an error
+    - It builds the skip rules with projectSkipRules, defined in this package, which receives the output directory string and a slice of extra exclude strings, here nil, and returns a pointer to skipRules and an error
+    - It loads the generator packages with genpkg.Load, which receives a directory string and a genpkg.Options, here the zero value, and returns a pointer to genpkg.Set, genpkg.Findings and an error
+    - It fails when a finding of kind genpkg.KindError is present, with every such finding in the error text
+    - It binds the variables with the set's ResolveVariables, which receives the config's Variables map and returns a map[string]string and an error
+    - It loads the records with record.Load, which receives a directory string and a record.Options, here the zero value, and returns a pointer to record.Set, a slice of warning strings and an error
+    - It builds the owners with ownersOf, defined in this package, which receives the pointer to record.Set and returns a map[string]inject.Owner
+    - It resolves paths with resolve.Paths, which receives the package set, the record set and a slice of preferred package names, here nil, and returns a slice of resolve.Resolution, warnings and an error
+    - It creates the files with resolve.Create in dry-run mode, called once for each resolution, which receives a slice holding that resolution and a resolve.Options with Output, DryRun true and Variables, and returns a slice of resolve.File and an error
+    - It visits the files that carry markers with walkMarked, defined in this package, which receives the package set, the output directory, a slice of directories to skip, the skip rules and a visit func(rel string, pkg *genpkg.Package, regions []inject.Region), and returns an error
+    - The directories it skips are the generators and records directories
+    - It reads each visited file and passes its text to migrateContent, defined in this package
+    - The known function it passes is true for a record id that inject.Canonical, which receives the owners and an id and returns the surviving id, maps to a record in the set
+    - It groups the migrated regions by the canonical id of their record
+    - It reads each such record's existing recording with recording.ReadRecord
+    - An error for which errors.Is reports fs.ErrNotExist means the record has no recording
+    - Any other error from ReadRecord is returned
+    - It builds each record's recording with buildMigrationRecording, defined in this package
+    - Unless DryRun is set it writes the recordings with recording.WriteRecords into the .sedum/recordings directory under Output
+    - The report's Files lists the paths rewritten, whether or not DryRun is set
+    - The report's Recordings lists the record ids whose recordings are written, whether or not DryRun is set
+    - The report's Migrated, Refused and Left lists are sorted by path, action and variant, with regions equal in all three kept in the order found, and Recordings is sorted by record id
+    - A refused or left region keeps its v1 marker
+    - A refused or left region has no entry in its record's recording
+    - 'A genpkg.KindError finding returns an error whose text is generator packages did not load: followed by a line feed and, for each finding of that kind, two spaces and the finding''s text, one per line'
+    - It returns a nil error when regions are refused or left, which the markers command reports
+    - It calls buildMigrationRecording with the record id, the record's migrated regions, the record set, the resolved files, the owners, the variables and the existing recording pointer or nil
+    - A resolution whose file resolve.Create cannot reconcile with its file template is still migrated, with no error, using only its path, package, template and captures
+    - After loading the records and before resolving paths it examines every path in every record's scope, held in the record's Paths slice of strings
+    - It asks the package set's Unmanaged, which receives a path string and returns the declaring package name, the matching entry and a bool, whether a package declares the path unmanaged
+    - It asks the package set's ForExtension, which receives a lower-cased extension string and returns a slice of pointers to genpkg.Package, which packages claim the path's extension
+    - The extension of a path is what the path package's Ext, imported as a value from the standard library, returns for it, lower-cased
+    - A scope path that no package declares unmanaged and whose extension is empty is left out of the migration and counted
+    - A scope path a package declares unmanaged is kept, whatever its extension
+    - A scope path whose extension a package claims is kept
+    - The report's Skipped is the number of scope paths left out, counted once for each occurrence in each record's scope, and is 0 when none were left out
+    - A migration whose scope holds a path no package claims still migrates the regions of the paths a package claims
+    - Before passing a visited file's text to migrateContent it replaces the package the walk reached the file through with the result of packageDeclaringActions, defined in this package, which receives the package set, the file's relative path string, the file's text string and that package pointer, and returns a pointer to genpkg.Package
+    - A scope path that no package declares unmanaged and whose extension no package claims is left out of the migration and counted
+    - A path left out of the migration is never resolved, created or read
+    - A path left out of the migration is never an error
+    - A region is judged against the package packageDeclaringActions returns
+    - Unless DryRun is set it first stages a replacement for every rewritten file, holding the new content, with stageFile, defined in this package, which receives the path of the file to replace string, the new content string and an fs.FileMode, and returns the staged file's path string and an error
+    - The mode it passes to stageFile for a file is the file's own permission bits, whether or not the file is locked
+    - A replacement is staged in the same directory as the file it replaces
+    - When a replacement cannot be staged it removes every replacement already staged and returns the error
+    - When a replacement cannot be staged no file is rewritten, no recording is written and no temporary file is left in the tree
+    - Unless DryRun is set it writes the recordings after every replacement is staged and before any file is replaced
+    - Unless DryRun is set it replaces each rewritten file by renaming its staged replacement over it, which needs only a writable directory
+    - A rewritten file that was locked against writing is replaced and has its original permission bits afterwards
+    - When writing the recordings or renaming a replacement fails it removes the staged replacements not yet renamed and returns the error
+  affected_scope:
+    - internal/pipeline/migrate.go
+    - internal/pipeline/migrate_test.go
+    - internal/pipeline/migrate_unclaimed_test.go
+    - internal/pipeline/migrate_atomic_test.go
+  implements: prov-2026-0a398351
+  implements_version: 1
+  associated_specs:
+    - path: internal/pipeline/migrate_test.go
+    - path: ./internal/pipeline/migrate_unclaimed_test.go
+    - path: internal/pipeline/migrate_atomic_test.go
+  tags:
+    - marker-v2

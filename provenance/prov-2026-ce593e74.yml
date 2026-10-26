@@ -1,9 +1,9 @@
 id: prov-2026-ce593e74
 title: 'go: internal/pipeline/migrate.go, Migrate'
 type: imprint
-status: implemented
-version: 1
-reason: ""
+status: open
+version: 3
+reason: Split compound constraints
 created_at: "2026-10-26"
 author: calebcowen@gmail.com
 intent: The Migrate function rewrites every v1 marker under an output directory to v2 and writes the recordings for the records they name.
@@ -27,7 +27,6 @@ constraints:
   - An error for which errors.Is reports fs.ErrNotExist means the record has no recording
   - Any other error from ReadRecord is returned
   - It builds each record's recording with buildMigrationRecording, defined in this package
-  - Unless DryRun is set it writes each rewritten file with its original permissions
   - Unless DryRun is set it writes the recordings with recording.WriteRecords into the .sedum/recordings directory under Output
   - The report's Files lists the paths rewritten, whether or not DryRun is set
   - The report's Recordings lists the record ids whose recordings are written, whether or not DryRun is set
@@ -52,20 +51,38 @@ constraints:
   - A path left out of the migration is never resolved, created or read
   - A path left out of the migration is never an error
   - A region is judged against the package packageDeclaringActions returns
+  - The mode it passes to stageFile for a file is the file's own permission bits, whether or not the file is locked
+  - A replacement is staged in the same directory as the file it replaces
+  - When a replacement cannot be staged it removes every replacement already staged and returns the error
+  - Unless DryRun is set it writes the recordings after every replacement is staged and before any file is replaced
+  - Unless DryRun is set it replaces each rewritten file by renaming its staged replacement over it, which needs only a writable directory
+  - Unless DryRun is set it first stages a replacement for every rewritten file, holding the new content, by calling stageFile, defined in this package
+  - It calls stageFile with the path of the file to replace as a string, the new content as a string and the file's permission bits as an fs.FileMode, in that order
+  - stageFile returns the staged file's path as a string and an error
+  - When a replacement cannot be staged no file is rewritten
+  - When a replacement cannot be staged no recording is written
+  - When a replacement cannot be staged no temporary file is left in the tree
+  - A rewritten file that was locked against writing is replaced
+  - A rewritten file that was locked against writing has its original permission bits afterwards
+  - When writing the recordings fails it removes the staged replacements and returns the error
+  - When renaming a replacement over its file fails it removes the staged replacements not yet renamed and returns the error
 affected_scope:
   - internal/pipeline/migrate.go
   - internal/pipeline/migrate_test.go
   - internal/pipeline/migrate_unclaimed_test.go
+  - internal/pipeline/migrate_atomic_test.go
 forbidden_scope: []
 implements: prov-2026-0a398351
-implements_version: 1
+implements_version: 3
 related: []
-sealed_at_sha: 9cb1786af1441e49964e3e5193f649dabeda276e
+sealed_at_sha: ""
 associated_specs:
   - path: internal/pipeline/migrate_test.go
     run_command: go test ./internal/pipeline/ -run '^(TestMigrateRewritesTheMarkers|TestMigrateKeeps|TestMigrateReRendering|TestMigratingASecondTime|TestMigrateDryRun|TestMigrateRefusedAndLeft|TestMigrateAddsToAnExisting|TestMigrateReadsNothing|TestMigrateGroups|TestMigrateSorts|TestMigrateReports|TestMigrateRuns)' -count=1
   - path: ./internal/pipeline/migrate_unclaimed_test.go
     run_command: go test -count=1 ./internal/pipeline/ -run 'TestMigrateSkipsScopePaths|TestMigrateReportsNoSkipped|TestMigrateJudgesRegions|TestMigrateProcessesTheFiles'
+  - path: internal/pipeline/migrate_atomic_test.go
+    run_command: go test -count=1 ./internal/pipeline/ -run 'TestMigrateRewritesAReadOnly|TestMigrateThatCannotWriteOne'
 associated_traces: []
 monitors: []
 tags:
