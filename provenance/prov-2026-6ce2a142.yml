@@ -20,9 +20,9 @@ constraints:
   - 'A number that is not an integer is converted to its nearest float64 and returned in the ECMAScript Number::toString form: the shortest digits that read back as that float64'
   - That form is plain decimal notation when the absolute value is at least 0.000001 and below 1e21, so 0.5 is returned as 0.5
   - Below 0.000001 that form is the shortest digits with a lower-case e and the exponent with its minus sign and no leading zeros, so 0.00000015 is returned as 1.5e-7
-  - A non-integer number whose nearest float64 is zero, such as 1e-400, is returned as 0
+  - A non-integer number whose nearest float64 is zero, such as 1e-400 or -1e-400, is returned as 0
   - 'A number whose nearest float64 is infinite is refused with an error whose text is kwargs cannot be hashed: followed by the path, a colon, a space and the text number is not finite'
-  - 'A text that is not a number is refused with an error whose text is kwargs cannot be hashed: followed by the path, a colon, a space and the text not a number'
+  - 'A text that is not a number, such as 1/2 or 0x10, is refused with an error whose text is kwargs cannot be hashed: followed by the path, a colon, a space and the text not a number'
   - When the path is empty the path text in an error is the word kwargs
   - A number whose nearest float64 is infinite is refused as not finite before its integer size is considered, so 1e400 reports number is not finite
 affected_scope:
