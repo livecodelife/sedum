@@ -23,12 +23,15 @@ constraints:
   - The returned Recording's Records holds only the record with the requested id
 affected_scope:
   - internal/recording/dir.go
+  - internal/recording/dir_test.go
 forbidden_scope: []
 implements: prov-2026-5cc2f7f6
 implements_version: 1
 related: []
 sealed_at_sha: ""
-associated_specs: []
+associated_specs:
+  - path: internal/recording/dir_test.go
+    run_command: go test ./internal/recording/ -run '^(TestReadRecord|TestWriteThenReadRecord)' -count=1
 associated_traces: []
 monitors: []
 tags:
