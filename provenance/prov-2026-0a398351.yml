@@ -1,7 +1,7 @@
 id: prov-2026-0a398351
 title: sedum markers migrate rewrites v1 markers to v2 with no model
 type: blueprint
-status: open
+status: implemented
 version: 3
 reason: State only what the code guarantees
 created_at: "2026-10-26"
@@ -36,7 +36,7 @@ affected_scope:
   - internal/pipeline/migrate_atomic_test.go
 forbidden_scope: []
 related: []
-sealed_at_sha: ""
+sealed_at_sha: 6f75e7005baf95437a2837460405857cd4e2047d
 associated_specs:
   - path: internal/pipeline/migrate_test.go
     run_command: go test ./internal/pipeline/ -run '^(TestMigrateRewritesTheMarkers|TestMigrateKeeps|TestMigrateReRendering|TestMigratingASecondTime|TestMigrateDryRun|TestMigrateRefusedAndLeft|TestMigrateAddsToAnExisting|TestMigrateReadsNothing|TestMigrateGroups|TestMigrateSorts|TestMigrateReports|TestMigrateRuns|TestMigrateConfigHas|TestMigrateNoteHas|TestMigrateReportHas|TestMigratedRegionHas|TestSplitOpeningLine|TestMigrateContent|TestBuildMigrationRecording)' -count=1
