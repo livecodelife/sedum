@@ -16,12 +16,15 @@ constraints:
   - A pkg-stale region whose action no longer exists, or whose re-rendered path is not the file it sits in, sends its record to re-select.
 affected_scope:
   - internal/pipeline/classify.go
+  - internal/pipeline/classify_v2_test.go
 forbidden_scope: []
 implements: prov-2026-9621daed
 implements_version: 11
 related: []
 sealed_at_sha: ""
-associated_specs: []
+associated_specs:
+  - path: internal/pipeline/classify_v2_test.go
+    run_command: go test ./internal/pipeline/ -run '^TestRerenderFromRecording' -count=1
 associated_traces: []
 monitors: []
 tags:
