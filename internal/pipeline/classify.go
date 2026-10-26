@@ -1,11 +1,14 @@
 package pipeline
 
 import (
+	"errors"
+	"io/fs"
 	"path/filepath"
 
 	"github.com/livecodelife/sedum/internal/expand"
 	"github.com/livecodelife/sedum/internal/inject"
 	"github.com/livecodelife/sedum/internal/record"
+	"github.com/livecodelife/sedum/internal/recording"
 	"github.com/livecodelife/sedum/internal/resolve"
 )
 
@@ -28,6 +31,10 @@ const (
 	// rendered from an older package. They are re-rendered from their markers
 	// with no model call.
 	ModeRerender
+	// ModeEdited is a record whose regions are all current and at least one of
+	// which no longer matches its body hash. Nothing is written for it
+	// (prov-2026-9621daed).
+	ModeEdited
 )
 
 func (m Mode) String() string {
@@ -42,16 +49,28 @@ func (m Mode) String() string {
 		return "skip"
 	case ModeRerender:
 		return "re-render"
+	case ModeEdited:
+		return "edited"
 	}
 	return "unknown mode"
 }
 
-// RegionRef names one region in a report.
+// RegionRef names one region in a report. Reason says why a v2 region is
+// stale, and is empty everywhere else.
 type RegionRef struct {
 	Path    string
 	Action  string
 	Variant string
+	Reason  string
 }
+
+// The reasons a v2 region is stale against its recording.
+const (
+	reasonNoRecording = "no recording"
+	reasonUnreadable  = "recording unreadable"
+	reasonNoEntry     = "recording has no entry for this region"
+	reasonNotMatching = "recording does not match the marker"
+)
 
 // Classification is the decision for one record and what it was made from.
 type Classification struct {
@@ -68,6 +87,16 @@ type Classification struct {
 	// They decide nothing and are never rewritten; they are reported so a
 	// person can look.
 	StaleSeeded []RegionRef
+	// Edited are the current regions whose text no longer matches their body
+	// hash. A record in ModeEdited keeps in Rerender the regions a re-render
+	// would have rewritten.
+	Edited []RegionRef
+	// Unverifiable are the current owned-tier regions with no body hash to
+	// compare: v1 markers, and v2 markers that carry none.
+	Unverifiable []RegionRef
+	// Foreign are the regions in the record's files whose marker has a version
+	// this Sedum does not know. They decide nothing and are never rewritten.
+	Foreign []RegionRef
 
 	// found is every region in the record's files, whoever owns it: the
 	// record's own feed its rebuilt prior selections, and other records' are
@@ -80,10 +109,28 @@ type Classification struct {
 	rerendered []inject.Invocation
 }
 
-// Failing reports whether --check fails on this record: it is stale, or it
-// needs re-rendering. A record with no regions is unknown, which does not fail.
+// Failing reports whether --check fails on this record: it is stale, needs
+// re-rendering, or is edited. A record with no regions is unknown, which does
+// not fail.
 func (c Classification) Failing() bool {
-	return (c.Mode == ModeReselect && !c.Forced) || c.Mode == ModeRerender
+	return (c.Mode == ModeReselect && !c.Forced) || c.Mode == ModeRerender || c.Mode == ModeEdited
+}
+
+// Refused reports whether a re-render was refused because of a hand edit: the
+// record is edited and a region a re-render would have rewritten is among the
+// edited ones.
+func (c Classification) Refused() bool {
+	if c.Mode != ModeEdited {
+		return false
+	}
+	for _, e := range c.Edited {
+		for _, r := range c.Rerender {
+			if e.Path == r.Path && e.Action == r.Action && e.Variant == r.Variant {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 // needsModel reports whether the record goes to Phase 4.
@@ -93,6 +140,52 @@ func (c Classification) needsModel() bool {
 
 func refOf(r inject.OwnedRegion) RegionRef {
 	return RegionRef{Path: r.Path, Action: r.Region.Marker.Action, Variant: r.Region.Marker.Variant}
+}
+
+// recordingsDirOf is the directory a run reads and writes recordings in: the
+// configured one, or .sedum/recordings under the output directory.
+func recordingsDirOf(cfg Config) string {
+	if cfg.Recordings != "" {
+		return cfg.Recordings
+	}
+	return filepath.Join(cfg.Output, ".sedum", "recordings")
+}
+
+// entryFor finds the entry of a recording's regions that has the key of a
+// marker's region.
+func entryFor(regions []recording.Region, path string, m inject.Marker) (recording.Region, bool) {
+	key := recording.RegionKey(path, m.Action, m.Variant, m.Kwargs)
+	for _, e := range regions {
+		if recording.RegionKey(e.Path, e.Action, e.Variant, e.ID) == key {
+			return e, true
+		}
+	}
+	return recording.Region{}, false
+}
+
+// recordingReason says why a v2 region is not vouched for by the regions of its
+// record's recording, or the empty string when it is. readErr is what reading
+// the recording returned.
+func recordingReason(readErr error, regions []recording.Region, r inject.OwnedRegion) string {
+	if readErr != nil {
+		if errors.Is(readErr, fs.ErrNotExist) {
+			return reasonNoRecording
+		}
+		return reasonUnreadable
+	}
+	m := r.Region.Marker
+	entry, ok := entryFor(regions, r.Path, m)
+	if !ok {
+		return reasonNoEntry
+	}
+	if entry.KwargsHash != m.KwargsHash {
+		return reasonNotMatching
+	}
+	hash, err := inject.KwargsHash(entry.Kwargs)
+	if err != nil || hash != entry.KwargsHash {
+		return reasonNotMatching
+	}
+	return ""
 }
 
 // classify decides, from markers alone, what grow does with each record.
@@ -107,7 +200,7 @@ func refOf(r inject.OwnedRegion) RegionRef {
 //     file), in which case re-select
 //
 // Seeded regions take no part in the decision.
-func classify(records *record.Set, files []resolve.File, owners map[string]inject.Owner, output string, unwritten map[string]string, reselect bool, skip []string) ([]Classification, error) {
+func classify(records *record.Set, files []resolve.File, owners map[string]inject.Owner, output string, unwritten map[string]string, reselect bool, skip []string, recordings string) ([]Classification, error) {
 	skipped := skipSet(skip)
 	var out []Classification
 	for _, rec := range records.Records {
@@ -132,11 +225,22 @@ func classify(records *record.Set, files []resolve.File, owners map[string]injec
 		c.found = found
 		var owned []inject.OwnedRegion
 		for _, r := range found {
+			if r.Region.Marker.Foreign {
+				c.Foreign = append(c.Foreign, refOf(r))
+				continue
+			}
 			if inject.Owns(owners, rec.ID, r.Region.Marker.Record) {
 				owned = append(owned, r)
 			}
 		}
 
+		// The recording is read once, and only for a record with a v2 region
+		// whose gen is current, since nothing else looks at it.
+		var (
+			read    bool
+			readErr error
+			entries []recording.Region
+		)
 		var current []inject.OwnedRegion
 		for _, r := range owned {
 			m := r.Region.Marker
@@ -150,7 +254,31 @@ func classify(records *record.Set, files []resolve.File, owners map[string]injec
 				c.Stale = append(c.Stale, refOf(r))
 				continue
 			}
+			if m.Version == 2 {
+				if !read {
+					read = true
+					var got recording.Recording
+					got, readErr = recording.ReadRecord(recordings, rec.ID)
+					if readErr == nil && len(got.Records) > 0 {
+						entries = got.Records[0].Regions
+					}
+				}
+				if reason := recordingReason(readErr, entries, r); reason != "" {
+					ref := refOf(r)
+					ref.Reason = reason
+					c.Stale = append(c.Stale, ref)
+					continue
+				}
+			}
 			current = append(current, r)
+		}
+		for _, r := range current {
+			switch r.BodyState() {
+			case inject.BodyEdited:
+				c.Edited = append(c.Edited, refOf(r))
+			case inject.BodyUnverifiable:
+				c.Unverifiable = append(c.Unverifiable, refOf(r))
+			}
 		}
 
 		switch {
@@ -161,7 +289,10 @@ func classify(records *record.Set, files []resolve.File, owners map[string]injec
 		case len(c.Stale) > 0:
 			c.Mode = ModeReselect
 		default:
-			c.Mode = rerenderOrSkip(&c, rec, mine, current)
+			c.Mode = rerenderOrSkip(&c, rec, mine, current, entries)
+			if len(c.Edited) > 0 && (c.Mode == ModeSkip || c.Mode == ModeRerender) {
+				c.Mode = ModeEdited
+			}
 		}
 		out = append(out, c)
 	}
@@ -171,7 +302,10 @@ func classify(records *record.Set, files []resolve.File, owners map[string]injec
 // rerenderOrSkip finishes classifying a record whose owned regions are all
 // current against it: skip when every pkg matches, otherwise re-render the
 // regions that do not - or re-select if one of them cannot be re-rendered.
-func rerenderOrSkip(c *Classification, rec *record.Record, files []resolve.File, current []inject.OwnedRegion) Mode {
+// A v2 region is re-rendered from the kwargs of its entry in regions, the
+// Regions of the record's recording; a v1 region from the kwargs on its own
+// marker.
+func rerenderOrSkip(c *Classification, rec *record.Record, files []resolve.File, current []inject.OwnedRegion, regions []recording.Region) Mode {
 	for _, r := range current {
 		m := r.Region.Marker
 		action, ok := r.Package.Actions[m.Action]
@@ -180,10 +314,19 @@ func rerenderOrSkip(c *Classification, rec *record.Record, files []resolve.File,
 		}
 		c.Rerender = append(c.Rerender, refOf(r))
 
-		inv, err := expand.Rerender(rec.ID, r.Package, files, m.Action, m.Kwargs)
+		kwargs := m.Kwargs
+		if m.Version == 2 {
+			entry, found := entryFor(regions, r.Path, m)
+			if !found {
+				c.Rerender, c.rerendered = nil, nil
+				return ModeReselect
+			}
+			kwargs = entry.Kwargs
+		}
+		inv, err := expand.Rerender(rec.ID, r.Package, files, m.Action, kwargs)
 		if err != nil || inv.Path != r.Path {
-			// The region can no longer be reproduced from its marker, so only
-			// a fresh selection can say what it should be.
+			// The region can no longer be reproduced from what records it, so
+			// only a fresh selection can say what it should be.
 			c.Rerender, c.rerendered = nil, nil
 			return ModeReselect
 		}
