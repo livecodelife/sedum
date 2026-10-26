@@ -1,0 +1,32 @@
+id: prov-2026-351ce55c
+title: 'go: internal/pipeline/classify.go, Classification'
+type: imprint
+status: draft
+version: 1
+reason: ""
+created_at: "2026-10-26"
+author: calebcowen@gmail.com
+intent: The Classification struct is the decision for one record and what it was made from.
+constraints:
+  - The type lives in internal/pipeline/classify.go, package pipeline, and adds no imports
+  - Classification is an exported struct with the field RecordID of type string, Mode of type Mode and Forced of type bool
+  - Classification has the fields Stale, Rerender, StaleSeeded, Edited, Unverifiable and Foreign, each a slice of RegionRef
+  - Edited holds the current regions whose BodyState is BodyEdited
+  - Unverifiable holds the current owned-tier regions whose BodyState is BodyUnverifiable
+  - Foreign holds the regions in the record's files whose marker is Foreign
+  - A record in ModeEdited keeps in its Rerender list the regions a re-render would have rewritten
+  - Classification has the unexported field found, a slice of inject.OwnedRegion holding every region in the record's files, whoever owns it
+  - Classification has the unexported field rerendered, a slice of inject.Invocation holding the invocations that bring the Rerender regions up to date
+  - A seeded region is never in Edited or Unverifiable
+affected_scope:
+  - internal/pipeline/classify.go
+forbidden_scope: []
+implements: prov-2026-9621daed
+implements_version: 11
+related: []
+sealed_at_sha: ""
+associated_specs: []
+associated_traces: []
+monitors: []
+tags:
+  - marker-v2
