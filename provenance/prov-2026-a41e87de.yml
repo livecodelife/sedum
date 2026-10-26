@@ -1,0 +1,28 @@
+id: prov-2026-a41e87de
+title: 'Version 0.9.2: markers migrate stages every replacement before writing'
+type: blueprint
+status: draft
+version: 1
+reason: ""
+created_at: "2026-10-26"
+author: calebcowen@gmail.com
+intent: '0.9.1 -> 0.9.2: patch. sedum markers migrate stages every replacement file first, writes the recordings, then renames, so a failed migration leaves the tree as it was and locked files stay locked. See CHANGELOG.md.'
+constraints:
+  - This record touches only the version constant and the changelog. The tag-vs-constant check in .github/workflows/release.yml gates the release.
+  - The tag is pushed only once this commit is on main.
+affected_scope:
+  - internal/recording/version.go
+  - CHANGELOG.md
+forbidden_scope: []
+implements: prov-2026-d554bfc3
+implements_version: 1
+related: []
+sealed_at_sha: ""
+associated_specs:
+  - path: internal/cli/release_test.go
+    run_command: go test -count=1 ./$(dirname {{path}})
+associated_traces: []
+monitors: []
+tags:
+  - sedum
+  - release
