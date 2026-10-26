@@ -89,6 +89,9 @@ func printMigration(out io.Writer, report *pipeline.MigrateReport, dryRun bool) 
 	for _, n := range report.Left {
 		fmt.Fprintf(out, "left %s  %s: %s\n", n.Path, label(n.Action, n.Variant), n.Why)
 	}
+	if report.Skipped > 0 {
+		fmt.Fprintf(out, "skipped %d scope paths no generator package claims\n", report.Skipped)
+	}
 	if dryRun {
 		fmt.Fprintf(out, "%d regions would be migrated, %d files would be rewritten, %d recordings would be written\n",
 			len(report.Migrated), len(report.Files), len(report.Recordings))

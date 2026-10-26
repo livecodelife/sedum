@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io/fs"
 	"os"
+	"path"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -48,6 +49,7 @@ type MigrateReport struct {
 	Left       []MigrateNote
 	Files      []string
 	Recordings []string
+	Skipped    int
 }
 
 // migratedRegion is one region a migration rewrote, with what its recording
@@ -290,6 +292,23 @@ func Migrate(cfg MigrateConfig) (*MigrateReport, error) {
 		return nil, err
 	}
 	owners := ownersOf(records)
+	// A record's scope names every kind of file its change touches, and only
+	// a file a package claims can carry markers, so the paths no package
+	// claims are left out of the migration and counted.
+	skipped := 0
+	for i := range records.Records {
+		var kept []string
+		for _, p := range records.Records[i].Paths {
+			if _, _, unmanaged := packages.Unmanaged(p); !unmanaged {
+				if ext := strings.ToLower(path.Ext(p)); ext == "" || len(packages.ForExtension(ext)) == 0 {
+					skipped++
+					continue
+				}
+			}
+			kept = append(kept, p)
+		}
+		records.Records[i].Paths = kept
+	}
 	resolutions, _, err := resolve.Paths(packages, records, nil)
 	if err != nil {
 		return nil, err
@@ -318,7 +337,7 @@ func Migrate(cfg MigrateConfig) (*MigrateReport, error) {
 		mode    fs.FileMode
 	}
 	var (
-		report    = &MigrateReport{}
+		report    = &MigrateReport{Skipped: skipped}
 		rewrites  []rewritten
 		byRecord  = map[string][]migratedRegion{}
 		walkError error
@@ -338,6 +357,7 @@ func Migrate(cfg MigrateConfig) (*MigrateReport, error) {
 			walkError = err
 			return
 		}
+		pkg = packageDeclaringActions(packages, rel, string(data), pkg)
 		next, migrated, refused, left, err := migrateContent(rel, string(data), pkg, known)
 		if err != nil {
 			walkError = err
@@ -417,4 +437,34 @@ func Migrate(cfg MigrateConfig) (*MigrateReport, error) {
 	byPath(report.Left)
 	sort.Strings(report.Files)
 	return report, nil
+}
+
+// packageDeclaringActions is the package, among those that claim a file's
+// extension, whose actions the file's regions name: the first one that declares
+// the most of them. Packages can share an extension, and a region is judged by
+// the package that wrote it, not by one that merely claims the same files.
+// found, the package the walk reached the file through, is the answer when no
+// candidate does better.
+func packageDeclaringActions(packages *genpkg.Set, rel, text string, found *genpkg.Package) *genpkg.Package {
+	score := func(pkg *genpkg.Package) int {
+		regions, err := inject.FindRegions(pkg.Comment(), text)
+		if err != nil {
+			return -1
+		}
+		declared := 0
+		for _, r := range regions {
+			if _, ok := pkg.Actions[r.Marker.Action]; ok {
+				declared++
+			}
+		}
+		return declared
+	}
+
+	best, bestScore := found, score(found)
+	for _, candidate := range packages.ForExtension(strings.ToLower(path.Ext(rel))) {
+		if s := score(candidate); s > bestScore {
+			best, bestScore = candidate, s
+		}
+	}
+	return best
 }

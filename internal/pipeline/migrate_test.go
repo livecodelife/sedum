@@ -68,13 +68,13 @@ func TestMigrateReportHasTheFieldsTheRecordNames(t *testing.T) {
 	note := MigrateNote{Path: "a.rb"}
 	r := MigrateReport{
 		Migrated: []MigrateNote{note}, Refused: []MigrateNote{note}, Left: []MigrateNote{note},
-		Files: []string{"a.rb"}, Recordings: []string{"prov-2026-aaaaaaaa"},
+		Files: []string{"a.rb"}, Recordings: []string{"prov-2026-aaaaaaaa"}, Skipped: 2,
 	}
 	if len(r.Migrated) != 1 || len(r.Refused) != 1 || len(r.Left) != 1 || r.Files[0] != "a.rb" || r.Recordings[0] != "prov-2026-aaaaaaaa" {
 		t.Errorf("report = %+v", r)
 	}
-	if got := reflect.TypeOf(r).NumField(); got != 5 {
-		t.Errorf("MigrateReport has %d fields, want 5", got)
+	if got := reflect.TypeOf(r).NumField(); got != 6 || r.Skipped != 2 {
+		t.Errorf("MigrateReport has %d fields, want 6", got)
 	}
 }
 

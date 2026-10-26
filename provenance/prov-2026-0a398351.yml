@@ -20,12 +20,17 @@ constraints:
   - Re-rendering a migrated region from its recording reproduces its body
   - Migrating a second time changes nothing
   - The markers command is registered on the root command
+  - A scope path no generator package claims, such as a document, a script, a configuration file, a data file or a file with no extension, cannot carry markers, so migration leaves it out, counts it and reports the count, and never fails because of it
+  - A file's regions are judged against the generator package, among those that claim its extension, that declares their actions
+  - Which scope paths a migration reads is decided by the loaded generator packages, so a package for any language contributes its files and only the paths no loaded package claims are skipped
 affected_scope:
   - internal/pipeline/migrate.go
   - internal/cli/markers.go
   - internal/cli/root.go
   - internal/pipeline/migrate_test.go
   - internal/cli/markers_test.go
+  - internal/pipeline/migrate_unclaimed_test.go
+  - internal/cli/markers_unclaimed_test.go
 forbidden_scope: []
 related: []
 sealed_at_sha: ""
