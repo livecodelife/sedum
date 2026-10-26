@@ -164,6 +164,13 @@ type Result struct {
 	// (prov-2026-bf01cd6b), which is what lets a caller run only the specs
 	// whose code moved.
 	Changed bool
+	// Marker is the marker as written for the region, including its Extra,
+	// its Tier and Writer with their defaults filled and its Body hash. It is
+	// the zero Marker for a pruned, skipped, unselected or held region.
+	Marker Marker
+	// Kwargs is every resolved kwarg the region was rendered from, which the
+	// v2 marker summarizes as a hash. Nil where Marker is the zero Marker.
+	Kwargs map[string]any
 }
 
 // Apply runs Phase 7 over every invocation.
@@ -348,6 +355,18 @@ func readTarget(output string, unwritten map[string]string, inv Invocation) (str
 func applyOne(inv Invocation, content string, own ownership) (string, Result, error) {
 	result := Result{Path: inv.Path, Action: inv.Action.Name, Variant: inv.Variant, Record: inv.RecordID}
 
+	identityKwargs := map[string]any{}
+	for _, name := range selectingKwargs(inv.Action) {
+		if value, ok := inv.Kwargs[name]; ok {
+			identityKwargs[name] = value
+		}
+	}
+	kwargsHash, err := KwargsHash(inv.Kwargs)
+	if err != nil {
+		return "", result, fmt.Errorf("action %s: kwargs cannot be recorded on a marker: %w",
+			Marker{Action: inv.Action.Name, Variant: inv.Variant}.Label(), err)
+	}
+
 	marker := Marker{
 		Action:  inv.Action.Name,
 		Variant: inv.Variant,
@@ -357,8 +376,11 @@ func applyOne(inv Invocation, content string, own ownership) (string, Result, er
 		// A composite never owns a region: the marker names the child that
 		// rendered it, so the hash is the child's, which is what re-rendering
 		// would replay.
-		Pkg:    inv.Action.PkgHash,
-		Kwargs: inv.Kwargs,
+		Pkg:        inv.Action.PkgHash,
+		Writer:     DefaultWriter,
+		Kwargs:     identityKwargs,
+		Version:    2,
+		KwargsHash: kwargsHash,
 	}
 
 	identity, err := identityFor(inv.Action, marker)
@@ -376,6 +398,11 @@ func applyOne(inv Invocation, content string, own ownership) (string, Result, er
 	// being the same thing, never from a lifecycle field Sedum would have to
 	// reimplement a provenance graph to read.
 	for _, region := range regions {
+		// A foreign region is another format's. It is never compared with
+		// this invocation's identity and is left exactly as it is.
+		if region.Marker.Foreign {
+			continue
+		}
 		existing, err := identityFor(inv.Action, region.Marker)
 		if err != nil {
 			return "", result, fmt.Errorf("file %s: %w", inv.Path, err)
@@ -409,20 +436,24 @@ func applyOne(inv Invocation, content string, own ownership) (string, Result, er
 		//
 		// Nothing else is taken from the old marker. Tier, record, kwargs and
 		// writer describe what the region is now, and this invocation is what
-		// it is now.
+		// it is now. A v1 marker being replaced becomes a v2 marker.
 		refreshed := marker
 		refreshed.Extra = region.Marker.Extra
 
 		// Alignment comes from the region's own opening marker rather than
 		// from the anchor, so a run refreshing a region's contents does not
 		// silently re-lay-out one whose surroundings have moved.
-		rendered, err := renderRegion(inv, refreshed, indentAt(content, region.Start))
+		rendered, bodyHash, err := renderRegion(inv, refreshed, indentAt(content, region.Start))
 		if err != nil {
 			return "", result, err
 		}
+		refreshed.Body = bodyHash
+		refreshed.Tier = refreshed.tierOrDefault()
 
 		result.Replaced = true
 		result.Changed = rendered != content[region.Start:region.End]
+		result.Marker = refreshed
+		result.Kwargs = inv.Kwargs
 		return content[:region.Start] + rendered + content[region.End:], result, nil
 	}
 
@@ -431,13 +462,17 @@ func applyOne(inv Invocation, content string, own ownership) (string, Result, er
 		return "", result, explainUnmatched(inv, err)
 	}
 
-	rendered, err := renderRegion(inv, marker, where.indent)
+	rendered, bodyHash, err := renderRegion(inv, marker, where.indent)
 	if err != nil {
 		return "", result, err
 	}
+	marker.Body = bodyHash
+	marker.Tier = marker.tierOrDefault()
 
 	offset := orderedOffset(regions, where.offset, own, inv.RecordID)
 	result.Changed = true
+	result.Marker = marker
+	result.Kwargs = inv.Kwargs
 	return content[:offset] + rendered + content[offset:], result, nil
 }
 
@@ -449,11 +484,10 @@ func applyOne(inv Invocation, content string, own ownership) (string, Result, er
 // anchor sits at - a single package legitimately mixes a fragment indented to
 // sit inside a struct with a top-level declaration starting at column zero, and
 // re-indenting would double-indent the first (prov-2026-df491217).
-func renderRegion(inv Invocation, marker Marker, indent string) (string, error) {
-	open, err := marker.Open(inv.Package.Comment())
-	if err != nil {
-		return "", err
-	}
+//
+// It also returns the body hash of the text between the markers, whatever the
+// marker's version; a v2 marker is written carrying it.
+func renderRegion(inv Invocation, marker Marker, indent string) (string, string, error) {
 
 	// The template's own trailing newline is normalized away so that a
 	// template written with one and a template written without produce the
@@ -468,19 +502,29 @@ func renderRegion(inv Invocation, marker Marker, indent string) (string, error) 
 	if strings.HasSuffix(inv.Content, "\n\n") && body != "" {
 		body += "\n"
 	}
+	text := ""
+	if body != "" {
+		text = body + "\n"
+	}
+	hash := BodyHash(text)
+
+	if marker.Version == 2 {
+		marker.Body = hash
+	}
+	open, err := marker.Open(inv.Package.Comment())
+	if err != nil {
+		return "", "", err
+	}
 
 	var b strings.Builder
 	b.WriteString(indent)
 	b.WriteString(open)
 	b.WriteString("\n")
-	if body != "" {
-		b.WriteString(body)
-		b.WriteString("\n")
-	}
+	b.WriteString(text)
 	b.WriteString(indent)
 	b.WriteString(marker.Close(inv.Package.Comment()))
 	b.WriteString("\n")
-	return b.String(), nil
+	return b.String(), hash, nil
 }
 
 // orderedOffset finds where a new region goes among the regions already
