@@ -1,0 +1,31 @@
+id: prov-2026-ceafd24a
+version: 1
+content_hash: sha256:4629d63a8f3e2f137e65a41ee96d5931f1e55d284fe265fc33951a0c191faa32
+parent_hash: ""
+reason: ""
+author: calebcowen@gmail.com
+created_at: "2026-10-26T20:41:46Z"
+spec_hashes:
+  - sha256:bc8e19015316b1e6d0b676b9952dcba6d7bb9d687bcb3ef6abcd73f33186528f
+content:
+  id: prov-2026-ceafd24a
+  title: 'go: internal/cli/grow.go, checkCombinations'
+  type: imprint
+  created_at: "2026-10-26"
+  author: calebcowen@gmail.com
+  intent: The checkCombinations function rejects flag combinations grow cannot honour.
+  constraints:
+    - The function lives in internal/cli/grow.go, package cli, and adds no imports
+    - --check is rejected with --dry-run, --force and --stop-after, and with --record whose value ends in .json
+    - The rejection's error text is --check cannot be combined with followed by the flag, a colon, a space and the text --check only reports, from markers, with no model call and nothing written
+    - --check with --record and a directory reads the recordings from that directory
+    - checkCombinations receives a GrowConfig and returns an error, nil when the combination is allowed
+  affected_scope:
+    - internal/cli/grow.go
+    - internal/cli/record_v2_test.go
+  implements: prov-2026-9621daed
+  implements_version: 11
+  associated_specs:
+    - path: internal/cli/record_v2_test.go
+  tags:
+    - marker-v2

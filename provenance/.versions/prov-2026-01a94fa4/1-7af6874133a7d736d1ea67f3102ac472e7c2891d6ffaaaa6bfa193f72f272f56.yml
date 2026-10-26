@@ -1,0 +1,32 @@
+id: prov-2026-01a94fa4
+version: 1
+content_hash: sha256:7af6874133a7d736d1ea67f3102ac472e7c2891d6ffaaaa6bfa193f72f272f56
+parent_hash: ""
+reason: ""
+author: calebcowen@gmail.com
+created_at: "2026-10-26T20:41:30Z"
+spec_hashes:
+  - sha256:eb0e91c6de851e6f6d1df3c40fc026e29990dbb5aa78a2c35ff69a02cacb5d53
+content:
+  id: prov-2026-01a94fa4
+  title: 'go: internal/pipeline/capture.go, Capture'
+  type: imprint
+  created_at: "2026-10-26"
+  author: calebcowen@gmail.com
+  intent: The Capture function turns what a run resolved and decided into a recording.
+  constraints:
+    - The function lives in internal/pipeline/capture.go, package pipeline
+    - The file imports, stated once here for every function in the file, github.com/livecodelife/sedum/internal/record, github.com/livecodelife/sedum/internal/recording and github.com/livecodelife/sedum/internal/resolve, all as values
+    - The function is exported, named Capture, receives a pointer to Result and returns a recording.Recording
+    - Each Record's Regions are those regionsOf, defined in this file, which receives a pointer to Result and a record id and returns a slice of recording.Region, returns for its record id
+    - Capture does not sort the regions and does not touch the filesystem
+    - The recording returned has the Regions field of each of its Records filled
+  affected_scope:
+    - internal/pipeline/capture.go
+    - internal/pipeline/recordings_test.go
+  implements: prov-2026-5cc2f7f6
+  implements_version: 1
+  associated_specs:
+    - path: internal/pipeline/recordings_test.go
+  tags:
+    - marker-v2

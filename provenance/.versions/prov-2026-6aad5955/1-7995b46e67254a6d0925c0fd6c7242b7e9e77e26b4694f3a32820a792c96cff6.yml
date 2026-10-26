@@ -1,0 +1,51 @@
+id: prov-2026-6aad5955
+version: 1
+content_hash: sha256:7995b46e67254a6d0925c0fd6c7242b7e9e77e26b4694f3a32820a792c96cff6
+parent_hash: ""
+reason: ""
+author: calebcowen@gmail.com
+created_at: "2026-10-26T20:41:40Z"
+spec_hashes:
+  - sha256:111cdfeb8a7dad24e3265d6fa79d07d02edbee9e30562843b62fb197fe2f4cbe
+content:
+  id: prov-2026-6aad5955
+  title: 'go: internal/inject/marker.go, parseOpen'
+  type: imprint
+  created_at: "2026-10-26"
+  author: calebcowen@gmail.com
+  intent: The parseOpen function reads an opening marker from one line as a v1, v2 or foreign marker.
+  constraints:
+    - The function lives in internal/inject/marker.go, package inject, and adds no imports
+    - The function receives a genpkg.Comment, imported as a value type from github.com/livecodelife/sedum/internal/genpkg, and the line as a string, and returns a Marker, a bool and an error
+    - A line that is not a marker returns a zero Marker, false and no error
+    - A marker with no attribute text is returned with Tier owned and Writer sedum, the version fields at their zero values, and no error
+    - 'Attribute text that is not a JSON object returns an error whose text is marker for, the marker''s label, and carries attributes that are not readable as JSON: followed by the cause'
+    - The attribute object is read once into a map from key to raw JSON, and the key v is taken from it
+    - A marker with no v key is read from an attrs value, defined in this file, with Version 0
+    - 'A v1 marker whose kwargs is not an object returns an error whose text is marker for, the marker''s label, and carries attributes that are not readable as JSON: kwargs must be an object'
+    - A marker whose v is a number with the value 2, including 2.0, is read from an attrsV2 value, defined in this file, with Version 2
+    - A v2 marker's id is the Marker's Kwargs
+    - A v2 marker's kwargs is the Marker's KwargsHash
+    - A v2 marker's body is the Marker's Body
+    - 'A v2 marker whose kwargs is not a string returns an error whose text is marker for, the marker''s label, and carries attributes that are not readable as JSON: kwargs must be a string'
+    - A v2 marker with no id, kwargs or body is read with those fields empty
+    - A marker whose v is present and is not a number with the value 2, including null, a string, 0, 1, 3 and 2.5, is returned with Foreign true, its Action and Variant, Tier owned, Writer sedum, and Version 0
+    - A foreign marker has an empty Record, Gen, Pkg, Kwargs, KwargsHash and Body
+    - A foreign marker has every attribute key, as read, in Extra
+    - A foreign marker is returned with true and no error
+    - The keys a v1 marker models are tier, record, gen, pkg, writer and kwargs
+    - The keys a v2 marker models are v, tier, record, gen, pkg, writer, id, kwargs and body
+    - On a v1 marker every key outside the six it models, including id and body, is put in Extra
+    - On a v2 marker every key outside the nine it models is put in Extra
+    - A foreign marker names no record, so no record owns it and a prune never removes it
+    - A v2 marker with no tier is read with Tier owned
+    - A v2 marker with no writer is read with Writer sedum
+  affected_scope:
+    - internal/inject/marker.go
+    - internal/inject/markerv2_test.go
+  implements: prov-2026-a3771fbf
+  implements_version: 1
+  associated_specs:
+    - path: internal/inject/markerv2_test.go
+  tags:
+    - marker-v2

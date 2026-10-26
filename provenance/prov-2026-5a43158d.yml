@@ -1,7 +1,7 @@
 id: prov-2026-5a43158d
 title: 'go: internal/inject/scan.go, BodyState'
 type: imprint
-status: draft
+status: implemented
 version: 1
 reason: ""
 created_at: "2026-10-26"
@@ -20,7 +20,7 @@ forbidden_scope: []
 implements: prov-2026-a3771fbf
 implements_version: 1
 related: []
-sealed_at_sha: ""
+sealed_at_sha: d474089c572e2cd4cdf31bb68318d0eaa8f7683d
 associated_specs:
   - path: internal/inject/markerv2_scan_test.go
     run_command: go test ./internal/inject/ -run '^TestBodyStateType$' -count=1

@@ -1,0 +1,34 @@
+id: prov-2026-5ff90f65
+version: 1
+content_hash: sha256:155e335804cc8bbedd199602ea59aad69ca5eb76fa567e4123573ac0dc32cd4c
+parent_hash: ""
+reason: ""
+author: calebcowen@gmail.com
+created_at: "2026-10-26T20:41:38Z"
+spec_hashes:
+  - sha256:e898dfd40de559b20f761bf16e7692838663e85320631119815e27c22ba3352d
+content:
+  id: prov-2026-5ff90f65
+  title: 'go: internal/inject/canon.go, BodyHash'
+  type: imprint
+  created_at: "2026-10-26"
+  author: calebcowen@gmail.com
+  intent: 'The BodyHash function returns the sha256: hash of a region''s body text with line endings normalized.'
+  constraints:
+    - 'The function lives in internal/inject/canon.go, package inject, and adds no imports: crypto/sha256, encoding/hex and strings come from the file''s import list'
+    - The function is exported, named BodyHash, receives one positional string argument and returns one string
+    - Every carriage return followed directly by a line feed is read as a line feed
+    - A carriage return not followed by a line feed is left as it is
+    - No other byte is changed, so indentation, trailing spaces and trailing blank lines take part in the hash
+    - 'The function returns sha256: followed by the 64 lower-case hex digits of the SHA-256 of the normalized text as UTF-8 bytes'
+    - The empty string hashes to sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+    - The function never returns an error
+  affected_scope:
+    - internal/inject/canon.go
+    - internal/inject/canon_test.go
+  implements: prov-2026-8bba6ce4
+  implements_version: 1
+  associated_specs:
+    - path: internal/inject/canon_test.go
+  tags:
+    - marker-v2

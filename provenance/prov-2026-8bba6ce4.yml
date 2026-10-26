@@ -1,7 +1,7 @@
 id: prov-2026-8bba6ce4
 title: Kwargs and region text are hashed in one canonical form
 type: blueprint
-status: draft
+status: implemented
 version: 1
 reason: ""
 created_at: "2026-10-26"
@@ -27,7 +27,7 @@ affected_scope:
   - internal/inject/canon_test.go
 forbidden_scope: []
 related: []
-sealed_at_sha: ""
+sealed_at_sha: cacc0ea60ac215db23aecf6c9ab62061cccc1d08
 associated_specs:
   - path: internal/inject/canon_test.go
     run_command: go test ./internal/inject/ -run '^TestWriteCanonicalString|^TestKwargsHash(AbsentAndNullDiffer|Shape|ErrorIsCanonicalKwargsError)?$|^TestCanonicalNumber|^TestWriteCanonical(AppendsToTheBuffer|ErrorPaths)?$|^TestBodyHash|^TestCanonicalKwargs' -count=1

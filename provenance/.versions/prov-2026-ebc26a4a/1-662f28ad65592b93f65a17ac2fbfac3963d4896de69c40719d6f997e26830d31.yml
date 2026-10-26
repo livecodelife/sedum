@@ -1,0 +1,56 @@
+id: prov-2026-ebc26a4a
+version: 1
+content_hash: sha256:662f28ad65592b93f65a17ac2fbfac3963d4896de69c40719d6f997e26830d31
+parent_hash: ""
+reason: ""
+author: calebcowen@gmail.com
+created_at: "2026-10-26T20:41:48Z"
+spec_hashes:
+  - sha256:9ceca0fddd19d25feac052dffbeb239a9c8cb3cc60f4c65d38ede93e39e5f750
+content:
+  id: prov-2026-ebc26a4a
+  title: 'go: internal/pipeline/migrate.go, migrateContent'
+  type: imprint
+  created_at: "2026-10-26"
+  author: calebcowen@gmail.com
+  intent: The migrateContent function rewrites the v1 markers in one file's text to v2 and returns the recording entries for them.
+  constraints:
+    - 'The function lives in internal/pipeline/migrate.go, package pipeline, and adds no imports: strings comes from the file''s import list'
+    - The function is unexported and receives positionally the file's path string, its content string, a pointer to genpkg.Package and a func(string) bool that says whether a record id is known
+    - It returns the rewritten content string, a slice of migratedRegion, a slice of MigrateNote of refused regions, a slice of MigrateNote of left regions and an error, in that order
+    - It finds the regions with inject.FindRegions, which receives a genpkg.Comment and the content and returns a slice of inject.Region and an error, called with the package's Comment
+    - A failure to find regions returns an error whose text is file, a space, the path, a colon, a space and the cause
+    - A region whose marker is Foreign is not touched and not reported
+    - A region whose marker has Version 2 is not touched and not reported
+    - A v1 region whose marker names no record is left, with the Why text marker names no record
+    - A v1 region whose record id the known function does not accept is left, with the Why text record not in the records directory
+    - A v1 region whose action the package does not declare is refused, with the Why text action no longer declared by its package
+    - A v1 region whose kwargs inject.KwargsHash, which receives a map[string]any and returns a string and an error, cannot hash is refused, with the error's text as Why
+    - Every other v1 region is migrated
+    - A migrated region's new marker is a copy of its marker with Version 2
+    - The new marker's KwargsHash is inject.KwargsHash of the old marker's Kwargs
+    - The new marker's Body is the region's BodyHash, a field of inject.Region
+    - The new marker's Kwargs holds the entries of the old kwargs named by inject.SelectingKwargs, which receives a pointer to genpkg.Action and returns a slice of names, for the region's action
+    - The new marker keeps the old marker's Tier, Record, Gen, Pkg, Writer and Extra
+    - The opening line is located with splitOpeningLine, defined in this file, which receives the content and the region's Start and returns the indentation, the end of the line's text and the line ending
+    - The region's opening line is replaced by the indentation, the text Marker.Open returns, which is a method of inject.Marker that receives a genpkg.Comment and returns a string and an error, and the line ending
+    - Nothing else in the region changes
+    - The entry has Path from the argument
+    - The entry has Action, Variant, Tier as a string and Pkg from the marker
+    - The entry has ID the identity kwargs and Kwargs every kwarg of the old marker
+    - The entry has KwargsHash and Body of the new marker
+    - Regions are rewritten from the last to the first, so earlier offsets stay valid
+    - The migrated slice is in file order and each element holds the Package argument
+    - Content with no v1 region is returned as it is, with empty slices
+    - A package declares an action when the action's name is a key of the package's Actions map
+    - A region whose marker names no record, or a record the known function does not accept, is left even when its action is not declared by the package
+    - A region is first tested for being foreign or v2, then for being left, then for being refused
+  affected_scope:
+    - internal/pipeline/migrate.go
+    - internal/pipeline/migrate_test.go
+  implements: prov-2026-0a398351
+  implements_version: 1
+  associated_specs:
+    - path: internal/pipeline/migrate_test.go
+  tags:
+    - marker-v2

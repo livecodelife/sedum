@@ -1,0 +1,43 @@
+id: prov-2026-a4dc4849
+version: 1
+content_hash: sha256:f3705c115c7b8166d5d2fb1484eb4e7f57bc8bf7ad2a3496c2e36f311322f362
+parent_hash: ""
+reason: ""
+author: calebcowen@gmail.com
+created_at: "2026-10-26T20:41:44Z"
+spec_hashes:
+  - sha256:e898dfd40de559b20f761bf16e7692838663e85320631119815e27c22ba3352d
+content:
+  id: prov-2026-a4dc4849
+  title: 'go: internal/inject/canon.go, writeCanonical'
+  type: imprint
+  created_at: "2026-10-26"
+  author: calebcowen@gmail.com
+  intent: The writeCanonical function appends the canonical JSON of one decoded value to a buffer.
+  constraints:
+    - 'The function lives in internal/inject/canon.go, package inject, and adds no imports: bytes, fmt, sort and encoding/json come from the file''s import list'
+    - The function is unexported and receives positionally a pointer to bytes.Buffer, a value of type any and a path string, and returns an error
+    - 'The value is one of the types encoding/json decodes into an any with UseNumber: a map[string]any, a []any, a string, a bool, nil or a json.Number'
+    - A map is written as an opening brace, its entries and a closing brace
+    - A map's entries are separated by commas, with no whitespace
+    - Each map key is written as a string followed by a colon
+    - A map's keys are sorted by the byte order of their UTF-8 form
+    - Each map value is written by calling writeCanonical recursively with the path that is the parent's path followed by a dot, or the key alone when the parent's path is empty
+    - A slice is written as an opening bracket, its elements in order and a closing bracket, with commas between elements and no whitespace
+    - Each slice element is written by calling writeCanonical recursively with the path that is the parent's path followed by the element's index in square brackets
+    - A string is written by writeCanonicalString, defined in this file, which receives a pointer to bytes.Buffer and a string and returns nothing
+    - A bool is written as true or false
+    - nil is written as null, so an explicit null is present in the output
+    - A json.Number is written by canonicalNumber, defined in this file, which receives a json.Number and a path string and returns a string and an error
+    - An error from canonicalNumber is returned as it is
+    - 'A value of any other type returns an error whose text is kwargs cannot be hashed: followed by the path, a colon, a space and the text unsupported value'
+    - In the unsupported-value error the path is the word kwargs when the path is empty
+  affected_scope:
+    - internal/inject/canon.go
+    - internal/inject/canon_test.go
+  implements: prov-2026-8bba6ce4
+  implements_version: 1
+  associated_specs:
+    - path: internal/inject/canon_test.go
+  tags:
+    - marker-v2

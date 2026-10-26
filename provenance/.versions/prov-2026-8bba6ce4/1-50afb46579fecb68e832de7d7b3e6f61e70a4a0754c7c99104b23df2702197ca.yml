@@ -1,0 +1,38 @@
+id: prov-2026-8bba6ce4
+version: 1
+content_hash: sha256:50afb46579fecb68e832de7d7b3e6f61e70a4a0754c7c99104b23df2702197ca
+parent_hash: ""
+reason: ""
+author: calebcowen@gmail.com
+created_at: "2026-10-26T20:41:30Z"
+spec_hashes:
+  - sha256:e898dfd40de559b20f761bf16e7692838663e85320631119815e27c22ba3352d
+content:
+  id: prov-2026-8bba6ce4
+  title: Kwargs and region text are hashed in one canonical form
+  type: blueprint
+  created_at: "2026-10-26"
+  author: calebcowen@gmail.com
+  intent: The kwargs hash and the body hash on a marker should be computable by any tool from the same rules, so a foreign writer can produce and check them without linking Sedum.
+  constraints:
+    - 'A kwargs hash is the text sha256: followed by 64 lower-case hex digits'
+    - 'A body hash is the text sha256: followed by 64 lower-case hex digits'
+    - KwargsHash hashes the canonical encoding of a resolved kwargs map
+    - CanonicalKwargs encodes a kwargs map as JSON with sorted keys and no insignificant whitespace
+    - Two kwargs maps with equal keys and values have the same canonical encoding whatever their key order
+    - Integer-valued numbers have the same canonical encoding whatever their spelling
+    - An integer beyond 2^53 in absolute value is refused with an error
+    - A number that is not finite is refused with an error
+    - A kwarg that is absent and a kwarg that is null hash differently
+    - The kwargs hashed are the resolved kwargs, with a declared default present when the invocation omitted it
+    - BodyHash hashes region text with each CRLF read as LF
+    - Indentation takes part in the body hash
+    - Trailing spaces take part in the body hash
+    - Trailing blank lines take part in the body hash
+  affected_scope:
+    - internal/inject/canon.go
+    - internal/inject/canon_test.go
+  associated_specs:
+    - path: internal/inject/canon_test.go
+  tags:
+    - marker-v2

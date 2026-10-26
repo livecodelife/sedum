@@ -1,0 +1,40 @@
+id: prov-2026-dd167bda
+version: 1
+content_hash: sha256:0be9dcea47190cc7545ed990efb0187459a77a2710b0950766d5c685388ae389
+parent_hash: ""
+reason: ""
+author: calebcowen@gmail.com
+created_at: "2026-10-26T20:41:46Z"
+spec_hashes:
+  - sha256:e898dfd40de559b20f761bf16e7692838663e85320631119815e27c22ba3352d
+content:
+  id: prov-2026-dd167bda
+  title: 'go: internal/inject/canon.go, CanonicalKwargs'
+  type: imprint
+  created_at: "2026-10-26"
+  author: calebcowen@gmail.com
+  intent: The CanonicalKwargs function encodes a resolved kwargs map as the canonical JSON bytes a kwargs hash is taken over.
+  constraints:
+    - The function lives in the new file internal/inject/canon.go, package inject
+    - The file imports, stated once here for every function in the file, the standard library packages bytes, crypto/sha256, encoding/hex, encoding/json, fmt, math/big, sort, strconv and strings, each as a value import
+    - The function is exported, named CanonicalKwargs, and receives one positional argument of type map[string]any
+    - The function returns a byte slice and an error, in that order
+    - The function does not mutate its argument
+    - The function marshals the argument with encoding/json and decodes the result into an any with a decoder whose UseNumber is enabled, so every number reaches the encoder as a json.Number
+    - 'When marshalling or decoding fails the function returns a nil slice and an error whose text is kwargs cannot be hashed: followed by the cause'
+    - The function encodes the decoded value with writeCanonical, defined in this file, which receives a pointer to bytes.Buffer, a value of type any and a path string and returns an error
+    - The initial path passed to writeCanonical is the empty string
+    - When writeCanonical returns an error the function returns a nil slice and that error
+    - Otherwise the function returns the buffer's bytes, which hold no trailing newline
+    - A nil or empty map encodes as the two bytes {}, never as null
+    - 'No kwarg name is treated specially: a kwarg named code is encoded like any other'
+    - A key whose value is null is written, and an absent key is not, so the two encode differently
+  affected_scope:
+    - internal/inject/canon.go
+    - internal/inject/canon_test.go
+  implements: prov-2026-8bba6ce4
+  implements_version: 1
+  associated_specs:
+    - path: internal/inject/canon_test.go
+  tags:
+    - marker-v2

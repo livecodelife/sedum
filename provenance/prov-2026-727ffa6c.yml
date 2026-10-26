@@ -1,7 +1,7 @@
 id: prov-2026-727ffa6c
 title: 'go: internal/inject/inject.go, Result'
 type: imprint
-status: draft
+status: implemented
 version: 1
 reason: ""
 created_at: "2026-10-26"
@@ -22,7 +22,7 @@ forbidden_scope: []
 implements: prov-2026-a3771fbf
 implements_version: 1
 related: []
-sealed_at_sha: ""
+sealed_at_sha: 7a3c4e85520728401277b03ba5df1c57054b2cfc
 associated_specs:
   - path: internal/inject/markerv2_test.go
     run_command: go test ./internal/inject/ -run '^TestResultFields$' -count=1

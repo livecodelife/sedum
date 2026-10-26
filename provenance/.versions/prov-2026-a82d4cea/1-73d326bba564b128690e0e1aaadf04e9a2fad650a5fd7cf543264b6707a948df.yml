@@ -1,0 +1,42 @@
+id: prov-2026-a82d4cea
+version: 1
+content_hash: sha256:73d326bba564b128690e0e1aaadf04e9a2fad650a5fd7cf543264b6707a948df
+parent_hash: ""
+reason: ""
+author: calebcowen@gmail.com
+created_at: "2026-10-26T20:41:45Z"
+spec_hashes:
+  - sha256:bc8e19015316b1e6d0b676b9952dcba6d7bb9d687bcb3ef6abcd73f33186528f
+content:
+  id: prov-2026-a82d4cea
+  title: 'go: internal/cli/grow.go, runGrow'
+  type: imprint
+  created_at: "2026-10-26"
+  author: calebcowen@gmail.com
+  intent: The runGrow function runs grow, writes the recordings, and fails a re-render refused over a hand edit.
+  constraints:
+    - The function lives in internal/cli/grow.go, package cli, and adds no imports
+    - runGrow sets Config.Recordings to the --record value when it is set and does not end in .json, and to the empty string otherwise.
+    - 'grow --check''s failure error text is "check failed: some records are stale, edited, need re-rendering, or have left orphan regions; run sedum grow (with --prune-orphans for orphans)", whose last character is the closing parenthesis'
+    - 'grow --check --json''s failure error text is "check failed: some records are stale, edited, need re-rendering, or have left orphan regions", whose last character is the s of regions'
+    - runGrow writes the recordings, with pipeline.WriteRecordings, which receives a pointer to Result and a directory string and returns an error, exactly when the run is not a dry run, a check, a stamp or a replay, and either has no --stop-after or has --record set to a directory.
+    - runGrow writes the recordings after the report is printed.
+    - runGrow writes the recordings into the directory classify reads them from
+    - When any Classification is Refused, runGrow returns an error after printing the report and writing the recordings.
+    - The first line of that error is refusing to re-render over hand edits; --force overwrites them.
+    - Each following line of that error is two spaces, the path, two spaces and the label of one refused region.
+    - A refused run writes the recordings of its other records.
+    - With --record whose value ends in .json, runGrow writes one recording of the whole run to that file with writeRecording, defined in internal/cli/grow.go, which receives a path and a recording.Recording and returns an error, and says every record was re-selected.
+    - runGrow reports each record's classification alongside what it would write under --dry-run.
+    - runGrow receives a context.Context, the output writer and the error writer as io.Writer, a GrowConfig, the responseSchema bool and a promptContext, and returns an error
+    - runGrow sets Config.Reselect to true only when --record's value ends in .json
+    - Recordings are written by runGrow and not by Run, so a second grow skips a record whose regions are current only when the first grow's runGrow wrote its recording
+  affected_scope:
+    - internal/cli/grow.go
+    - internal/cli/record_v2_test.go
+  implements: prov-2026-9621daed
+  implements_version: 11
+  associated_specs:
+    - path: internal/cli/record_v2_test.go
+  tags:
+    - marker-v2

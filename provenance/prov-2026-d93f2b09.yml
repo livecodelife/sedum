@@ -1,7 +1,7 @@
 id: prov-2026-d93f2b09
 title: 'go: internal/pipeline/classify.go, Mode'
 type: imprint
-status: draft
+status: implemented
 version: 1
 reason: ""
 created_at: "2026-10-26"
@@ -20,7 +20,7 @@ forbidden_scope: []
 implements: prov-2026-9621daed
 implements_version: 11
 related: []
-sealed_at_sha: ""
+sealed_at_sha: 8b2669148461eee6dac4cafbd725c2de01d1f44e
 associated_specs:
   - path: internal/pipeline/classify_v2_test.go
     run_command: go test ./internal/pipeline/ -run '^TestClassifyV2ModeEdited' -count=1

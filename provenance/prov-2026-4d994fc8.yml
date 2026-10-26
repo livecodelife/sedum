@@ -1,7 +1,7 @@
 id: prov-2026-4d994fc8
 title: 'go: internal/pipeline/recordings.go, WriteReplayRecordings'
 type: imprint
-status: draft
+status: implemented
 version: 1
 reason: ""
 created_at: "2026-10-26"
@@ -31,7 +31,7 @@ forbidden_scope: []
 implements: prov-2026-5cc2f7f6
 implements_version: 1
 related: []
-sealed_at_sha: ""
+sealed_at_sha: 4f75de894ac5d915dbb1ed5b0b1fda259cb2dbdd
 associated_specs:
   - path: internal/pipeline/recordings_test.go
     run_command: go test ./internal/pipeline/ -run '^(TestWriteReplayRecordings|TestAReplayedRecordingsFiles)' -count=1
