@@ -12,7 +12,7 @@ constraints:
   - The file imports, stated once here for every declaration in the file, the standard library packages errors, fmt, io/fs, os, path/filepath, sort and strings, and the packages github.com/livecodelife/sedum/internal/genpkg, github.com/livecodelife/sedum/internal/runlog and github.com/livecodelife/sedum/internal/syntax, all as values
   - Result is an exported struct with the string fields Path, Action, Variant and Record
   - Result has the bool fields Replaced, Skipped, Pruned, Unselected, Held, Orphan and Changed
-  - Result has the field Marker of type Marker, the marker the region was written with, including its Body hash
+  - Result has the field Marker of type Marker, the marker as written for the region, including its Extra, its Tier and Writer with their defaults filled and its Body hash
   - Result has the field Kwargs of type map[string]any, every resolved kwarg the region was rendered from
   - Marker is the zero Marker and Kwargs is nil for a pruned, skipped, unselected or held region
 affected_scope:
