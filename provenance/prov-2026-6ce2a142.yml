@@ -1,0 +1,39 @@
+id: prov-2026-6ce2a142
+title: 'go: internal/inject/canon.go, canonicalNumber'
+type: imprint
+status: draft
+version: 1
+reason: ""
+created_at: "2026-10-26"
+author: calebcowen@gmail.com
+intent: The canonicalNumber function writes one JSON number in canonical form, or refuses it.
+constraints:
+  - 'The function lives in internal/inject/canon.go, package inject, and adds no imports: fmt, math/big and strconv come from the file''s import list'
+  - The function is unexported and receives positionally a json.Number and a path string, and returns a string and an error
+  - The number's exact decimal value is read from its digits with math/big, so 1, 1.0 and 1e0 are all read as the integer 1
+  - A number whose value is an integer is returned as that integer in decimal
+  - An integer is written with a minus sign only when negative, with no plus sign, no leading zeros, no fraction and no exponent
+  - Negative zero in any spelling is returned as 0
+  - An integer whose absolute value is greater than 9007199254740992 is refused
+  - The integer 9007199254740992 is accepted
+  - 'A refusal for size returns an empty string and an error whose text is kwargs cannot be hashed: followed by the path, a colon, a space and the text integer beyond 2^53'
+  - 'A number that is not an integer is converted to its nearest float64 and returned in the ECMAScript Number::toString form: the shortest digits that read back as that float64'
+  - That form is plain decimal notation when the absolute value is at least 0.000001 and below 1e21, so 0.5 is returned as 0.5
+  - Below 0.000001 that form is the shortest digits with a lower-case e and the exponent with its minus sign and no leading zeros, so 0.00000015 is returned as 1.5e-7
+  - A non-integer number whose nearest float64 is zero, such as 1e-400, is returned as 0
+  - 'A number whose nearest float64 is infinite is refused with an error whose text is kwargs cannot be hashed: followed by the path, a colon, a space and the text number is not finite'
+  - 'A text that is not a number is refused with an error whose text is kwargs cannot be hashed: followed by the path, a colon, a space and the text not a number'
+  - When the path is empty the path text in an error is the word kwargs
+  - A number whose nearest float64 is infinite is refused as not finite before its integer size is considered, so 1e400 reports number is not finite
+affected_scope:
+  - internal/inject/canon.go
+forbidden_scope: []
+implements: prov-2026-8bba6ce4
+implements_version: 1
+related: []
+sealed_at_sha: ""
+associated_specs: []
+associated_traces: []
+monitors: []
+tags:
+  - marker-v2
