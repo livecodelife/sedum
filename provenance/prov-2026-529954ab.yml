@@ -1,6 +1,6 @@
 id: prov-2026-529954ab
 title: Packages declare the paths Sedum does not manage
-status: open
+status: implemented
 version: 3
 reason: Split the Check requirement into one rejection and one acceptance constraint
 created_at: "2026-08-14"
@@ -105,7 +105,7 @@ implements: prov-2026-d554bfc3
 implements_version: 1
 related:
   - prov-2026-e8671c88
-sealed_at_sha: ""
+sealed_at_sha: 4598f356536cffa2f63e0672a1d952c760e6627a
 associated_specs:
   - path: internal/resolve/resolve_test.go
     run_command: go test -count=1 ./$(dirname {{path}})
