@@ -1,0 +1,28 @@
+id: prov-2026-fa3497af
+title: 'go: internal/cli/markers.go, newMarkersCommand'
+type: imprint
+status: draft
+version: 1
+reason: ""
+created_at: "2026-10-26"
+author: calebcowen@gmail.com
+intent: The newMarkersCommand function builds the markers command group.
+constraints:
+  - The function lives in the new file internal/cli/markers.go, package cli
+  - The file imports, stated once here for every function in the file, the standard library packages fmt and io, github.com/spf13/cobra and github.com/livecodelife/sedum/internal/pipeline, all as values
+  - The function is unexported, takes no argument and returns a pointer to cobra.Command
+  - The command's Use is markers
+  - The command's Short is Work on ownership markers
+  - The command has the one subcommand that newMarkersMigrateCommand, defined in this file, which takes no argument and returns a pointer to cobra.Command, returns
+affected_scope:
+  - internal/cli/markers.go
+forbidden_scope: []
+implements: prov-2026-0a398351
+implements_version: 1
+related: []
+sealed_at_sha: ""
+associated_specs: []
+associated_traces: []
+monitors: []
+tags:
+  - marker-v2
