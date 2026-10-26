@@ -19,7 +19,9 @@ constraints:
   - The initial path passed to writeCanonical is the empty string
   - When writeCanonical returns an error the function returns a nil slice and that error
   - Otherwise the function returns the buffer's bytes, which hold no trailing newline
-  - A nil or empty map encodes as the two bytes {}
+  - A nil or empty map encodes as the two bytes {}, never as null
+  - 'No kwarg name is treated specially: a kwarg named code is encoded like any other'
+  - A key whose value is null is written, and an absent key is not, so the two encode differently
 affected_scope:
   - internal/inject/canon.go
 forbidden_scope: []
