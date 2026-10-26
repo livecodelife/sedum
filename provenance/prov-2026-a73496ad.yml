@@ -1,0 +1,39 @@
+id: prov-2026-a73496ad
+title: 'go: internal/inject/marker.go, Marker.encodeAttrs'
+type: imprint
+status: draft
+version: 1
+reason: ""
+created_at: "2026-10-26"
+author: calebcowen@gmail.com
+intent: The encodeAttrs method renders a marker's attribute object.
+constraints:
+  - The method lives in internal/inject/marker.go, package inject, has a Marker value receiver, takes no argument, returns a string and an error, and adds no imports
+  - A marker whose Version is not 2 is encoded from the attrs struct, with the keys tier, record, gen, pkg, writer and kwargs
+  - A marker whose Version is 2 is encoded from an attrsV2 value, defined in this file
+  - The attrsV2 V is 2
+  - The attrsV2 Tier is the result of tierOrDefault, defined in this file, which takes no argument and returns a Tier
+  - The attrsV2 Writer is the result of writerIfNamed, defined in this file, which takes no argument and returns a string
+  - The attrsV2 Record, Gen and Pkg are the marker's
+  - The attrsV2 ID is the marker's Kwargs
+  - The attrsV2 Kwargs is the marker's KwargsHash
+  - The attrsV2 Body is the marker's Body
+  - The value is encoded with encodeJSON, defined in this file, which receives a value of type any and returns a string and an error, so HTML characters are written literally and no newline follows
+  - The keys of a v2 object come out in the order v, tier, record, gen, pkg, writer, id, kwargs, body
+  - Keys in the marker's Extra are appended after the declared keys
+  - The Extra keys are appended in sorted order, each as its name encoded as a string, a colon and its value compacted
+  - 'An encoding failure returns an error whose text is action, a space, the marker''s label, and the text : kwargs cannot be recorded on a marker: followed by the cause'
+  - On a v2 marker an Extra key named one of the nine v2 keys is not appended
+  - On a v1 marker an Extra key named one of the six v1 keys, tier, record, gen, pkg, writer and kwargs, is not appended, and an Extra key named id or body is appended
+affected_scope:
+  - internal/inject/marker.go
+forbidden_scope: []
+implements: prov-2026-a3771fbf
+implements_version: 1
+related: []
+sealed_at_sha: ""
+associated_specs: []
+associated_traces: []
+monitors: []
+tags:
+  - marker-v2
