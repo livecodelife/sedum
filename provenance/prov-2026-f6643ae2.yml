@@ -1,0 +1,44 @@
+id: prov-2026-f6643ae2
+title: 'go: internal/cli/markers.go, newMarkersMigrateCommand'
+type: imprint
+status: draft
+version: 1
+reason: ""
+created_at: "2026-10-26"
+author: calebcowen@gmail.com
+intent: The newMarkersMigrateCommand function builds the markers migrate command.
+constraints:
+  - 'The function lives in internal/cli/markers.go, package cli, and adds no imports: fmt, io, cobra and pipeline come from the file''s import list'
+  - The function is unexported, takes no argument and returns a pointer to cobra.Command
+  - The command's Use is migrate
+  - The command takes no positional argument
+  - It has the required string flags --generators and --records
+  - It has the string flag --output, defaulting to defaultOutput, defined in package cli
+  - It has the bool flag --dry-run
+  - It has the repeatable string-array flag --var, whose values are name=value
+  - The --var values are parsed with parseVars, defined in package cli, which receives a slice of strings and returns a map[string]string and an error
+  - It calls pipeline.Migrate, which receives a pipeline.MigrateConfig built from the flags and returns a pointer to pipeline.MigrateReport and an error
+  - An error from Migrate is returned
+  - 'With --dry-run it first prints the line dry run: nothing is written'
+  - 'It prints one line for each migrated region: the word migrated, a space, the path, two spaces and the region''s label'
+  - With --dry-run the migrated line starts with the words would migrate in place of migrated
+  - The label is what label, defined in package cli, which receives an action and a variant string and returns a string, returns
+  - 'It prints one line for each refused region: the word refused, a space, the path, two spaces, the label, a colon, a space and the Why text'
+  - It prints one line for each left region in the same form with the word left
+  - Without --dry-run it prints a final line of the form N regions migrated, N files rewritten, N recordings written
+  - With --dry-run it prints a final line of the form N regions would be migrated, N files would be rewritten, N recordings would be written
+  - After printing it returns an error when any region was refused
+  - That error's text is the number of refused regions followed by the text regions could not be migrated
+  - It returns no error when nothing was refused, including when nothing was migrated
+affected_scope:
+  - internal/cli/markers.go
+forbidden_scope: []
+implements: prov-2026-0a398351
+implements_version: 1
+related: []
+sealed_at_sha: ""
+associated_specs: []
+associated_traces: []
+monitors: []
+tags:
+  - marker-v2
