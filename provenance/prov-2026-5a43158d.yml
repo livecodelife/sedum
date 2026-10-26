@@ -15,12 +15,15 @@ constraints:
   - The constant BodyUnverifiable of type BodyState has the value unverifiable
 affected_scope:
   - internal/inject/scan.go
+  - internal/inject/markerv2_scan_test.go
 forbidden_scope: []
 implements: prov-2026-a3771fbf
 implements_version: 1
 related: []
 sealed_at_sha: ""
-associated_specs: []
+associated_specs:
+  - path: internal/inject/markerv2_scan_test.go
+    run_command: go test ./internal/inject/ -run '^TestBodyStateType$' -count=1
 associated_traces: []
 monitors: []
 tags:
