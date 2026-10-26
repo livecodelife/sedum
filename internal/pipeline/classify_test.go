@@ -73,8 +73,12 @@ func grown(t *testing.T) Config {
 	t.Helper()
 	cfg := config(t)
 	cfg.Client = &stub{response: fields("email")}
-	if _, err := Run(context.Background(), cfg); err != nil {
+	result, err := Run(context.Background(), cfg)
+	if err != nil {
 		t.Fatalf("first grow: %v", err)
+	}
+	if err := WriteRecordings(result, v2Dir(cfg)); err != nil {
+		t.Fatalf("WriteRecordings: %v", err)
 	}
 	return cfg
 }
