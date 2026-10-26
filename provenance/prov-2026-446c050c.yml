@@ -14,12 +14,15 @@ constraints:
   - Record has the field Regions, a slice of Region, with the JSON key regions
 affected_scope:
   - internal/recording/recording.go
+  - internal/recording/regions_test.go
 forbidden_scope: []
 implements: prov-2026-5cc2f7f6
 implements_version: 1
 related: []
 sealed_at_sha: ""
-associated_specs: []
+associated_specs:
+  - path: internal/recording/regions_test.go
+    run_command: go test ./internal/recording/ -run '^(TestRecordRegions|TestARecordWithoutRegions)' -count=1
 associated_traces: []
 monitors: []
 tags:
