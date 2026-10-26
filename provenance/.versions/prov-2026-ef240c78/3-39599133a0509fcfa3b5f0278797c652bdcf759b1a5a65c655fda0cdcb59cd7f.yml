@@ -1,0 +1,31 @@
+id: prov-2026-ef240c78
+version: 3
+content_hash: sha256:39599133a0509fcfa3b5f0278797c652bdcf759b1a5a65c655fda0cdcb59cd7f
+parent_hash: sha256:fb16daf426ff5b9c2e24d6caa5047965a1514c1aac06be87f30c9c5859386b11
+reason: Root registers the markers command
+author: calebcowen@gmail.com
+created_at: "2026-10-26T16:02:53Z"
+spec_hashes:
+  - sha256:69305d736a8750547f6baee587d5e1877274dcaac3879f25f7a0238b8da71b18
+content:
+  id: prov-2026-ef240c78
+  title: 'cli: grow-log registered and called from grow (hand-written)'
+  type: imprint
+  created_at: "2026-10-16"
+  author: calebcowen@gmail.com
+  intent: |-
+    The wiring of the grow log into `sedum grow` and the root command (prov-2026-7a13f569), the hand-written part: two existing hand-written files, so it is not grown. (1) internal/cli/root.go registers `newGrowLogCommand()` with the other subcommands in NewRootCommand. (2) internal/cli/grow.go runGrow: `started := time.Now()` just before `pipeline.Run`, and right after that call, before the err check, the single line `writeGrowLog(errOut, cfg, result, err, started)` (grow.go imports time). writeGrowLog and newGrowLogCommand are grown by the imprints "cli: the grow log wiring" and "cli: the sedum grow-log command". The location and switches are environment variables (SEDUM_GROW_LOG, SEDUM_GROW_LOG_SKIPS), not flags, so the grow flag surface contract test is untouched.
+    Tests: the NEW file internal/cli/growlog_wiring_test.go (package cli; import testing), the imprint's spec, grown from this exact text:
+    func TestGrowLogCommandRegistered(t *testing.T) {
+    	findCommand(t, "grow-log")
+    }
+  constraints:
+    - internal/cli/root.go registers newMarkersCommand() with the other subcommands in NewRootCommand, directly after newRegionsCommand().
+  affected_scope:
+    - internal/cli/growlog_wiring_test.go
+    - internal/cli/grow.go
+    - internal/cli/root.go
+  implements: prov-2026-7a13f569
+  implements_version: 2
+  associated_specs:
+    - path: internal/cli/growlog_wiring_test.go
