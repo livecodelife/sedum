@@ -1,0 +1,28 @@
+id: prov-2026-205ee854
+title: 'go: internal/pipeline/pipeline.go, Config'
+type: imprint
+status: draft
+version: 1
+reason: ""
+created_at: "2026-10-26"
+author: calebcowen@gmail.com
+intent: The Config struct is everything a pipeline run needs, including where recordings are read from.
+constraints:
+  - The type lives in internal/pipeline/pipeline.go, package pipeline, and adds no imports
+  - Config has the field Recordings of type string, the directory recordings are read from
+  - An empty Recordings is resolved by Run to the .sedum/recordings directory under Output
+  - Config has the field Reselect of type bool, which re-selects every record whatever its hashes say
+  - Config has the field Check of type bool
+  - A Check run classifies every record and stops, with no model call and nothing written, Phase 3 files included
+affected_scope:
+  - internal/pipeline/pipeline.go
+forbidden_scope: []
+implements: prov-2026-9621daed
+implements_version: 11
+related: []
+sealed_at_sha: ""
+associated_specs: []
+associated_traces: []
+monitors: []
+tags:
+  - marker-v2
