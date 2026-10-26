@@ -30,6 +30,11 @@ constraints:
   - After printing it returns an error when any region was refused
   - That error's text is the number of refused regions followed by the text regions could not be migrated
   - It returns no error when nothing was refused, including when nothing was migrated
+  - The Why of a left region with no record is the text marker names no record
+  - The Why of a left region whose record is unknown is the text record not in the records directory
+  - The Why of a refused region whose action is undeclared is the text action no longer declared by its package
+  - The Why of a refused region whose kwargs cannot be hashed is the error text of inject.KwargsHash
+  - The lines are printed in the order migrated, then refused, then left
 affected_scope:
   - internal/cli/markers.go
 forbidden_scope: []
