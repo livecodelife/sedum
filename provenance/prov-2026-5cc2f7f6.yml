@@ -34,7 +34,17 @@ affected_scope:
 forbidden_scope: []
 related: []
 sealed_at_sha: ""
-associated_specs: []
+associated_specs:
+  - path: internal/pipeline/recordings_test.go
+    run_command: go test ./internal/pipeline/ -run '^TestCapture|^(TestWriteReplayRecordings|TestAReplayedRecordingsFiles)|^TestWriteRecordings|^TestRegionsOf' -count=1
+  - path: internal/pipeline/recordings_merge_test.go
+    run_command: go test ./internal/pipeline/ -run 'TestWriteReplayRecordingsKeepsTheEntriesOfRegionsTheReplayDidNotWrite' -count=1
+  - path: internal/recording/regions_test.go
+    run_command: go test ./internal/recording/ -run '^(TestRecordRegions|TestARecordWithoutRegions)|^(TestRegionTypeFields|TestRegionJSON|TestRegionRoundTrips)' -count=1
+  - path: internal/recording/dir_test.go
+    run_command: go test ./internal/recording/ -run '^(TestReadRecord|TestWriteThenReadRecord)|^TestWriteRecords' -count=1
+  - path: internal/recording/regionkey_test.go
+    run_command: go test ./internal/recording/ -run '^(TestRegionKey|TestSortingKeys)' -count=1
 associated_traces: []
 monitors: []
 tags:
