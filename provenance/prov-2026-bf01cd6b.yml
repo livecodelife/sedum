@@ -1,70 +1,40 @@
 id: prov-2026-bf01cd6b
 title: sedum regions and a JSON grow report feed provenance evidence
-status: implemented
-version: 7
-reason: Re-stamp the version hash after text restore
+status: open
+version: 10
+reason: 'Marker v2 records: remove cross-record duplicates and tighten shapes'
 created_at: "2026-10-15"
 author: calebcowen@gmail.com
 intent: |-
-  Phase 3's link that only Sedum can provide (provenance DESIGN.md,
-  "Verification evidence belongs to a version" and "Markers make spec runs
-  exact"). The provenance library never parses markers; Sedum reads them and
-  reports, as JSON a non-Go caller can consume (TOOL_BOUNDARIES section 4: the
-  surface is formats and commands, never linking).
+  Sedum reads markers and reports them as JSON a non-Go caller can consume, so the provenance library never has to parse a marker. The surface is formats and commands, never linking.
 
   ## sedum regions
 
-  `sedum regions --generators <dir> [--output <dir>] [--records <dir>]
-  [--record <id>]... [--json]` is read-only: no model, no records required,
-  nothing written. It walks the output tree as the orphan scan does - skipping
-  hidden, generators and records directories, vendored directories
-  (node_modules, .next, vendor, dist, target) and the project's excludes: the
-  config's exclude list and SEDUM_EXCLUDE - and lists every region whose marker
-  names a record. With --json it prints one object:
-
-    {"format": "sedum.regions/1", "regions": [
-      {"record": "prov-...", "file": "...", "action": "...", "variant": "...",
-       "tier": "owned", "identity": {...selecting kwargs...},
-       "gen": "sha256:...", "pkg": "sha256:..."}, ...]}
-
-  sorted by file, then position. gen and pkg are "" when the marker lacks them;
-  provenance treats that code as unknown, never fresh, and `grow --stamp` is
-  the way out (agreed with prov-lib and provisio-mgr in #provisio). With
-  --records, a marker naming an alias is reported under the surviving id, and
-  --record selects a record's regions by id or alias. identity is the action's
-  selecting kwargs, or every kwarg when the package no longer declares the
-  action. Without --json the same rows print as a table.
+  `sedum regions --generators <dir> [--output <dir>] [--records <dir>] [--record <id>]... [--json]` is read-only: no model, no records required, nothing written. It walks the output tree as the orphan scan does - skipping hidden, generators and records directories, vendored directories and the project's excludes - and lists every region whose marker names a record. With --json it prints one object with the format `sedum.regions/1` and, for each region sorted by file and then position: record, file, action, variant, tier, identity, gen and pkg. gen and pkg are "" when the marker lacks them. With --records, a marker naming an alias is reported under the surviving id. The identity of a v1 region is the action's selecting kwargs read from its kwargs; the identity of a v2 region is the id object on its marker, read without its recording.
 
   ## A JSON grow report
 
-  `sedum grow --json` prints the run's report as one object instead of text:
-
-    {"format": "sedum.grow/1", "dry_run": false,
-     "records": [{"record": "prov-...", "mode": "skip|select|re-select|re-render|none",
-                  "changed": true,
-                  "regions": [{"file": "...", "action": "...", "variant": "...",
-                               "change": "inserted|replaced|pruned|rerendered|unchanged|held"}]}],
-     "orphans": [{"file", "action", "variant", "record", "authorized", "pruned"}],
-     "stamped": [...], "check_failed": false}
-
-  `changed` is true exactly when one of the record's regions was inserted,
-  pruned, or rewritten with different bytes, so provenance runs only those
-  records' specs. A replaced region whose bytes are identical is "unchanged",
-  which Phase 7 learns by comparing the old region with the new one. --json
-  composes with --check, --dry-run and --stamp, reporting what each would do.
+  `sedum grow --json` prints the run's report as one object with the format `sedum.grow/1`: dry_run, records, orphans, stamped and check_failed. Each record has its mode, which is one of skip, select, re-select, re-render, edited or none, a changed flag, and its regions, each with file, action, variant and a change, which is one of inserted, replaced, pruned, unchanged, held, unselected, seeded or edited. `changed` is true exactly when one of the record's regions was inserted, pruned, or rewritten with different bytes. --json composes with --check, --dry-run and --stamp, reporting what each would do.
 constraints:
   - sedum regions writes nothing, calls no model, and needs no records directory; it reads only files under --output.
   - Both JSON documents carry a format string with a version, and add fields only additively; the shapes are documented in the PRD and README.
   - gen and pkg are reported verbatim from markers, "" when absent; Sedum never computes or fills them in this command.
   - A region counts as changed only when its bytes changed; identical rewrites are unchanged.
-  - Text output is unchanged when --json is not given.
+  - Without --json the output is text.
   - conformance/formats/ documents both formats with an example of each, and Sedum's tests check real output against the documented keys, so a TypeScript consumer can rely on them.
   - sedum regions does not report a marker inside a vendored or excluded directory.
+  - sedum regions reports as a v2 region's identity the id object on its marker.
+  - sedum regions reads a v2 region's identity without the recording.
+  - A record whose classification is edited has the mode edited in the sedum.grow/1 report.
+  - Under --check each edited region of a record is listed in its regions with the change edited.
+  - An edited region does not set its record's changed flag.
+  - conformance/formats documents the mode edited in its grow example.
+  - conformance/formats documents the change edited in its grow example.
+  - The identity of a v1 region is the action's selecting kwargs read from its marker, or every kwarg of the marker when the package no longer declares the action
+  - sedum regions --record selects a record's regions by id or alias
 affected_scope:
   - internal/cli/regions.go
   - internal/cli/root.go
-  - internal/cli/grow.go
-  - internal/cli/config.go
   - internal/cli/report.go
   - internal/cli/*_test.go
   - internal/pipeline/regions.go
@@ -82,7 +52,7 @@ related:
   - prov-2026-9621daed
   - prov-2026-cc73cf61
   - prov-2026-fc05416c
-sealed_at_sha: 53b03330c59c3f53db8d652abd9b94b2deee9abb
+sealed_at_sha: ""
 associated_specs:
   - path: internal/pipeline/regions_test.go
     run_command: go test ./$(dirname {{path}})
