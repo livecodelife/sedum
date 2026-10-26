@@ -22,6 +22,8 @@ constraints:
   - An inserted or replaced region's Result has Marker set to the marker written
   - An inserted or replaced region's Result has Kwargs set to the invocation's Kwargs map
   - Result.Changed is true exactly when the region's bytes differ from what the file held
+  - The identity of the invocation is computed by identityFor, defined in this file, from the marker's Kwargs, which holds the identity kwargs alone
+  - A region whose marker is Foreign gets no Result, because it is left as it is
 affected_scope:
   - internal/inject/inject.go
 forbidden_scope: []
