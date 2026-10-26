@@ -98,13 +98,12 @@ const (
 	anchorKeyword = "anchor"
 )
 
-// Marker is one region's opening marker.
+// Marker is one region's opening marker, as read and as written.
 type Marker struct {
 	Action string
 	// Variant is the discriminator value that selected the template, or
 	// empty for an action that declares no discriminator.
 	Variant string
-	Tier    Tier
 	// Record is the provenance record that last wrote the region. It is
 	// recorded and never matched on: a region is identified by what it is,
 	// not by who wrote it, so that a later record refining an earlier region
@@ -125,16 +124,25 @@ type Marker struct {
 	// means DefaultWriter, so the field distinguishes writers without
 	// asserting anything about the markers written before it existed.
 	Writer string
-	// Kwargs is every kwarg the region was rendered from. All of them are
-	// recorded rather than the subset that currently selects a region,
-	// because deciding today which kwargs select and which parameterize
-	// would be guessing, and recording all of them keeps the question open.
+	Tier   Tier
+	// Kwargs is, on a v1 marker, every kwarg the region was rendered from.
+	// On a v2 marker it holds only the identity kwargs, the id object; the
+	// rest is summarized by KwargsHash (prov-2026-a3771fbf).
 	Kwargs map[string]any
 	// Extra is every attribute key this version of Sedum does not model,
 	// exactly as it was read. It is carried through the round trip and never
 	// interpreted: Sedum does not know what these keys mean, which is the
 	// point of them.
 	Extra map[string]json.RawMessage
+	// Version is 0 for a v1 marker and 2 for a v2 marker.
+	Version int
+	// Foreign is true for a marker whose v is present and is not 2. Sedum
+	// neither matches, replaces nor prunes a foreign region.
+	Foreign bool
+	// KwargsHash is the kwargs hash of a v2 marker, empty on any other.
+	KwargsHash string
+	// Body is the body hash of a v2 marker, empty on any other.
+	Body string
 }
 
 // attrs is the JSON object carried on an opening marker.
@@ -152,6 +160,34 @@ type attrs struct {
 	Pkg    string         `json:"pkg,omitempty"`
 	Writer string         `json:"writer,omitempty"`
 	Kwargs map[string]any `json:"kwargs,omitempty"`
+}
+
+// attrsV2 is the JSON object a v2 marker's attributes are encoded from and
+// read into. Its fields are in the order the keys are written. It has no field
+// for carried keys, which Marker.encodeAttrs appends after it.
+type attrsV2 struct {
+	V      int            `json:"v"`
+	Tier   Tier           `json:"tier"`
+	Record string         `json:"record,omitempty"`
+	Gen    string         `json:"gen,omitempty"`
+	Pkg    string         `json:"pkg,omitempty"`
+	Writer string         `json:"writer,omitempty"`
+	ID     map[string]any `json:"id,omitempty"`
+	Kwargs string         `json:"kwargs,omitempty"`
+	Body   string         `json:"body,omitempty"`
+}
+
+// declaredAttrsV2 is the key set attrsV2 models.
+var declaredAttrsV2 = map[string]bool{
+	"v":      true,
+	"tier":   true,
+	"record": true,
+	"gen":    true,
+	"pkg":    true,
+	"writer": true,
+	"id":     true,
+	"kwargs": true,
+	"body":   true,
 }
 
 // declaredAttrs is the key set attrs models, and so the set an entry in
@@ -204,14 +240,32 @@ func (m Marker) Open(comment genpkg.Comment) (string, error) {
 // Carried keys are appended in sorted order so that the same marker read and
 // rewritten produces the same bytes.
 func (m Marker) encodeAttrs() (string, error) {
-	declared, err := encodeJSON(attrs{
-		Tier:   m.tierOrDefault(),
-		Record: m.Record,
-		Gen:    m.Gen,
-		Pkg:    m.Pkg,
-		Writer: m.writerIfNamed(),
-		Kwargs: m.Kwargs,
-	})
+	var (
+		declared string
+		err      error
+	)
+	if m.Version == 2 {
+		declared, err = encodeJSON(attrsV2{
+			V:      2,
+			Tier:   m.tierOrDefault(),
+			Record: m.Record,
+			Gen:    m.Gen,
+			Pkg:    m.Pkg,
+			Writer: m.writerIfNamed(),
+			ID:     m.Kwargs,
+			Kwargs: m.KwargsHash,
+			Body:   m.Body,
+		})
+	} else {
+		declared, err = encodeJSON(attrs{
+			Tier:   m.tierOrDefault(),
+			Record: m.Record,
+			Gen:    m.Gen,
+			Pkg:    m.Pkg,
+			Writer: m.writerIfNamed(),
+			Kwargs: m.Kwargs,
+		})
+	}
 	if err != nil {
 		return "", fmt.Errorf("action %s: kwargs cannot be recorded on a marker: %w", m.Label(), err)
 	}
@@ -255,8 +309,12 @@ func (m Marker) encodeAttrs() (string, error) {
 // object carrying "tier" twice is worse than one carrying it once.
 func (m Marker) carriedNames() []string {
 	var out []string
+	declaredSet := declaredAttrs
+	if m.Version == 2 {
+		declaredSet = declaredAttrsV2
+	}
 	for name := range m.Extra {
-		if declaredAttrs[name] {
+		if declaredSet[name] {
 			continue
 		}
 		out = append(out, name)
@@ -341,19 +399,48 @@ func parseOpen(comment genpkg.Comment, line string) (Marker, bool, error) {
 		return marker, true, nil
 	}
 
-	// Two passes over the same bytes: one binding the keys this version
-	// models, one recovering the keys it does not. The second is what makes
-	// tolerating an unknown key on read into preserving it, rather than
-	// ignoring it right up until the region is rewritten.
-	var a attrs
-	if err := json.Unmarshal([]byte(encoded), &a); err != nil {
-		return Marker{}, false, fmt.Errorf(
-			"marker for %s carries attributes that are not readable as JSON: %w", marker.Label(), err)
+	// Two passes over the same bytes: one reading every key as raw JSON, so
+	// the version can be told and the keys this version does not model can be
+	// recovered, and one binding the keys the marker's version models. The
+	// first is what makes tolerating an unknown key on read into preserving it,
+	// rather than ignoring it right up until the region is rewritten.
+	unreadable := func(cause error) error {
+		return fmt.Errorf(
+			"marker for %s carries attributes that are not readable as JSON: %w", marker.Label(), cause)
 	}
 	var all map[string]json.RawMessage
 	if err := json.Unmarshal([]byte(encoded), &all); err != nil {
-		return Marker{}, false, fmt.Errorf(
-			"marker for %s carries attributes that are not readable as JSON: %w", marker.Label(), err)
+		return Marker{}, false, unreadable(err)
+	}
+	if all == nil {
+		return Marker{}, false, unreadable(fmt.Errorf("attributes must be an object"))
+	}
+
+	if raw, present := all["v"]; present {
+		var v any
+		if err := json.Unmarshal(raw, &v); err != nil {
+			return Marker{}, false, unreadable(err)
+		}
+		if number, isNumber := v.(float64); !isNumber || number != 2 {
+			// Not a version this reader knows. The marker names no record,
+			// so no record owns it and a prune never removes it.
+			marker.Foreign = true
+			marker.Extra = all
+			return marker, true, nil
+		}
+		return parseV2(marker, all, unreadable)
+	}
+
+	if raw, present := all["kwargs"]; present && !isJSONObjectOrNull(raw) {
+		return Marker{}, false, unreadable(fmt.Errorf("kwargs must be an object"))
+	}
+	var a attrs
+	// Numbers stay json.Number so an integer past 2^53 reaches the canonical
+	// form with its own digits instead of being rounded by a float64.
+	decoder := json.NewDecoder(strings.NewReader(encoded))
+	decoder.UseNumber()
+	if err := decoder.Decode(&a); err != nil {
+		return Marker{}, false, unreadable(err)
 	}
 
 	if a.Tier != "" {
@@ -366,17 +453,74 @@ func parseOpen(comment genpkg.Comment, line string) (Marker, bool, error) {
 	marker.Gen = a.Gen
 	marker.Pkg = a.Pkg
 	marker.Kwargs = a.Kwargs
+	marker.Extra = unmodeled(all, declaredAttrs)
+	return marker, true, nil
+}
 
+// parseV2 reads the attribute object of a marker whose v is 2.
+func parseV2(marker Marker, all map[string]json.RawMessage, unreadable func(error) error) (Marker, bool, error) {
+	if raw, present := all["kwargs"]; present && !isJSONStringOrNull(raw) {
+		return Marker{}, false, unreadable(fmt.Errorf("kwargs must be a string"))
+	}
+
+	// v is read by the caller and is not bound here: 2.0 is a version 2 and
+	// does not decode into the int V holds.
+	modeled := map[string]json.RawMessage{}
 	for name, value := range all {
-		if declaredAttrs[name] {
+		if name != "v" {
+			modeled[name] = value
+		}
+	}
+	encoded, err := json.Marshal(modeled)
+	if err != nil {
+		return Marker{}, false, unreadable(err)
+	}
+	var a attrsV2
+	if err := json.Unmarshal(encoded, &a); err != nil {
+		return Marker{}, false, unreadable(err)
+	}
+
+	marker.Version = 2
+	if a.Tier != "" {
+		marker.Tier = a.Tier
+	}
+	if a.Writer != "" {
+		marker.Writer = a.Writer
+	}
+	marker.Record = a.Record
+	marker.Gen = a.Gen
+	marker.Pkg = a.Pkg
+	marker.Kwargs = a.ID
+	marker.KwargsHash = a.Kwargs
+	marker.Body = a.Body
+	marker.Extra = unmodeled(all, declaredAttrsV2)
+	return marker, true, nil
+}
+
+// unmodeled returns the attributes whose keys are not in modeled, or nil when
+// there are none.
+func unmodeled(all map[string]json.RawMessage, modeled map[string]bool) map[string]json.RawMessage {
+	var out map[string]json.RawMessage
+	for name, value := range all {
+		if modeled[name] {
 			continue
 		}
-		if marker.Extra == nil {
-			marker.Extra = map[string]json.RawMessage{}
+		if out == nil {
+			out = map[string]json.RawMessage{}
 		}
-		marker.Extra[name] = value
+		out[name] = value
 	}
-	return marker, true, nil
+	return out
+}
+
+func isJSONObjectOrNull(raw json.RawMessage) bool {
+	text := bytes.TrimSpace(raw)
+	return len(text) > 0 && (text[0] == '{' || string(text) == "null")
+}
+
+func isJSONStringOrNull(raw json.RawMessage) bool {
+	text := bytes.TrimSpace(raw)
+	return len(text) > 0 && (text[0] == '"' || string(text) == "null")
 }
 
 // parseClose reads a closing marker's label from one line.
@@ -484,6 +628,9 @@ type Region struct {
 	// End is the byte offset one past the newline that ends the closing
 	// marker line, so content[Start:End] is the whole region.
 	End int
+	// BodyHash is the body hash of the text actually present between the
+	// marker lines, whatever the marker says it was.
+	BodyHash string
 }
 
 // FindRegions returns every marked region in content, in the order they appear.
@@ -495,6 +642,9 @@ func FindRegions(comment genpkg.Comment, content string) ([]Region, error) {
 	var (
 		out  []Region
 		open *Region
+		// bodyStart is where the open region's text between the marker lines
+		// begins.
+		bodyStart int
 	)
 
 	for offset := 0; offset < len(content); {
@@ -514,6 +664,7 @@ func FindRegions(comment genpkg.Comment, content string) ([]Region, error) {
 			}
 			if ok {
 				open = &Region{Marker: marker, Start: offset}
+				bodyStart = next
 			}
 		} else if label, ok := parseClose(comment, line); ok {
 			if label != open.Marker.Label() {
@@ -522,6 +673,7 @@ func FindRegions(comment genpkg.Comment, content string) ([]Region, error) {
 					open.Marker.Label(), label)
 			}
 			open.End = next
+			open.BodyHash = BodyHash(content[bodyStart:offset])
 			out = append(out, *open)
 			open = nil
 		}

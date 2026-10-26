@@ -1,0 +1,58 @@
+id: prov-2026-66bea9f3
+version: 6
+content_hash: sha256:1685ca556b069629b7162340b98bcfb4818206134daf61f55ac164f7dbd74a93
+parent_hash: sha256:43721a20ecc1a825fa82415b8ce99003d13d28ab3ed4c7e922d745de06db1f87
+reason: 'Marker v2 records: remove cross-record duplicates and tighten shapes'
+author: calebcowen@gmail.com
+created_at: "2026-10-26T16:25:40Z"
+spec_hashes:
+  - sha256:05043df07fc082b984a9491a5b3fa5b8eee195fad6f972b3fabf0e4d4670818a
+  - sha256:eb1995a7392c649458492e47b54ec3b71b370dc0e818607a768b2548a95b7176
+  - sha256:0b817f67a4bef48e52717b980b698119c7269f63c410971f719968b0414e792b
+  - sha256:f9fd255c07f0b379b7bcd70c49c77c9e5cc45105865152ba14bdafaa23a6fc6a
+content:
+  id: prov-2026-66bea9f3
+  title: Markers carry gen and pkg hashes as first-class attributes
+  type: blueprint
+  created_at: "2026-10-15"
+  author: calebcowen@gmail.com
+  intent: 'Every region Sedum writes records the two inputs that decide whether it is current. gen is the gen_hash of the record that wrote the region, SHA-256 over the canonical encoding of the record''s intent, constraints, affected_scope and forbidden_scope, computed by internal/genhash. pkg is a hash of what the region was rendered from: the resolved action declaration, its templates, and the package''s transforms and op_exceptions, computed once at package load. pkg is deliberately conservative, so an unrelated transform edit costs a re-render, never a model call. A pkg mismatch alone means re-render with no model call.'
+  constraints:
+    - An absent gen or pkg means unknown and must read as stale to later consumers, never as current.
+    - A marker carrying gen or pkg as an unknown key, written by a foreign tool, has it promoted to the declared field on parse and never also re-emitted from Extra.
+    - 'Both values use the form sha256: followed by 64 lowercase hex digits.'
+    - A composite's regions carry the pkg hash of the child action named on the marker, since that is what re-rendering replays.
+    - pkg is deterministic across loads, machines and map iteration order.
+    - The encoding of pkg is documented in conformance/ so a harness can compute it without linking Sedum.
+    - A region written when neither the recording nor the records supply a gen has no gen
+    - 'gen_hash follows DESIGN.md''s canonical encoding exactly: sorted keys, UTF-8 NFC, trimmed and collapsed whitespace, list order kept'
+  affected_scope:
+    - internal/inject/marker.go
+    - internal/inject/inject.go
+    - internal/inject/*_test.go
+    - internal/genhash/*.go
+    - internal/genpkg/schema.go
+    - internal/genpkg/load.go
+    - internal/genpkg/pkghash.go
+    - internal/genpkg/*_test.go
+    - internal/record/record.go
+    - internal/record/*_test.go
+    - internal/expand/expand.go
+    - internal/expand/*_test.go
+    - internal/pipeline/pipeline.go
+    - internal/pipeline/replay.go
+    - internal/pipeline/*_test.go
+    - internal/pipeline/capture.go
+    - conformance/README.md
+    - conformance/pkghash/cases.json
+    - internal/recording/recording.go
+    - internal/recording/*_test.go
+  related:
+    - prov-2026-72775ae5
+    - prov-2026-c6580f1e
+    - prov-2026-36c8a99c
+  associated_specs:
+    - path: internal/genhash/genhash_test.go
+    - path: internal/genpkg/pkghash_test.go
+    - path: internal/inject/conformance_test.go
+    - path: internal/pipeline/pipeline_test.go

@@ -1,0 +1,33 @@
+id: prov-2026-5742026d
+title: 'go: internal/pipeline/migrate.go, splitOpeningLine'
+type: imprint
+status: draft
+version: 1
+reason: ""
+created_at: "2026-10-26"
+author: calebcowen@gmail.com
+intent: The splitOpeningLine function splits a region's opening marker line into its indentation, its end and its line ending.
+constraints:
+  - 'The function lives in internal/pipeline/migrate.go, package pipeline, and adds no imports: strings comes from the file''s import list'
+  - The function is unexported and receives the content string and the byte offset of the first byte of a line, an inject.Region's Start, as an int
+  - It returns the line's indentation as a string, the byte offset of the end of the line's text as an int, and the line's ending as a string
+  - The indentation is the run of spaces and tabs at the start of the line
+  - The end of the line's text is the offset of its line feed, or of the carriage return before the line feed when there is one
+  - The line ending is the two characters carriage return and line feed when the line ends with them
+  - The line ending is a line feed when the line ends with a line feed alone
+  - The line ending is the empty string when the content ends before a line feed
+affected_scope:
+  - internal/pipeline/migrate.go
+  - internal/pipeline/migrate_test.go
+forbidden_scope: []
+implements: prov-2026-0a398351
+implements_version: 1
+related: []
+sealed_at_sha: ""
+associated_specs:
+  - path: internal/pipeline/migrate_test.go
+    run_command: go test ./internal/pipeline/ -run '^TestSplitOpeningLine' -count=1
+associated_traces: []
+monitors: []
+tags:
+  - marker-v2

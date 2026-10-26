@@ -1,0 +1,38 @@
+id: prov-2026-296d6901
+title: 'go: internal/recording/dir.go, ReadRecord'
+type: imprint
+status: draft
+version: 1
+reason: ""
+created_at: "2026-10-26"
+author: calebcowen@gmail.com
+intent: The ReadRecord function reads the recording file a directory holds for one record.
+constraints:
+  - 'The function lives in internal/recording/dir.go, package recording, and adds no imports: fmt, os, path/filepath and strings come from the file''s import list'
+  - The function is exported, named ReadRecord, and receives positionally a directory string and a record id string, and returns a Recording and an error
+  - 'A record id that is empty, or contains a slash, a backslash or the text .., returns the same error text WriteRecords returns for it: record id, a space, the id quoted with double quotes, and the text cannot name a recording file'
+  - No file is opened for a record id that cannot name a recording file
+  - The file read is <record id>.json inside the directory
+  - A file that does not exist returns an error that wraps the error os.Open returned, so errors.Is reports fs.ErrNotExist
+  - The file is decoded with Read, defined in internal/recording/io.go, which receives an io.Reader and returns a Recording and an error
+  - A file that cannot be decoded returns an error whose text is the path, a colon, a space and Read's error text
+  - A file whose Records holds no record with the requested id returns an error whose text is the path, a space, the text holds no record, a space and the id quoted with double quotes
+  - The returned Recording has the file's SedumVersion
+  - The returned Recording has the file's Packages
+  - The returned Recording has the file's Variables
+  - The returned Recording's Records holds only the record with the requested id
+affected_scope:
+  - internal/recording/dir.go
+  - internal/recording/dir_test.go
+forbidden_scope: []
+implements: prov-2026-5cc2f7f6
+implements_version: 1
+related: []
+sealed_at_sha: ""
+associated_specs:
+  - path: internal/recording/dir_test.go
+    run_command: go test ./internal/recording/ -run '^(TestReadRecord|TestWriteThenReadRecord)' -count=1
+associated_traces: []
+monitors: []
+tags:
+  - marker-v2

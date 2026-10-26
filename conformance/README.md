@@ -4,7 +4,7 @@ Golden cases for the file formats Sedum shares with other tools, so that a tool
 Sedum's authors did not write can check that it has complied rather than
 discovering the rules one breakage at a time.
 
-It covers the **ownership marker**, the **`pkg` hash** a marker carries, and the two **JSON reports** Sedum prints for other tools (`formats/`: `sedum.regions/1` and `sedum.grow/1`, `prov-2026-bf01cd6b`).
+It covers the **ownership marker** (v1 and v2), the **`pkg`**, **`kwargs`** and **`body`** hashes a marker carries, and the two **JSON reports** Sedum prints for other tools (`formats/`: `sedum.regions/1` and `sedum.grow/1`, `prov-2026-bf01cd6b`).
 
 ## Why the marker and nothing else yet
 
@@ -49,6 +49,35 @@ and, depending on `kind`:
 
 `parsed.extra` and `marker.extra` hold the attribute keys the format does not
 model. Compare them as JSON values, not as text.
+
+## `markers/v2cases.json`
+
+The v2 ownership marker (`"v":2`: an `id` object, and `kwargs` and `body` as
+`sha256:` hash strings) in the case shapes of `markers/cases.json`, held in the
+`cases` array of an object that also carries `format`, `corpus_version` and a
+`description`. Its kinds are `parse`, `emit`, `round_trip`, `replace` and
+`error`. **The cases in `v2cases.json` carry no `decision` field**; every other
+field of the table above applies. In a case's `marker` and `parsed` objects,
+`kwargs` holds the `id` object, `kwargs_hash` the hash string, `body` the body
+hash, `version` is `2` (or `0` for a v1 or foreign marker), and `foreign` says
+whether the marker is another format's.
+
+## `kwargshash/cases.json`
+
+The two hashes a v2 marker carries, so a foreign writer can compute them
+without linking Sedum, as it can `pkg` (`pkghash/cases.json`). Its cases are in
+the `cases` array of an object, and each has an `id`, a `kind` (`kwargs` or
+`body`), a `why` and:
+
+- **`kwargs`** — `input` (the resolved kwargs as JSON text) and either
+  `canonical` (the exact canonical text hashed) and `hash`, or `error: true`
+  and `error_names`, a substring the refusal must contain. Keys are sorted at
+  every depth, there is no insignificant whitespace, and an integer-valued
+  number has one spelling.
+- **`body`** — `input` (the region text between the marker lines) and `hash`.
+  Line endings are normalized to `\n` before hashing.
+
+Hashes are `sha256:` followed by 64 lowercase hex digits.
 
 ## `pkghash/cases.json`
 

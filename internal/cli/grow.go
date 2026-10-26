@@ -73,13 +73,15 @@ Nothing is created that a provenance record did not authorize.`,
 	f.StringVar(&cfg.Output, "output", defaultOutput, "Output directory.")
 	f.StringSliceVar(&cfg.Lang, "lang", nil, "Prefer the named package where an extension is contested. Repeatable.")
 	f.StringSliceVar(&cfg.Only, "only", nil, "Generate only the named provenance record. Repeatable.")
-	f.StringVar(&cfg.RecordTo, "record", "", "Write a recording of the run to the given path.")
+	f.StringVar(&cfg.RecordTo, "record", "", "Write one recording per record into this directory, default .sedum/recordings under --output; "+
+		"a path ending in .json instead writes one recording of the whole run to that file and re-selects every record.")
 	f.StringArrayVar(&cfg.Vars, "var", nil, "Bind a variable a generator package declares, as name=value. Repeatable.")
 	f.StringVar(&cfg.Execute, "execute", "", "Replay a recording. Skips model invocation.")
 	f.BoolVar(&cfg.DryRun, "dry-run", false, "Run every phase, write nothing.")
 	f.BoolVar(&cfg.Force, "force", false,
 		"Re-select every record even when its markers say it is current, and let a record whose selection comes back empty "+
-			"remove every region it owns (without --force that is an error). Re-rendering replays the kwargs on each marker verbatim, so a changed kwarg default or --var value reaches an existing region only with --force. Ignored with --execute.")
+			"remove every region it owns (without --force that is an error). It overwrites a region a re-render refused because its text was edited by hand. "+
+			"Re-rendering replays the kwargs of a v1 marker, or of the recording entry of a v2 region, verbatim, so a changed kwarg default or --var value needs --force. Ignored with --execute.")
 	f.BoolVar(&cfg.PruneOrphans, "prune-orphans", false,
 		"Remove regions whose record was removed from the records directory or deprecated, in files some current record "+
 			"authorizes. Orphans in other files are reported and left alone. Ignored with --execute.")
@@ -98,9 +100,11 @@ Nothing is created that a provenance record did not authorize.`,
 		"Print the run's report as the sedum.grow/1 JSON document (conformance/formats) instead of text. "+
 			"Each record says whether its regions changed, so a caller runs only the specs whose code moved.")
 	f.BoolVar(&cfg.Check, "check", false,
-		"Report which records are current, stale, need re-rendering, or have no regions yet (unknown), from their markers. "+
-			"No model call, nothing written. Exits non-zero when any record is stale or needs re-rendering; unknown does not fail. "+
-			"Re-rendering replays the kwargs on each marker verbatim, so a changed kwarg default or --var value reaches an existing region only with --force. Cannot be combined with --execute, --record, --dry-run, --force or --stop-after.")
+		"Report which records are current, stale, need re-rendering, edited, or have no regions yet (unknown), from their markers and recordings. "+
+			"A region whose text no longer matches its body hash is reported as edited and fails the check; v1 regions have no body hash and are reported unverifiable without failing. "+
+			"No model call, nothing written. Exits non-zero when any record is stale, edited or needs re-rendering; unknown does not fail. "+
+			"Re-rendering replays the kwargs of a v1 marker, or of the recording entry of a v2 region, verbatim, so a changed kwarg default or --var value needs --force. "+
+			"Cannot be combined with --execute, --dry-run, --force, --stop-after or --record with a path ending in .json.")
 	f.StringVar(&cfg.StopAfter, "stop-after", "", "Halt after the named phase. One of: "+stopPointNames()+".")
 	f.IntVar(&cfg.Retries, "retries", defaultRetries, "Model output validation retry limit. Ignored with --execute.")
 	f.IntVar(&cfg.Repair, "repair", defaultRepair,
@@ -273,9 +277,12 @@ func runGrow(ctx context.Context, out, errOut io.Writer, cfg GrowConfig, respons
 		Only:       cfg.Only,
 		DryRun:     cfg.DryRun,
 		Force:      cfg.Force,
-		// A recording captures selections, and a record skipped or
-		// re-rendered from its markers makes none (prov-2026-9621daed).
-		Reselect:       cfg.RecordTo != "",
+		// Only a --record path ending in .json re-selects every record: one
+		// recording of the whole run holds a selection for each, and a record
+		// skipped or re-rendered from its markers makes none
+		// (prov-2026-9621daed). A directory just says where recordings go.
+		Reselect:       recordsWholeRun(cfg.RecordTo),
+		Recordings:     recordingsDir(cfg.RecordTo),
 		Check:          cfg.Check,
 		PruneOrphans:   cfg.PruneOrphans,
 		Stamp:          cfg.Stamp,
@@ -301,43 +308,95 @@ func runGrow(ctx context.Context, out, errOut io.Writer, cfg GrowConfig, respons
 			return err
 		}
 		if cfg.Check && result.CheckFailed() {
-			return errors.New("check failed: some records are stale, need re-rendering, or have left orphan regions")
+			return errors.New("check failed: some records are stale, edited, need re-rendering, or have left orphan regions")
 		}
-		if cfg.RecordTo != "" {
-			return writeRecording(cfg.RecordTo, capture(result, cfg))
+	} else {
+		if cfg.Check {
+			printClassifications(out, result)
+			printOrphans(out, result, cfg.ListOrphans)
+			if result.CheckFailed() {
+				return errors.New("check failed: some records are stale, edited, need re-rendering, or have left orphan regions; run sedum grow (with --prune-orphans for orphans)")
+			}
+			return nil
 		}
-		return nil
-	}
-	if cfg.Check {
-		printClassifications(out, result)
-		printOrphans(out, result, cfg.ListOrphans)
-		if result.CheckFailed() {
-			return errors.New("check failed: some records are stale, need re-rendering, or have left orphan regions; run sedum grow (with --prune-orphans for orphans)")
+		if cfg.Stamp {
+			printStamped(out, result, cfg.DryRun)
+			return nil
 		}
+		if recordsWholeRun(cfg.RecordTo) {
+			fmt.Fprintln(out, "--record: every record re-selected, whatever its markers say, so the recording holds a selection for each")
+		}
+		report(out, result, stopAfter, cfg.DryRun, cfg.ListOrphans)
+		if name != "" {
+			fmt.Fprintf(out, "\nstopped after %s\n", name)
+		}
+	}
+	if cfg.Check || cfg.Stamp {
 		return nil
-	}
-	if cfg.Stamp {
-		printStamped(out, result, cfg.DryRun)
-		return nil
-	}
-	if cfg.RecordTo != "" {
-		fmt.Fprintln(out, "--record: every record re-selected, whatever its markers say, so the recording holds a selection for each")
-	}
-	report(out, result, stopAfter, cfg.DryRun, cfg.ListOrphans)
-	if name != "" {
-		fmt.Fprintf(out, "\nstopped after %s\n", name)
 	}
 
 	// Written after the report, so a run whose recording cannot be written
 	// still tells the user what it decided. The model call is already paid
-	// for and its output is the thing at risk of being lost.
-	if cfg.RecordTo != "" {
+	// for and its output is the thing at risk of being lost. The per-record
+	// recordings are Sedum's, not Run's: a second grow skips a record whose
+	// regions are current only when this one wrote its recording.
+	if !cfg.DryRun && (name == "" || (cfg.RecordTo != "" && !recordsWholeRun(cfg.RecordTo))) {
+		dir := recordingsDir(cfg.RecordTo)
+		if dir == "" {
+			dir = filepath.Join(cfg.Output, ".sedum", "recordings")
+		}
+		if err := pipeline.WriteRecordings(result, dir); err != nil {
+			return err
+		}
+	}
+	if recordsWholeRun(cfg.RecordTo) {
 		if err := writeRecording(cfg.RecordTo, capture(result, cfg)); err != nil {
 			return err
 		}
-		fmt.Fprintf(out, "\nrecording written to %s\n", cfg.RecordTo)
+		if !cfg.JSON {
+			fmt.Fprintf(out, "\nrecording written to %s\n", cfg.RecordTo)
+		}
 	}
-	return nil
+
+	return refusedError(result)
+}
+
+// recordsWholeRun reports whether --record names a file for one recording of
+// the whole run, which is a path ending in .json, rather than a directory.
+func recordsWholeRun(record string) bool {
+	return strings.HasSuffix(record, ".json")
+}
+
+// recordingsDir is the directory --record names for the per-record recordings:
+// the value when it is set and does not end in .json, and empty otherwise.
+func recordingsDir(record string) string {
+	if record == "" || recordsWholeRun(record) {
+		return ""
+	}
+	return record
+}
+
+// refusedError is the error a run returns when a re-render was refused over a
+// hand edit: the first line, then each refused region on a line of its own.
+func refusedError(result *pipeline.Result) error {
+	var lines []string
+	for _, c := range result.Classifications {
+		if !c.Refused() {
+			continue
+		}
+		for _, e := range c.Edited {
+			for _, r := range c.Rerender {
+				if e.Path == r.Path && e.Action == r.Action && e.Variant == r.Variant {
+					lines = append(lines, fmt.Sprintf("  %s  %s", e.Path, describeRef(e)))
+					break
+				}
+			}
+		}
+	}
+	if len(lines) == 0 {
+		return nil
+	}
+	return errors.New("refusing to re-render over hand edits; --force overwrites them\n" + strings.Join(lines, "\n"))
 }
 
 // maxPromptBytes bounds the caller's text. Over it is an error, not a
@@ -434,17 +493,26 @@ func runReplay(out, errOut io.Writer, cfg GrowConfig, stopAfter int, name string
 
 	printWarnings(errOut, result.Warnings)
 	if cfg.JSON {
-		return writeJSON(out, buildGrowReport(result, cfg.DryRun, true, false))
-	}
-	for _, r := range result.Restamps {
-		fmt.Fprintln(out, r)
-	}
-	report(out, result, stopAfter, cfg.DryRun || cfg.Check, cfg.ListOrphans)
-	if name != "" {
-		fmt.Fprintf(out, "\nstopped after %s\n", name)
+		if err := writeJSON(out, buildGrowReport(result, cfg.DryRun, true, false)); err != nil {
+			return err
+		}
+	} else {
+		for _, r := range result.Restamps {
+			fmt.Fprintln(out, r)
+		}
+		report(out, result, stopAfter, cfg.DryRun || cfg.Check, cfg.ListOrphans)
+		if name != "" {
+			fmt.Fprintf(out, "\nstopped after %s\n", name)
+		}
 	}
 	if cfg.Check && pipeline.ReplayWouldChange(result.Injections) {
 		return fmt.Errorf("check failed: replaying %s would change the tree (stale gen, a changed region, or a region the recording no longer selects)", cfg.Execute)
+	}
+	// The recordings of the records replayed are written after the report, so
+	// a later grow finds what this replay wrote. A replay stopped at a phase
+	// boundary injected nothing, so it leaves the recordings as they are.
+	if !cfg.DryRun && !cfg.Check && stopAfter == 0 {
+		return pipeline.WriteReplayRecordings(rec, result, filepath.Join(cfg.Output, ".sedum", "recordings"))
 	}
 	return nil
 }
@@ -536,6 +604,9 @@ func printSelections(out io.Writer, result *pipeline.Result) {
 			continue
 		case pipeline.ModeRerender:
 			fmt.Fprintf(out, "  (package changed; regions re-rendered from their markers, no model call)\n")
+			continue
+		case pipeline.ModeEdited:
+			fmt.Fprintf(out, "  (edited by hand; no model call)\n")
 			continue
 		}
 		if len(s.Invocations) == 0 {
@@ -712,7 +783,7 @@ func checkCombinations(cfg GrowConfig) error {
 		set  bool
 		flag string
 	}{
-		{cfg.RecordTo != "", "--record"},
+		{recordsWholeRun(cfg.RecordTo), "--record"},
 		{cfg.DryRun, "--dry-run"},
 		{cfg.Force, "--force"},
 		{cfg.StopAfter != "", "--stop-after"},
@@ -725,9 +796,11 @@ func checkCombinations(cfg GrowConfig) error {
 }
 
 // printClassifications is --check's report: each record's state and the
-// regions behind it.
+// regions behind it, then the records with regions that cannot be verified,
+// then the regions whose marker version is not known.
 func printClassifications(out io.Writer, result *pipeline.Result) {
-	var current, stale, rerender, unknown int
+	const pad = "             "
+	var current, stale, rerender, edited, unknown int
 	for _, c := range result.Classifications {
 		switch c.Mode {
 		case pipeline.ModeNone:
@@ -742,18 +815,42 @@ func printClassifications(out io.Writer, result *pipeline.Result) {
 			stale++
 			fmt.Fprintf(out, "%-10s %s\n", "stale", c.RecordID)
 			for _, r := range c.Stale {
-				fmt.Fprintf(out, "             %s  %s\n", r.Path, describeRef(r))
+				if r.Reason != "" {
+					fmt.Fprintf(out, "%s%s  %s  (%s)\n", pad, r.Path, describeRef(r), r.Reason)
+					continue
+				}
+				fmt.Fprintf(out, "%s%s  %s\n", pad, r.Path, describeRef(r))
 			}
 		case pipeline.ModeRerender:
 			rerender++
 			fmt.Fprintf(out, "%-10s %s (package changed)\n", "re-render", c.RecordID)
 			for _, r := range c.Rerender {
-				fmt.Fprintf(out, "             %s  %s\n", r.Path, describeRef(r))
+				fmt.Fprintf(out, "%s%s  %s\n", pad, r.Path, describeRef(r))
+			}
+		case pipeline.ModeEdited:
+			edited++
+			fmt.Fprintf(out, "%-10s %s\n", "edited", c.RecordID)
+			for _, r := range c.Edited {
+				fmt.Fprintf(out, "%s%s  %s  (hand-edited: body hash differs)\n", pad, r.Path, describeRef(r))
 			}
 		}
 	}
+	for _, c := range result.Classifications {
+		if len(c.Unverifiable) == 0 {
+			continue
+		}
+		fmt.Fprintf(out, "%-10s %s\n", "unverifiable", c.RecordID)
+		for _, r := range c.Unverifiable {
+			fmt.Fprintf(out, "%s%s  %s\n", pad, r.Path, describeRef(r))
+		}
+	}
+	for _, c := range result.Classifications {
+		for _, r := range c.Foreign {
+			fmt.Fprintf(out, "foreign %s  %s  (marker version not known; left alone)\n", r.Path, describeRef(r))
+		}
+	}
 	printStaleSeeded(out, result)
-	fmt.Fprintf(out, "\n%d current, %d stale, %d to re-render, %d unknown\n", current, stale, rerender, unknown)
+	fmt.Fprintf(out, "\n%d current, %d stale, %d to re-render, %d edited, %d unknown\n", current, stale, rerender, edited, unknown)
 }
 
 // printStaleSeeded lists seeded regions whose record has changed since they

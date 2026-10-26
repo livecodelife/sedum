@@ -227,7 +227,7 @@ func TestInjectsAtMarkerAnchor(t *testing.T) {
 		"  # sedum:anchor:class_body_top\n" +
 		"\n" +
 		"  # sedum:anchor:class_body\n" +
-		`  # sedum:createControllerMethod:index {"tier":"owned","record":"PR-014","pkg":"` + pkg.Actions["createControllerMethod"].PkgHash + `","kwargs":{"collection":"users","controller":"users","name":"index"}}` + "\n" +
+		`  # sedum:createControllerMethod:index {"v":2,"tier":"owned","record":"PR-014","pkg":"` + pkg.Actions["createControllerMethod"].PkgHash + `","id":{"controller":"users","name":"index"},"kwargs":"sha256:7049c5d3e00c4b3073ce24d20d2fe00746f7070c7b2ae6036e297ff5c347fa51","body":"sha256:9516a9ba61403ce27a2a2c3574d1a1feb9ed8250374990aca2631d882b031a64"}` + "\n" +
 		"def index\n  User.all\nend\n" +
 		"  # /sedum:createControllerMethod:index\n" +
 		"end\n"
@@ -468,8 +468,8 @@ func TestDeclaredIdentityRetainsMarkerAttributesAcrossAContentChange(t *testing.
 
 	// A tool above Sedum annotates the region it just wrote.
 	full := filepath.Join(root, filepath.FromSlash(controllerPath))
-	annotated := strings.Replace(read(t, root), `{"tier":"owned"`,
-		`{"tier":"owned","verified_by":"spec/policies_spec.rb"`, 1)
+	annotated := strings.Replace(read(t, root), `{"v":2,"tier":"owned"`,
+		`{"v":2,"tier":"owned","verified_by":"spec/policies_spec.rb"`, 1)
 	if annotated == read(t, root) {
 		t.Fatal("the fixture annotation did not apply; the marker is not shaped the way this test assumes")
 	}

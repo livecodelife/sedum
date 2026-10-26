@@ -1,0 +1,232 @@
+{
+  "format": "sedum.kwargshash",
+  "corpus_version": 1,
+  "description": "Golden cases for the two hashes a v2 ownership marker carries. A kwargs case gives JSON text, the canonical text it encodes to and the hash of that text, or an error the failure must name. A body case gives a body and its hash. Hashes are sha256: followed by 64 lower-case hex digits. The expected values were computed by an independent Python implementation of the rules, not by Sedum.",
+  "cases": [
+    {
+      "id": "kwargs/integer-spelled-1",
+      "kind": "kwargs",
+      "why": "One of three spellings of the integer 1. A writer that keeps the spelling of a number hashes the same value to different hashes. Integer-valued numbers have one canonical text whatever they were written as.",
+      "input": "{\"n\":1}",
+      "canonical": "{\"n\":1}",
+      "hash": "sha256:2bfd14f43d17fc7cea24e0917a8879b4b2f880b8baeec1b9d90fbaad655e71bd"
+    },
+    {
+      "id": "kwargs/integer-spelled-1.0",
+      "kind": "kwargs",
+      "why": "One of three spellings of the integer 1. A writer that keeps the spelling of a number hashes the same value to different hashes. Integer-valued numbers have one canonical text whatever they were written as.",
+      "input": "{\"n\":1.0}",
+      "canonical": "{\"n\":1}",
+      "hash": "sha256:2bfd14f43d17fc7cea24e0917a8879b4b2f880b8baeec1b9d90fbaad655e71bd"
+    },
+    {
+      "id": "kwargs/integer-spelled-1e0",
+      "kind": "kwargs",
+      "why": "One of three spellings of the integer 1. A writer that keeps the spelling of a number hashes the same value to different hashes. Integer-valued numbers have one canonical text whatever they were written as.",
+      "input": "{\"n\":1e0}",
+      "canonical": "{\"n\":1}",
+      "hash": "sha256:2bfd14f43d17fc7cea24e0917a8879b4b2f880b8baeec1b9d90fbaad655e71bd"
+    },
+    {
+      "id": "kwargs/negative-zero",
+      "kind": "kwargs",
+      "why": "A writer that prints the sign of a negative zero hashes -0 and 0 differently, though they are the same number.",
+      "input": "{\"n\":-0}",
+      "canonical": "{\"n\":0}",
+      "hash": "sha256:f3013f933b9fb80ab6d995e7ad9da36f683837ba1d81e950c943d40111eac2f0"
+    },
+    {
+      "id": "kwargs/keys-sorted-by-utf8-bytes-at-every-depth",
+      "kind": "kwargs",
+      "why": "Keys are sorted by the byte order of their UTF-8 form at every depth, not by insertion order and not at the top level alone. The accented key sorts after every ASCII key because its first byte is 0xC3.",
+      "input": "{\"é\":1,\"b\":{\"z\":1,\"a\":{\"y\":1,\"x\":2}},\"a\":[{\"d\":1,\"c\":2}]}",
+      "canonical": "{\"a\":[{\"c\":2,\"d\":1}],\"b\":{\"a\":{\"x\":2,\"y\":1},\"z\":1},\"é\":1}",
+      "hash": "sha256:de01160c98c6a04d0290dffdf3ae0ca16afe77107660321156574ffc9e7b8a6f"
+    },
+    {
+      "id": "kwargs/keys-sorted-by-bytes-not-utf16-units",
+      "kind": "kwargs",
+      "why": "A writer that sorts by UTF-16 code units, as JavaScript does by default, puts U+10000 (a surrogate pair, D800 DC00) before U+FF5E. By UTF-8 bytes U+FF5E (EF BD 9E) comes first.",
+      "input": "{\"\\ud800\\udc00\":1,\"\\uff5e\":2}",
+      "canonical": "{\"～\":2,\"𐀀\":1}",
+      "hash": "sha256:03d1d0948cf7863f31bc4c68ee7d338de0c4297268542955203a2080b832d097"
+    },
+    {
+      "id": "kwargs/arrays-keep-their-order",
+      "kind": "kwargs",
+      "why": "Sorting array elements would make two different lists hash alike.",
+      "input": "{\"l\":[\"c\",\"a\",\"b\",{\"y\":1,\"x\":2}]}",
+      "canonical": "{\"l\":[\"c\",\"a\",\"b\",{\"x\":2,\"y\":1}]}",
+      "hash": "sha256:ff967fba7e3512eca29994e474c6c82ee4673ea2003852e19eb404e9a32f2ff9"
+    },
+    {
+      "id": "kwargs/escapes-quote-backslash-and-short-controls",
+      "kind": "kwargs",
+      "why": "A string is escaped with a backslash before a quote and before a backslash and with the short escapes for backspace, form feed, line feed, carriage return and tab, and with nothing else.",
+      "input": "{\"s\":\"\\\"\\\\\\b\\f\\n\\r\\t/\"}",
+      "canonical": "{\"s\":\"\\\"\\\\\\b\\f\\n\\r\\t/\"}",
+      "hash": "sha256:54f171ada9eab6032ec7edf77a1953c03762a5bb97ad0a1c6c2cff79c0b98f7a"
+    },
+    {
+      "id": "kwargs/other-controls-are-u00-lowercase-hex",
+      "kind": "kwargs",
+      "why": "Every other character below U+0020 is written as \\u00 and two lower-case hex digits. A writer that uses upper-case hex, or the short escape \\v, hashes differently.",
+      "input": "{\"s\":\"\\u0000\\u000b\\u001f\\u000e\"}",
+      "canonical": "{\"s\":\"\\u0000\\u000b\\u001f\\u000e\"}",
+      "hash": "sha256:8c7fb38f3f7dffba7b477451a65ddce54c137b434b5c28533063978034286925"
+    },
+    {
+      "id": "kwargs/html-and-line-separators-are-themselves",
+      "kind": "kwargs",
+      "why": "encoding/json and JavaScript's JSON.stringify escape some of these by default. <, >, & and the line separators U+2028 and U+2029 are written as themselves in UTF-8, as is U+007F.",
+      "input": "{\"s\":\"<a>&\\u2028\\u2029\\u007f\"}",
+      "canonical": "{\"s\":\"<a>&  \"}",
+      "hash": "sha256:2f422aae58b009e945e449eb609ff79496334880677e961a9adb68a5a41cb82f"
+    },
+    {
+      "id": "kwargs/composed-letter",
+      "kind": "kwargs",
+      "why": "A composed letter (U+00E9) and a decomposed one (e and U+0301) are different strings and hash differently. Strings are not Unicode-normalized.",
+      "input": "{\"s\":\"\\u00e9\"}",
+      "canonical": "{\"s\":\"é\"}",
+      "hash": "sha256:86028b41ba792eaf82aa26a45b218f6734f7f1096a86f1746c8296e088a0ccb4"
+    },
+    {
+      "id": "kwargs/decomposed-letter",
+      "kind": "kwargs",
+      "why": "A composed letter (U+00E9) and a decomposed one (e and U+0301) are different strings and hash differently. Strings are not Unicode-normalized.",
+      "input": "{\"s\":\"e\\u0301\"}",
+      "canonical": "{\"s\":\"é\"}",
+      "hash": "sha256:1fc0bd7cc93fca8092a2041d7d01842876422aa7e2838acf42c14578e9f2be05"
+    },
+    {
+      "id": "kwargs/absent-kwarg",
+      "kind": "kwargs",
+      "why": "A kwarg that is absent and one that is explicitly null are different kwargs. This is the absent case, whose canonical text is the empty object.",
+      "input": "{}",
+      "canonical": "{}",
+      "hash": "sha256:44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a"
+    },
+    {
+      "id": "kwargs/explicit-null",
+      "kind": "kwargs",
+      "why": "A kwarg that is absent and one that is explicitly null are different kwargs. A writer that drops nulls hashes this like the absent case.",
+      "input": "{\"a\":null}",
+      "canonical": "{\"a\":null}",
+      "hash": "sha256:d091f9c83c091f79652fe8786375b3fe4ce0861a56f5bfbafedbe431877ff0e8"
+    },
+    {
+      "id": "kwargs/empty-kwargs",
+      "kind": "kwargs",
+      "why": "Empty kwargs hash as the two bytes {} and nothing else: no trailing newline, no spaces.",
+      "input": "{}",
+      "canonical": "{}",
+      "hash": "sha256:44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a"
+    },
+    {
+      "id": "kwargs/fraction-half",
+      "kind": "kwargs",
+      "why": "A number that is not an integer is written in the ECMAScript number-to-string form of its nearest double.",
+      "input": "{\"n\":0.5}",
+      "canonical": "{\"n\":0.5}",
+      "hash": "sha256:aec38c68ae9784cd6c9391c1d52335984c2722d6ec167168b08027566480962d"
+    },
+    {
+      "id": "kwargs/small-fraction-uses-an-exponent",
+      "kind": "kwargs",
+      "why": "Below 0.000001 the ECMAScript form is the shortest digits with a lower-case e and the exponent with its minus sign and no leading zeros: 1.5e-7, not 1.5e-07 and not 0.00000015.",
+      "input": "{\"n\":0.00000015}",
+      "canonical": "{\"n\":1.5e-7}",
+      "hash": "sha256:ca0289a96d48abcb7088cf5581aadc70f1caed9e151f42cda002d48e68277dd4"
+    },
+    {
+      "id": "kwargs/largest-safe-integer-accepted",
+      "kind": "kwargs",
+      "why": "9007199254740992 is 2^53, the largest integer accepted.",
+      "input": "{\"n\":9007199254740992}",
+      "canonical": "{\"n\":9007199254740992}",
+      "hash": "sha256:66c87d9cb3014e05a11baa97df62282d89d425f22ee15816577c84534e2ef1bb"
+    },
+    {
+      "id": "kwargs/integer-beyond-2^53-refused",
+      "kind": "kwargs",
+      "why": "One past 2^53 cannot be told apart from 2^53 by a writer that reads numbers as doubles, so it is refused rather than hashed ambiguously.",
+      "input": "{\"n\":9007199254740993}",
+      "error": true,
+      "error_names": "integer beyond 2^53"
+    },
+    {
+      "id": "kwargs/1e30-refused",
+      "kind": "kwargs",
+      "why": "1e30 is an integer-valued number beyond 2^53, so it is refused whatever its spelling.",
+      "input": "{\"n\":1e30}",
+      "error": true,
+      "error_names": "integer beyond 2^53"
+    },
+    {
+      "id": "kwargs/1e400-refused-as-not-finite",
+      "kind": "kwargs",
+      "why": "A number whose nearest double is infinite is refused as not finite, before its integer size is considered.",
+      "input": "{\"n\":1e400}",
+      "error": true,
+      "error_names": "number is not finite"
+    },
+    {
+      "id": "kwargs/nested-values-in-every-position",
+      "kind": "kwargs",
+      "why": "One case with every shape together, so a writer that handles each alone but not together shows it: nested objects, arrays of objects, booleans, null, strings, and numbers.",
+      "input": "{\"z\":[1,\"two\",true,null,{\"b\":[],\"a\":{}}],\"a\":{\"t\":true,\"f\":false}}",
+      "canonical": "{\"a\":{\"f\":false,\"t\":true},\"z\":[1,\"two\",true,null,{\"a\":{},\"b\":[]}]}",
+      "hash": "sha256:fc0f33daf0ed226c09f8714b9e6960a4674dee12b4b92608468a145b5a4b4a9c"
+    },
+    {
+      "id": "body/lf-text",
+      "kind": "body",
+      "why": "The baseline for the next case: the same text with LF line endings.",
+      "input": "line one\nline two\n",
+      "hash": "sha256:e9024f1a07d29d52ad3aa5e1a18e94db1f3a9fd32b89e39d47c472cd99071e13"
+    },
+    {
+      "id": "body/crlf-text",
+      "kind": "body",
+      "why": "A body written with CRLF line endings hashes as the same text with LF, so a file checked out with either ending still verifies.",
+      "input": "line one\r\nline two\r\n",
+      "hash": "sha256:e9024f1a07d29d52ad3aa5e1a18e94db1f3a9fd32b89e39d47c472cd99071e13"
+    },
+    {
+      "id": "body/lone-carriage-return",
+      "kind": "body",
+      "why": "A carriage return not followed by a line feed is left as it is, so this text does not hash like the LF text.",
+      "input": "line one\rline two\n",
+      "hash": "sha256:3df1351966fe99e8946c834f77ea0f76e0b580220819b83daa03f6d976a951b1"
+    },
+    {
+      "id": "body/re-indented",
+      "kind": "body",
+      "why": "Indentation takes part in the hash. A writer that trims lines hashes this like the original.",
+      "input": "  line one\n  line two\n",
+      "hash": "sha256:7c2fc752dbd7283195a1c77aeaa06ecdae29ab60c91526dcd8b10544ce170a91"
+    },
+    {
+      "id": "body/trailing-space",
+      "kind": "body",
+      "why": "Trailing spaces take part in the hash.",
+      "input": "line one \nline two\n",
+      "hash": "sha256:5e2ca6245c13e6399cf7b8c8e3a91cca526fb07b9a63d9a194e9559f18dbfc10"
+    },
+    {
+      "id": "body/extra-trailing-blank-line",
+      "kind": "body",
+      "why": "Trailing blank lines take part in the hash. A writer that trims the end hashes this like the original.",
+      "input": "line one\nline two\n\n",
+      "hash": "sha256:5136bc8e4d313870afc492f0a2fbf25c6051a268fa47401dfb977a579b18356f"
+    },
+    {
+      "id": "body/empty",
+      "kind": "body",
+      "why": "The empty body has a hash like any other text, the SHA-256 of the empty string.",
+      "input": "",
+      "hash": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  ]
+}

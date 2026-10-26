@@ -160,7 +160,7 @@ func TestCompositeInjectsIntoBothFiles(t *testing.T) {
 	// name rather than the composite's.
 	shared := readFile(t, output, sharedPath)
 	want := "shared Handle\n" +
-		`;; sedum:declareConstant {"tier":"owned","record":"prov-2026-aaaaaaaa","pkg":"` + cairnPkg(t, "declareConstant") + `","kwargs":{"name":"handle","unit":"user"}}` + "\n" +
+		`;; sedum:declareConstant {"v":2,"tier":"owned","record":"prov-2026-aaaaaaaa","pkg":"` + cairnPkg(t, "declareConstant") + `","id":{"name":"handle","unit":"user"},"kwargs":"sha256:ce65b5d37649f505645dcc34724c9df3499693777429624f568fc0272489ac6b","body":"sha256:a29c38bb577601aa5b0b94509c9fdee49a10e05856b1481d90f9744dc85521ca"}` + "\n" +
 		"const HANDLE = \"users\"\n" +
 		";; /sedum:declareConstant\n"
 	if shared != want {
@@ -173,7 +173,7 @@ func TestCompositeInjectsIntoBothFiles(t *testing.T) {
 	want = "unit User\n" +
 		"\n" +
 		"  ;; sedum:anchor:steps\n" +
-		`  ;; sedum:addStep {"tier":"owned","record":"prov-2026-aaaaaaaa","pkg":"` + cairnPkg(t, "addStep") + `","kwargs":{"step":"build","unit":"user"}}` + "\n" +
+		`  ;; sedum:addStep {"v":2,"tier":"owned","record":"prov-2026-aaaaaaaa","pkg":"` + cairnPkg(t, "addStep") + `","id":{"step":"build","unit":"user"},"kwargs":"sha256:7d86c2f0e6d0cbd1f422b787637b3a359305b48c834d3903e77974fd131e1d02","body":"sha256:535ee73507f1cdee5624cdc607eae9752e2714ec5efe8a237b1d13ed2a088e2d"}` + "\n" +
 		"  step builds\n" +
 		"    for User\n" +
 		"  end\n" +

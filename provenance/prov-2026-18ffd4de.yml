@@ -1,0 +1,34 @@
+id: prov-2026-18ffd4de
+title: 'go: internal/inject/canon.go, writeCanonicalString'
+type: imprint
+status: draft
+version: 1
+reason: ""
+created_at: "2026-10-26"
+author: calebcowen@gmail.com
+intent: The writeCanonicalString function appends a string to a buffer as a JSON string with minimal escaping.
+constraints:
+  - 'The function lives in internal/inject/canon.go, package inject, and adds no imports: bytes and strconv come from the file''s import list'
+  - The function is unexported and receives positionally a pointer to bytes.Buffer and a string, and returns nothing
+  - The string is written between double quotes
+  - A double quote is written as a backslash and a double quote
+  - A backslash is written as two backslashes
+  - Backspace, form feed, line feed, carriage return and tab are written as the two-character escapes \b, \f, \n, \r and \t
+  - Any other character below U+0020 is written as \u00 followed by two lower-case hex digits
+  - Every other character, including <, >, &, U+007F, U+2028 and U+2029, is written as itself in UTF-8
+  - The string is not Unicode-normalized
+affected_scope:
+  - internal/inject/canon.go
+  - internal/inject/canon_test.go
+forbidden_scope: []
+implements: prov-2026-8bba6ce4
+implements_version: 1
+related: []
+sealed_at_sha: ""
+associated_specs:
+  - path: internal/inject/canon_test.go
+    run_command: go test ./internal/inject/ -run '^TestWriteCanonicalString' -count=1
+associated_traces: []
+monitors: []
+tags:
+  - marker-v2

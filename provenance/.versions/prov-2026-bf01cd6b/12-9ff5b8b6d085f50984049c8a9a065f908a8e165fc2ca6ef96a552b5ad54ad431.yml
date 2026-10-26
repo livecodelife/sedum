@@ -1,0 +1,69 @@
+id: prov-2026-bf01cd6b
+version: 12
+content_hash: sha256:9ff5b8b6d085f50984049c8a9a065f908a8e165fc2ca6ef96a552b5ad54ad431
+parent_hash: sha256:843b99609f0f7d2da49b63b9c6f3406104311d3754e4992673faadc22d98c418
+reason: Attach the spec tests of this unit
+author: calebcowen@gmail.com
+created_at: "2026-10-26T16:57:10Z"
+spec_hashes:
+  - sha256:2021566423bd5790b3f3a5aef2085030833ce8eeaf8ccf2f0cc5e13e717b440c
+  - sha256:c6fe2888dd15aee826a51fc200c4443175a68c9926fe713352bd323a0f73a846
+  - sha256:33396064b278ed77e3555b566d59843b822da138f55f231b60c3896de2075509
+  - sha256:6bcd9fc9d5e9e512b3e4527de448a608b71b5171eeca03a2120b63c945678361
+  - sha256:80b2697a464b88c8d1308969c38691df39242dab730c7cfdcbebc82c74a3a905
+content:
+  id: prov-2026-bf01cd6b
+  title: sedum regions and a JSON grow report feed provenance evidence
+  type: blueprint
+  created_at: "2026-10-15"
+  author: calebcowen@gmail.com
+  intent: |-
+    Sedum reads markers and reports them as JSON a non-Go caller can consume, so the provenance library never has to parse a marker. The surface is formats and commands, never linking.
+
+    ## sedum regions
+
+    `sedum regions --generators <dir> [--output <dir>] [--records <dir>] [--record <id>]... [--json]` is read-only: no model, no records required, nothing written. It walks the output tree as the orphan scan does - skipping hidden, generators and records directories, vendored directories and the project's excludes - and lists every region whose marker names a record. With --json it prints one object with the format `sedum.regions/1` and, for each region sorted by file and then position: record, file, action, variant, tier, identity, gen and pkg. gen and pkg are "" when the marker lacks them. With --records, a marker naming an alias is reported under the surviving id. The identity of a v1 region is the action's selecting kwargs read from its kwargs; the identity of a v2 region is the id object on its marker, read without its recording.
+
+    ## A JSON grow report
+
+    `sedum grow --json` prints the run's report as one object with the format `sedum.grow/1`: dry_run, records, orphans, stamped and check_failed. Each record has its mode, which is one of skip, select, re-select, re-render, edited or none, a changed flag, and its regions, each with file, action, variant and a change, which is one of inserted, replaced, pruned, unchanged, held, unselected, seeded or edited. `changed` is true exactly when one of the record's regions was inserted, pruned, or rewritten with different bytes. --json composes with --check, --dry-run and --stamp, reporting what each would do.
+  constraints:
+    - sedum regions writes nothing, calls no model, and needs no records directory; it reads only files under --output.
+    - Both JSON documents carry a format string with a version, and add fields only additively; the shapes are documented in the PRD and README.
+    - gen and pkg are reported verbatim from markers, "" when absent; Sedum never computes or fills them in this command.
+    - A region counts as changed only when its bytes changed; identical rewrites are unchanged.
+    - Without --json the output is text.
+    - conformance/formats/ documents both formats with an example of each, and Sedum's tests check real output against the documented keys, so a TypeScript consumer can rely on them.
+    - sedum regions does not report a marker inside a vendored or excluded directory.
+    - sedum regions reports as a v2 region's identity the id object on its marker.
+    - sedum regions reads a v2 region's identity without the recording.
+    - conformance/formats documents the mode edited in its grow example.
+    - conformance/formats documents the change edited in its grow example.
+    - The identity of a v1 region is the action's selecting kwargs read from its marker, or every kwarg of the marker when the package no longer declares the action
+    - sedum regions --record selects a record's regions by id or alias
+    - grow --json reports an edited record with the mode edited and lists its edited regions with the change edited.
+  affected_scope:
+    - internal/cli/regions.go
+    - internal/cli/root.go
+    - internal/cli/report.go
+    - internal/cli/*_test.go
+    - internal/pipeline/regions.go
+    - internal/pipeline/orphans.go
+    - internal/pipeline/*_test.go
+    - internal/inject/inject.go
+    - internal/inject/*_test.go
+    - PRD.md
+    - conformance/README.md
+    - conformance/formats/**
+    - testdata/generators/go/**
+    - internal/cli/record_v2_test.go
+  related:
+    - prov-2026-9621daed
+    - prov-2026-cc73cf61
+    - prov-2026-fc05416c
+  associated_specs:
+    - path: internal/pipeline/regions_test.go
+    - path: internal/cli/report_test.go
+    - path: internal/pipeline/vendored_test.go
+    - path: internal/cli/exclude_env_test.go
+    - path: internal/cli/record_v2_test.go

@@ -1,0 +1,104 @@
+id: prov-2026-9621daed
+version: 10
+content_hash: sha256:29ff13614341deaeb841d72065b3a3d67fe8d8cba6fef34a5f9f2855026c801a
+parent_hash: sha256:73f1759a3271be0a5bac02822d4b9401ecca771139814a36035cb3eb9c5778f2
+reason: 'Marker v2 records: remove cross-record duplicates and tighten shapes'
+author: calebcowen@gmail.com
+created_at: "2026-10-26T16:31:21Z"
+spec_hashes:
+  - sha256:9404fb0aef1aa9f08ec36c6c87a2809869510d4a2a96f9bf0c1468128954d87b
+  - sha256:7113081ded3b93aae46a83b2133d35c7dddd199a97bc149b397d7297ef963442
+content:
+  id: prov-2026-9621daed
+  title: Grow skips, re-renders or re-selects each record by its hashes
+  type: blueprint
+  created_at: "2026-10-15"
+  author: calebcowen@gmail.com
+  intent: Grow decides skip, re-render, re-select or refuse for each record before any model call, from the markers on the regions it owns and, for v2 regions, from the record's recording. A stale gen, or a recording that does not vouch for a v2 region, sends the record to re-select. Otherwise a record whose pkg moved is re-rendered with no model, a record with a region whose text no longer matches its body hash is edited and a re-render over it is refused, and anything else is skipped. --check reports each class without writing, --force re-selects everything and overwrites edits, and --record names the recordings directory.
+  constraints:
+    - Classification reads the markers, and the recording of each record that owns v2 regions; Sedum keeps no manifest or lockfile.
+    - A record classified skip makes no model call and its files are not written, not even with identical bytes.
+    - The done-check is tested by a second grow that counts zero model calls and leaves every file's bytes and modification time unchanged.
+    - A record classified re-render makes no model call, rewrites only its pkg-stale regions in place, and prunes nothing.
+    - An empty gen is stale, never current.
+    - A record that owns only seeded regions is classified by them as having no owned regions (select), and its stale seeded regions are reported.
+    - --dry-run reports each record's classification alongside what it would write.
+    - Replay (--execute) never classifies or skips.
+    - pipeline.Config has the string field Recordings, the directory recordings are read from, and the empty string means the .sedum/recordings directory under Output.
+    - pipeline.Config has the bool field Reselect, which runGrow sets only when --record's value ends in .json.
+    - runGrow sets Config.Recordings to the --record value when it is set and does not end in .json, and to the empty string otherwise.
+    - classify receives, in order, the record set, the resolved files, the owners map, the output directory string, the unwritten map, the reselect bool, the skip slice of strings and the recordings directory string, and returns a slice of Classification and an error.
+    - Run passes Config.Recordings as classify's last argument.
+    - classify.go imports, stated once here for the file, the standard library packages errors, io/fs and path/filepath and the packages github.com/livecodelife/sedum/internal/expand, internal/inject, internal/record, internal/recording and internal/resolve, all as values.
+    - A v2 owned-tier region whose gen is current is checked against its record's recording.
+    - The recording is read once per record with recording.ReadRecord, which receives a directory string and a record id and returns a recording.Recording and an error.
+    - A v2 region is stale with the Reason no recording when ReadRecord's error satisfies errors.Is with fs.ErrNotExist.
+    - A v2 region is stale with the Reason recording unreadable when ReadRecord returns any other error.
+    - A v2 region is stale with the Reason recording has no entry for this region when no entry of the recording's Regions has the recording.RegionKey of the region.
+    - recording.RegionKey receives the path, action and variant strings and an id map and returns a string, and classify calls it with the region's path, the marker's action and variant and the marker's Kwargs.
+    - A v2 region is stale with the Reason recording does not match the marker when its entry's KwargsHash differs from the marker's KwargsHash.
+    - A v2 region is stale with the Reason recording does not match the marker when inject.KwargsHash, which receives a map[string]any and returns a string and an error, returns an error for the entry's Kwargs.
+    - A v2 region is stale with the Reason recording does not match the marker when inject.KwargsHash of the entry's Kwargs differs from the entry's KwargsHash.
+    - RegionRef has the string field Reason, set to the reason above for a stale v2 region and empty otherwise.
+    - A v1 region takes no part in the recording check.
+    - Classification has the fields Edited, Unverifiable and Foreign, each a slice of RegionRef.
+    - Edited holds the current regions whose BodyState is BodyEdited.
+    - Unverifiable holds the current owned-tier regions whose BodyState is BodyUnverifiable.
+    - Foreign holds the regions in the record's files whose marker is Foreign.
+    - A foreign region is never owned by any record and takes no part in a decision.
+    - A record whose regions are all current and at least one of which is edited, and which would be skipped or re-rendered, is classified ModeEdited.
+    - ModeEdited is declared after ModeRerender, and Mode.String returns edited for it.
+    - Classification.Failing returns true for ModeEdited.
+    - A record that is stale, forced or new is never ModeEdited.
+    - rerenderOrSkip receives a pointer to the Classification, the record pointer, the record's resolved files, the slice of current inject.OwnedRegion and a slice of recording.Region, the Regions of the record's recording, empty when it has none, and returns a Mode.
+    - A v2 region needing a re-render is re-rendered from the Kwargs of the entry with its recording.RegionKey.
+    - A v2 region needing a re-render that has no such entry sends its record to re-select.
+    - A v1 region needing a re-render is re-rendered from the kwargs on its own marker, with no model call and no recording needed.
+    - A pkg-stale region whose action no longer exists, or whose re-rendered path is not the file it sits in, sends its record to re-select.
+    - grow --check, implemented in internal/cli/grow.go by printClassifications, prints for a record in ModeEdited the word edited padded to ten characters, a space and the record id.
+    - 'grow --check prints under it, for each edited region, thirteen spaces, the path, two spaces, the region''s label and the text two spaces and (hand-edited: body hash differs).'
+    - The label of a region is what label, defined in internal/cli/grow.go, which receives an action and a variant string and returns a string, returns.
+    - grow --check prints a stale region's line with the text two spaces, an opening parenthesis, its Reason and a closing parenthesis after the label, when the Reason is not empty.
+    - grow --check prints, after the record lines, the word unverifiable padded to ten characters, a space and the record id for each record with unverifiable regions.
+    - grow --check prints each unverifiable region under its record as thirteen spaces, the path, two spaces and the label.
+    - grow --check prints for each foreign region the word foreign, a space, the path, two spaces, the label and the text two spaces and (marker version not known; left alone).
+    - grow --check's final line is N current, N stale, N to re-render, N edited, N unknown, in that order, and a record in ModeEdited counts only as edited.
+    - 'grow --check''s failure error reads check failed: some records are stale, edited, need re-rendering, or have left orphan regions; run sedum grow (with --prune-orphans for orphans).'
+    - 'grow --check --json''s failure error reads check failed: some records are stale, edited, need re-rendering, or have left orphan regions.'
+    - runGrow writes the recordings, with pipeline.WriteRecordings, which receives a pointer to Result and a directory string and returns an error, exactly when the run is not a dry run, a check, a stamp or a replay, and either has no --stop-after or has --record set to a directory.
+    - runGrow writes the recordings after the report is printed.
+    - --record with a directory forces no re-select.
+    - --record with a path ending in .json makes grow re-select every record, writes one recording of the whole run to that file with writeRecording, and says every record was re-selected.
+    - When any Classification is Refused, runGrow returns an error after printing the report and writing the recordings.
+    - The first line of that error is refusing to re-render over hand edits; --force overwrites them.
+    - Each following line of that error is two spaces, the path, two spaces and the label of one refused region.
+    - A refused run writes the recordings of its other records.
+    - --force overwrites an edited region, because it re-selects every record.
+    - 'The --record flag''s help text is: Write one recording per record into this directory, default .sedum/recordings under --output; a path ending in .json instead writes one recording of the whole run to that file and re-selects every record.'
+    - The --check flag's help text says it reports a region whose text no longer matches its body hash as edited and fails on it, and that v1 regions are reported unverifiable without failing.
+    - The --check and --force help text says re-render replays the kwargs of a v1 marker, or of the recording entry of a v2 region, so a changed kwarg default or --var value needs --force.
+    - The --force flag's help text says it overwrites a region a re-render refused because its text was edited by hand.
+    - The PRD and README describe the classification of a record as select, re-select, skip, re-render or edited, --check's output and exit status, --force, --record, and the kwarg-default and --var limit.
+    - --check makes no model call
+    - --check writes nothing, Phase 3 files included
+    - --check is rejected with --dry-run, --force and --stop-after, and with --record whose value ends in .json
+    - The rejection's error text is --check cannot be combined with followed by the flag, a colon, a space and the text --check only reports, from markers, with no model call and nothing written
+    - --check with --record and a directory reads the recordings from that directory
+    - A record that is stale, needs re-rendering or is edited fails --check with the check-failed error
+    - runGrow writes the recordings into the directory classify reads them from
+    - Classification.Refused returns true when the Mode is ModeEdited and at least one region is in both the Edited and Rerender lists
+    - A record in ModeEdited keeps in its Rerender list the regions a re-render would have rewritten
+    - A record in ModeEdited is neither re-rendered nor re-selected, and nothing is written for it, including its pkg-stale regions
+  affected_scope:
+    - internal/pipeline/pipeline.go
+    - internal/pipeline/classify.go
+    - internal/pipeline/*_test.go
+    - internal/cli/grow.go
+    - internal/cli/*_test.go
+    - PRD.md
+  related:
+    - prov-2026-66bea9f3
+    - prov-2026-375f5d4a
+  associated_specs:
+    - path: internal/pipeline/classify_test.go
+    - path: internal/cli/flags_test.go

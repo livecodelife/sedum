@@ -1,22 +1,9 @@
 id: prov-2026-b6fa093c
 title: M4 - Action rendering and anchored injection with ownership markers
-status: implemented
-version: 2
-reason: |-
-  internal/inject/inject_test.go landed from M4 with one struct literal whose
-  field values gofmt aligns differently, so `gofmt -l ./internal` names the file.
-  Nothing about the tests is wrong and they pass; the file is simply not in the
-  form the toolchain writes.
-
-  It is recorded rather than folded into whatever milestone touched the file next
-  because M5's scope is internal/expand and testdata, and widening a milestone's
-  scope to reach a formatting fix in a neighbouring package would make that
-  record's affected_scope a poorer description of what it did. A one-line
-  correction to delivered work is what a bug record extending that work is for.
-
-  The fix is `gofmt -w` and nothing else. No test is added, renamed, or changed
-  in what it asserts.
-reason_kind: fix
+status: open
+version: 3
+reason: Documentation describes marker v2
+reason_kind: ""
 created_at: "2026-08-07"
 author: calebcowen@gmail.com
 aliases:
@@ -113,7 +100,7 @@ implements: prov-2026-d554bfc3
 implements_version: 1
 related:
   - prov-2026-36c8a99c
-sealed_at_sha: 50dfc3e52481163cb2786964c3e92a525821f7d0
+sealed_at_sha: ""
 associated_specs:
   - path: internal/expand/expand_test.go
     run_command: go test -count=1 ./$(dirname {{path}})

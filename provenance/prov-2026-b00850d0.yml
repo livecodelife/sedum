@@ -1,0 +1,35 @@
+id: prov-2026-b00850d0
+title: 'go: internal/inject/scan.go, OwnedRegion.BodyState'
+type: imprint
+status: draft
+version: 1
+reason: ""
+created_at: "2026-10-26"
+author: calebcowen@gmail.com
+intent: The OwnedRegion.BodyState method says whether a region's text still hashes to the body hash on its marker.
+constraints:
+  - The method lives in internal/inject/scan.go, package inject, has an OwnedRegion value receiver, takes no argument and returns a BodyState, defined in this file, and adds no imports
+  - OwnedRegion is the struct of this file with the fields Path, Package and Region
+  - Region is the struct defined in marker.go with the fields Marker, Start, End and BodyHash
+  - The method returns BodyUnverifiable when the region's marker is Foreign
+  - The method returns BodyUnverifiable when the marker's Version is not 2
+  - The method returns BodyUnverifiable when the marker's Body is empty
+  - Otherwise the method returns BodyIntact when the Region's BodyHash equals the marker's Body
+  - Otherwise the method returns BodyEdited when the Region's BodyHash differs from the marker's Body
+  - The method reads nothing but the OwnedRegion it is called on
+  - The method never returns an error
+affected_scope:
+  - internal/inject/scan.go
+  - internal/inject/markerv2_scan_test.go
+forbidden_scope: []
+implements: prov-2026-a3771fbf
+implements_version: 1
+related: []
+sealed_at_sha: ""
+associated_specs:
+  - path: internal/inject/markerv2_scan_test.go
+    run_command: go test ./internal/inject/ -run '^TestOwnedRegionBodyState' -count=1
+associated_traces: []
+monitors: []
+tags:
+  - marker-v2

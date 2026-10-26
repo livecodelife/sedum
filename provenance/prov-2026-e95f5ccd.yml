@@ -1,0 +1,31 @@
+id: prov-2026-e95f5ccd
+title: 'go: internal/recording/recording.go, Region'
+type: imprint
+status: draft
+version: 1
+reason: ""
+created_at: "2026-10-26"
+author: calebcowen@gmail.com
+intent: The Region type is one region after expansion, with the kwargs it was rendered from, as a recording holds it.
+constraints:
+  - The type lives in internal/recording/recording.go, package recording, and adds no imports
+  - Region is an exported struct with the fields Path, Action, Variant, Tier and Pkg of type string, ID of type map[string]any, Kwargs of type map[string]any, KwargsHash of type string and Body of type string
+  - The JSON keys are path, action, variant, tier, pkg, id, kwargs, kwargs_hash and body, none omitted when empty
+  - ID holds the identity kwargs of the region and Kwargs holds every resolved kwarg it was rendered from
+  - KwargsHash and Body hold the hashes written on the region's marker
+  - Tier holds owned or seeded and Pkg holds the pkg hash on the marker
+affected_scope:
+  - internal/recording/recording.go
+  - internal/recording/regions_test.go
+forbidden_scope: []
+implements: prov-2026-5cc2f7f6
+implements_version: 1
+related: []
+sealed_at_sha: ""
+associated_specs:
+  - path: internal/recording/regions_test.go
+    run_command: go test ./internal/recording/ -run '^(TestRegionTypeFields|TestRegionJSON|TestRegionRoundTrips)' -count=1
+associated_traces: []
+monitors: []
+tags:
+  - marker-v2

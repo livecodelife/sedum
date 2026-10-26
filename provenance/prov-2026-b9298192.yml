@@ -1,7 +1,8 @@
 id: prov-2026-b9298192
 title: Recordings carry each record's gen so replay reproduces grow
-status: implemented
-version: 1
+status: open
+version: 3
+reason: Remove v2 additions owned by other records
 created_at: "2026-10-15"
 author: calebcowen@gmail.com
 intent: |
@@ -41,7 +42,7 @@ type: imprint
 implements: prov-2026-66bea9f3
 implements_version: 1
 related: []
-sealed_at_sha: ea8844d2c161b0ac38a6507d3af540920a4dc734
+sealed_at_sha: ""
 associated_specs:
   - path: internal/pipeline/replay_test.go
     run_command: go test ./$(dirname {{path}})

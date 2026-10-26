@@ -1,0 +1,398 @@
+{
+  "format": "sedum.marker.v2",
+  "corpus_version": 1,
+  "description": "Golden cases for Sedum's v2 ownership marker: the object with the keys v, tier, record, gen, pkg, writer, id, kwargs and body. In a v2 marker's marker and parsed objects, kwargs holds the id object, kwargs_hash the hash string, body the body hash string, version 2 (or 0 for a v1 or foreign marker) and foreign whether the marker is another format's. Cases carry no decision field.",
+  "cases": [
+    {
+      "id": "parse/v2-baseline",
+      "kind": "parse",
+      "why": "A v2 marker carries the identity kwargs as an id object and two hashes as strings. A reader that takes kwargs for an object, or that looks for the v1 kwargs object, reads none of them. Everything else in this corpus is a variation on this shape.",
+      "comment_prefix": "#",
+      "input": "# sedum:createControllerMethod:index {\"v\":2,\"tier\":\"owned\",\"record\":\"PR-014\",\"gen\":\"sha256:1111111111111111111111111111111111111111111111111111111111111111\",\"pkg\":\"sha256:2222222222222222222222222222222222222222222222222222222222222222\",\"id\":{\"controller\":\"users\",\"name\":\"index\"},\"kwargs\":\"sha256:7049c5d3e00c4b3073ce24d20d2fe00746f7070c7b2ae6036e297ff5c347fa51\",\"body\":\"sha256:9516a9ba61403ce27a2a2c3574d1a1feb9ed8250374990aca2631d882b031a64\"}",
+      "parsed": {
+        "action": "createControllerMethod",
+        "variant": "index",
+        "tier": "owned",
+        "record": "PR-014",
+        "gen": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+        "pkg": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+        "writer": "sedum",
+        "kwargs": {
+          "controller": "users",
+          "name": "index"
+        },
+        "extra": {},
+        "version": 2,
+        "kwargs_hash": "sha256:7049c5d3e00c4b3073ce24d20d2fe00746f7070c7b2ae6036e297ff5c347fa51",
+        "body": "sha256:9516a9ba61403ce27a2a2c3574d1a1feb9ed8250374990aca2631d882b031a64",
+        "foreign": false,
+        "recognized": true
+      }
+    },
+    {
+      "id": "emit/v2-key-order",
+      "kind": "emit",
+      "why": "A v2 object's keys come out in the order v, tier, record, gen, pkg, writer, id, kwargs, body. A writer that sorts them, or puts v last, produces bytes Sedum would rewrite on every run.",
+      "comment_prefix": "#",
+      "marker": {
+        "action": "createControllerMethod",
+        "variant": "index",
+        "tier": "owned",
+        "record": "PR-014",
+        "gen": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+        "pkg": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+        "writer": "sedum",
+        "kwargs": {
+          "controller": "users",
+          "name": "index"
+        },
+        "extra": {},
+        "version": 2,
+        "kwargs_hash": "sha256:7049c5d3e00c4b3073ce24d20d2fe00746f7070c7b2ae6036e297ff5c347fa51",
+        "body": "sha256:9516a9ba61403ce27a2a2c3574d1a1feb9ed8250374990aca2631d882b031a64",
+        "foreign": false
+      },
+      "output": "# sedum:createControllerMethod:index {\"v\":2,\"tier\":\"owned\",\"record\":\"PR-014\",\"gen\":\"sha256:1111111111111111111111111111111111111111111111111111111111111111\",\"pkg\":\"sha256:2222222222222222222222222222222222222222222222222222222222222222\",\"id\":{\"controller\":\"users\",\"name\":\"index\"},\"kwargs\":\"sha256:7049c5d3e00c4b3073ce24d20d2fe00746f7070c7b2ae6036e297ff5c347fa51\",\"body\":\"sha256:9516a9ba61403ce27a2a2c3574d1a1feb9ed8250374990aca2631d882b031a64\"}"
+    },
+    {
+      "id": "emit/v2-named-writer",
+      "kind": "emit",
+      "why": "A writer that is not sedum names itself, between pkg and id. Writing it elsewhere, or writing writer:sedum, changes the bytes.",
+      "comment_prefix": "#",
+      "marker": {
+        "action": "addStep",
+        "variant": "",
+        "tier": "owned",
+        "record": "PR-3",
+        "gen": "",
+        "pkg": "",
+        "writer": "harness",
+        "kwargs": {
+          "name": "x"
+        },
+        "extra": {},
+        "version": 2,
+        "kwargs_hash": "sha256:7049c5d3e00c4b3073ce24d20d2fe00746f7070c7b2ae6036e297ff5c347fa51",
+        "body": "sha256:9516a9ba61403ce27a2a2c3574d1a1feb9ed8250374990aca2631d882b031a64",
+        "foreign": false
+      },
+      "output": "# sedum:addStep {\"v\":2,\"tier\":\"owned\",\"record\":\"PR-3\",\"writer\":\"harness\",\"id\":{\"name\":\"x\"},\"kwargs\":\"sha256:7049c5d3e00c4b3073ce24d20d2fe00746f7070c7b2ae6036e297ff5c347fa51\",\"body\":\"sha256:9516a9ba61403ce27a2a2c3574d1a1feb9ed8250374990aca2631d882b031a64\"}"
+    },
+    {
+      "id": "emit/v2-seeded-tier",
+      "kind": "emit",
+      "why": "The tier is always written, and a seeded region says so. A writer that writes the tier only when it is not the default loses the key on an owned region and breaks the key order.",
+      "comment_prefix": "#",
+      "marker": {
+        "action": "addStep",
+        "variant": "",
+        "tier": "seeded",
+        "record": "PR-3",
+        "gen": "",
+        "pkg": "",
+        "writer": "sedum",
+        "kwargs": {
+          "name": "x"
+        },
+        "extra": {},
+        "version": 2,
+        "kwargs_hash": "sha256:7049c5d3e00c4b3073ce24d20d2fe00746f7070c7b2ae6036e297ff5c347fa51",
+        "body": "sha256:9516a9ba61403ce27a2a2c3574d1a1feb9ed8250374990aca2631d882b031a64",
+        "foreign": false
+      },
+      "output": "# sedum:addStep {\"v\":2,\"tier\":\"seeded\",\"record\":\"PR-3\",\"id\":{\"name\":\"x\"},\"kwargs\":\"sha256:7049c5d3e00c4b3073ce24d20d2fe00746f7070c7b2ae6036e297ff5c347fa51\",\"body\":\"sha256:9516a9ba61403ce27a2a2c3574d1a1feb9ed8250374990aca2631d882b031a64\"}"
+    },
+    {
+      "id": "emit/v2-html-characters-in-id",
+      "kind": "emit",
+      "why": "<, > and & in an id value are written as themselves. Many JSON encoders escape them by default, which produces a marker no one can read or grep.",
+      "comment_prefix": "#",
+      "marker": {
+        "action": "addScan",
+        "variant": "",
+        "tier": "owned",
+        "record": "",
+        "gen": "",
+        "pkg": "",
+        "writer": "sedum",
+        "kwargs": {
+          "scan": "&t.ID, <T> >"
+        },
+        "extra": {},
+        "version": 2,
+        "kwargs_hash": "sha256:7049c5d3e00c4b3073ce24d20d2fe00746f7070c7b2ae6036e297ff5c347fa51",
+        "body": "sha256:9516a9ba61403ce27a2a2c3574d1a1feb9ed8250374990aca2631d882b031a64",
+        "foreign": false
+      },
+      "output": "# sedum:addScan {\"v\":2,\"tier\":\"owned\",\"id\":{\"scan\":\"&t.ID, <T> >\"},\"kwargs\":\"sha256:7049c5d3e00c4b3073ce24d20d2fe00746f7070c7b2ae6036e297ff5c347fa51\",\"body\":\"sha256:9516a9ba61403ce27a2a2c3574d1a1feb9ed8250374990aca2631d882b031a64\"}"
+    },
+    {
+      "id": "emit/v2-block-comment-with-suffix",
+      "kind": "emit",
+      "why": "A target whose comments are closed puts the suffix after the object, separated by one space. A writer that leaves the delimiter off, or fuses it to the closing brace, writes a marker the reader cannot parse.",
+      "comment_prefix": "<!--",
+      "comment_suffix": "-->",
+      "marker": {
+        "action": "addTextColumn",
+        "variant": "",
+        "tier": "owned",
+        "record": "PR-5",
+        "gen": "",
+        "pkg": "",
+        "writer": "sedum",
+        "kwargs": {
+          "column": "a"
+        },
+        "extra": {},
+        "version": 2,
+        "kwargs_hash": "sha256:7049c5d3e00c4b3073ce24d20d2fe00746f7070c7b2ae6036e297ff5c347fa51",
+        "body": "sha256:9516a9ba61403ce27a2a2c3574d1a1feb9ed8250374990aca2631d882b031a64",
+        "foreign": false
+      },
+      "output": "<!-- sedum:addTextColumn {\"v\":2,\"tier\":\"owned\",\"record\":\"PR-5\",\"id\":{\"column\":\"a\"},\"kwargs\":\"sha256:7049c5d3e00c4b3073ce24d20d2fe00746f7070c7b2ae6036e297ff5c347fa51\",\"body\":\"sha256:9516a9ba61403ce27a2a2c3574d1a1feb9ed8250374990aca2631d882b031a64\"} -->"
+    },
+    {
+      "id": "round-trip/v2-unknown-keys-survive-sorted",
+      "kind": "round_trip",
+      "why": "Keys the format does not model follow the nine it does, in sorted order, and survive a rewrite. A writer that drops them destroys another tool's state, and one that puts them anywhere else rewrites the marker on every run.",
+      "comment_prefix": "#",
+      "input": "# sedum:createControllerMethod:index {\"v\":2,\"tier\":\"owned\",\"record\":\"PR-9\",\"id\":{\"controller\":\"users\"},\"kwargs\":\"sha256:7049c5d3e00c4b3073ce24d20d2fe00746f7070c7b2ae6036e297ff5c347fa51\",\"body\":\"sha256:9516a9ba61403ce27a2a2c3574d1a1feb9ed8250374990aca2631d882b031a64\",\"harness_attempts\":3,\"verified_by\":\"spec/users.linespec\"}",
+      "parsed": {
+        "action": "createControllerMethod",
+        "variant": "index",
+        "tier": "owned",
+        "record": "PR-9",
+        "gen": "",
+        "pkg": "",
+        "writer": "sedum",
+        "kwargs": {
+          "controller": "users"
+        },
+        "extra": {
+          "harness_attempts": 3,
+          "verified_by": "spec/users.linespec"
+        },
+        "version": 2,
+        "kwargs_hash": "sha256:7049c5d3e00c4b3073ce24d20d2fe00746f7070c7b2ae6036e297ff5c347fa51",
+        "body": "sha256:9516a9ba61403ce27a2a2c3574d1a1feb9ed8250374990aca2631d882b031a64",
+        "foreign": false,
+        "recognized": true
+      },
+      "output": "# sedum:createControllerMethod:index {\"v\":2,\"tier\":\"owned\",\"record\":\"PR-9\",\"id\":{\"controller\":\"users\"},\"kwargs\":\"sha256:7049c5d3e00c4b3073ce24d20d2fe00746f7070c7b2ae6036e297ff5c347fa51\",\"body\":\"sha256:9516a9ba61403ce27a2a2c3574d1a1feb9ed8250374990aca2631d882b031a64\",\"harness_attempts\":3,\"verified_by\":\"spec/users.linespec\"}"
+    },
+    {
+      "id": "parse/v2-without-id-kwargs-or-body",
+      "kind": "parse",
+      "why": "A v2 marker with no id, kwargs or body is read with those empty. A reader that requires them rejects a marker the writer is allowed to produce, such as one for an action with no identity kwargs.",
+      "comment_prefix": "#",
+      "input": "# sedum:addHeader {\"v\":2,\"tier\":\"owned\",\"record\":\"PR-1\"}",
+      "parsed": {
+        "action": "addHeader",
+        "variant": "",
+        "tier": "owned",
+        "record": "PR-1",
+        "gen": "",
+        "pkg": "",
+        "writer": "sedum",
+        "kwargs": {},
+        "extra": {},
+        "version": 2,
+        "kwargs_hash": "",
+        "body": "",
+        "foreign": false,
+        "recognized": true
+      }
+    },
+    {
+      "id": "parse/v1-with-kwargs-object",
+      "kind": "parse",
+      "why": "A marker with no v is a v1 marker and keeps its kwargs object, with no version and no body. A reader that takes every marker for v2 reads the object as a bad kwargs.",
+      "comment_prefix": "#",
+      "input": "# sedum:createControllerMethod:index {\"tier\":\"owned\",\"record\":\"PR-014\",\"kwargs\":{\"collection\":\"users\",\"controller\":\"users\"}}",
+      "parsed": {
+        "action": "createControllerMethod",
+        "variant": "index",
+        "tier": "owned",
+        "record": "PR-014",
+        "gen": "",
+        "pkg": "",
+        "writer": "sedum",
+        "kwargs": {
+          "collection": "users",
+          "controller": "users"
+        },
+        "extra": {},
+        "version": 0,
+        "kwargs_hash": "",
+        "body": "",
+        "foreign": false,
+        "recognized": true
+      }
+    },
+    {
+      "id": "parse/v1-id-and-body-keys-are-extra",
+      "kind": "parse",
+      "why": "In a v1 marker id and body are not modelled keys, so they are kept in extra. A reader that gives them their v2 meaning reads a hash the marker never recorded.",
+      "comment_prefix": "#",
+      "input": "# sedum:addStep {\"tier\":\"owned\",\"kwargs\":{\"a\":\"x\"},\"id\":{\"a\":1},\"body\":\"sha256:3333333333333333333333333333333333333333333333333333333333333333\"}",
+      "parsed": {
+        "action": "addStep",
+        "variant": "",
+        "tier": "owned",
+        "record": "",
+        "gen": "",
+        "pkg": "",
+        "writer": "sedum",
+        "kwargs": {
+          "a": "x"
+        },
+        "extra": {
+          "id": {
+            "a": 1
+          },
+          "body": "sha256:3333333333333333333333333333333333333333333333333333333333333333"
+        },
+        "version": 0,
+        "kwargs_hash": "",
+        "body": "",
+        "foreign": false,
+        "recognized": true
+      }
+    },
+    {
+      "id": "parse/v3-is-foreign",
+      "kind": "parse",
+      "why": "A marker whose v is not 2 belongs to a format this reader does not know. It is read as foreign, with every key kept in extra and no field taken from it, so it is never matched, replaced or pruned. A reader that falls back to the v1 or v2 reading takes a region it does not understand for its own.",
+      "comment_prefix": "#",
+      "input": "# sedum:addStep:run {\"v\":3,\"tier\":\"seeded\",\"record\":\"PR-7\",\"kwargs\":{\"a\":1},\"future\":true}",
+      "parsed": {
+        "action": "addStep",
+        "variant": "run",
+        "tier": "owned",
+        "record": "",
+        "gen": "",
+        "pkg": "",
+        "writer": "sedum",
+        "kwargs": {},
+        "extra": {
+          "v": 3,
+          "tier": "seeded",
+          "record": "PR-7",
+          "kwargs": {
+            "a": 1
+          },
+          "future": true
+        },
+        "version": 0,
+        "kwargs_hash": "",
+        "body": "",
+        "foreign": true,
+        "recognized": true
+      }
+    },
+    {
+      "id": "parse/v1-is-foreign",
+      "kind": "parse",
+      "why": "A v key holding 1 is not the absence of v. Version 1 is the v1 marker, which has no v key, so a marker that says v:1 is foreign.",
+      "comment_prefix": "#",
+      "input": "# sedum:addStep {\"v\":1,\"tier\":\"owned\",\"kwargs\":{\"a\":1}}",
+      "parsed": {
+        "action": "addStep",
+        "variant": "",
+        "tier": "owned",
+        "record": "",
+        "gen": "",
+        "pkg": "",
+        "writer": "sedum",
+        "kwargs": {},
+        "extra": {
+          "v": 1,
+          "tier": "owned",
+          "kwargs": {
+            "a": 1
+          }
+        },
+        "version": 0,
+        "kwargs_hash": "",
+        "body": "",
+        "foreign": true,
+        "recognized": true
+      }
+    },
+    {
+      "id": "parse/string-v-is-foreign",
+      "kind": "parse",
+      "why": "A v that is the string 2 is not the number 2. A reader that compares loosely reads a marker this version does not write.",
+      "comment_prefix": "#",
+      "input": "# sedum:addStep {\"v\":\"2\",\"tier\":\"owned\",\"id\":{\"a\":1},\"kwargs\":\"sha256:7049c5d3e00c4b3073ce24d20d2fe00746f7070c7b2ae6036e297ff5c347fa51\",\"body\":\"sha256:9516a9ba61403ce27a2a2c3574d1a1feb9ed8250374990aca2631d882b031a64\"}",
+      "parsed": {
+        "action": "addStep",
+        "variant": "",
+        "tier": "owned",
+        "record": "",
+        "gen": "",
+        "pkg": "",
+        "writer": "sedum",
+        "kwargs": {},
+        "extra": {
+          "v": "2",
+          "tier": "owned",
+          "id": {
+            "a": 1
+          },
+          "kwargs": "sha256:7049c5d3e00c4b3073ce24d20d2fe00746f7070c7b2ae6036e297ff5c347fa51",
+          "body": "sha256:9516a9ba61403ce27a2a2c3574d1a1feb9ed8250374990aca2631d882b031a64"
+        },
+        "version": 0,
+        "kwargs_hash": "",
+        "body": "",
+        "foreign": true,
+        "recognized": true
+      }
+    },
+    {
+      "id": "error/v2-kwargs-is-an-object",
+      "kind": "error",
+      "why": "In a v2 marker kwargs is a hash string. An object there is a v1 marker mislabeled or a corrupt one, and reading it silently would hide that.",
+      "comment_prefix": "#",
+      "input": "# sedum:addStep:run {\"v\":2,\"tier\":\"owned\",\"kwargs\":{\"a\":1}}",
+      "error": true,
+      "error_names": "kwargs must be a string"
+    },
+    {
+      "id": "error/v1-kwargs-is-a-string",
+      "kind": "error",
+      "why": "In a v1 marker kwargs is an object. A string there is a v2 field on a marker with no v, and treating it as a hash would read a marker no writer produced.",
+      "comment_prefix": "#",
+      "input": "# sedum:addStep:run {\"tier\":\"owned\",\"kwargs\":\"sha256:7049c5d3e00c4b3073ce24d20d2fe00746f7070c7b2ae6036e297ff5c347fa51\"}",
+      "error": true,
+      "error_names": "kwargs must be an object"
+    },
+    {
+      "id": "replace/v1-with-unknown-key-becomes-v2",
+      "kind": "replace",
+      "why": "Replacing a v1 marker writes a v2 one: every modelled field comes from the marker being written and the unmodelled keys from the one being replaced. The unknown key survives, and the v1 kwargs object is gone, not written beside the hash.",
+      "comment_prefix": "#",
+      "existing": "# sedum:createControllerMethod:index {\"tier\":\"owned\",\"record\":\"PR-014\",\"kwargs\":{\"collection\":\"users\",\"controller\":\"users\",\"name\":\"index\"},\"harness_attempts\":2}",
+      "marker": {
+        "action": "createControllerMethod",
+        "variant": "index",
+        "tier": "owned",
+        "record": "PR-014",
+        "gen": "",
+        "pkg": "",
+        "writer": "sedum",
+        "kwargs": {
+          "controller": "users",
+          "name": "index"
+        },
+        "extra": {},
+        "version": 2,
+        "kwargs_hash": "sha256:7049c5d3e00c4b3073ce24d20d2fe00746f7070c7b2ae6036e297ff5c347fa51",
+        "body": "sha256:9516a9ba61403ce27a2a2c3574d1a1feb9ed8250374990aca2631d882b031a64",
+        "foreign": false
+      },
+      "output": "# sedum:createControllerMethod:index {\"v\":2,\"tier\":\"owned\",\"record\":\"PR-014\",\"id\":{\"controller\":\"users\",\"name\":\"index\"},\"kwargs\":\"sha256:7049c5d3e00c4b3073ce24d20d2fe00746f7070c7b2ae6036e297ff5c347fa51\",\"body\":\"sha256:9516a9ba61403ce27a2a2c3574d1a1feb9ed8250374990aca2631d882b031a64\",\"harness_attempts\":2}"
+    }
+  ]
+}

@@ -1,0 +1,54 @@
+id: prov-2026-76fac245
+title: 'conformance: kwargs and body hash corpus'
+type: imprint
+status: draft
+version: 1
+reason: ""
+created_at: "2026-10-26"
+author: calebcowen@gmail.com
+intent: The kwargshash corpus holds kwargs inputs with their canonical text and hash, and body inputs with their hash, so a foreign writer can compute both marker hashes.
+constraints:
+  - The file is conformance/kwargshash/cases.json with the format sedum.kwargshash, corpus_version 1 and a description
+  - Every case has an id, a kind, a why and an input
+  - The kinds are kwargs and body
+  - The input of a kwargs case is JSON text
+  - The input of a body case is the body as a string
+  - A kwargs case has the expected canonical text and the expected hash, or has error true and an error_names text the failure must contain
+  - A body case has the expected hash
+  - The cases are read and checked by the test in the new file internal/inject/kwargshash_conformance_test.go, which calls CanonicalKwargs, KwargsHash and BodyHash
+  - A kwargs case shows that 1, 1.0 and 1e0 have one canonical text
+  - A kwargs case shows that -0 has the canonical text 0
+  - A kwargs case shows keys sorted by their UTF-8 bytes at every depth
+  - A kwargs case shows arrays keeping their order
+  - A kwargs case shows the escapes of a quote, a backslash and each short control character
+  - A kwargs case shows another control character written as \u00 and two lower-case hex digits
+  - A kwargs case shows <, >, &, U+2028 and U+2029 written as themselves
+  - A kwargs case shows a composed and a decomposed accented letter having different hashes
+  - A kwargs case shows an absent kwarg and an explicit null having different hashes
+  - A kwargs case shows empty kwargs having the hash of {}
+  - A kwargs case shows 0.5 having the canonical text 0.5
+  - A kwargs case shows 0.00000015 having the canonical text 1.5e-7
+  - A kwargs case shows 9007199254740992 accepted
+  - A kwargs case shows 9007199254740993 refused, with the error_names text integer beyond 2^53
+  - A kwargs case shows 1e30 refused, with the error_names text integer beyond 2^53
+  - A kwargs case shows 1e400 refused, with the error_names text number is not finite
+  - A body case shows an LF text and the same text with CRLF having one hash
+  - A body case shows a lone carriage return having another hash
+  - A body case shows a re-indented body, a body with a trailing space and a body with an extra trailing blank line each having a hash different from the original
+  - A body case shows the empty body having the hash of the empty string
+  - 'Every hash is sha256: followed by 64 lower-case hex digits'
+affected_scope:
+  - conformance/kwargshash/cases.json
+  - internal/inject/kwargshash_conformance_test.go
+forbidden_scope: []
+implements: prov-2026-2e58d750
+implements_version: 1
+related: []
+sealed_at_sha: ""
+associated_specs:
+  - path: internal/inject/kwargshash_conformance_test.go
+    run_command: go test ./internal/inject/ -run '^TestKwargsHash(Conformance|CorpusShowsWhatItIsFor)$' -count=1
+associated_traces: []
+monitors: []
+tags:
+  - marker-v2

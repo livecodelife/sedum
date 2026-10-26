@@ -1,0 +1,53 @@
+id: prov-2026-b9298192
+version: 3
+content_hash: sha256:70d356d39f1be9947d957f478a4d67fb773e017ed860990a1349ab9527aa4114
+parent_hash: sha256:b82dd523b78d969fd60abb84c5f0c6c4ec4b68d72585b813e13ebcd31504086f
+reason: Remove v2 additions owned by other records
+author: calebcowen@gmail.com
+created_at: "2026-10-26T16:15:43Z"
+spec_hashes:
+  - sha256:39ae4550fdd661c7f9d1712f8408427d6f64640a275673ff70c410120b9f6bb7
+  - sha256:7df036ff5781140d4faabba6f804bfc12838643f702185ee014dbb9455237d5f
+content:
+  id: prov-2026-b9298192
+  title: Recordings carry each record's gen so replay reproduces grow
+  type: imprint
+  created_at: "2026-10-15"
+  author: calebcowen@gmail.com
+  intent: |
+    Replay must reproduce the grow it recorded byte for byte. Once markers carry
+    gen, replay without --records has no record to hash, so its regions would
+    lack the gen the original run wrote and the files would differ.
+
+    The recording gains an optional per-record "gen": the gen_hash of the record
+    version the selection was made from. It is deterministic in the record's
+    content, so it is not a volatile field and two recordings of equivalent runs
+    still diff cleanly. It is also the truthful value: the invocations in the
+    recording were chosen against that version, so a marker written on replay
+    should name it even if the record has since changed - a later grow will see
+    the record moved and re-select, which is exactly right.
+
+    Replay's precedence for a record's gen: the recorded value; else the gen of
+    the record of that id under --records; else none, which reads as stale. A
+    harness-synthesized recording without gen therefore still gets one when it
+    supplies --records, since its selection was made against those records.
+
+    Approved in #provisio by provisio-mgr (2026-10-15) as additive to the
+    recording format, which decodes leniently - the precedent is prompt
+    (prov-2026-e4bab53b) - so no version floor is needed.
+  constraints:
+    - gen is omitempty on a recording record and sits after record_id; a recording without it reads exactly as before.
+    - Capture takes gen from the run's loaded records and recomputes nothing.
+    - Replay never validates the recorded gen against --records; a mismatch means the record changed since recording, which is a later grow's concern, not replay's.
+  affected_scope:
+    - internal/recording/recording.go
+    - internal/recording/*_test.go
+    - internal/pipeline/capture.go
+    - internal/pipeline/pipeline.go
+    - internal/pipeline/replay.go
+    - internal/pipeline/*_test.go
+  implements: prov-2026-66bea9f3
+  implements_version: 1
+  associated_specs:
+    - path: internal/pipeline/replay_test.go
+    - path: internal/recording/recording_test.go

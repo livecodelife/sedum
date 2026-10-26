@@ -1,0 +1,24 @@
+id: prov-2026-ef240c78
+version: 4
+content_hash: sha256:1c6a1ee462013d4adbe20ec77b98d8bf7e453d72e38cb4700c8d6f7ecc8b72f9
+parent_hash: sha256:39599133a0509fcfa3b5f0278797c652bdcf759b1a5a65c655fda0cdcb59cd7f
+reason: 'Marker v2: intents and constraints state v2 behaviour; scopes cover files with a constraint'
+author: calebcowen@gmail.com
+created_at: "2026-10-26T16:15:43Z"
+spec_hashes:
+  - sha256:69305d736a8750547f6baee587d5e1877274dcaac3879f25f7a0238b8da71b18
+content:
+  id: prov-2026-ef240c78
+  title: 'cli: grow-log registered and called from grow (hand-written)'
+  type: imprint
+  created_at: "2026-10-16"
+  author: calebcowen@gmail.com
+  intent: The wiring of the grow log into sedum grow and the root command. internal/cli/root.go registers the command newGrowLogCommand returns with the other subcommands in NewRootCommand. internal/cli/grow.go runGrow reads the clock just before it calls pipeline.Run and, right after that call and before the error check, calls writeGrowLog with the error writer, the config, the result, the error and the start time. The log's location and switches are the environment variables SEDUM_GROW_LOG and SEDUM_GROW_LOG_SKIPS, not flags, so the grow flag surface is unaffected. The test TestGrowLogCommandRegistered in internal/cli/growlog_wiring_test.go finds a grow-log command on the root command.
+  affected_scope:
+    - internal/cli/growlog_wiring_test.go
+    - internal/cli/grow.go
+    - internal/cli/root.go
+  implements: prov-2026-7a13f569
+  implements_version: 2
+  associated_specs:
+    - path: internal/cli/growlog_wiring_test.go

@@ -1,0 +1,33 @@
+id: prov-2026-1f364682
+title: 'go: internal/inject/canon.go, KwargsHash'
+type: imprint
+status: draft
+version: 1
+reason: ""
+created_at: "2026-10-26"
+author: calebcowen@gmail.com
+intent: 'The KwargsHash function returns the sha256: hash of a resolved kwargs map''s canonical encoding.'
+constraints:
+  - 'The function lives in internal/inject/canon.go, package inject, and adds no imports: crypto/sha256 and encoding/hex come from the file''s import list'
+  - The function is exported, named KwargsHash, and receives one positional argument of type map[string]any
+  - The function returns a string and an error, in that order
+  - The function calls CanonicalKwargs, defined in this file, which receives a map[string]any and returns a byte slice and an error
+  - When CanonicalKwargs returns an error the function returns an empty string and that error unchanged
+  - 'Otherwise the function returns the text sha256: followed by the 64 lower-case hex digits of the SHA-256 of the canonical bytes'
+  - The hash of empty kwargs is sha256:44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a
+  - The hash of a kwargs map that holds a declared default's value is the hash of the invocation's resolved kwargs, so spelling the default out in the invocation does not change it
+affected_scope:
+  - internal/inject/canon.go
+  - internal/inject/canon_test.go
+forbidden_scope: []
+implements: prov-2026-8bba6ce4
+implements_version: 1
+related: []
+sealed_at_sha: ""
+associated_specs:
+  - path: internal/inject/canon_test.go
+    run_command: go test ./internal/inject/ -run '^TestKwargsHash(AbsentAndNullDiffer|Shape|ErrorIsCanonicalKwargsError)?$' -count=1
+associated_traces: []
+monitors: []
+tags:
+  - marker-v2

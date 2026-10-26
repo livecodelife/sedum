@@ -1,0 +1,39 @@
+id: prov-2026-5cc2f7f6
+title: Grow writes a recording per record holding what rebuilds its regions
+type: blueprint
+status: draft
+version: 1
+reason: ""
+created_at: "2026-10-26"
+author: calebcowen@gmail.com
+intent: The kwargs needed to rebuild a region should be kept in a recording per record under .sedum/recordings, written by grow and by replay.
+constraints:
+  - Grow writes a per-record recording, .sedum/recordings/<record-id>.json, for each record it selects
+  - A per-record file is a valid recording holding exactly one record
+  - The record carries phases, what the model selected before expansion
+  - The record carries regions, every region after expansion with its resolved kwargs
+  - A record whose regions are all current keeps its recording file as it is
+  - A re-rendered record has the entries of its re-rendered regions rewritten with the new hashes
+  - A re-rendered record with no recording file is given a recording with its files, an empty default phase and the entries of its re-rendered regions
+  - A replay that is not a dry run, not a check and not stopped at a phase boundary writes the recordings of the records it replayed into the recordings directory under the output directory
+  - A replay that is a dry run, a check or stopped at a phase boundary writes no recording
+  - A per-record file is read by the record id that names it, and a missing, undecodable or mismatching file is an error
+  - A recording's regions are ordered by region key, so the file diffs cleanly
+affected_scope:
+  - internal/recording/recording.go
+  - internal/recording/dir.go
+  - internal/recording/regionkey.go
+  - internal/pipeline/capture.go
+  - internal/pipeline/recordings.go
+  - internal/pipeline/recordings_test.go
+  - internal/recording/dir_test.go
+  - internal/recording/regionkey_test.go
+  - internal/recording/regions_test.go
+forbidden_scope: []
+related: []
+sealed_at_sha: ""
+associated_specs: []
+associated_traces: []
+monitors: []
+tags:
+  - marker-v2

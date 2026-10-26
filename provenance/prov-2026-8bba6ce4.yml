@@ -1,0 +1,35 @@
+id: prov-2026-8bba6ce4
+title: Kwargs and region text are hashed in one canonical form
+type: blueprint
+status: draft
+version: 1
+reason: ""
+created_at: "2026-10-26"
+author: calebcowen@gmail.com
+intent: The kwargs hash and the body hash on a marker should be computable by any tool from the same rules, so a foreign writer can produce and check them without linking Sedum.
+constraints:
+  - 'A kwargs hash is the text sha256: followed by 64 lower-case hex digits'
+  - 'A body hash is the text sha256: followed by 64 lower-case hex digits'
+  - KwargsHash hashes the canonical encoding of a resolved kwargs map
+  - CanonicalKwargs encodes a kwargs map as JSON with sorted keys and no insignificant whitespace
+  - Two kwargs maps with equal keys and values have the same canonical encoding whatever their key order
+  - Integer-valued numbers have the same canonical encoding whatever their spelling
+  - An integer beyond 2^53 in absolute value is refused with an error
+  - A number that is not finite is refused with an error
+  - A kwarg that is absent and a kwarg that is null hash differently
+  - The kwargs hashed are the resolved kwargs, with a declared default present when the invocation omitted it
+  - BodyHash hashes region text with each CRLF read as LF
+  - Indentation takes part in the body hash
+  - Trailing spaces take part in the body hash
+  - Trailing blank lines take part in the body hash
+affected_scope:
+  - internal/inject/canon.go
+  - internal/inject/canon_test.go
+forbidden_scope: []
+related: []
+sealed_at_sha: ""
+associated_specs: []
+associated_traces: []
+monitors: []
+tags:
+  - marker-v2

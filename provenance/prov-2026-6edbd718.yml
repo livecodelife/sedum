@@ -1,9 +1,9 @@
 id: prov-2026-6edbd718
 title: 'cli: the grow log wiring'
 type: imprint
-status: implemented
-version: 4
-reason: markers regrown for the failed-verification cost
+status: open
+version: 5
+reason: 'Marker v2 records: remove cross-record duplicates and tighten shapes'
 created_at: "2026-10-16"
 author: calebcowen@gmail.com
 intent: |-
@@ -359,7 +359,8 @@ intent: |-
   		t.Fatalf("tokens = %d/%d", e.PromptTokens, e.CompletionTokens)
   	}
   }
-constraints: []
+constraints:
+  - A record logged in the pipeline's edited mode is logged with the mode name select
 affected_scope:
   - internal/cli/growlogwire.go
   - internal/cli/growlogwire_test.go
@@ -368,7 +369,7 @@ forbidden_scope: []
 implements: prov-2026-7a13f569
 implements_version: 2
 related: []
-sealed_at_sha: 316f645134c32996968b6242ab35756a1fc7bebc
+sealed_at_sha: ""
 associated_specs:
   - path: internal/cli/growlogwire_test.go
     run_command: go test ./internal/cli -run 'TestGrowLogEntries|TestGrowLogFailure|TestGrowLogModel|TestGrowLogSettings|TestWriteGrowLog' -count=1

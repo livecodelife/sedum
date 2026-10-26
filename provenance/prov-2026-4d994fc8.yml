@@ -1,0 +1,35 @@
+id: prov-2026-4d994fc8
+title: 'go: internal/pipeline/recordings.go, WriteReplayRecordings'
+type: imprint
+status: draft
+version: 1
+reason: ""
+created_at: "2026-10-26"
+author: calebcowen@gmail.com
+intent: The WriteReplayRecordings function writes the per-record recordings a replay produced, keeping what was replayed.
+constraints:
+  - 'The function lives in internal/pipeline/recordings.go, package pipeline, and adds no imports: fmt and recording come from the file''s import list'
+  - The function is exported, named WriteReplayRecordings, receives positionally the replayed recording.Recording, a pointer to Result and a directory string, and returns an error
+  - For each Record of the replayed recording it writes a file holding that Record
+  - That Record's Regions are those regionsOf, defined in this package, which receives a pointer to Result and a record id and returns a slice of recording.Region, returns for its id
+  - A record whose id equals the RecordID of an entry of the Result's Restamps, a slice of Restamp with the string fields RecordID, Old and New, has its Gen set to that entry's New
+  - The written Recording has the replayed recording's SedumVersion
+  - The written Recording has the replayed recording's Packages
+  - The written Recording has the replayed recording's Variables
+  - The files are written with recording.WriteRecords, which receives a directory string and a recording.Recording and returns an error
+  - A write failure returns an error whose text is writing recording for record, a space, the record id, a colon, a space and the cause
+affected_scope:
+  - internal/pipeline/recordings.go
+  - internal/pipeline/recordings_test.go
+forbidden_scope: []
+implements: prov-2026-5cc2f7f6
+implements_version: 1
+related: []
+sealed_at_sha: ""
+associated_specs:
+  - path: internal/pipeline/recordings_test.go
+    run_command: go test ./internal/pipeline/ -run '^(TestWriteReplayRecordings|TestAReplayedRecordingsFiles)' -count=1
+associated_traces: []
+monitors: []
+tags:
+  - marker-v2

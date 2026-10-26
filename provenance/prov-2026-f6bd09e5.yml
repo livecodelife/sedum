@@ -1,0 +1,35 @@
+id: prov-2026-f6bd09e5
+title: 'go: internal/inject/marker.go, FindRegions'
+type: imprint
+status: draft
+version: 1
+reason: ""
+created_at: "2026-10-26"
+author: calebcowen@gmail.com
+intent: The FindRegions function returns every marked region in a file's content with the hash of each region's text.
+constraints:
+  - The function lives in internal/inject/marker.go, package inject, and adds no imports
+  - The function receives a genpkg.Comment, imported as a value type from github.com/livecodelife/sedum/internal/genpkg, and the content string, and returns a slice of Region and an error
+  - It sets each Region's BodyHash to BodyHash, defined in internal/inject/canon.go, which receives a string and returns a string, called with the region's body text
+  - The body text starts at the first byte after the newline that ends the opening marker line
+  - The body text ends at the first byte of the closing marker line
+  - The marker lines are not part of the body text
+  - The indentation of the marker lines is not part of the body text
+  - The body text is taken with its line endings as they are in the content
+  - A region whose closing marker line directly follows the opening line has the empty string as its body text
+  - BodyHash is set on every region, whatever the marker's version and whether or not the marker is foreign
+affected_scope:
+  - internal/inject/marker.go
+  - internal/inject/markerv2_regions_test.go
+forbidden_scope: []
+implements: prov-2026-a3771fbf
+implements_version: 1
+related: []
+sealed_at_sha: ""
+associated_specs:
+  - path: internal/inject/markerv2_regions_test.go
+    run_command: go test ./internal/inject/ -run '^TestFindRegions' -count=1
+associated_traces: []
+monitors: []
+tags:
+  - marker-v2

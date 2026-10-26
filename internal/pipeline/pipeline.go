@@ -51,8 +51,13 @@ type Config struct {
 	Generators string
 	Records    string
 	Output     string
-	Lang       []string
-	Only       []string
+
+	// Recordings is the directory recordings are read from. Empty means
+	// .sedum/recordings under Output; Run resolves it (prov-2026-9621daed).
+	Recordings string
+
+	Lang []string
+	Only []string
 
 	// Exclude adds directories to the ones the marker walk skips, besides the
 	// vendored names and the exclude list in .sedum/config.yml
@@ -383,7 +388,8 @@ func Run(ctx context.Context, cfg Config) (result *Result, err error) {
 	// Classify each record from its markers: select, re-select, skip, or
 	// re-render. Only the first two reach the model (prov-2026-9621daed).
 	scanSkip := []string{cfg.Generators, cfg.Records}
-	classes, err := classify(records, files, owners, cfg.Output, unwrittenFiles(writeless, files), cfg.Force || cfg.Reselect, scanSkip)
+	cfg.Recordings = recordingsDirOf(cfg)
+	classes, err := classify(records, files, owners, cfg.Output, unwrittenFiles(writeless, files), cfg.Force || cfg.Reselect, scanSkip, cfg.Recordings)
 	if err != nil {
 		return nil, err
 	}
@@ -392,7 +398,8 @@ func Run(ctx context.Context, cfg Config) (result *Result, err error) {
 	for _, c := range classes {
 		needsModel[c.RecordID] = c.needsModel()
 		log.Info("classified record", "record", c.RecordID, "mode", c.Mode.String(),
-			"stale", len(c.Stale), "rerender", len(c.Rerender), "stale_seeded", len(c.StaleSeeded))
+			"stale", len(c.Stale), "rerender", len(c.Rerender), "stale_seeded", len(c.StaleSeeded),
+			"edited", len(c.Edited), "unverifiable", len(c.Unverifiable), "foreign", len(c.Foreign))
 	}
 	orphans, orphanTargets, err := findOrphans(packages, records, owners, cfg.Output, scanSkip, skipRules)
 	if err != nil {
@@ -493,29 +500,43 @@ func selectAll(ctx context.Context, cfg Config, records *record.Set, files []res
 	// by region in Phase 7, where a record selecting a region another record
 	// owns is the error (prov-2026-375f5d4a).
 
-	// The prior-selection bound is per record and is checked for every selected
-	// record before the first call, so an overflow costs nothing. Selections
-	// from a prior recording that belong to no record in this run are never
-	// looked at.
+	// The prior-selection bound is per record. An explicit prior recording is
+	// checked for every record before the first call, so an overflow costs
+	// nothing; selections from a prior recording that belong to no record in
+	// this run are never looked at. Prior selections a run finds for itself -
+	// in the record's own recording, or on its markers - are context the
+	// caller never asked to carry, so one over the bound is left out rather
+	// than failing the run.
 	prior := map[string][]recording.Invocation{}
 	for _, rec := range records.Records {
 		prior[rec.ID] = priorFor(cfg.Prior, rec.ID)
 		if err := selection.CheckPrior(rec.ID, prior[rec.ID]); err != nil {
 			return nil, err
 		}
-		// A re-selected record with no prior recording sees its own earlier
-		// selections, rebuilt from its markers, so the model has less reason
-		// to change kwargs that did not need changing (prov-2026-cc73cf61).
-		// Rebuilt context that would overflow the bound is left out rather
-		// than failing a run the caller never asked to carry it.
-		if c := byRecord[rec.ID]; len(prior[rec.ID]) == 0 && c.Mode == ModeReselect {
-			rebuilt := priorFromMarkers(rec.ID, c.found, owners)
-			if err := selection.CheckPrior(rec.ID, rebuilt); err != nil {
-				log.Info("prior selections rebuilt from markers left out", "record", rec.ID, "reason", err.Error())
-			} else {
-				prior[rec.ID] = rebuilt
+		c := byRecord[rec.ID]
+		if len(prior[rec.ID]) > 0 || c.Mode != ModeReselect {
+			continue
+		}
+
+		// A re-selected record sees its own earlier selections: the
+		// invocations in the phases of its recording, else the selections
+		// rebuilt from its markers, so the model has less reason to change
+		// kwargs that did not need changing (prov-2026-cc73cf61).
+		var fromRecording []recording.Invocation
+		if got, err := recording.ReadRecord(recordingsDirOf(cfg), rec.ID); err == nil && len(got.Records) > 0 {
+			for _, ph := range got.Records[0].Phases {
+				fromRecording = append(fromRecording, ph.Invocations...)
 			}
 		}
+		candidate, source := priorFromMarkers(rec.ID, c.found, owners), "markers"
+		if len(fromRecording) > 0 {
+			candidate, source = exposedDeclared(filesOf(files, rec.ID), fromRecording), "its recording"
+		}
+		if err := selection.CheckPrior(rec.ID, candidate); err != nil {
+			log.Info("prior selections left out", "record", rec.ID, "source", source, "reason", err.Error())
+			continue
+		}
+		prior[rec.ID] = candidate
 	}
 
 	var out []Selection
@@ -593,6 +614,37 @@ func anyManaged(files []resolve.File) bool {
 		}
 	}
 	return false
+}
+
+// exposedDeclared keeps, of invocations a recording holds, the ones whose
+// action a package of files declares and exposes, with only the kwargs the
+// action declares: a composite's children are not the model's to select, and
+// recorded defaults and variables are the package's and the run's
+// (prov-2026-cc73cf61).
+func exposedDeclared(files []resolve.File, invocations []recording.Invocation) []recording.Invocation {
+	var out []recording.Invocation
+	for _, inv := range invocations {
+		for _, f := range files {
+			if f.Unmanaged || f.Package == nil {
+				continue
+			}
+			action, ok := f.Package.Actions[inv.Action]
+			if !ok {
+				continue
+			}
+			if action.Exposed {
+				kwargs := map[string]any{}
+				for name, value := range inv.Kwargs {
+					if _, declared := action.Kwargs[name]; declared {
+						kwargs[name] = value
+					}
+				}
+				out = append(out, recording.Invocation{Action: inv.Action, Kwargs: kwargs})
+			}
+			break
+		}
+	}
+	return out
 }
 
 // priorFor returns the invocations a prior recording holds for one record,

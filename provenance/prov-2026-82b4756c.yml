@@ -1,0 +1,44 @@
+id: prov-2026-82b4756c
+title: 'go: internal/pipeline/recordings.go, WriteRecordings'
+type: imprint
+status: draft
+version: 1
+reason: ""
+created_at: "2026-10-26"
+author: calebcowen@gmail.com
+intent: The WriteRecordings function writes the per-record recordings a grow run produced into a directory.
+constraints:
+  - The function lives in the new file internal/pipeline/recordings.go, package pipeline
+  - The file imports, stated once here for every function in the file, the standard library packages errors, fmt and io/fs and github.com/livecodelife/sedum/internal/recording, all as values
+  - The function is exported, named WriteRecordings, receives positionally a pointer to Result and a directory string, and returns an error
+  - A Result with no Classifications writes nothing and returns nil
+  - The recordings of selected records come from Capture, defined in internal/pipeline/capture.go, which receives a pointer to Result and returns a recording.Recording
+  - A record classified ModeSelect has its recording written
+  - A record classified ModeReselect has its recording written
+  - A recording is written with recording.WriteRecords, which receives a directory string and a recording.Recording and returns an error, called with a recording holding only the records to write
+  - A record classified ModeRerender has its existing recording read with recording.ReadRecord, which receives a directory and a record id and returns a recording.Recording and an error
+  - A re-rendered record whose recording is read keeps that recording's files, phases, gen and created_at
+  - A re-rendered record's Regions are the entries it had, without the entries whose RegionKey equals the key of a region just written
+  - The regions just written are added, from regionsOf, defined in this package, which receives a pointer to Result and a record id and returns a slice of recording.Region
+  - recording.RegionKey receives the path, action and variant strings and the id map of an entry and returns a string
+  - A re-rendered record whose recording does not exist, so that errors.Is reports fs.ErrNotExist, is written from the Record that Capture returns for it
+  - That Record has its files, an empty default phase, and Regions from regionsOf
+  - A v1 region that was re-rendered has an entry in Regions, built from the kwargs of its invocation
+  - A re-rendered record whose recording cannot be read for another reason returns an error whose text is reading recording for record, a space, the record id, a colon, a space and the cause
+  - A record classified ModeSkip, ModeEdited or ModeNone has no recording file written or changed
+  - A write failure returns an error whose text is writing recording for record, a space, the record id, a colon, a space and the cause
+affected_scope:
+  - internal/pipeline/recordings.go
+  - internal/pipeline/recordings_test.go
+forbidden_scope: []
+implements: prov-2026-5cc2f7f6
+implements_version: 1
+related: []
+sealed_at_sha: ""
+associated_specs:
+  - path: internal/pipeline/recordings_test.go
+    run_command: go test ./internal/pipeline/ -run '^TestWriteRecordings' -count=1
+associated_traces: []
+monitors: []
+tags:
+  - marker-v2

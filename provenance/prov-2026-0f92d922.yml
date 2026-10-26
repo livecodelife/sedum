@@ -1,0 +1,39 @@
+id: prov-2026-0f92d922
+title: 'go: internal/inject/marker.go, attrsV2'
+type: imprint
+status: draft
+version: 1
+reason: ""
+created_at: "2026-10-26"
+author: calebcowen@gmail.com
+intent: The attrsV2 type is the struct a v2 marker's attribute object is encoded from.
+constraints:
+  - The type lives in internal/inject/marker.go, package inject, and adds no imports
+  - attrsV2 is an unexported struct type with the fields V of type int, Tier of type Tier, Record, Gen, Pkg and Writer of type string, ID of type map[string]any, Kwargs of type string and Body of type string
+  - The JSON keys of the fields are v, tier, record, gen, pkg, writer, id, kwargs and body, in the order of the fields
+  - The keys v and tier are always written
+  - The keys record, gen, pkg, writer, id, kwargs and body are omitted when empty
+  - attrsV2 has no field for carried keys, which Marker.encodeAttrs appends after it
+  - Record holds the id of the owning record.
+  - Gen holds the gen hash of the record that wrote the region.
+  - Pkg holds the hash of the package the region was rendered from.
+  - Writer is written only when the writer is not sedum.
+  - ID holds the identity kwargs of the region with their resolved values.
+  - Kwargs holds the hash of every resolved kwarg the region was rendered from.
+  - Body holds the hash of the region's text between its marker lines.
+  - Tier holds owned or seeded.
+affected_scope:
+  - internal/inject/marker.go
+  - internal/inject/markerv2_test.go
+forbidden_scope: []
+implements: prov-2026-a3771fbf
+implements_version: 1
+related: []
+sealed_at_sha: ""
+associated_specs:
+  - path: internal/inject/markerv2_test.go
+    run_command: go test ./internal/inject/ -run '^TestAttrsV2$' -count=1
+associated_traces: []
+monitors: []
+tags:
+  - marker-v2

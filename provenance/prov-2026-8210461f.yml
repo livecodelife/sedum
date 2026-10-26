@@ -1,0 +1,28 @@
+id: prov-2026-8210461f
+title: 'go: internal/cli/root.go, NewRootCommand'
+type: imprint
+status: draft
+version: 1
+reason: ""
+created_at: "2026-10-26"
+author: calebcowen@gmail.com
+intent: The NewRootCommand function registers the markers command on the root command.
+constraints:
+  - The function lives in internal/cli/root.go, package cli, and adds no imports
+  - The function adds to the root command the command that newMarkersCommand, defined in internal/cli/markers.go, which takes no argument and returns a pointer to cobra.Command, returns
+  - The markers command is added in the same AddCommand call as the other subcommands, directly after the command newRegionsCommand returns
+affected_scope:
+  - internal/cli/root.go
+  - internal/cli/markers_test.go
+forbidden_scope: []
+implements: prov-2026-0a398351
+implements_version: 1
+related: []
+sealed_at_sha: ""
+associated_specs:
+  - path: internal/cli/markers_test.go
+    run_command: go test ./internal/cli/ -run '^TestRootHasMarkers$' -count=1
+associated_traces: []
+monitors: []
+tags:
+  - marker-v2
