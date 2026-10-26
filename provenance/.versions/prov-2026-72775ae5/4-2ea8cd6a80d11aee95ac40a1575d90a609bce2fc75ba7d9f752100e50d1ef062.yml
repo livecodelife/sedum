@@ -1,0 +1,56 @@
+id: prov-2026-72775ae5
+version: 4
+content_hash: sha256:2ea8cd6a80d11aee95ac40a1575d90a609bce2fc75ba7d9f752100e50d1ef062
+parent_hash: sha256:cd955ec4bc5773ac06b194e4ba85887700cf20f28e5fc44eb924800b0499a3b3
+reason: 'Marker v2 records: remove cross-record duplicates and tighten shapes'
+author: calebcowen@gmail.com
+created_at: "2026-10-26T16:25:40Z"
+spec_hashes:
+  - sha256:ad362c2fa1fce4642688d9519845ea900b640092ad4d830ef5e65ea2914ca8ad
+  - sha256:a3e6bad8402ce476b13e3b79189c70d979a564d30473f6a409b0fac68b771420
+content:
+  id: prov-2026-72775ae5
+  title: The ownership marker is a public format
+  type: blueprint
+  created_at: "2026-08-14"
+  author: calebcowen@gmail.com
+  intent: The ownership marker is a format other tools read and write. An attribute key Sedum does not model survives every rewrite of its region. A writer key names the tool that last wrote a region. The marker's tier governs a region after its first write, and an action's declaration supplies the value at first write only.
+  constraints:
+    - Unrecognised attribute keys are retained on read.
+    - Unrecognised attribute keys are re-emitted on write.
+    - Unrecognised attribute keys are re-emitted through the replacement path that rewrites an existing region.
+    - A key Sedum does not model survives every rerun untouched.
+    - Sedum never reads or interprets an unrecognised key.
+    - Sedum never validates an unrecognised key.
+    - A key Sedum models is never taken from the carried extras, and extras cannot shadow it.
+    - The writer key is one free-form string naming the tool that last wrote the region.
+    - An absent writer key means sedum.
+    - A marker is never rejected for carrying more than the reading version expects.
+    - A marker is never rejected for carrying less than the reading version expects.
+    - An unreadable attribute object is an error, because that is corruption rather than version skew.
+    - Neither the writer key nor any carried extra takes part in IdentityOf.
+    - applyOne carries the Extra keys of the region it replaces onto the marker it writes.
+    - The marker's tier governs a region after its first write.
+    - An action's declaration supplies the tier written at a region's first write only.
+    - Phase 5's path check, expand.authorized, says in its comment and its error that a path must be authorized and managed, and not that the run created it.
+    - The PRD states what the code does, not what it might do.
+    - Where behavior and the PRD disagree, the PRD is what changes.
+    - The PRD says that edits by any writer to an owned region are lost.
+  affected_scope:
+    - internal/inject/marker.go
+    - internal/inject/inject.go
+    - internal/inject/*_test.go
+    - internal/expand/**
+    - PRD.md
+  implements: prov-2026-d554bfc3
+  implements_version: 1
+  related:
+    - prov-2026-36c8a99c
+    - prov-2026-dad4d877
+  associated_specs:
+    - path: internal/inject/marker_test.go
+    - path: internal/inject/inject_test.go
+  tags:
+    - sedum
+    - marker
+    - integration
