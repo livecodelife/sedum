@@ -19,6 +19,7 @@ constraints:
   - A replay that is a dry run, a check or stopped at a phase boundary writes no recording
   - A per-record file is read by the record id that names it, and a missing, undecodable or mismatching file is an error
   - A recording's regions are ordered by region key, so the file diffs cleanly
+  - A replay's recording of a record holds the regions the replay wrote and the entries the record's existing recording holds for the regions the replay did not write
 affected_scope:
   - internal/recording/recording.go
   - internal/recording/dir.go
@@ -29,6 +30,7 @@ affected_scope:
   - internal/recording/dir_test.go
   - internal/recording/regionkey_test.go
   - internal/recording/regions_test.go
+  - internal/pipeline/recordings_merge_test.go
 forbidden_scope: []
 related: []
 sealed_at_sha: ""

@@ -90,11 +90,21 @@ func rerenderedRecord(result *Result, existing recording.Record, recordID string
 // WriteReplayRecordings writes the per-record recordings a replay produced,
 // keeping what was replayed (prov-2026-5cc2f7f6): each record of the replayed
 // recording is written with its own files and phases, with the regions the
-// replay wrote and, when the replay restamped it, its new gen.
+// replay wrote added to the entries its existing recording holds for the
+// regions the replay did not write and, when the replay restamped it, its new
+// gen.
 func WriteReplayRecordings(replayed recording.Recording, result *Result, dir string) error {
 	for _, r := range replayed.Records {
 		one := r
 		one.Regions = regionsOf(result, r.RecordID)
+
+		// A region the replay did not write is still in the tree, so the
+		// entry the record's recording already holds for it is kept.
+		// A recording that cannot be read holds nothing to keep; the write
+		// below replaces it.
+		if existing, err := recording.ReadRecord(dir, r.RecordID); err == nil && len(existing.Records) > 0 {
+			one.Regions = rerenderedRecord(result, existing.Records[0], r.RecordID).Regions
+		}
 		for _, s := range result.Restamps {
 			if s.RecordID == r.RecordID {
 				one.Gen = s.New
