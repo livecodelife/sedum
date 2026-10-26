@@ -18,12 +18,15 @@ constraints:
   - The hash of a kwargs map that holds a declared default's value is the hash of the invocation's resolved kwargs, so spelling the default out in the invocation does not change it
 affected_scope:
   - internal/inject/canon.go
+  - internal/inject/canon_test.go
 forbidden_scope: []
 implements: prov-2026-8bba6ce4
 implements_version: 1
 related: []
 sealed_at_sha: ""
-associated_specs: []
+associated_specs:
+  - path: internal/inject/canon_test.go
+    run_command: go test ./internal/inject/ -run '^TestKwargsHash(AbsentAndNullDiffer|Shape|ErrorIsCanonicalKwargsError)?$' -count=1
 associated_traces: []
 monitors: []
 tags:
