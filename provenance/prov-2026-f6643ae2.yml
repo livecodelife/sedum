@@ -1,7 +1,7 @@
 id: prov-2026-f6643ae2
 title: 'go: internal/cli/markers.go, newMarkersMigrateCommand'
 type: imprint
-status: draft
+status: open
 version: 1
 reason: ""
 created_at: "2026-10-26"

@@ -1,0 +1,60 @@
+id: prov-2026-f6643ae2
+version: 1
+content_hash: sha256:f034e8c4a0fa7b56e0d6fbbff02929c5d64a75b81f32b2349620cfe87aa30a88
+parent_hash: ""
+reason: ""
+author: calebcowen@gmail.com
+created_at: "2026-10-26T20:24:36Z"
+spec_hashes:
+  - sha256:41e5c3559dfb97ddaa52dd7bb3cd3b5f5b31bae93b279551ec831016e998a36b
+  - sha256:b3d41196570822c01c998b2ebf1305ef148cb7785b6da447d69b5bb588514978
+content:
+  id: prov-2026-f6643ae2
+  title: 'go: internal/cli/markers.go, newMarkersMigrateCommand'
+  type: imprint
+  created_at: "2026-10-26"
+  author: calebcowen@gmail.com
+  intent: The newMarkersMigrateCommand function builds the markers migrate command.
+  constraints:
+    - 'The function lives in internal/cli/markers.go, package cli, and adds no imports: fmt, io, cobra and pipeline come from the file''s import list'
+    - The function is unexported, takes no argument and returns a pointer to cobra.Command
+    - The command's Use is migrate
+    - The command takes no positional argument
+    - It has the required string flags --generators and --records
+    - It has the string flag --output, defaulting to defaultOutput, defined in package cli
+    - It has the bool flag --dry-run
+    - It has the repeatable string-array flag --var, whose values are name=value
+    - The --var values are parsed with parseVars, defined in package cli, which receives a slice of strings and returns a map[string]string and an error
+    - It calls pipeline.Migrate, which receives a pipeline.MigrateConfig built from the flags and returns a pointer to pipeline.MigrateReport and an error
+    - An error from Migrate is returned
+    - 'With --dry-run it first prints the line dry run: nothing is written'
+    - 'It prints one line for each migrated region: the word migrated, a space, the path, two spaces and the region''s label'
+    - With --dry-run the migrated line starts with the words would migrate in place of migrated
+    - The label is what label, defined in package cli, which receives an action and a variant string and returns a string, returns
+    - 'It prints one line for each refused region: the word refused, a space, the path, two spaces, the label, a colon, a space and the Why text'
+    - It prints one line for each left region in the same form with the word left
+    - Without --dry-run it prints a final line of the form N regions migrated, N files rewritten, N recordings written
+    - With --dry-run it prints a final line of the form N regions would be migrated, N files would be rewritten, N recordings would be written
+    - After printing it returns an error when any region was refused
+    - That error's text is the number of refused regions followed by the text regions could not be migrated
+    - It returns no error when nothing was refused, including when nothing was migrated
+    - The Why of a left region with no record is the text marker names no record
+    - The Why of a left region whose record is unknown is the text record not in the records directory
+    - The Why of a refused region whose action is undeclared is the text action no longer declared by its package
+    - The Why of a refused region whose kwargs cannot be hashed is the error text of inject.KwargsHash
+    - The lines are printed in the order migrated, then refused, then left
+    - When the report's Skipped is above zero it prints, after the left lines and before the final line, the line skipped N scope paths no generator package claims, where N is Skipped
+    - When the report's Skipped is zero it prints no skipped line
+    - The skipped line is printed the same way with and without --dry-run
+    - A report with skipped paths and no refused region makes the command return no error
+  affected_scope:
+    - internal/cli/markers.go
+    - internal/cli/markers_test.go
+    - internal/cli/markers_unclaimed_test.go
+  implements: prov-2026-0a398351
+  implements_version: 1
+  associated_specs:
+    - path: internal/cli/markers_test.go
+    - path: ./internal/cli/markers_unclaimed_test.go
+  tags:
+    - marker-v2
