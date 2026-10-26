@@ -45,7 +45,9 @@ implements: prov-2026-2e58d750
 implements_version: 1
 related: []
 sealed_at_sha: ""
-associated_specs: []
+associated_specs:
+  - path: internal/inject/kwargshash_conformance_test.go
+    run_command: go test ./internal/inject/ -run '^TestKwargsHash(Conformance|CorpusShowsWhatItIsFor)$' -count=1
 associated_traces: []
 monitors: []
 tags:
