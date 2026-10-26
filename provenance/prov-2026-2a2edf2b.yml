@@ -29,6 +29,9 @@ constraints:
   - The file's bytes are those of Write, defined in internal/recording/io.go, which receives an io.Writer and a Recording and returns an error
   - The bytes are written to a temporary file in the same directory that is then renamed to the final name
   - A write failure returns an error whose text is writing recording, a space, the file path, a colon, a space and the cause
+  - A package named by a record's Files that the argument's Packages lacks is left out of that file's Packages, with no error
+  - A record with no Files is written with an empty Packages object
+  - A record id that cannot name a recording file is rejected before the directory is created
 affected_scope:
   - internal/recording/dir.go
 forbidden_scope: []
