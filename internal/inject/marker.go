@@ -435,7 +435,11 @@ func parseOpen(comment genpkg.Comment, line string) (Marker, bool, error) {
 		return Marker{}, false, unreadable(fmt.Errorf("kwargs must be an object"))
 	}
 	var a attrs
-	if err := json.Unmarshal([]byte(encoded), &a); err != nil {
+	// Numbers stay json.Number so an integer past 2^53 reaches the canonical
+	// form with its own digits instead of being rounded by a float64.
+	decoder := json.NewDecoder(strings.NewReader(encoded))
+	decoder.UseNumber()
+	if err := decoder.Decode(&a); err != nil {
 		return Marker{}, false, unreadable(err)
 	}
 
