@@ -1,8 +1,8 @@
 id: prov-2026-bf01cd6b
 title: sedum regions and a JSON grow report feed provenance evidence
 status: open
-version: 10
-reason: 'Marker v2 records: remove cross-record duplicates and tighten shapes'
+version: 11
+reason: Blueprints state behaviour; function detail lives in imprints
 created_at: "2026-10-15"
 author: calebcowen@gmail.com
 intent: |-
@@ -25,13 +25,11 @@ constraints:
   - sedum regions does not report a marker inside a vendored or excluded directory.
   - sedum regions reports as a v2 region's identity the id object on its marker.
   - sedum regions reads a v2 region's identity without the recording.
-  - A record whose classification is edited has the mode edited in the sedum.grow/1 report.
-  - Under --check each edited region of a record is listed in its regions with the change edited.
-  - An edited region does not set its record's changed flag.
   - conformance/formats documents the mode edited in its grow example.
   - conformance/formats documents the change edited in its grow example.
   - The identity of a v1 region is the action's selecting kwargs read from its marker, or every kwarg of the marker when the package no longer declares the action
   - sedum regions --record selects a record's regions by id or alias
+  - grow --json reports an edited record with the mode edited and lists its edited regions with the change edited.
 affected_scope:
   - internal/cli/regions.go
   - internal/cli/root.go
