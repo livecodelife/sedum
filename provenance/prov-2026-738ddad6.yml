@@ -1,0 +1,28 @@
+id: prov-2026-738ddad6
+title: 'go: internal/cli/grow.go, newGrowCommand'
+type: imprint
+status: draft
+version: 1
+reason: ""
+created_at: "2026-10-26"
+author: calebcowen@gmail.com
+intent: The newGrowCommand function builds the grow command and its flag help.
+constraints:
+  - The function lives in internal/cli/grow.go, package cli, and adds no imports
+  - 'The --record flag''s help text is: Write one recording per record into this directory, default .sedum/recordings under --output; a path ending in .json instead writes one recording of the whole run to that file and re-selects every record.'
+  - The --check flag's help text says it reports a region whose text no longer matches its body hash as edited and fails on it, and that v1 regions are reported unverifiable without failing.
+  - The --check and --force help text says re-render replays the kwargs of a v1 marker, or of the recording entry of a v2 region, so a changed kwarg default or --var value needs --force.
+  - The --force flag's help text says it overwrites a region a re-render refused because its text was edited by hand.
+  - newGrowCommand takes no argument and returns a pointer to cobra.Command
+affected_scope:
+  - internal/cli/grow.go
+forbidden_scope: []
+implements: prov-2026-9621daed
+implements_version: 11
+related: []
+sealed_at_sha: ""
+associated_specs: []
+associated_traces: []
+monitors: []
+tags:
+  - marker-v2
