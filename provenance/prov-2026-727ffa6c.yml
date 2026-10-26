@@ -1,0 +1,29 @@
+id: prov-2026-727ffa6c
+title: 'go: internal/inject/inject.go, Result'
+type: imprint
+status: draft
+version: 1
+reason: ""
+created_at: "2026-10-26"
+author: calebcowen@gmail.com
+intent: The Result struct is what one invocation did, including the marker it wrote.
+constraints:
+  - The type lives in internal/inject/inject.go, package inject
+  - The file imports, stated once here for every declaration in the file, the standard library packages errors, fmt, io/fs, os, path/filepath, sort and strings, and the packages github.com/livecodelife/sedum/internal/genpkg, github.com/livecodelife/sedum/internal/runlog and github.com/livecodelife/sedum/internal/syntax, all as values
+  - Result is an exported struct with the string fields Path, Action, Variant and Record
+  - Result has the bool fields Replaced, Skipped, Pruned, Unselected, Held, Orphan and Changed
+  - Result has the field Marker of type Marker, the marker the region was written with, including its Body hash
+  - Result has the field Kwargs of type map[string]any, every resolved kwarg the region was rendered from
+  - Marker is the zero Marker and Kwargs is nil for a pruned, skipped, unselected or held region
+affected_scope:
+  - internal/inject/inject.go
+forbidden_scope: []
+implements: prov-2026-a3771fbf
+implements_version: 1
+related: []
+sealed_at_sha: ""
+associated_specs: []
+associated_traces: []
+monitors: []
+tags:
+  - marker-v2
