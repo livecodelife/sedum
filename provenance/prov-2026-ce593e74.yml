@@ -31,10 +31,12 @@ constraints:
   - Unless DryRun is set it writes the recordings with recording.WriteRecords into the .sedum/recordings directory under Output
   - The report's Files lists the paths rewritten, whether or not DryRun is set
   - The report's Recordings lists the record ids whose recordings are written, whether or not DryRun is set
-  - The report's lists are sorted by path, action and variant, and by record id
+  - The report's Migrated, Refused and Left lists are sorted by path, action and variant, with regions equal in all three kept in the order found, and Recordings is sorted by record id
   - A refused or left region keeps its v1 marker
   - A refused or left region has no entry in its record's recording
   - 'A genpkg.KindError finding returns an error whose text is generator packages did not load: followed by a line feed and, for each finding of that kind, two spaces and the finding''s text, one per line'
+  - It returns a nil error when regions are refused or left, which the markers command reports
+  - It calls buildMigrationRecording with the record id, the record's migrated regions, the record set, the resolved files, the owners, the variables and the existing recording pointer or nil
 affected_scope:
   - internal/pipeline/migrate.go
 forbidden_scope: []
