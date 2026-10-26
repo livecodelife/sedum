@@ -1,6 +1,6 @@
 id: prov-2026-b6fa093c
 title: M4 - Action rendering and anchored injection with ownership markers
-status: open
+status: implemented
 version: 3
 reason: Documentation describes marker v2
 reason_kind: ""
@@ -100,7 +100,7 @@ implements: prov-2026-d554bfc3
 implements_version: 1
 related:
   - prov-2026-36c8a99c
-sealed_at_sha: ""
+sealed_at_sha: a93fd30c8f7841709b59c961aac207fab9106ef5
 associated_specs:
   - path: internal/expand/expand_test.go
     run_command: go test -count=1 ./$(dirname {{path}})
