@@ -6,11 +6,40 @@ import (
 	"github.com/livecodelife/sedum/internal/genpkg"
 )
 
+// BodyState says whether a region's text still matches the body hash on its
+// marker.
+type BodyState string
+
+const (
+	// BodyIntact means the text between the marker lines hashes to the body
+	// hash on the marker.
+	BodyIntact BodyState = "intact"
+	// BodyEdited means it hashes to something else: the region was edited
+	// after it was written.
+	BodyEdited BodyState = "edited"
+	// BodyUnverifiable means the marker carries no body hash to compare.
+	BodyUnverifiable BodyState = "unverifiable"
+)
+
 // OwnedRegion is one region a record owns, as found in a file.
 type OwnedRegion struct {
 	Path    string
 	Package *genpkg.Package
 	Region  Region
+}
+
+// BodyState says whether the region's text still hashes to the body hash on
+// its marker. A foreign marker, a v1 marker and a marker with no body hash are
+// unverifiable.
+func (o OwnedRegion) BodyState() BodyState {
+	m := o.Region.Marker
+	if m.Foreign || m.Version != 2 || m.Body == "" {
+		return BodyUnverifiable
+	}
+	if o.Region.BodyHash == m.Body {
+		return BodyIntact
+	}
+	return BodyEdited
 }
 
 // ScanRegions returns every marked region in the targets, whoever owns it.
