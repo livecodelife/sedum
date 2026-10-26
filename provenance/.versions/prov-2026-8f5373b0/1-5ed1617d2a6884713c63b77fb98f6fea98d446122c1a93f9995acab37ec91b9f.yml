@@ -1,0 +1,38 @@
+id: prov-2026-8f5373b0
+version: 1
+content_hash: sha256:5ed1617d2a6884713c63b77fb98f6fea98d446122c1a93f9995acab37ec91b9f
+parent_hash: ""
+reason: ""
+author: calebcowen@gmail.com
+created_at: "2026-10-26T20:41:43Z"
+spec_hashes:
+  - sha256:79d1ce457f9e41291ea770f31b3643ed0c5b5206806f6c5ff87896a1bd779ced
+content:
+  id: prov-2026-8f5373b0
+  title: 'go: internal/inject/inject.go, renderRegion'
+  type: imprint
+  created_at: "2026-10-26"
+  author: calebcowen@gmail.com
+  intent: The renderRegion function wraps an invocation's rendered content in markers and hashes the body.
+  constraints:
+    - The function lives in internal/inject/inject.go, package inject, and adds no imports
+    - The function receives an Invocation, a Marker and an indent string, and returns the rendered region as a string, the body hash as a string, and an error
+    - The body hash is BodyHash, defined in internal/inject/canon.go, which receives a string and returns a string, called with exactly the text written between the marker lines
+    - The body hash is returned whatever the marker's Version
+    - A marker whose Version is 2 is written with Body set to the body hash
+    - The opening line is the indent followed by the text Marker.Open returns for the invocation's package comment, a method that receives a genpkg.Comment and returns a string and an error
+    - The closing line is the indent followed by the text Marker.Close returns for the same comment, a method that receives a genpkg.Comment and returns a string
+    - A newline follows the closing line
+    - An error from Open returns an empty region, an empty hash and that error
+    - The text between the marker lines is the invocation's Content without its trailing line feeds, followed by one line feed
+    - The text between the marker lines is followed by one more line feed when the Content ended in two or more line feeds and the trimmed Content is not empty
+    - The text between the marker lines is empty when the Content without its trailing line feeds is empty
+  affected_scope:
+    - internal/inject/inject.go
+    - internal/inject/markerv2_apply_test.go
+  implements: prov-2026-a3771fbf
+  implements_version: 1
+  associated_specs:
+    - path: internal/inject/markerv2_apply_test.go
+  tags:
+    - marker-v2
