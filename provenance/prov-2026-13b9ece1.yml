@@ -21,12 +21,15 @@ constraints:
   - printClassifications prints nothing for the Rerender regions of a record in ModeEdited, only its edited regions
 affected_scope:
   - internal/cli/grow.go
+  - internal/cli/check_v2_test.go
 forbidden_scope: []
 implements: prov-2026-9621daed
 implements_version: 11
 related: []
 sealed_at_sha: ""
-associated_specs: []
+associated_specs:
+  - path: internal/cli/check_v2_test.go
+    run_command: go test ./internal/cli/ -run '^(TestPrintClassificationsV2|TestGrowCheck)' -count=1
 associated_traces: []
 monitors: []
 tags:
