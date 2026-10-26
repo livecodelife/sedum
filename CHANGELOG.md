@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.9.2
+
+- `sedum markers migrate` replaces each file by renaming a staged replacement over it, with the file's own mode, so a file locked against writing (as `provenance reconcile` leaves the files of sealed records) is migrated and stays locked, and a failure while staging leaves the tree as it was: no file rewritten, no recording written, no temporary file left. A rename that fails after staging can still leave files already renamed in place.
+
 ## 0.9.1
 
 - `sedum markers migrate` skips, and counts in its report, the scope paths no loaded package claims instead of failing on them, and judges a file's regions against the package that declares their actions.
