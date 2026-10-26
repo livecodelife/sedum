@@ -34,6 +34,7 @@ constraints:
   - The phase's invocations are what priorFromMarkers, defined in this package, which receives the record id, a slice of inject.OwnedRegion and the owners and returns a slice of recording.Invocation, returns
   - Each inject.OwnedRegion given to priorFromMarkers has the migratedRegion's Path, its Package and its Region as read, with the v1 marker
   - That Record's Regions are the migrated entries
+  - Its parameters are, in order, the record id, the migrated regions, the record set, the resolved files, the owners, the variables and the existing recording pointer
 affected_scope:
   - internal/pipeline/migrate.go
 forbidden_scope: []
