@@ -3,6 +3,7 @@
 ## Unreleased
 
 - The marker walk (`grow`'s orphan scan, `sedum regions`) skips `node_modules`, `.next`, `vendor`, `dist` and `target` at any depth, so a checkout with large vendored trees is no longer read file by file. Add more with `exclude:` in `.sedum/config.yml` or `SEDUM_EXCLUDE`.
+- A path pattern segment written exactly as the path's segment now matches it literally, so a path with bracket characters (a Next.js `[id]` or `[...slug]` route folder) is covered by the scope entry that names it; other bracket segments are still read as character classes.
 - Two built-in transforms: `trimprefix:X` (strip a leading literal and the blanks after it) and `unparen` (strip one matching outer pair of parentheses).
 
 ## 0.8.0
