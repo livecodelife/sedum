@@ -1,7 +1,7 @@
 id: prov-2026-a41e87de
 title: 'Version 0.9.2: markers migrate stages every replacement before writing'
 type: blueprint
-status: draft
+status: open
 version: 1
 reason: ""
 created_at: "2026-10-26"
