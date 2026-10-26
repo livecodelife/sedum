@@ -18,12 +18,15 @@ constraints:
   - The line ending is the empty string when the content ends before a line feed
 affected_scope:
   - internal/pipeline/migrate.go
+  - internal/pipeline/migrate_test.go
 forbidden_scope: []
 implements: prov-2026-0a398351
 implements_version: 1
 related: []
 sealed_at_sha: ""
-associated_specs: []
+associated_specs:
+  - path: internal/pipeline/migrate_test.go
+    run_command: go test ./internal/pipeline/ -run '^TestSplitOpeningLine' -count=1
 associated_traces: []
 monitors: []
 tags:
