@@ -15,8 +15,8 @@ constraints:
   - A record whose regions are all current keeps its recording file as it is
   - A re-rendered record has the entries of its re-rendered regions rewritten with the new hashes
   - A re-rendered record with no recording file is given a recording with its files, an empty default phase and the entries of its re-rendered regions
-  - A replay that is not a dry run or a check writes the recordings of the records it replayed into the recordings directory under the output directory
-  - A replay that is a dry run or a check writes no recording
+  - A replay that is not a dry run, not a check and not stopped at a phase boundary writes the recordings of the records it replayed into the recordings directory under the output directory
+  - A replay that is a dry run, a check or stopped at a phase boundary writes no recording
   - A per-record file is read by the record id that names it, and a missing, undecodable or mismatching file is an error
   - A recording's regions are ordered by region key, so the file diffs cleanly
 affected_scope:
