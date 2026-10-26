@@ -1,0 +1,165 @@
+id: prov-2026-c6580f1e
+version: 2
+content_hash: sha256:2cfa06bed20b0ce23e88c42c7251997a3ac59295647b87bf8240281360ade73a
+parent_hash: sha256:49b0da486643eebdfe1596b62b8e8f483a9ffbd4f35fdfc1b73a0f254e0def09
+reason: Documentation describes marker v2
+author: calebcowen@gmail.com
+created_at: "2026-10-26T17:25:42Z"
+spec_hashes:
+  - sha256:ad362c2fa1fce4642688d9519845ea900b640092ad4d830ef5e65ea2914ca8ad
+  - sha256:b60d34d8080cfbf3e017544f11b29e0a5c7084dcf50ab1c609058a3409da2309
+  - sha256:fd524ad2ff6b51aebdbd3fcf488eacd4ea874e7a53cd805c17afd3b2eb4af999
+content:
+  id: prov-2026-c6580f1e
+  title: A conformance corpus makes the marker format checkable by a stranger
+  type: blueprint
+  created_at: "2026-08-14"
+  author: calebcowen@gmail.com
+  intent: |
+    "Third-party harnesses supported" is a distribution intent with no mechanical
+    way for a third party to check that it has complied. Every rule governing the
+    one format a foreign tool writes is prose - the four items under "What a
+    foreign writer may not do" are four sentences constraining a durable on-disk
+    format with multiple writers, which is precisely the kind of constraint that
+    gets discovered rather than followed.
+
+    The marker is the format that matters here. A foreign tool reads sedum.yaml
+    and actions.yaml, so a misreading is its own problem. It writes recordings,
+    but replay validates them terminally at ingestion, so a malformed one is
+    caught before anything is written. The marker is the only format it writes
+    into files that Sedum will later re-read and rewrite, with no validation gate
+    in between. A writer that gets it wrong corrupts state silently and the first
+    breakage looks like a Sedum bug.
+
+    ## What the corpus has to cover, and how we know
+
+    The cases worth pinning are the ones that were subtle enough to need working
+    out during prov-2026-72775ae5. That is the evidence for which cases they are:
+    a behavior that took an implementation attempt plus a correction to get right
+    is exactly what an independent implementation gets wrong.
+
+    **Unknown-key carry-forward through the replacement path.** Retention and
+    re-emission alone read correctly and still drop every annotation on the first
+    rerun, because the replacement path builds a fresh marker from the invocation
+    and renders it over the region, using the parsed one only for identity and
+    tier. This was the correction to §5.2 rather than its original design - the
+    first version would have looked done and lost data, which is worse than not
+    having done it.
+
+    **Declared keys in struct order, carried keys appended sorted.** Merging
+    everything into one map and marshalling sorts every key and reshuffles the
+    attribute object on every marker already written.
+
+    **No shadowing.** A carried key may not shadow a declared one. It cannot
+    arise from a marker Sedum parsed, only from one a caller builds - which is to
+    say, only from a foreign writer, which is the audience.
+
+    **An unreadable attribute object is corruption, not version skew.** The
+    opposite reading is the natural one for anyone who has just been told the
+    object is an extension point, and it is wrong.
+
+    ## Shape
+
+    Golden marker files, their expected parse results, and the expected bytes
+    after a round trip that adds a key, modifies a key, and preserves an unknown
+    one. Byte-level for re-emission, because the property being protected - a
+    rerun's output equals its input wherever nothing changed - is a byte property
+    and a semantic comparison would pass while the diff was noisy.
+
+    ## It lives at conformance/, not under testdata/
+
+    testdata/ is a Go convention. The directory is invisible to the toolchain, it
+    reads as one project's internal fixtures, and a stranger has no reason to look
+    in it or to believe what is there is meant for them. Every property this corpus
+    needs is the opposite: it is a published artifact, it is language-neutral, and
+    its audience is a writer who is not using Go at all - a corpus that only a Go
+    implementation can consume answers the wrong question, because Sedum's own
+    implementation is the one thing that does not need checking.
+
+    So it is conformance/ at the repository root, listed in the supported surface
+    beside the formats it pins. The same reasoning [[prov-2026-b5465dfa]] applies to
+    a growing surface applies here: an artifact a third party is expected to depend
+    on is named where they will find it, or it is not really offered.
+
+    ## What makes it maintainable
+
+    Sedum's own tests read the corpus rather than carrying a parallel copy. The
+    four behaviors above are pinned today in internal/inject/marker_test.go as Go
+    literals - TestUnrecognisedAttributesSurviveTheRoundTrip,
+    TestCarriedAttributesAreWrittenVerbatimAndLast,
+    TestCarriedAttributesCannotShadowDeclaredOnes, and
+    TestUnreadableAttributesAreAnError. The work is mostly relocation: move the
+    inputs and expectations into data and point those tests at it.
+
+    That is not a tidiness argument. A corpus maintained beside the tests it
+    duplicates goes stale within a release and then actively misleads, because a
+    stranger checking against it has no way to know. A corpus the tests depend on
+    cannot go stale - the published artifact is the thing that fails when Sedum
+    regresses.
+
+    ## Why now
+
+    The cost is near its minimum. The fixtures exist already as test literals and
+    the reasoning behind each is fresh enough to write down accurately. It rises
+    as soon as a format decision has to be reconstructed from code by someone who
+    was not there for it.
+
+    And prov-2026-b5465dfa makes it load-bearing rather than merely nice. Under
+    the strict reading of the linking rule, a third party cannot link Sedum to
+    borrow its implementation of the format. Checkability is the whole of what
+    they get, so leaving it as prose is not a gap in the documentation - it is a
+    gap in the surface.
+
+    ## But it blocks nobody, and that is worth being honest about
+
+    The first foreign writer of this format can bootstrap the corpus in its own
+    repository and upstream it, because it has to implement the codec either way and
+    the fixtures fall out of doing so. So this record is not on any consumer's
+    critical path, and it should not be sequenced as though it were.
+
+    What it blocks is the promise. "Third-party harnesses supported" is a
+    distribution intent with no mechanical way for a stranger to check compliance,
+    and a first-party consumer writing the corpus does not close that - it is the
+    party least likely to notice where the format is underspecified, for exactly the
+    reason prov-2026-b5465dfa gives about eating the same food. Upstreaming a
+    bootstrapped corpus is a good outcome and does not make this record redundant;
+    it makes it the place the result is ratified and kept honest by Sedum's own
+    tests.
+
+    ## What this is not
+
+    This records the marker *format*. Behavior - rendering injects_into through
+    transforms, pipelines, and exception tables - is not corpus-shaped: it would
+    have to enumerate every irregular and grow whenever the inflection table does.
+    prov-2026-b5465dfa settles that separately, and the division is the point
+    rather than an accident of sequencing. A corpus specifies formats well and
+    behavior badly.
+  constraints:
+    - Sedum's own tests read the corpus. It is never a parallel copy maintained beside them - a corpus that can go stale without failing a test will, and a stale corpus is worse than none because a stranger checking against it cannot tell.
+    - Re-emission expectations are byte-level; parse expectations are structural. The property being protected is that a rerun's output equals its input wherever nothing changed, which a semantic comparison would not catch.
+    - Every case traces to a format decision that had to be worked out. The four from prov-2026-72775ae5 are the initial set. A case is added when a decision is made, never to raise coverage for its own sake.
+    - The corpus states which of the foreign-writer rules it does not mechanize - the file-level ones about relocating a planted marker and reordering regions are not expressible as a parse-and-re-emit golden. The remaining gap stays visible rather than being assumed closed by the corpus's existence.
+    - Adding a case never changes a marker already on disk. Fixtures record current behavior; a case that would require rewriting existing markers is a format change and needs its own record.
+    - The corpus is published on the same terms as the formats, so a third party checks compliance against it without linking Sedum. This is what prov-2026-b5465dfa's decision leaves them, and it has to actually be sufficient.
+    - It lives at conformance/ in the repository root and is named in the supported surface, never under testdata/. The audience is a writer not using Go, and a corpus only a Go implementation can find or consume checks the one implementation that does not need checking.
+    - A corpus bootstrapped by a foreign writer and upstreamed satisfies this record's artifact but not its purpose. Sedum's tests must depend on whatever lands, so the published fixtures are what fails when Sedum regresses.
+    - The corpus covers the marker format only. Transform and rendering behavior is out of scope and settled in prov-2026-b5465dfa.
+  affected_scope:
+    - conformance/**
+    - internal/inject/**
+    - PRD.md
+    - TOOL_BOUNDARIES.md
+  implements: prov-2026-d554bfc3
+  implements_version: 1
+  related:
+    - prov-2026-72775ae5
+    - prov-2026-59535684
+    - prov-2026-b5465dfa
+  associated_specs:
+    - path: internal/inject/marker_test.go
+    - path: conformance/markers/cases.json
+    - path: conformance/README.md
+  tags:
+    - sedum
+    - integration-surface
+    - marker
