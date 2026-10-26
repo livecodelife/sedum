@@ -17,7 +17,7 @@ constraints:
   - It loads the records with record.Load, which receives a directory string and a record.Options, here the zero value, and returns a pointer to record.Set, a slice of warning strings and an error
   - It builds the owners with ownersOf, defined in this package, which receives the pointer to record.Set and returns a map[string]inject.Owner
   - It resolves paths with resolve.Paths, which receives the package set, the record set and a slice of preferred package names, here nil, and returns a slice of resolve.Resolution, warnings and an error
-  - It creates the files with resolve.Create in dry-run mode, which receives those resolutions and a resolve.Options with Output, DryRun true and Variables, and returns a slice of resolve.File and an error
+  - It creates the files with resolve.Create in dry-run mode, called once for each resolution, which receives a slice holding that resolution and a resolve.Options with Output, DryRun true and Variables, and returns a slice of resolve.File and an error
   - It visits the files that carry markers with walkMarked, defined in this package, which receives the package set, the output directory, a slice of directories to skip, the skip rules and a visit func(rel string, pkg *genpkg.Package, regions []inject.Region), and returns an error
   - The directories it skips are the generators and records directories
   - It reads each visited file and passes its text to migrateContent, defined in this package
@@ -37,6 +37,7 @@ constraints:
   - 'A genpkg.KindError finding returns an error whose text is generator packages did not load: followed by a line feed and, for each finding of that kind, two spaces and the finding''s text, one per line'
   - It returns a nil error when regions are refused or left, which the markers command reports
   - It calls buildMigrationRecording with the record id, the record's migrated regions, the record set, the resolved files, the owners, the variables and the existing recording pointer or nil
+  - A resolution whose file resolve.Create cannot reconcile with its file template is still migrated, with no error, using only its path, package, template and captures
 affected_scope:
   - internal/pipeline/migrate.go
   - internal/pipeline/migrate_test.go
