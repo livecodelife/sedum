@@ -1,7 +1,7 @@
 id: prov-2026-6c6c5e5e
 title: 'go: internal/pipeline/migrate.go, packageDeclaringActions'
 type: imprint
-status: open
+status: implemented
 version: 1
 reason: ""
 created_at: "2026-10-26"
@@ -28,7 +28,7 @@ forbidden_scope: []
 implements: prov-2026-0a398351
 implements_version: 1
 related: []
-sealed_at_sha: ""
+sealed_at_sha: c9d996db79d117fe2692bd8e628bd23a3417ede5
 associated_specs:
   - path: ./internal/pipeline/migrate_unclaimed_test.go
     run_command: go test -count=1 ./internal/pipeline/ -run TestMigrateJudgesRegions
