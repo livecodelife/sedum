@@ -15,12 +15,15 @@ constraints:
   - priorFromMarkers over a v2 region with no recording yields only the identity kwargs of that region that its action declares.
 affected_scope:
   - internal/pipeline/pipeline.go
+  - internal/pipeline/selectall_v2_test.go
 forbidden_scope: []
 implements: prov-2026-cc73cf61
 implements_version: 9
 related: []
 sealed_at_sha: ""
-associated_specs: []
+associated_specs:
+  - path: internal/pipeline/selectall_v2_test.go
+    run_command: go test ./internal/pipeline/ -run '^TestSelectAllPriorFromRecording(PriorFromMarkersOverAV2|KeepsOnlyExposed)' -count=1
 associated_traces: []
 monitors: []
 tags:
