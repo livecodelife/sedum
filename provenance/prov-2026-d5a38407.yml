@@ -1,7 +1,7 @@
 id: prov-2026-d5a38407
 title: 'Version 0.9.2: markers migrate replaces files by rename, so locked files migrate and a failed run changes nothing'
 type: blueprint
-status: open
+status: implemented
 version: 1
 reason: ""
 created_at: "2026-10-26"
@@ -17,7 +17,7 @@ forbidden_scope: []
 implements: prov-2026-d554bfc3
 implements_version: 1
 related: []
-sealed_at_sha: ""
+sealed_at_sha: e3cdafe839b1286b17f83e9a578adfc73c19eecc
 associated_specs:
   - path: internal/cli/release_test.go
     run_command: go test -count=1 ./$(dirname {{path}})
