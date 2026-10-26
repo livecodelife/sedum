@@ -1,7 +1,7 @@
 id: prov-2026-a82d4cea
 title: 'go: internal/cli/grow.go, runGrow'
 type: imprint
-status: open
+status: implemented
 version: 1
 reason: ""
 created_at: "2026-10-26"
@@ -31,7 +31,7 @@ forbidden_scope: []
 implements: prov-2026-9621daed
 implements_version: 11
 related: []
-sealed_at_sha: ""
+sealed_at_sha: 9a3f4fb65a3b1fd352160d32b21e70534889da84
 associated_specs:
   - path: internal/cli/record_v2_test.go
     run_command: go test ./internal/cli/ -run '^(TestRunGrowRecordings|TestGrowRefusesToReRender|TestGrowRecordFlagCombinations)' -count=1
