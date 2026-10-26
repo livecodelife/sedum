@@ -28,6 +28,10 @@ affected_scope:
   - internal/inject/marker.go
   - internal/inject/inject.go
   - internal/inject/scan.go
+  - internal/inject/markerv2_apply_test.go
+  - internal/inject/markerv2_regions_test.go
+  - internal/inject/markerv2_scan_test.go
+  - internal/inject/markerv2_test.go
 forbidden_scope: []
 related: []
 sealed_at_sha: ""
