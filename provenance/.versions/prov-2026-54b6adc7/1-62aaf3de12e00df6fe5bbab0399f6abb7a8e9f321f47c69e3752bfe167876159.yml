@@ -1,0 +1,51 @@
+id: prov-2026-54b6adc7
+version: 1
+content_hash: sha256:62aaf3de12e00df6fe5bbab0399f6abb7a8e9f321f47c69e3752bfe167876159
+parent_hash: ""
+reason: ""
+author: calebcowen@gmail.com
+created_at: "2026-10-26T20:41:37Z"
+spec_hashes:
+  - sha256:50d7af9f0243ce8a5e48e1c5da7df58e125cbf039c7cf28a7e63c4744f7ed107
+content:
+  id: prov-2026-54b6adc7
+  title: 'conformance: markers v2 corpus'
+  type: imprint
+  created_at: "2026-10-26"
+  author: calebcowen@gmail.com
+  intent: The v2 marker corpus holds parse, emit, round-trip, replace and error cases for the v2 marker, so a writer that does not link Sedum can check it.
+  constraints:
+    - The file is conformance/markers/v2cases.json with the format sedum.marker.v2, corpus_version 1 and a description
+    - Its cases have the fields id, kind, why, comment_prefix and an optional comment_suffix
+    - Its cases have input, marker, parsed and output as their kind needs
+    - Its cases have no decision field
+    - The kinds are parse, emit, round_trip, replace and error
+    - The cases are read and checked by the test in the new file internal/inject/markerv2_conformance_test.go
+    - The marker and parsed objects hold version, kwargs_hash, body and foreign beside the fields of conformance/markers/cases.json
+    - In the marker and parsed objects of a v2 marker kwargs holds the id object
+    - A parse case reads a baseline v2 marker into tier, record, gen, pkg, id, kwargs hash and body hash
+    - An emit case shows the exact bytes of a v2 marker, whose keys come out in the order v, tier, record, gen, pkg, writer, id, kwargs, body
+    - An emit case shows a named writer
+    - An emit case shows the seeded tier
+    - An emit case shows an id value holding <, > and & written as themselves
+    - An emit case shows a block-comment target with a comment suffix
+    - A round-trip case shows a v2 marker with unknown keys parsed and emitted back to the same bytes, the unknown keys in sorted order
+    - A parse case shows a v2 marker with no id, kwargs or body read with those empty
+    - A parse case shows a v1 marker read with its kwargs object, no version and no body
+    - A parse case shows a v1 marker carrying an id key and a body key, which are kept in extra
+    - A parse case shows a marker whose v is 3 read as foreign, with every key in extra
+    - A parse case shows a marker whose v is 1 read as foreign
+    - A parse case shows a marker whose v is a string read as foreign
+    - An error case shows a v2 marker whose kwargs is an object, with the error_names text kwargs must be a string
+    - An error case shows a v1 marker whose kwargs is a string, with the error_names text kwargs must be an object
+    - A replace case shows a v1 marker with an unknown key replaced by a v2 marker, which keeps the unknown key and has no v1 kwargs object
+    - Each case has a why saying what goes wrong for an implementation that gets it wrong
+  affected_scope:
+    - conformance/markers/v2cases.json
+    - internal/inject/markerv2_conformance_test.go
+  implements: prov-2026-2e58d750
+  implements_version: 1
+  associated_specs:
+    - path: internal/inject/markerv2_conformance_test.go
+  tags:
+    - marker-v2
