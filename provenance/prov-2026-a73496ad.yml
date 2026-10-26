@@ -25,6 +25,7 @@ constraints:
   - 'An encoding failure returns an error whose text is action, a space, the marker''s label, and the text : kwargs cannot be recorded on a marker: followed by the cause'
   - On a v2 marker an Extra key named one of the nine v2 keys is not appended
   - On a v1 marker an Extra key named one of the six v1 keys, tier, record, gen, pkg, writer and kwargs, is not appended, and an Extra key named id or body is appended
+  - A v2 attribute object never has a kwargs object, only the kwargs hash string
 affected_scope:
   - internal/inject/marker.go
 forbidden_scope: []
