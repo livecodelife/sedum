@@ -1,0 +1,43 @@
+id: prov-2026-2a2edf2b
+title: 'go: internal/recording/dir.go, WriteRecords'
+type: imprint
+status: draft
+version: 1
+reason: ""
+created_at: "2026-10-26"
+author: calebcowen@gmail.com
+intent: The WriteRecords function writes each record of a recording to its own file in a directory.
+constraints:
+  - The function lives in the new file internal/recording/dir.go, package recording
+  - The file imports, stated once here for every function in the file, the standard library packages fmt, os, path/filepath, sort and strings, each as a value import
+  - The function is exported, named WriteRecords, and receives positionally a directory string and a Recording value, and returns an error
+  - The directory is created, with its parents, when it does not exist
+  - A directory that cannot be created returns an error whose text is creating recordings directory, a space, the directory, a colon, a space and the cause
+  - One file is written per Record in the recording's Records, named <record_id>.json inside the directory
+  - A record id that is empty returns the error whose text is record id "" cannot name a recording file
+  - A record id that contains a slash, a backslash or the text .. returns an error whose text is record id, a space, the id quoted with strconv-style double quotes, and the text cannot name a recording file
+  - A record that cannot be named has no file written
+  - Each file holds a Recording with the argument's SedumVersion
+  - Each file holds a Recording with the argument's Variables
+  - Each file holds a Recording whose Complete is false and whose Prompt is empty
+  - Each file holds exactly one Record, the one the file is named for
+  - The file's Packages holds only the packages the record's Files name
+  - Each package in the file's Packages is taken from the argument's Packages
+  - The record's Regions are written sorted by the key RegionKey, defined in this package, returns, ascending
+  - RegionKey receives the path, action and variant strings and the id map of a region and returns a string
+  - The argument's own Regions slice is not reordered
+  - The file's bytes are those of Write, defined in internal/recording/io.go, which receives an io.Writer and a Recording and returns an error
+  - The bytes are written to a temporary file in the same directory that is then renamed to the final name
+  - A write failure returns an error whose text is writing recording, a space, the file path, a colon, a space and the cause
+affected_scope:
+  - internal/recording/dir.go
+forbidden_scope: []
+implements: prov-2026-5cc2f7f6
+implements_version: 1
+related: []
+sealed_at_sha: ""
+associated_specs: []
+associated_traces: []
+monitors: []
+tags:
+  - marker-v2
