@@ -1,0 +1,31 @@
+id: prov-2026-0e23ee6a
+title: 'go: internal/recording/regionkey.go, RegionKey'
+type: imprint
+status: draft
+version: 1
+reason: ""
+created_at: "2026-10-26"
+author: calebcowen@gmail.com
+intent: The RegionKey function returns the string that identifies a region among a record's regions.
+constraints:
+  - The function lives in the new file internal/recording/regionkey.go, package recording
+  - The file imports, stated once here, the standard library packages encoding/json and strings, as values
+  - The function is exported, named RegionKey, and receives positionally the path, action and variant as strings and the id as a map[string]any, and returns a string
+  - The result is the path, the action, the variant and the JSON encoding of the id, in that order, joined by the NUL character
+  - The JSON encoding of the id has its keys sorted, as encoding/json encodes a map
+  - A nil id is encoded as {}
+  - An id that cannot be encoded is encoded as {}
+  - Sorting keys as strings orders regions by path, then action, then variant, then id
+  - Two regions have equal keys exactly when their path, action, variant and id are equal
+affected_scope:
+  - internal/recording/regionkey.go
+forbidden_scope: []
+implements: prov-2026-5cc2f7f6
+implements_version: 1
+related: []
+sealed_at_sha: ""
+associated_specs: []
+associated_traces: []
+monitors: []
+tags:
+  - marker-v2
