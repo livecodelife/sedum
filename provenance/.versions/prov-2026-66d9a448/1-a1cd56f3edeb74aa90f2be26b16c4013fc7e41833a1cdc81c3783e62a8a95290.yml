@@ -1,0 +1,31 @@
+id: prov-2026-66d9a448
+version: 1
+content_hash: sha256:a1cd56f3edeb74aa90f2be26b16c4013fc7e41833a1cdc81c3783e62a8a95290
+parent_hash: ""
+reason: ""
+author: calebcowen@gmail.com
+created_at: "2026-10-26T20:41:39Z"
+spec_hashes:
+  - sha256:07559d09acab019446fafb3377ae11f1dcdddc5615525b712e7e0629dc14e9cf
+content:
+  id: prov-2026-66d9a448
+  title: 'go: internal/cli/report.go, buildGrowReport'
+  type: imprint
+  created_at: "2026-10-26"
+  author: calebcowen@gmail.com
+  intent: The buildGrowReport function builds the sedum.grow/1 JSON document for a run.
+  constraints:
+    - The function lives in internal/cli/report.go, package cli, and adds no imports
+    - The function receives a pointer to pipeline.Result and the bools dryRun, replay and check, and returns a growReport
+    - A record whose classification is edited has the mode text edited, taken from Mode.String.
+    - Under check, each edited region of a record is listed in that record's regions with its file, action, variant and the change edited.
+    - An edited region does not set its record's changed flag.
+  affected_scope:
+    - internal/cli/report.go
+    - internal/cli/check_v2_test.go
+  implements: prov-2026-bf01cd6b
+  implements_version: 11
+  associated_specs:
+    - path: internal/cli/check_v2_test.go
+  tags:
+    - marker-v2
