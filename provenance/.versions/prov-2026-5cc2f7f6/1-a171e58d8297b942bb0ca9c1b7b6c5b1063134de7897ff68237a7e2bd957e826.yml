@@ -1,0 +1,52 @@
+id: prov-2026-5cc2f7f6
+version: 1
+content_hash: sha256:a171e58d8297b942bb0ca9c1b7b6c5b1063134de7897ff68237a7e2bd957e826
+parent_hash: ""
+reason: ""
+author: calebcowen@gmail.com
+created_at: "2026-10-26T20:41:29Z"
+spec_hashes:
+  - sha256:eb0e91c6de851e6f6d1df3c40fc026e29990dbb5aa78a2c35ff69a02cacb5d53
+  - sha256:d061431b8ba15724aa9dfb37632134e32a9fa28aadb555e9bc9a9b4caa7cb7f7
+  - sha256:89630249ea0aa08ae5c185665533d900054a51f17dcc0ca4885a26bb55b7c54e
+  - sha256:a08b28400c4879bf80e3bc09fd5bdaab32bddfcd8f4d2bd323b3cab2b16ff35b
+  - sha256:16cf96de3c6f624d9784b0022750242594b04f050dc1382aa515e5675d538ebf
+content:
+  id: prov-2026-5cc2f7f6
+  title: Grow writes a recording per record holding what rebuilds its regions
+  type: blueprint
+  created_at: "2026-10-26"
+  author: calebcowen@gmail.com
+  intent: The kwargs needed to rebuild a region should be kept in a recording per record under .sedum/recordings, written by grow and by replay.
+  constraints:
+    - Grow writes a per-record recording, .sedum/recordings/<record-id>.json, for each record it selects
+    - A per-record file is a valid recording holding exactly one record
+    - The record carries phases, what the model selected before expansion
+    - The record carries regions, every region after expansion with its resolved kwargs
+    - A record whose regions are all current keeps its recording file as it is
+    - A re-rendered record has the entries of its re-rendered regions rewritten with the new hashes
+    - A re-rendered record with no recording file is given a recording with its files, an empty default phase and the entries of its re-rendered regions
+    - A replay that is not a dry run, not a check and not stopped at a phase boundary writes the recordings of the records it replayed into the recordings directory under the output directory
+    - A replay that is a dry run, a check or stopped at a phase boundary writes no recording
+    - A per-record file is read by the record id that names it, and a missing, undecodable or mismatching file is an error
+    - A recording's regions are ordered by region key, so the file diffs cleanly
+    - A replay's recording of a record holds the regions the replay wrote and the entries the record's existing recording holds for the regions the replay did not write
+  affected_scope:
+    - internal/recording/recording.go
+    - internal/recording/dir.go
+    - internal/recording/regionkey.go
+    - internal/pipeline/capture.go
+    - internal/pipeline/recordings.go
+    - internal/pipeline/recordings_test.go
+    - internal/recording/dir_test.go
+    - internal/recording/regionkey_test.go
+    - internal/recording/regions_test.go
+    - internal/pipeline/recordings_merge_test.go
+  associated_specs:
+    - path: internal/pipeline/recordings_test.go
+    - path: internal/pipeline/recordings_merge_test.go
+    - path: internal/recording/regions_test.go
+    - path: internal/recording/dir_test.go
+    - path: internal/recording/regionkey_test.go
+  tags:
+    - marker-v2
