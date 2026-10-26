@@ -16,13 +16,13 @@ constraints:
   - The attribute object is read once into a map from key to raw JSON, and the key v is taken from it
   - A marker with no v key is read from an attrs value, defined in this file, with Version 0
   - 'A v1 marker whose kwargs is not an object returns an error whose text is marker for, the marker''s label, and carries attributes that are not readable as JSON: kwargs must be an object'
-  - A marker whose v is the number 2 is read from an attrsV2 value, defined in this file, with Version 2
+  - A marker whose v is a number with the value 2, including 2.0, is read from an attrsV2 value, defined in this file, with Version 2
   - A v2 marker's id is the Marker's Kwargs
   - A v2 marker's kwargs is the Marker's KwargsHash
   - A v2 marker's body is the Marker's Body
   - 'A v2 marker whose kwargs is not a string returns an error whose text is marker for, the marker''s label, and carries attributes that are not readable as JSON: kwargs must be a string'
   - A v2 marker with no id, kwargs or body is read with those fields empty
-  - A marker whose v is any other value is returned with Foreign true, its Action and Variant, Tier owned, Writer sedum, and Version 0
+  - A marker whose v is present and is not a number with the value 2, including null, a string, 0, 1, 3 and 2.5, is returned with Foreign true, its Action and Variant, Tier owned, Writer sedum, and Version 0
   - A foreign marker has an empty Record, Gen, Pkg, Kwargs, KwargsHash and Body
   - A foreign marker has every attribute key, as read, in Extra
   - A foreign marker is returned with true and no error
@@ -30,6 +30,9 @@ constraints:
   - The keys a v2 marker models are v, tier, record, gen, pkg, writer, id, kwargs and body
   - On a v1 marker every key outside the six it models, including id and body, is put in Extra
   - On a v2 marker every key outside the nine it models is put in Extra
+  - A foreign marker names no record, so no record owns it and a prune never removes it
+  - A v2 marker with no tier is read with Tier owned
+  - A v2 marker with no writer is read with Writer sedum
 affected_scope:
   - internal/inject/marker.go
 forbidden_scope: []
