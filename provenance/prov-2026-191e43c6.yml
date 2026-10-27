@@ -38,7 +38,7 @@ constraints:
   - RunProvenance returns an error for empty output and for an exit status above 1
   - Environment takes a bool for staged and the current environment as a slice of strings and returns the environment slice for git and provenance
   - Every error of the runner is built with ProvenanceError from output.go, which takes a message string and returns an error
-  - This file imports bytes, os, os/exec, path/filepath and strings from the Go standard library as values
+  - This file imports bytes, os/exec, path/filepath and strings from the Go standard library as values
 affected_scope:
   - internal/gitcheck/runner.go
   - internal/gitcheck/runner_test.go

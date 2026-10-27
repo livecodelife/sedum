@@ -57,13 +57,17 @@ constraints:
   - The config's `dir` string is the records directory, with trailing slashes removed, and it is `provenance` when it is empty or absent
   - The config's `exclude_paths` key is a list of strings, and it is empty when absent
   - An unreadable or unparseable config is an error built with ProvenanceError from output.go and exits 2
-  - newCheckCommand takes no arguments and returns a *cobra.Command that is added to the root command
+  - newCheckCommand takes no arguments and returns a *cobra.Command that is registered in root.go with the other commands
   - The command fills a gitcheck.Options value from the flags, with the fields stated here and the Paths field built from the config
   - The command computes the git top level of the base directory with TopLevel from paths.go, which takes the base directory string and the environment as a slice of strings and returns the path string and an error
   - The command builds the PathConfig from paths.go, with RecordsDir set to the config's dir and ExcludePaths set to the config's exclude_paths
   - The command calls Check from check.go, which takes a gitcheck.Options value and the stdout io.Writer and returns an Outcome and an error
-  - The command computes the exit code with ExitCode from output.go, given the Outcome's Unwaived count and the error, and exits the process with it
-  - When Check returns an error, the command writes FormatError of that error and a newline to stderr
+  - The command turns the result of Check into the process exit code by returning an ExitError from exit.go, which has an int field Code and a string field Message
+  - When Check returns nil and no finding is unwaived, the command returns nil
+  - When there are unwaived findings, the command returns an ExitError with Code 1 and an empty Message
+  - When Check returns an error, the command returns an ExitError with Code 2 whose Message is the error's text
+  - A UsageError also becomes an ExitError with Code 2 whose Message is the error's text
+  - The codes agree with ExitCode from output.go
   - The help text states that the command complements `provenance check`
   - The help text states that exit 2 means provenance or git could not be run or read
   - The help text states that exit 2 also means provenance output lacks fields the command needs (skew)
@@ -80,7 +84,9 @@ implements: prov-2026-bc259b5c
 implements_version: 1
 related: []
 sealed_at_sha: ""
-associated_specs: []
+associated_specs:
+  - path: internal/cli/check_cmd_test.go
+    run_command: go test ./$(dirname {{path}})
 associated_traces: []
 monitors: []
 tags: []

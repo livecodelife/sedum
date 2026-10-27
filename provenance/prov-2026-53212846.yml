@@ -12,6 +12,7 @@ constraints:
   - With --range, each commit is judged with its own commit message
   - 'The justification of a regeneration waiver, the proof named `regeneration`, is "regeneration: " followed by the 7-character short sha of the commit'
   - 'The justification of a marker migration waiver, the proof named `migration`, is "marker migration: " followed by the 7-character short sha of the commit'
+  - 'When both the migration proof and the regeneration proof hold for a finding, the justification is the migration one, "marker migration: " followed by the short sha'
   - 'For --staged the justifications are "regeneration: staged" and "marker migration: staged"'
   - Options is a value with string fields Range, MessageFile, Config, Output, Generators, Records, Format, Provenance and TopLevel, a bool field Staged and a PathConfig field Paths
   - Outcome is a value with int fields Unwaived, Waived and Skipped
@@ -56,9 +57,10 @@ constraints:
   - Check counts each distinct skipped scope path once over exactly those Classes calls
   - Check passes to Merge from sarif.go only the Log values and, for each log, the justification strings aligned with the order of its Results, empty for an unwaived result
   - Check writes the output with WriteSARIF or WriteHuman from output.go, according to the Format of the Options
+  - Check writes the output only after every step before it has succeeded
   - Check returns the count of unwaived findings in the Outcome
-  - This file imports io, os and strings from the Go standard library as values
-  - This file imports github.com/livecodelife/provenance/record as a value
+  - This file imports io, os, path/filepath and strings from the Go standard library as values
+  - This file imports github.com/livecodelife/provenance/record as a value under the name librecord
 affected_scope:
   - internal/gitcheck/check.go
   - internal/gitcheck/check_test.go

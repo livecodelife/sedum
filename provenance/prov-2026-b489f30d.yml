@@ -29,7 +29,7 @@ constraints:
   - ExitCode returns 2 for any non-nil error, otherwise 1 when the number is above 0, otherwise 0
   - ProvenanceError, GitError, SkewError and UsageError each take a message string and return an error
   - SkewError messages start with `provenance:`
-  - FormatError takes an error and returns the message string that is written to stderr
+  - FormatError takes an error and returns the message of the error as a string
   - This file imports fmt, io and errors from the Go standard library as values
 affected_scope:
   - internal/gitcheck/output.go

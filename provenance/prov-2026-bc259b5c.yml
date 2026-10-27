@@ -50,6 +50,7 @@ affected_scope:
   - internal/cli/check.go
   - internal/cli/check_*_test.go
   - internal/gitcheck/**
+  - internal/cli/root.go
 forbidden_scope: []
 related: []
 sealed_at_sha: ""
