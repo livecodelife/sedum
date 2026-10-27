@@ -54,7 +54,11 @@ affected_scope:
 forbidden_scope: []
 related: []
 sealed_at_sha: ""
-associated_specs: []
+associated_specs:
+  - path: internal/cli/evidence_cmd_test.go
+  - path: internal/evidence/hash_test.go
+  - path: internal/evidence/store_test.go
+  - path: internal/evidence/report_test.go
 associated_traces: []
 monitors: []
 tags: []
