@@ -56,7 +56,9 @@ implements: prov-2026-a508d4c6
 implements_version: 1
 related: []
 sealed_at_sha: ""
-associated_specs: []
+associated_specs:
+  - path: internal/scaffold/files_test.go
+    run_command: go test ./$(dirname {{path}})
 associated_traces: []
 monitors: []
 tags: []
