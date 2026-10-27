@@ -44,7 +44,9 @@ implements: prov-2026-8c8032f1
 implements_version: 1
 related: []
 sealed_at_sha: ""
-associated_specs: []
+associated_specs:
+  - path: internal/evidence/store_test.go
+    run_command: go test ./$(dirname {{path}})
 associated_traces: []
 monitors: []
 tags: []
