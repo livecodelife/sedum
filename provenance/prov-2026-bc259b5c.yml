@@ -51,10 +51,26 @@ affected_scope:
   - internal/cli/check_*_test.go
   - internal/gitcheck/**
   - internal/cli/root.go
+  - internal/cli/exit*.go
+  - internal/cli/root_execute_test.go
 forbidden_scope: []
 related: []
 sealed_at_sha: ""
-associated_specs: []
+associated_specs:
+  - path: internal/cli/check_cmd_test.go
+    run_command: go test ./$(dirname {{path}})
+  - path: internal/cli/exit_test.go
+    run_command: go test ./$(dirname {{path}})
+  - path: internal/cli/root_execute_test.go
+    run_command: go test ./$(dirname {{path}})
+  - path: internal/gitcheck/check_test.go
+    run_command: go test ./$(dirname {{path}})
+  - path: internal/gitcheck/finding_test.go
+    run_command: go test ./$(dirname {{path}})
+  - path: internal/gitcheck/output_test.go
+    run_command: go test ./$(dirname {{path}})
+  - path: internal/gitcheck/sarif_test.go
+    run_command: go test ./$(dirname {{path}})
 associated_traces: []
 monitors: []
 tags: []
