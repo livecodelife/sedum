@@ -1,0 +1,28 @@
+id: prov-2026-326849a3
+title: 'Version 0.10.0: sedum check, init, hooks install and evidence replace the provenance CLI''s knowledge of Sedum'
+type: blueprint
+status: draft
+version: 1
+reason: ""
+created_at: "2026-10-27"
+author: calebcowen@gmail.com
+intent: '0.9.2 -> 0.10.0: minor. Adds `sedum check` (runs provenance check per commit and waives only violations it can prove are its own pure regenerations or pure marker migrations; exit 0/1/2), `sedum init`, `sedum hooks install` (sedum''s own commit-msg and pre-push hooks), and `sedum evidence` (committable .sedum/evidence/ code-freshness files); `grow --check` skips scope paths no package claims. These let provenance drop all knowledge of Sedum in its next release. See CHANGELOG.md.'
+constraints:
+  - This record touches only the version constant and the changelog. The tag-vs-constant check in .github/workflows/release.yml gates the release.
+  - The tag is pushed only once this commit is on main.
+affected_scope:
+  - internal/recording/version.go
+  - CHANGELOG.md
+forbidden_scope: []
+implements: prov-2026-d554bfc3
+implements_version: 1
+related: []
+sealed_at_sha: ""
+associated_specs:
+  - path: internal/cli/release_test.go
+    run_command: go test -count=1 ./$(dirname {{path}})
+associated_traces: []
+monitors: []
+tags:
+  - sedum
+  - release
