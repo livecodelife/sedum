@@ -1,0 +1,41 @@
+id: prov-2026-08d9fca2
+title: The regeneration proof
+type: imprint
+status: draft
+version: 1
+reason: ""
+created_at: "2026-10-27"
+author: calebcowen@gmail.com
+intent: The regeneration proof says whether a commit only regenerates governed regions.
+constraints:
+  - Regeneration imposes no version rule of its own on the tag
+  - Regeneration ignores a changed path that exclude_paths excludes, once the record file and state file rules have been applied
+  - A changed recording file is an ordinary governed file that has no regions, so it blocks regeneration unless exclude_paths excludes it
+  - Regeneration requires every changed governed file to have at least one region at the base
+  - Regeneration requires each region to keep the tier, record and gen values it has at the base
+  - Regeneration allows the body, the closing line, the opening-line prefix and every JSON key except tier, record and gen to change
+  - Regeneration requires the class `current` for every record named by a region of any changed governed file
+  - Regeneration computes classes only at the commit's tree
+  - The class `current` is the one that `sedum grow --check` reports for the record
+  - Failing to compute classes for regeneration means the regeneration waiver does not apply
+  - Regeneration takes the Classified value, a base TreeReader, a commit TreeReader and the commit's class map, which is nil when classes could not be computed, and returns a bool
+  - A class map is a map from record id string to class string
+  - Regeneration returns false when Blocked of the Classified value is true
+  - The governed set of Regeneration is the Governed paths together with the Recordings paths that are not in ExcludedRecordings
+  - Regeneration calls GovernedChanges from paths.go with that set and returns false when its bool is false
+  - Regeneration calls SameShape from regions.go with strict false for each governed file
+  - Regeneration calls ReadRegions from regions.go on each governed file's commit content to name the records
+  - Regeneration returns false when the class map is nil
+  - This file imports no package
+affected_scope:
+  - internal/gitcheck/regen.go
+  - internal/gitcheck/regen_test.go
+forbidden_scope: []
+implements: prov-2026-bc259b5c
+implements_version: 1
+related: []
+sealed_at_sha: ""
+associated_specs: []
+associated_traces: []
+monitors: []
+tags: []

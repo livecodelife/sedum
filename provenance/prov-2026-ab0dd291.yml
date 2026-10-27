@@ -1,0 +1,53 @@
+id: prov-2026-ab0dd291
+title: Findings are recognised and the waiver allow-lists applied
+type: imprint
+status: draft
+version: 1
+reason: ""
+created_at: "2026-10-27"
+author: calebcowen@gmail.com
+intent: The finding unit reads a result as a finding, recognises the implemented-record refusal, parses commit tags and says which findings a proof may waive.
+constraints:
+  - The file of a finding is the artifact uri of the first location of its result
+  - SCOPE001 is a known provenance rule id
+  - TAG001 is a known provenance rule id
+  - STATE001 is a known provenance rule id
+  - EVID001 is a known provenance rule id
+  - EVID002 is a known provenance rule id
+  - A rule id of PROV followed by digits is a known lint rule id
+  - The record of a finding is read from the recordId property of its SARIF result
+  - A finding without a recordId property is never waived
+  - Finding messages are used as provenance gave them
+  - 'A finding is the implemented-record refusal when its rule id is STATE001 and its message contains the text "is implemented: run ''provenance revise"'
+  - Regeneration waives only the implemented-record refusal whose record is the record R tagged in that commit
+  - Marker migration waives only the implemented-record refusal whose record is the migrated tag's record
+  - Marker migration also waives a SCOPE001 finding whose recordId equals the migrated tag's record
+  - Every other finding is never waived
+  - Each tag of a commit message is judged on its own
+  - A commit message may carry several tags
+  - A tag is written in provenance's bracket form [id] or [id@N]
+  - The waiver granted for one tag does not waive the findings of another tag's record
+  - Finding is a value with string fields RuleID, Message, File and RecordID
+  - FindingOf takes a Result and returns a Finding
+  - FindingOf reads RuleID with the RuleID method, Message with MessageText, RecordID with Property given the name recordId, and File with FirstLocationURI, all from sarif.go
+  - FindingOf leaves File empty when the result has no location
+  - A Tag is a value with a string field ID, an int field Version and a bool field HasVersion
+  - A tag is the bracket form [id] or [id@N] anywhere in the message, where the id is `prov-`, four digits, a hyphen and either eight lowercase hexadecimal digits or three digits, optionally followed by a hyphen and lowercase letters, digits and hyphens, and N is a positive integer
+  - ParseTags takes a commit message string and returns the Tag values in message order
+  - ParseTags returns a tag with HasVersion false for the form [id]
+  - IsRefusal takes a Finding and returns a bool that is true when the finding is the implemented-record refusal
+  - Allowed takes the proof name, which is `regeneration` or `migration`, a Finding and the tag's record id as strings and returns a bool
+  - Allowed returns false for any other proof name
+  - This file imports regexp and strconv and strings from the Go standard library as values
+affected_scope:
+  - internal/gitcheck/finding.go
+  - internal/gitcheck/finding_test.go
+forbidden_scope: []
+implements: prov-2026-bc259b5c
+implements_version: 1
+related: []
+sealed_at_sha: ""
+associated_specs: []
+associated_traces: []
+monitors: []
+tags: []

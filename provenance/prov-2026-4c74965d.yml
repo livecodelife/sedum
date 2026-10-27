@@ -1,0 +1,86 @@
+id: prov-2026-4c74965d
+title: The check command defines its flags, reads the config and returns the exit code
+type: imprint
+status: draft
+version: 1
+reason: ""
+created_at: "2026-10-27"
+author: calebcowen@gmail.com
+intent: The check command registers `sedum check`, validates its flags, reads the config and maps the result of the check to the process exit code.
+constraints:
+  - The command is `sedum check`, registered on the root command
+  - A positional argument is a usage error
+  - Exactly one of the flags --range <a..b> or --staged must be given
+  - Giving both --range and --staged is a usage error
+  - Giving neither --range nor --staged is a usage error
+  - --range takes one string holding two revisions joined by two dots
+  - --staged is a boolean flag
+  - --message-file <path> names a commit message file
+  - --message-file is accepted only with --staged
+  - --message-file with --range is a usage error
+  - --output <dir> is the directory that holds the provenance config when --config is not given
+  - --output defaults to the current directory
+  - The directory given by --output may lie below the git top level
+  - --config <path> is optional and names the provenance config
+  - A relative --config is relative to the --output directory
+  - The config is read from the working tree
+  - The exclude_paths come from the config read in the working tree
+  - The records directory is the config's `dir` setting, relative to the base directory
+  - --generators <dir> is optional
+  - --generators defaults to a directory named `generators` under the base directory
+  - --records <dir> is optional
+  - --records defaults to the records directory of the config
+  - --format takes `sarif` or `human` and defaults to `human`
+  - Any other --format value is a usage error
+  - --provenance <path> is an optional string that overrides the provenance binary
+  - The directory that holds the config is the base of all path rules
+  - The base directory is the --output directory when no --config is given
+  - The base directory is the directory of the file named by --config when --config is given
+  - When --config is given, Options.Output holds the directory of the --config file, which is the base directory
+  - The --output flag value must lie in the same git repository as the base directory, and otherwise the command exits 2 with a message starting `usage:`
+  - A relative --generators or --records path is taken relative to the base directory
+  - --range fills Options.Range and --staged fills Options.Staged
+  - --message-file fills Options.MessageFile
+  - --config fills Options.Config, which holds the absolute path of the config file, a relative --config being resolved against the --output flag value first, and which is empty when --config is not given
+  - --output fills Options.Output only when --config is not given
+  - --generators fills Options.Generators, which holds `generators` when the flag is not given
+  - --records fills Options.Records, which holds the config's records directory when the flag is not given
+  - --format fills Options.Format
+  - --provenance fills Options.Provenance
+  - A flag error that cobra reports, such as an unknown flag or a value of the wrong type, is also a usage error with exit 2
+  - A usage error is built with UsageError from output.go, which takes a message string and returns an error
+  - Without --config, the config is the file .provenance.yml in the --output directory when it exists, and otherwise the `provenance` block of the file .linespec.yml in the --output directory
+  - A .provenance.yml config is read from its top level as YAML
+  - A .linespec.yml config is read from its top-level `provenance` key
+  - With --config, the named file is the config, and it is read from its `provenance` key when its base name is .linespec.yml and from its top level otherwise
+  - When no config file exists, the records directory is `provenance` and exclude_paths is empty
+  - The config's `dir` string is the records directory, with trailing slashes removed, and it is `provenance` when it is empty or absent
+  - The config's `exclude_paths` key is a list of strings, and it is empty when absent
+  - An unreadable or unparseable config is an error built with ProvenanceError from output.go and exits 2
+  - newCheckCommand takes no arguments and returns a *cobra.Command that is added to the root command
+  - The command fills a gitcheck.Options value from the flags, with the fields stated here and the Paths field built from the config
+  - The command computes the git top level of the base directory with TopLevel from paths.go, which takes the base directory string and the environment as a slice of strings and returns the path string and an error
+  - The command builds the PathConfig from paths.go, with RecordsDir set to the config's dir and ExcludePaths set to the config's exclude_paths
+  - The command calls Check from check.go, which takes a gitcheck.Options value and the stdout io.Writer and returns an Outcome and an error
+  - The command computes the exit code with ExitCode from output.go, given the Outcome's Unwaived count and the error, and exits the process with it
+  - When Check returns an error, the command writes FormatError of that error and a newline to stderr
+  - The help text states that the command complements `provenance check`
+  - The help text states that exit 2 means provenance or git could not be run or read
+  - The help text states that exit 2 also means provenance output lacks fields the command needs (skew)
+  - The help text states that a failure to compute classes leaves the findings in place and exits 0 or 1 by what remains
+  - This file imports fmt, io, os and path/filepath from the Go standard library as values
+  - This file imports gopkg.in/yaml.v3 as a value to read the config
+  - This file imports github.com/spf13/cobra as a value
+  - This file imports github.com/livecodelife/sedum/internal/gitcheck as a value
+affected_scope:
+  - internal/cli/check.go
+  - internal/cli/check_*_test.go
+forbidden_scope: []
+implements: prov-2026-bc259b5c
+implements_version: 1
+related: []
+sealed_at_sha: ""
+associated_specs: []
+associated_traces: []
+monitors: []
+tags: []

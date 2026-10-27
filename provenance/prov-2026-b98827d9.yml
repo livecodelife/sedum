@@ -1,0 +1,65 @@
+id: prov-2026-b98827d9
+title: The marker migration proof
+type: imprint
+status: draft
+version: 1
+reason: ""
+created_at: "2026-10-27"
+author: calebcowen@gmail.com
+intent: The marker migration proof says whether a commit only migrates marker opening lines and returns the records that own the changed regions.
+constraints:
+  - The marker migration waiver applies to a tag whose record owns at least one region of the changed governed files
+  - A tag whose record owns none of the changed regions gets the normal rules
+  - Marker migration requires the tag to be written [id@N] with N the record's current version
+  - A tag [id] without a version is not waived by marker migration
+  - A tag in a migration commit that names a version other than the current one stays a finding
+  - A marker migration needs no version bump of the tagged record
+  - A marker migration needs no revision of the tagged record
+  - Opening lines with a numeric v key and opening lines without one are both accepted on either side of a migration
+  - In a migration, the closing line of each region is identical to the base
+  - In a migration, the body of each region, the lines between its opening and closing lines, is identical to the base byte for byte
+  - In a migration, the part of each opening line before its JSON object is identical to the base
+  - In a migration, the tier, record, gen and pkg values of each opening line are the same strings as at the base
+  - In a migration, any other key of the opening line's JSON object may differ
+  - A hand edit inside a region makes the commit not a pure migration, and the normal rules apply
+  - A commit that mixes a migration with any other change gets the normal rules
+  - A migration treats a changed path that is not a recording and that exclude_paths excludes as making the commit not a migration, once the record file and state file rules have been applied
+  - A recording is a file directly in `.sedum/recordings/` relative to the base directory (the directory that holds the config), with nothing after the slash that follows that prefix
+  - A file in a subdirectory of `.sedum/recordings/` is not a recording
+  - Added and modified recordings are allowed in a migration
+  - A recording must be a regular file at the commit tree
+  - A deleted recording makes the commit not a pure migration
+  - Recordings need no record and no exclude_paths entry
+  - The only changed files in a migration besides governed files are recordings
+  - A commit that changes only recordings is not a pure migration and gets the normal rules
+  - Migration requires the class of every record named by a region of the changed governed files to be the same at the base tree and at the commit tree
+  - Migration computes classes at both the base tree and the commit tree
+  - A record that is stale at the base and still stale at the commit does not block a migration
+  - A record whose class changes makes the commit not a migration
+  - A record that has no class at one of the two trees makes the commit not a migration
+  - Failing to compute classes at either tree makes the commit not a migration
+  - Migration takes the Classified value, a base TreeReader, a commit TreeReader, the base class map, the commit class map, the Tag and a map from record id string to current version int and returns a bool and the set of record ids that own changed regions as a map from string to bool
+  - Migration returns false when either class map is nil
+  - Migration returns false when Blocked of the Classified value is true
+  - Migration requires each path of Recordings to be Regular in the commit TreeReader
+  - Migration calls GovernedChanges from paths.go on Governed and returns false when its bool is false
+  - Migration calls SameShape from regions.go with strict true for each governed file
+  - Migration returns false when Excluded of the Classified value is not empty
+  - Migration collects the owner set from the record of each region that ReadRegions from regions.go finds in the commit content of each governed file
+  - Migration returns false when the Tag has no version
+  - Migration returns false when the version map has no entry for the Tag's record
+  - Migration returns false when the entry differs from the Tag's version
+  - Migration returns false when the owner set does not contain the Tag's record
+  - This file imports no package
+affected_scope:
+  - internal/gitcheck/migrate.go
+  - internal/gitcheck/migrate_test.go
+forbidden_scope: []
+implements: prov-2026-bc259b5c
+implements_version: 1
+related: []
+sealed_at_sha: ""
+associated_specs: []
+associated_traces: []
+monitors: []
+tags: []

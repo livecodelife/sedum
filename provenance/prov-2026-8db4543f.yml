@@ -1,0 +1,51 @@
+id: prov-2026-8db4543f
+title: Record classes are computed in-process on exported trees
+type: imprint
+status: draft
+version: 1
+reason: ""
+created_at: "2026-10-27"
+author: calebcowen@gmail.com
+intent: The classes unit exports a tree and computes the class of each record on it with the grow --check pipeline.
+constraints:
+  - When the generators directory does not exist, there are no generator packages
+  - --generators names the generator packages that class computation loads
+  - --records names the records that class computation reads
+  - For each exported tree, the generators and records directories are taken relative to that tree's counterpart of the base directory (the directory that holds the config)
+  - The skipped-paths count is the number of distinct scope paths, taken from the affected_scope entries of the records, that class computation skipped because no loaded generator package claims them
+  - The skipped-paths count covers every tree computed in the run
+  - A scope path that no loaded generator package claims is skipped, never reported as an error
+  - 'The class is the first word of the record''s `sedum grow --check` line: none, unknown, stale, current, re-render or edited'
+  - Classes are computed in-process by sedum with the same pipeline as `sedum grow --check`
+  - The command never runs the sedum binary
+  - The command never reads the text output of the sedum binary
+  - The tree of the base is exported from the base commit
+  - The commit's tree is the tree of the commit, or the staged index tree for --staged
+  - ExportTree takes the base directory, a revision string, a bool for staged and the environment and returns the directory path, a cleanup function and an error
+  - ExportTree exports the whole tree of the git top level and returns the root of the exported tree
+  - ExportTree exports the index content for an empty revision with staged true, without writing any git object
+  - The cleanup function returned by ExportTree removes the temporary directory
+  - Classes takes a tree directory, the generators directory and the records directory as strings and returns the class map, the slice of skipped scope paths and an error
+  - Classes returns an error when the generators directory cannot be read, the records directory is missing or the pipeline fails
+  - Classes calls Run from github.com/livecodelife/sedum/internal/pipeline, which takes a context.Context and a pipeline.Config and returns a *pipeline.Result and an error
+  - Classes sets in the Config the Check field to true, Generators, Records and Output to the tree's paths, and leaves Client nil
+  - Classes reads the class of each record from the Classifications of the Result, where each Classification has a RecordID and a Mode
+  - The class of a Mode is none for ModeNone, unknown for ModeSelect, stale for ModeReselect, current for ModeSkip, re-render for ModeRerender and edited for ModeEdited
+  - A record that has Unverifiable regions keeps the class of its Mode, because the class is the first word of its first line in the check output
+  - A foreign region is listed by path in the check output, so it gives no record a class
+  - Classes sets the Config field SkipUnclaimedScope, a bool, to true
+  - Classes returns the SkippedScopePaths of the Result, a slice of path strings, as its second result
+  - This file imports context, os, os/exec, path/filepath and strings from the Go standard library as values
+  - This file imports github.com/livecodelife/sedum/internal/pipeline as a value
+affected_scope:
+  - internal/gitcheck/classes.go
+  - internal/gitcheck/classes_test.go
+forbidden_scope: []
+implements: prov-2026-bc259b5c
+implements_version: 1
+related: []
+sealed_at_sha: ""
+associated_specs: []
+associated_traces: []
+monitors: []
+tags: []
