@@ -1,0 +1,52 @@
+id: prov-2026-21ba5adc
+title: SARIF logs are read and merged
+type: imprint
+status: implemented
+version: 1
+reason: ""
+created_at: "2026-10-27"
+author: calebcowen@gmail.com
+intent: The SARIF unit parses provenance logs, merges their results into one run and serialises the result.
+constraints:
+  - The exit code is 2 when provenance prints output that is not parseable SARIF
+  - The exit code is 2 when the SARIF has no `runs` array or an empty one, which is skew
+  - The exit code is 2 when a result lacks a string ruleId, which is skew
+  - The exit code is 2 when a result lacks a message text, which is skew
+  - The results of all input runs are used
+  - The results are written to the single output run
+  - A missing recordId property is not skew
+  - SARIF output is one log with version 2.1.0 and one run
+  - The tool driver name of the run is "sedum check"
+  - The results of the run are the results of every provenance invocation, copied unchanged, in commit order
+  - Results of one commit keep the order in which provenance printed them
+  - The driver rules of the run are the union of the rules of every provenance log, in order of first appearance
+  - Each result's ruleIndex is recomputed to point into that union
+  - The artifacts of the run are the union of the artifacts of every provenance log, one per uri, sorted by uri
+  - An empty range gives a log with zero results and exit 0
+  - A waived result gets a `suppressions` array with exactly one entry
+  - The suppression entry has the kind "external"
+  - The run carries a property named skippedScopePaths holding the skipped-paths count
+  - Log is a value that holds the runs of one SARIF document, and a Result is a value that holds one result as a JSON object together with its run index and its result index
+  - A Result has the methods RunIndex and ResultIndex returning int, RuleID and MessageText returning string, Property taking a name string and returning a string, and FirstLocationURI returning a string that is empty when there is no location
+  - ParseLog takes the provenance output bytes and returns a Log and an error
+  - ParseLog returns an error built with ProvenanceError from output.go when the bytes are not JSON
+  - ParseLog returns an error built with SkewError from output.go, which takes a message string and returns an error, when a field is missing as stated above
+  - Results takes no argument as a method of Log and returns the slice of Result values of all its runs in order
+  - Merge takes a slice of Log values and, for each log, a slice of justification strings with one entry per result, and returns a Merged value
+  - Merge gives a result with an empty justification no suppressions array and leaves its JSON otherwise unchanged
+  - Merged has a method JSON that takes the skipped count as an int and returns the SARIF document as bytes and an error
+  - This file imports encoding/json and bytes from the Go standard library as values
+affected_scope:
+  - internal/gitcheck/sarif.go
+  - internal/gitcheck/sarif_test.go
+forbidden_scope: []
+implements: prov-2026-bc259b5c
+implements_version: 1
+related: []
+sealed_at_sha: 72f0b3a0ea5f8a42d86bfb44f26bae60a0bbf3c4
+associated_specs:
+  - path: internal/gitcheck/sarif_test.go
+    run_command: go test ./$(dirname {{path}})
+associated_traces: []
+monitors: []
+tags: []

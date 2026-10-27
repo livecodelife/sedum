@@ -1,0 +1,47 @@
+id: prov-2026-b489f30d
+title: Output writers, exit codes and error kinds
+type: imprint
+status: implemented
+version: 1
+reason: ""
+created_at: "2026-10-27"
+author: calebcowen@gmail.com
+intent: The output unit writes the SARIF or human output, maps results to exit codes and builds the three kinds of error.
+constraints:
+  - The human format prints each remaining finding on one line
+  - 'A human finding line has the shape `<ruleId> <file>: <message>`'
+  - 'A human finding line without a file has the shape `<ruleId>: <message>`'
+  - The human format always prints the line "skipped N scope paths that no generator package claims", with the count in place of N
+  - That line comes immediately before the final line
+  - 'The human format always ends with the line "waived: N", with the count of waived findings in place of N, also when N is 0'
+  - SARIF output and human output go to stdout
+  - Errors and usage messages go to stderr
+  - The exit code is 0 when no unwaived finding is left
+  - The exit code is 1 when at least one unwaived finding is left
+  - The exit code is 2 for a usage error
+  - 'An exit of 2 never waives anything: the command fails closed'
+  - An error message about provenance that cannot run or gave bad output starts with "provenance:"
+  - An error message about git that cannot read a commit or a commit message starts with "git:"
+  - A usage error message starts with "usage:"
+  - WriteHuman takes an io.Writer, a slice of Finding values, the waived count as an int and the skipped count as an int and returns an error
+  - WriteSARIF takes an io.Writer, a Merged value from sarif.go and the skipped count as an int and returns an error
+  - ExitCode takes the number of unwaived findings as an int and an error and returns the exit code as an int
+  - ExitCode returns 2 for any non-nil error, otherwise 1 when the number is above 0, otherwise 0
+  - ProvenanceError, GitError, SkewError and UsageError each take a message string and return an error
+  - SkewError messages start with `provenance:`
+  - FormatError takes an error and returns the message of the error as a string
+  - This file imports fmt, io and errors from the Go standard library as values
+affected_scope:
+  - internal/gitcheck/output.go
+  - internal/gitcheck/output_test.go
+forbidden_scope: []
+implements: prov-2026-bc259b5c
+implements_version: 1
+related: []
+sealed_at_sha: a1ca14baa549b0a879bb82909301a630bce587e0
+associated_specs:
+  - path: internal/gitcheck/output_test.go
+    run_command: go test ./$(dirname {{path}})
+associated_traces: []
+monitors: []
+tags: []

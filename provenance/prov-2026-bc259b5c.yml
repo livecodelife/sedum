@@ -1,0 +1,76 @@
+id: prov-2026-bc259b5c
+title: sedum check reports the findings provenance check leaves after waiving proven regenerations and marker migrations
+type: blueprint
+status: implemented
+version: 1
+reason: ""
+created_at: "2026-10-27"
+author: calebcowen@gmail.com
+intent: Running sedum check over a commit range or the staged change should run provenance check on each commit, waive only the findings that sedum can prove are a pure regeneration or a pure marker migration, and report the rest as SARIF or text with an exit code a CI job can act on.
+constraints:
+  - '`sedum check` complements `provenance check`: it runs provenance on each commit of a range, or on the staged change, and waives only the findings that it can prove come from a pure regeneration or a pure marker migration'
+  - The command takes exactly one of --range <a..b> or --staged
+  - The message that is judged is the one named by --message-file or the message of HEAD with --staged, and each commit's own message with --range
+  - The optional inputs are --config, --output, --generators, --records, --format with sarif or human and a default of human, and --provenance
+  - The provenance binary comes from --provenance, else the PROVENANCE environment variable, else PATH, and never from a file inside the repository
+  - An invalid combination or value of the flags is a usage error
+  - 'The directory that holds the config is the base of every path rule: it is --output when no --config is given, and otherwise the directory of the --config file, and --output must lie in the same git repository'
+  - Changed paths outside that base directory are ignored
+  - Provenance runs once per commit, oldest first, for --range, and once for --staged, always with SARIF output, and its SARIF is the input of the command
+  - The output is one SARIF 2.1.0 run that holds the results of every provenance invocation unchanged and in commit order, or human text
+  - A waived result stays in the output and carries a suppression that names the proof and the commit
+  - The human format lists the remaining findings, the count of skipped scope paths and the count of waived findings
+  - The exit code is 0 when no unwaived finding is left
+  - The exit code is 1 when at least one unwaived finding is left
+  - The exit code is 2 when provenance or git cannot run or read, when the provenance output is unparseable, or when it lacks fields the command needs
+  - An exit of 2 never waives anything, so the command fails closed
+  - The regeneration waiver waives only the implemented-record refusal of the record tagged in the commit
+  - The marker migration waiver waives the implemented-record refusal and the scope findings of the tagged record
+  - Every other finding is never waived
+  - Each tag of a commit message is judged on its own
+  - Regeneration requires every changed governed file to have existed at the base, to have the same text outside regions, and to keep the same regions in the same order with the same tier, record and gen
+  - Regeneration also requires every record named by the changed regions to be current at the commit's tree
+  - A changed record file or provenance state file gives no waiver
+  - Regeneration ignores a changed path that exclude_paths excludes, and a migration fails on one that is not a recording
+  - A pure marker migration needs a tag [id@N] that names the current version of a record that owns a changed region
+  - In a pure marker migration only opening lines may change, and only in keys other than tier, record, gen and pkg, while the bodies, closing lines and text outside regions stay identical
+  - A pure marker migration changes only governed files and recordings that sit directly in the recordings directory
+  - A pure marker migration requires every named record to keep the same class at the base tree and at the commit's tree
+  - A hand edit inside a region, a commit that mixes a migration with another change, and a commit that changes only recordings get the normal rules
+  - A root commit, and a staged change in a repository with no HEAD, have no base and get no waiver
+  - Classes are computed in-process with the same pipeline as `sedum grow --check`, never by running the sedum binary
+  - Scope paths that no loaded generator package claims are skipped and counted, the count is reported, and they are never an error
+  - Failing to compute classes means the waiver does not apply
+  - The command runs no model and opens no network connection
+  - The command writes nothing in the repository and writes only into temporary directories
+  - The command removes its temporary directories
+  - The command does not change git state
+  - The help text states that the command complements `provenance check`, what exit 2 means, and that a failure to compute classes leaves the findings in place
+affected_scope:
+  - internal/cli/check.go
+  - internal/cli/check_*_test.go
+  - internal/gitcheck/**
+  - internal/cli/root.go
+  - internal/cli/exit*.go
+  - internal/cli/root_execute_test.go
+forbidden_scope: []
+related: []
+sealed_at_sha: c433364f2e8498d519d8b002579d2ddd5b3aa30b
+associated_specs:
+  - path: internal/cli/check_cmd_test.go
+    run_command: go test ./$(dirname {{path}})
+  - path: internal/cli/exit_test.go
+    run_command: go test ./$(dirname {{path}})
+  - path: internal/cli/root_execute_test.go
+    run_command: go test ./$(dirname {{path}})
+  - path: internal/gitcheck/check_test.go
+    run_command: go test ./$(dirname {{path}})
+  - path: internal/gitcheck/finding_test.go
+    run_command: go test ./$(dirname {{path}})
+  - path: internal/gitcheck/output_test.go
+    run_command: go test ./$(dirname {{path}})
+  - path: internal/gitcheck/sarif_test.go
+    run_command: go test ./$(dirname {{path}})
+associated_traces: []
+monitors: []
+tags: []

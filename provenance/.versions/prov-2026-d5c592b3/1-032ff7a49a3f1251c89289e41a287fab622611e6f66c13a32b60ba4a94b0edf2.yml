@@ -1,0 +1,34 @@
+id: prov-2026-d5c592b3
+version: 1
+content_hash: sha256:032ff7a49a3f1251c89289e41a287fab622611e6f66c13a32b60ba4a94b0edf2
+parent_hash: ""
+reason: ""
+author: calebcowen@gmail.com
+created_at: "2026-10-27T12:25:50Z"
+spec_hashes:
+  - sha256:16aa13a5e2f9a69b058a229d9f31dc7a51e51d2cf922d4fc066ce170913ddbc4
+content:
+  id: prov-2026-d5c592b3
+  title: The exit error carries a process exit code to Execute
+  type: imprint
+  created_at: "2026-10-27"
+  author: calebcowen@gmail.com
+  intent: The exit mechanism lets a command choose the process exit code and message through an error that Execute honours.
+  constraints:
+    - ExitError is an exported struct with an int field Code and a string field Message
+    - The Error method of ExitError has a value receiver, takes no argument and returns its Message
+    - An ExitError value and a pointer to one are both errors
+    - Commands return ExitError values, not pointers
+    - CodeOf takes an error and returns the exit code as an int and a bool
+    - CodeOf finds an ExitError with errors.As on a value target
+    - CodeOf returns true and the Code of the ExitError when the error is, or wraps, an ExitError
+    - CodeOf returns false for any other error and for nil
+    - CodeOf is the only place that reads the fields of an ExitError for the decision of Execute
+    - This file imports errors from the Go standard library as a value
+  affected_scope:
+    - internal/cli/exit.go
+    - internal/cli/exit_test.go
+  implements: prov-2026-bc259b5c
+  implements_version: 1
+  associated_specs:
+    - path: internal/cli/exit_test.go

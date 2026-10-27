@@ -1,0 +1,34 @@
+id: prov-2026-8c043616
+title: Execute returns the exit code that an ExitError carries
+type: imprint
+status: implemented
+version: 1
+reason: ""
+created_at: "2026-10-27"
+author: calebcowen@gmail.com
+intent: Execute runs the root command and returns the process exit code, honouring the code of an ExitError.
+constraints:
+  - Execute takes no argument and returns the process exit code as an int
+  - Execute never exits the process
+  - Execute runs the command tree that NewRootCommand returns, which takes no argument and returns a pointer to cobra.Command, with the arguments of the process
+  - Execute returns 0 for a nil error
+  - Execute asks CodeOf from exit.go, which takes an error and returns an int and a bool, whether the error is an ExitError
+  - Execute returns the Code of an ExitError
+  - 'Execute prints `sedum: ` followed by the Message and a newline to stderr for an ExitError, unless the Message is empty, in which case it prints nothing'
+  - Execute treats an error that is not an ExitError as exit code 1
+  - 'Execute prints `sedum: ` followed by the error and a newline to stderr for an error that is not an ExitError'
+  - This file adds no import
+affected_scope:
+  - internal/cli/root.go
+  - internal/cli/root_execute_test.go
+forbidden_scope: []
+implements: prov-2026-bc259b5c
+implements_version: 1
+related: []
+sealed_at_sha: 22f2628e7647d83c94342c646757e8efbd4d7438
+associated_specs:
+  - path: internal/cli/root_execute_test.go
+    run_command: go test ./$(dirname {{path}})
+associated_traces: []
+monitors: []
+tags: []
