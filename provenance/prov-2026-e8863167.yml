@@ -1,0 +1,44 @@
+id: prov-2026-e8863167
+title: 'go: internal/cli/init.go, the init command'
+type: imprint
+status: implemented
+version: 1
+reason: ""
+created_at: "2026-10-27"
+author: calebcowen@gmail.com
+intent: The init command prepares a directory for sedum grow by calling the scaffold step and printing what it did.
+constraints:
+  - The unit lives in internal/cli/init.go, package cli
+  - The file imports, stated once here for every function in the file, fmt, io, os and path/filepath from the standard library, github.com/spf13/cobra and github.com/livecodelife/sedum/internal/scaffold, all as values
+  - The command is named init and takes no positional arguments
+  - The command has a short description saying that it prepares a directory for sedum grow
+  - The command has one string flag, dir, with no shorthand and the default "." (the current directory)
+  - The command runs runInit with the command output writer, obtained from cmd.OutOrStdout, and the value of the dir flag
+  - runInit, defined in this file, receives an io.Writer and the dir flag value as a string, and returns an error
+  - runInit makes the dir value absolute with filepath.Abs and returns that call error when it fails
+  - runInit checks, with os.Stat on the absolute path, that it is an existing directory
+  - When it is not an existing directory, runInit returns an error whose message is --dir, a space, the dir flag value as given in Go double-quoted form, then " is not an existing directory"
+  - When that check fails, runInit writes nothing to the writer and does not call the scaffold unit
+  - runInit calls scaffold.Init with the absolute directory as a string; it returns a slice of scaffold.Item and an error; each scaffold.Item has the string fields Name, Status and Detail
+  - When scaffold.Init returns an error, runInit returns that error unchanged and writes nothing to the writer
+  - 'For each scaffold.Item, in the order returned, runInit writes one line: the Status padded on the right with spaces to 10 characters, one space, the Name, and, only when Detail is not empty, a space and the Detail in parentheses'
+  - A line looks like "created    .sedum/context.md"; the Status text is written exactly as scaffold.Init returned it
+  - 'runInit writes no other output: no header, no directory path and no summary'
+  - runInit returns nil after writing the lines
+  - 'The unit never fails with an exit status other than 1: it only returns errors, and the root command execution prints them to standard error with the prefix "sedum: " and exits 1, flag errors included'
+  - The unit does not run git or any other process, does not read environment variables and does not use the network
+  - newInitCommand takes no arguments and returns a pointer to cobra.Command; it is added to the root command's list of commands in internal/cli/root.go
+affected_scope:
+  - internal/cli/init.go
+  - internal/cli/init_*_test.go
+forbidden_scope: []
+implements: prov-2026-a508d4c6
+implements_version: 1
+related: []
+sealed_at_sha: c566061654aa1e26b55ecd233523cf39e25fb325
+associated_specs:
+  - path: internal/cli/init_cmd_test.go
+    run_command: go test ./$(dirname {{path}})
+associated_traces: []
+monitors: []
+tags: []
