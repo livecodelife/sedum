@@ -1,0 +1,52 @@
+id: prov-2026-25dd10bd
+title: 'go: internal/scaffold/hookscripts.go, the hook scripts'
+type: imprint
+status: draft
+version: 1
+reason: ""
+created_at: "2026-10-27"
+author: calebcowen@gmail.com
+intent: The hook scripts unit holds the text of the commit-msg and pre-push hooks and the list that names them.
+constraints:
+  - The unit lives in internal/scaffold/hookscripts.go, package scaffold, and the file has no imports
+  - The file exports the type Hook, a struct with the exported string fields Name and Body
+  - Hooks is exported; it takes no arguments and returns a new slice of Hook with two entries, named commit-msg and pre-push in that order, whose Body is the text of the script described below for that name
+  - The file holds the two script texts as the unexported string constants commitMsgHook and prePushHook
+  - Each script finds sedum from the environment variable SEDUM when it is set and not empty, otherwise from the PATH, and never runs a file of the repository found by name
+  - 'When sedum is found in neither place, the script prints "sedum hook: no sedum binary. Set SEDUM or put sedum on PATH." to standard error and exits 1'
+  - 'The commit-msg script finds every config root below the current directory, outside .git: each .provenance.yml, and each .linespec.yml that has a line starting with "provenance:"'
+  - A root directory is the directory holding its config file; its config file is its .provenance.yml when that exists, else its .linespec.yml; each directory is handled once
+  - When there is no config root, the commit-msg script runs sedum check --staged --message-file with its first argument, once
+  - The commit-msg script runs every root that is not skipped even after one of them failed
+  - When any sedum check run failed, the commit-msg script prints an empty line and "Commit blocked due to sedum check failures" and exits 1; otherwise it exits 0
+  - The pre-push script finds provenance from the environment variable PROVENANCE when it is set and not empty, otherwise from the PATH
+  - 'When provenance is found in neither place, the pre-push script prints "sedum hook: no provenance binary. Set PROVENANCE or put provenance on PATH." to standard error and exits 1'
+  - The pre-push script saves its standard input to a temporary file and removes that file when the script exits, whatever the exit status
+  - The pre-push script first runs provenance hooks pre-push with its own arguments and the saved file as standard input, and keeps the exit status without stopping
+  - The pre-push script then reads the saved file one line at a time; a line holds the local ref, the local sha, the remote ref and the remote sha
+  - The pre-push script skips a line whose local sha is all zeros, which is a deletion
+  - The pre-push script checks each range by running sedum check --range with it, and goes on with the next line after a failure
+  - When provenance hooks pre-push or any check failed, the pre-push script prints an empty line and "Push blocked due to failed checks" and exits 1; otherwise it exits 0
+  - Each script is a POSIX sh script needing no bash feature; its first line is "#!/bin/sh", its second line is "# sedum commit-msg hook, installed by `sedum hooks install`." for the commit-msg script and "# sedum pre-push hook, installed by `sedum hooks install`." for the pre-push script, and its text ends with exactly one newline
+  - The commit-msg script works from the repository top level, where git runs hooks, and compares and passes config and directory paths with a leading "./" removed, so they are relative to the top level
+  - For each config root, the commit-msg script skips the root when its directory, with the leading "./" removed, is not "." and no staged file path starts with that directory followed by a slash
+  - For each root not skipped, the commit-msg script runs sedum check --staged --message-file with its first argument and --config with the path of the config file of the root, with the leading "./" removed
+  - The pre-push script skips a line that has fewer than four fields
+  - The pre-push script skips a line whose local sha was already checked for an earlier line
+  - For a line whose remote sha is not all zeros and is a commit known in the local repository, the pre-push script checks the range from the remote sha to the local sha, written as the two shas joined by two dots
+  - For a line whose remote sha is all zeros, or is not a commit known in the local repository, the pre-push script considers only the oldest commit reachable from the local sha that is on no remote, that is the first line of git rev-list --reverse with the local sha and --not --remotes, even when several root commits are reachable
+  - When the pre-push script finds no such commit, it checks nothing for that line
+  - When that oldest commit has no parent, the pre-push script runs provenance check --commit with that commit alone
+  - When that oldest commit has a parent, the range runs from that parent to the local sha, written as the two joined by two dots
+affected_scope:
+  - internal/scaffold/hookscripts.go
+  - internal/scaffold/hookscripts_test.go
+forbidden_scope: []
+implements: prov-2026-a508d4c6
+implements_version: 1
+related: []
+sealed_at_sha: ""
+associated_specs: []
+associated_traces: []
+monitors: []
+tags: []

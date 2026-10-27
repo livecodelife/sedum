@@ -1,0 +1,62 @@
+id: prov-2026-c5c9e767
+title: 'go: internal/scaffold/files.go, the scaffold files'
+type: imprint
+status: draft
+version: 1
+reason: ""
+created_at: "2026-10-27"
+author: calebcowen@gmail.com
+intent: The scaffold files unit creates or updates the context file, the .gitignore and the provenance config exclude list of a directory and reports each as created, updated, unchanged or skipped.
+constraints:
+  - The unit lives in internal/scaffold/files.go, package scaffold
+  - The file imports, stated once here for every function in the file, fmt, os, path/filepath and strings from the standard library, all as values
+  - The file exports the string constants StatusCreated ("created"), StatusUpdated ("updated"), StatusUnchanged ("unchanged") and StatusSkipped ("skipped")
+  - The file exports the type Item, a struct with the exported string fields Name, Status and Detail
+  - Init is exported; it receives the directory as a string, which must be an existing directory and is not validated, and returns a slice of Item and an error
+  - Init calls ensureContext, then ensureGitignore, then ensureExcludes; each is defined in this file, receives the directory as a string, and returns an Item and an error
+  - Init returns the three Items in that order, and returns a nil slice and the error of the first step that fails, without running the later steps
+  - Init wraps a step error with the Item name of that step followed by a colon and a space, keeping the original error wrapped
+  - ensureContext returns an Item named ".sedum/context.md"
+  - ensureContext returns the status unchanged, writing nothing, when that path already exists, whatever its content
+  - ensureContext, when the path does not exist, creates the .sedum directory with mode 0755 if needed, writes ContextTemplate with mode 0644, and returns the status created
+  - ensureGitignore returns an Item named ".gitignore"; the line it ensures is ".sedum/run.log"
+  - ensureGitignore, when .gitignore is missing, creates it holding only that line and a newline, and returns the status created
+  - ensureGitignore returns the status unchanged, writing nothing, when some line of the file equals the wanted line once surrounding whitespace is trimmed; other patterns that would also ignore the log do not count
+  - ensureGitignore otherwise appends the wanted line and a newline, first adding a newline when the existing content is not empty and does not end with one, leaves every existing byte before it as it was, and returns the status updated
+  - ensureExcludes returns an Item named ".provenance.yml" and ensures the entries "generators/**" and ".sedum/**" are in the exclude_paths list of the config file in the directory
+  - ensureExcludes, when the config file does not exist, creates nothing and returns the status skipped with the Detail "no .provenance.yml in this directory"
+  - ensureExcludes returns the status unchanged, writing nothing, when both entries are present; otherwise it writes the file with its original mode, every other byte of it unchanged, and returns the status updated
+  - The unit does not run any process and does not use the network
+  - ContextTemplate is the full text of a new context file, eleven lines each ending with a newline and nothing after the last, given one per constraint below in order
+  - ContextTemplate line 1 is "# Context for sedum grow"
+  - ContextTemplate line 2 is empty
+  - 'ContextTemplate line 3 is "Pass with: sedum grow --generators <generators dir> --records provenance --prompt-file .sedum/context.md --only <record id>"'
+  - 'ContextTemplate line 4 is "Advisory only: behaviour belongs in the record, and editing this file regenerates nothing."'
+  - ContextTemplate line 5 is "Write here what the model needs but the records should not carry."
+  - ContextTemplate line 6 is empty
+  - ContextTemplate line 7 is "## Conventions"
+  - ContextTemplate line 8 is "- (package conventions, output rules, error handling)"
+  - ContextTemplate line 9 is empty
+  - ContextTemplate line 10 is "## Helpers that exist (call them; do not redefine)"
+  - ContextTemplate line 11 is "- (signatures the generated code may call)"
+  - ensureExcludes finds the list on the first line that starts, at column 0, with "exclude_paths:"; an entry counts as present when it equals the wanted entry after trimming blanks and one pair of surrounding single or double quotes
+  - A flow list is written on one line as "exclude_paths:" followed by a value that starts with "[" and has a "]" outside any trailing comment, a comment being a "#" preceded by a blank
+  - The entries of a flow list are the parts between the brackets split at commas that lie outside quotes, outside brackets and outside a slash-delimited regular expression, so such an entry may itself hold commas or "]"
+  - For a flow list, ensureExcludes inserts each missing entry, single-quoted and in the order generators/** then .sedum/**, immediately before the last "]" on the line that lies outside a trailing comment, each preceded by a comma and a space unless the list had no entries, and keeps the rest of the line
+  - A block list is "exclude_paths:" with nothing after it but blanks or a comment, followed by item lines; an item line is one whose first non-blank text is "- "; the entry of an item is the text after "- " trimmed of blanks and one pair of quotes
+  - Blank lines and comment lines between items do not end a block list; it ends at the first non-blank, non-comment line that is not an item, or at the end of the file
+  - For a block list, ensureExcludes inserts one line per missing entry after the last item line, with the indentation of the first item, "- " and the single-quoted entry; when "exclude_paths:" is followed by no items the list is empty and the indentation is two spaces
+  - 'When the file has no exclude_paths key, ensureExcludes appends, after adding a newline when the file does not end with one, the exact line "exclude_paths: [''generators/**'', ''.sedum/**'']" followed by a newline'
+  - For any other form of exclude_paths, including a flow list that continues on later lines, ensureExcludes writes nothing and returns an error whose message is "exclude_paths is not a one-line list or a block list; add generators/** and .sedum/** to it by hand"
+affected_scope:
+  - internal/scaffold/files.go
+  - internal/scaffold/files_test.go
+forbidden_scope: []
+implements: prov-2026-a508d4c6
+implements_version: 1
+related: []
+sealed_at_sha: ""
+associated_specs: []
+associated_traces: []
+monitors: []
+tags: []
