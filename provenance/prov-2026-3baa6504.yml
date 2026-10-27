@@ -8,7 +8,6 @@ created_at: "2026-10-27"
 author: calebcowen@gmail.com
 intent: The newEvidenceCommand function builds the evidence command and the runEvidence function reads the regions and records, judges each record, refreshes on request, writes the report and returns the exit code.
 constraints:
-  - The functions live in internal/cli/evidence.go, package cli, and this file's imports are errors, fmt, io, os, path/filepath, sort, strings and time from the standard library, github.com/spf13/cobra, the sedum packages internal/pipeline, internal/record and internal/evidence, and the provenance library's record package at github.com/livecodelife/provenance/record imported under the name librecord, all as values
   - ExitError is defined in internal/cli/exit.go, package cli, and is a struct with the int field Code and the string field Message, built here as a value and returned as an error
   - This file returns an ExitError with Code 2 for every usage error and every read error, with Code 1 and an empty Message when the report has a stale or unknown record, and nil on success
   - newEvidenceCommand is an unexported function that takes no argument and returns a pointer to cobra.Command, with Use evidence and no positional argument
@@ -48,6 +47,7 @@ constraints:
   - It returns nil when evidence.Failing is false, including when a record has the verdict none or no regions
   - newEvidenceCommand is added to the list of commands the root command registers, in internal/cli/root.go, by a hand-written line next to the other commands, and that change adds no import
   - Every ExitError this file returns is a value built with its Code and Message fields, never a pointer
+  - The functions live in internal/cli/evidence.go, package cli, and this file's imports are fmt, io, os, path/filepath and time from the standard library, github.com/spf13/cobra, the sedum packages internal/evidence, internal/pipeline and internal/record, and the provenance library's record package at github.com/livecodelife/provenance/record imported under the name librecord, all as values
 affected_scope:
   - internal/cli/evidence.go
   - internal/cli/evidence_*_test.go
