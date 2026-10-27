@@ -1,0 +1,78 @@
+id: prov-2026-52f71ad5
+title: Commits, changed paths and path kinds are read from git
+type: imprint
+status: draft
+version: 1
+reason: ""
+created_at: "2026-10-27"
+author: calebcowen@gmail.com
+intent: The paths unit lists commits, the changed paths, the base and the message through git, and classifies paths as governed, record files, state files or recordings.
+constraints:
+  - Git commands run with `-C <base directory>`
+  - Every path rule of the command is relative to the base directory (the directory that holds the config)
+  - A changed path outside the base directory is not governed
+  - A changed path outside the base directory is dropped from the list of changed paths
+  - A path outside the base directory does not count toward a governed file having changed
+  - With --range, the command lists the commits of a..b oldest first with `git rev-list --reverse a..b`
+  - The changed paths of a commit with a first parent are the paths that differ against that first parent
+  - A rename counts as one deleted path and one added path
+  - The changed paths of a root commit are all the paths of its tree
+  - With --staged, the changed paths are the paths that differ between the index and HEAD
+  - For a merge commit, the changed paths are the paths that differ from every one of its parents
+  - For a merge commit, the base is its first parent
+  - For a merge commit, the message is the merge commit's own message
+  - The exit code is 2 when git cannot read a commit or a commit message
+  - The base of a commit is its first parent
+  - For --staged the base is HEAD
+  - With --staged and no HEAD, there is no base and no waiver, as for a root commit
+  - With --staged and no --message-file in a repository with no HEAD, the command exits 2 with a message starting "git:"
+  - A root commit has no base and gets no waiver
+  - A changed path is governed when it lies in the base directory and the exclude_paths of the config do not exclude it
+  - A record file is a file directly in the records directory whose name has at least one character before the .yml suffix
+  - A provenance state file is a path that starts with `.provenance/`
+  - A path under the records directory that is not a record file is also a provenance state file
+  - Neither waiver applies when a changed path is a record file, even when exclude_paths excludes it
+  - Neither waiver applies when a changed path is a provenance state file, even when exclude_paths excludes it
+  - Neither waiver applies when no governed file changed
+  - Neither waiver applies when a governed file is deleted by the commit
+  - Neither waiver applies when a governed file cannot be read at the commit
+  - Neither waiver applies to a governed file that did not exist at the base
+  - PathConfig is a value with a string field RecordsDir and a slice of strings field ExcludePaths
+  - The exclude_paths entries use the same pattern syntax as record scopes and are matched with MatchAny from the repository's internal/pathpat package, which takes the entries and a path and returns the matching entry and a bool
+  - Classified is a value with the slices of path strings Governed, Excluded, Recordings, ExcludedRecordings, RecordFiles and StateFiles
+  - Classify takes the changed paths and a PathConfig and returns a Classified value
+  - Classify drops a path outside the base directory before any other test
+  - Classify tests a path as a record file first, then as a provenance state file, then as a recording, then as excluded, and otherwise as governed
+  - A recording is listed in Recordings even when exclude_paths excludes it, and it is also listed in ExcludedRecordings in that case
+  - A record file or provenance state file is listed in RecordFiles or StateFiles even when exclude_paths excludes it
+  - Classified has a method Blocked that returns true when RecordFiles or StateFiles is not empty
+  - Regeneration reads Governed, and Recordings that are not in ExcludedRecordings, as its governed set and ignores Excluded
+  - A migration reads Recordings as allowed, and fails when Excluded is not empty
+  - Commits takes the base directory, the range string and the environment as a slice of strings and returns a slice of sha strings and an error
+  - ChangedPaths takes the base directory, a revision string, a bool for staged and the environment and returns a slice of paths relative to the base directory and an error
+  - Base takes the base directory, a revision string, a bool for staged and the environment and returns the base revision string, a bool that is false when there is no base, and an error
+  - CommitMessage takes the base directory, a revision string, a bool for staged, the message file path and the environment and returns the message string and an error
+  - TopLevel takes the base directory and the environment and returns the git top level path as a string and an error
+  - Every error of the paths unit is built with GitError from output.go, which takes a message string and returns an error
+  - TreeReader is a value with a method Read that takes a path and returns the content bytes, a bool for found and an error, and a method Regular that takes a path and returns a bool
+  - BaseReader takes the base directory, a base revision string and the environment and returns a TreeReader that reads the files at that base
+  - DirReader takes a directory string and returns a TreeReader that reads the files of that directory
+  - GovernedChanges takes a slice of governed paths, a base TreeReader and a commit TreeReader and returns the governed files and a bool
+  - Each governed file returned by GovernedChanges holds its path and its base and commit content as bytes
+  - GovernedChanges returns false for the bool when the slice is empty, or when one file was deleted, unreadable at the commit or absent at the base
+  - This file imports bytes, os, os/exec, path and strings from the Go standard library as values
+  - This file imports github.com/livecodelife/sedum/internal/pathpat as a value
+affected_scope:
+  - internal/gitcheck/paths.go
+  - internal/gitcheck/paths_test.go
+forbidden_scope: []
+implements: prov-2026-bc259b5c
+implements_version: 1
+related: []
+sealed_at_sha: ""
+associated_specs:
+  - path: internal/gitcheck/paths_test.go
+    run_command: go test ./$(dirname {{path}})
+associated_traces: []
+monitors: []
+tags: []

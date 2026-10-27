@@ -72,6 +72,7 @@ framework means authoring a generator package, never modifying Sedum.`,
 		newGrowLogCommand(),
 		newInitCommand(),
 		newHooksCommand(),
+		newCheckCommand(),
 	)
 
 	return root
@@ -79,9 +80,26 @@ framework means authoring a generator package, never modifying Sedum.`,
 
 // Execute runs the CLI and returns the process exit code.
 func Execute() int {
-	if err := NewRootCommand().Execute(); err != nil {
-		fmt.Fprintln(os.Stderr, "sedum:", err)
-		return 1
+	code, line := exitCodeFor(NewRootCommand().Execute())
+	if line != "" {
+		fmt.Fprintln(os.Stderr, line)
 	}
-	return 0
+	return code
+}
+
+// exitCodeFor returns the exit code for the error a command returned and the
+// line to print to stderr, empty when nothing is printed: 0 for nil, the code of
+// an ExitError (printing its message unless it is empty), and 1 for any other
+// error.
+func exitCodeFor(err error) (int, string) {
+	if err == nil {
+		return 0, ""
+	}
+	if code, ok := CodeOf(err); ok {
+		if err.Error() == "" {
+			return code, ""
+		}
+		return code, "sedum: " + err.Error()
+	}
+	return 1, "sedum: " + err.Error()
 }
