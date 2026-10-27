@@ -1,0 +1,46 @@
+id: prov-2026-5b67f5c1
+version: 1
+content_hash: sha256:b3eda7143211d9aa2042a807a182d7621fa666f15c7b22b65572106cdaafac10
+parent_hash: ""
+reason: ""
+author: calebcowen@gmail.com
+created_at: "2026-10-27T12:31:24Z"
+spec_hashes:
+  - sha256:e716f76891aebbc9f27ff8fe36f54511d33d9c44189f2b9deb6afce855ba8fab
+content:
+  id: prov-2026-5b67f5c1
+  title: 'go: internal/cli/hooks.go, the hooks command'
+  type: imprint
+  created_at: "2026-10-27"
+  author: calebcowen@gmail.com
+  intent: The hooks command installs the sedum git hooks into the hooks directory of the repository containing a directory and prints the result.
+  constraints:
+    - The unit lives in internal/cli/hooks.go, package cli
+    - The file imports, stated once here for every function in the file, fmt, io, os, os/exec, path/filepath and strings from the standard library, github.com/spf13/cobra and github.com/livecodelife/sedum/internal/scaffold, all as values
+    - newHooksInstallCommand, defined in this file, takes no arguments and returns a pointer to cobra.Command named install, with a short description saying it installs the commit-msg and pre-push hooks, and no positional arguments
+    - The install command has one string flag, dir, with no shorthand and the default "." (the current directory), and runs runHooksInstall with the command output writer, obtained from cmd.OutOrStdout, and the value of the dir flag
+    - runHooksInstall, defined in this file, receives an io.Writer and the dir flag value as a string, and returns an error
+    - runHooksInstall makes the dir value absolute with filepath.Abs, returning that error on failure, and returns an error whose message is --dir, a space, the dir value as given in Go double-quoted form, then " is not an existing directory" when the absolute path is not an existing directory
+    - runHooksInstall calls findHooksDir with the absolute directory as a string; it returns the hooks directory as a string and an error; runHooksInstall returns that error unchanged
+    - findHooksDir joins a relative --git-path result to the top level and returns an absolute result unchanged
+    - When either git command fails, including when git is not installed, findHooksDir returns an error whose message is the given directory followed by " is not inside a git repository"
+    - findHooksDir runs only those two commands, which read and change nothing
+    - runHooksInstall gets the hooks to install from scaffold.Hooks, which takes no arguments and returns a slice of scaffold.Hook, each with the string fields Name and Body
+    - For each hook, in the order returned, runHooksInstall calls scaffold.InstallHook with the hooks directory, the hook Name and the hook Body, all as strings; it returns a string result and an error
+    - When scaffold.InstallHook returns an error, runHooksInstall stops and returns it unchanged, and writes nothing to the writer
+    - 'After all hooks are installed, runHooksInstall writes the line "hooks directory: " followed by the hooks directory'
+    - 'It then writes one line per hook, in order: the hook Name, a colon, a space and the result text exactly as returned'
+    - 'It then writes an empty line and the line "note: a later provenance hooks install replaces these two hooks again, so run sedum hooks install after it"'
+    - 'It then writes the line "note: the hooks run $SEDUM else sedum on PATH, and $PROVENANCE else provenance on PATH, never a file in the repository"'
+    - runHooksInstall returns nil after writing the lines
+    - 'The unit never fails with an exit status other than 1: it only returns errors, and the root command execution prints them to standard error with the prefix "sedum: " and exits 1, flag errors included'
+    - The unit does not run git config, does not touch any hook other than those scaffold.Hooks returns, and does not use the network
+    - newHooksCommand takes no arguments and returns a pointer to cobra.Command named hooks, with a short description saying it manages the sedum git hooks, no action of its own, and the install command as its only subcommand; it is added to the root command's list of commands in internal/cli/root.go
+    - findHooksDir, defined in this file, runs git rev-parse --show-toplevel with the given directory as working directory, then git rev-parse --git-path hooks with the top level as working directory, trims whitespace from each output, and runs both with every environment variable whose name starts with GIT_ removed
+  affected_scope:
+    - internal/cli/hooks.go
+    - internal/cli/hooks_*_test.go
+  implements: prov-2026-a508d4c6
+  implements_version: 1
+  associated_specs:
+    - path: internal/cli/hooks_cmd_test.go
