@@ -51,7 +51,12 @@ affected_scope:
 forbidden_scope: []
 related: []
 sealed_at_sha: ""
-associated_specs: []
+associated_specs:
+  - path: internal/cli/init_cmd_test.go
+  - path: internal/cli/hooks_cmd_test.go
+  - path: internal/scaffold/files_test.go
+  - path: internal/scaffold/install_test.go
+  - path: internal/scaffold/hookscripts_test.go
 associated_traces: []
 monitors: []
 tags: []
