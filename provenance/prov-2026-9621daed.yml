@@ -1,8 +1,8 @@
 id: prov-2026-9621daed
 title: Grow skips, re-renders or re-selects each record by its hashes
-status: open
-version: 14
-reason: define scope path
+status: implemented
+version: 15
+reason: Register the spec for the scope-skipping behaviour
 created_at: "2026-10-15"
 author: calebcowen@gmail.com
 intent: Grow decides skip, re-render, re-select or refuse for each record before any model call, from the markers on the regions it owns and, for v2 regions, from the record's recording. A stale gen, or a recording that does not vouch for a v2 region, sends the record to re-select. Otherwise a record whose pkg moved is re-rendered with no model, a record with a region whose text no longer matches its body hash is edited and a re-render over it is refused, and anything else is skipped. --check reports each class without writing, --force re-selects everything and overwrites edits, and --record names the recordings directory.
@@ -38,11 +38,13 @@ type: blueprint
 related:
   - prov-2026-66bea9f3
   - prov-2026-375f5d4a
-sealed_at_sha: ""
+sealed_at_sha: a35f34826d29e60354b6a3c44f15be3f2048448c
 associated_specs:
   - path: internal/pipeline/classify_test.go
     run_command: go test ./$(dirname {{path}})
   - path: internal/cli/flags_test.go
+    run_command: go test ./$(dirname {{path}})
+  - path: internal/pipeline/skipunclaimed_test.go
     run_command: go test ./$(dirname {{path}})
 associated_traces: []
 monitors: []

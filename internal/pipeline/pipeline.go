@@ -19,6 +19,8 @@ package pipeline
 import (
 	"context"
 	"fmt"
+	"path"
+	"sort"
 	"strings"
 
 	"github.com/livecodelife/sedum/internal/expand"
@@ -88,6 +90,13 @@ type Config struct {
 	// Check classifies every record and stops: no model call, and nothing
 	// written, Phase 3's files included (prov-2026-9621daed).
 	Check bool
+
+	// SkipUnclaimedScope makes a Check run skip a record's scope path that no
+	// loaded generator package claims instead of stopping on it, and list each
+	// such path once in Result.SkippedScopePaths. A path a package declares
+	// unmanaged is claimed. It is off by default and applies to Check only
+	// (prov-2026-9621daed).
+	SkipUnclaimedScope bool
 
 	// PruneOrphans removes orphan regions - owned regions whose record was
 	// removed or deprecated - in files some current record authorizes
@@ -192,6 +201,11 @@ type Result struct {
 
 	// Stamped are the markers --stamp wrote a missing hash onto.
 	Stamped []inject.Stamped
+
+	// SkippedScopePaths are the scope paths a Check run skipped because no
+	// loaded generator package claims them, each distinct path once, sorted.
+	// Empty unless Config.SkipUnclaimedScope was set (prov-2026-9621daed).
+	SkippedScopePaths []string
 }
 
 // CheckFailed reports whether --check fails: some record is stale or needs
@@ -298,6 +312,12 @@ func Run(ctx context.Context, cfg Config) (result *Result, err error) {
 		return nil, err
 	}
 	result.Records = records
+	if cfg.Check && cfg.SkipUnclaimedScope {
+		result.SkippedScopePaths = dropUnclaimedScope(packages, records)
+		if len(result.SkippedScopePaths) > 0 {
+			log.Info("skipped scope paths no generator package claims", "count", len(result.SkippedScopePaths))
+		}
+	}
 	log.Info("ingested provenance records", "count", len(records.Records), "paths", len(records.Paths()))
 
 	// Phase 2 - resolve paths to packages and to file templates.
@@ -783,4 +803,31 @@ func pathsOf(resolutions []resolve.Resolution) []string {
 		out = append(out, r.Path)
 	}
 	return out
+}
+
+// dropUnclaimedScope removes from every record the scope paths that no loaded
+// generator package claims, and returns each distinct removed path once,
+// sorted. A path is claimed when a package declares it unmanaged or claims its
+// extension; a path with no extension is claimed by none.
+func dropUnclaimedScope(packages *genpkg.Set, records *record.Set) []string {
+	seen := map[string]bool{}
+	for i := range records.Records {
+		var kept []string
+		for _, p := range records.Records[i].Paths {
+			if _, _, unmanaged := packages.Unmanaged(p); !unmanaged {
+				if ext := strings.ToLower(path.Ext(p)); ext == "" || len(packages.ForExtension(ext)) == 0 {
+					seen[p] = true
+					continue
+				}
+			}
+			kept = append(kept, p)
+		}
+		records.Records[i].Paths = kept
+	}
+	var skipped []string
+	for p := range seen {
+		skipped = append(skipped, p)
+	}
+	sort.Strings(skipped)
+	return skipped
 }
