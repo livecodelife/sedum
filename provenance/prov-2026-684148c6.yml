@@ -1,6 +1,6 @@
 id: prov-2026-684148c6
 title: The scope index is derived state, not a tracked artifact
-status: open
+status: implemented
 version: 4
 reason: The .gitignore spec gained a line that keeps .sedum/evidence/ tracked
 created_at: "2026-08-15"
@@ -54,7 +54,7 @@ implements_version: 1
 related:
   - prov-2026-3039750e
   - prov-2026-eb283c56
-sealed_at_sha: ""
+sealed_at_sha: a8e238398d68e2ac86177b5f6d0205dc27e15c9a
 associated_specs:
   - path: .gitignore
     run_command: git check-ignore -q .linespec/scope-index.json && test -f {{path}}
