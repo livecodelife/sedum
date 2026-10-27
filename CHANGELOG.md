@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.10.0
+
+- **`sedum check`** runs `provenance check` on each commit of `--range` (or on the staged change) and waives only the findings it can prove come from a pure regeneration or a pure marker migration, so the checks that used to live in provenance now live here. Exit 0 means no finding is left, 1 that some are, 2 that provenance or git could not be run or read.
+- **`sedum init`** creates `.sedum/context.md`, makes `.gitignore` ignore `.sedum/run.log`, and adds `generators/**` and `.sedum/**` to the `exclude_paths` of `.provenance.yml`; it is safe to run again.
+- **`sedum hooks install`** writes sedum's own `commit-msg` and `pre-push` hooks (they run `sedum check`; the pre-push hook runs provenance's own pre-push hook first). A different hook already there is kept as `<name>.bak`.
+- **`sedum evidence`** judges each record's code freshness from the regions and the record's committed evidence file, `.sedum/evidence/<record>.jsonl`; `--refresh` appends an entry for each stale or untracked record. Run it where `provenance evidence refresh --all` was used.
+- `sedum grow --check` skips, and counts in its report, the scope paths no loaded package claims instead of failing on them.
+- A provenance release that no longer knows about Sedum follows this one.
+
 ## 0.9.2
 
 - `sedum markers migrate` replaces each file by renaming a staged replacement over it, with the file's own mode, so a file locked against writing (as `provenance reconcile` leaves the files of sealed records) is migrated and stays locked, and a failure while staging leaves the tree as it was: no file rewritten, no recording written, no temporary file left. A rename that fails after staging can still leave files already renamed in place.
