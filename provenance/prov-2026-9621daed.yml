@@ -1,6 +1,6 @@
 id: prov-2026-9621daed
 title: Grow skips, re-renders or re-selects each record by its hashes
-status: open
+status: implemented
 version: 15
 reason: Register the spec for the scope-skipping behaviour
 created_at: "2026-10-15"
@@ -38,7 +38,7 @@ type: blueprint
 related:
   - prov-2026-66bea9f3
   - prov-2026-375f5d4a
-sealed_at_sha: ""
+sealed_at_sha: a35f34826d29e60354b6a3c44f15be3f2048448c
 associated_specs:
   - path: internal/pipeline/classify_test.go
     run_command: go test ./$(dirname {{path}})
