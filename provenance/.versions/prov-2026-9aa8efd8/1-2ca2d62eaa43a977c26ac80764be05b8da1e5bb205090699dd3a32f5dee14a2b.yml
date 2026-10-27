@@ -1,0 +1,58 @@
+id: prov-2026-9aa8efd8
+version: 1
+content_hash: sha256:2ca2d62eaa43a977c26ac80764be05b8da1e5bb205090699dd3a32f5dee14a2b
+parent_hash: ""
+reason: ""
+author: calebcowen@gmail.com
+created_at: "2026-10-27T12:34:17Z"
+spec_hashes:
+  - sha256:c48db9254b8a41b44a39937691111fc34b2a72ea19e9008f4533ee3bd40639c1
+content:
+  id: prov-2026-9aa8efd8
+  title: 'go: internal/evidence/report.go, Judge and the report writers'
+  type: imprint
+  created_at: "2026-10-27"
+  author: calebcowen@gmail.com
+  intent: The Judge function gives a record's freshness verdict from its regions and its evidence entries, and WriteText and WriteJSON write the reports.
+  constraints:
+    - The functions and types live in internal/evidence/report.go, package evidence, and this file's imports are encoding/json, fmt, io, sort and strings, all from the standard library, imported as values
+    - 'It adds no imports for Region, Owned, CodeHash, ErrUnstamped, Entry or Latest: they are defined in package evidence, in hash.go and store.go'
+    - Verdict is an exported string type with the exported constants Fresh (fresh), Stale (stale), None (none), Unknown (unknown) and NoRegions (no regions)
+    - Result is an exported struct with the fields Record (string), Version (int), Verdict (Verdict), CodeHash (string), Recorded (string) and Regions (int)
+    - In JSON the Result fields are named record, version, verdict, code_hash, recorded and regions
+    - CodeHash is the code hash of the owned regions now, and is empty when the verdict is unknown or no regions
+    - Recorded is the code hash of the latest entry for the version, and is empty when the verdict is none, unknown or no regions
+    - Regions is the number of owned regions
+    - Judge is an exported function that receives a record id (string), the record's version (int), a slice of Region and a slice of Entry, and returns a Result
+    - Judge counts the regions Owned returns, which receives a slice of Region and returns a slice of Region, and gives the verdict NoRegions when there are none
+    - Judge calls CodeHash, which receives a slice of Region and returns a string and an error, and gives the verdict Unknown when the error equals ErrUnstamped, compared with ==, so it imports no errors package
+    - Judge calls Latest, which receives a slice of Entry and a version int and returns an Entry and a bool, and gives the verdict None when the bool is false
+    - Judge gives the verdict Fresh when the latest entry's CodeHash equals the current code hash, and Stale otherwise
+    - 'Judge decides in this order: NoRegions, then Unknown, then None, then Fresh or Stale, so Unknown wins over None'
+    - Judge takes the entries as given and ignores the entries of other versions
+    - Failing is an exported function that receives a slice of Result and returns a bool
+    - Failing returns true when any result's verdict is Stale or Unknown, and false otherwise, including for an empty slice
+    - Format is an exported string constant with the value sedum.evidence/1
+    - Document is an exported struct with the fields Format (string) and Records (a slice of Result), named format and records in JSON
+    - WriteText is an exported function that receives an io.Writer and a slice of Result and returns an error
+    - WriteText writes one line per result, in record id order, made of the record id, two spaces, the verdict, two spaces, now=, the short current hash, a space, recorded= and the short recorded hash
+    - 'A short hash is the first 12 hex digits after the sha256: prefix, and a hyphen when the hash is empty'
+    - After the lines WriteText writes an empty line and then a line of the five counts, in the order fresh, stale, none, unknown, no regions, each as a number and its verdict word, separated by commas
+    - WriteJSON is an exported function that receives an io.Writer and a slice of Result and returns an error
+    - WriteJSON writes a Document with Format set to Format, two-space indented, with no HTML escaping and a final newline
+    - WriteJSON lists the records in record id order and writes an empty array, never null, when there are none
+    - WriteText and WriteJSON sort a copy of the slice and leave the caller's slice as it was
+    - The document WriteJSON writes is the one specified by the sedum.evidence/1 section of conformance/formats/README.md
+    - The document has the keys format, with the value sedum.evidence/1, and records, an array sorted by record id
+    - Each element of records has the keys record, version, verdict, code_hash, recorded and regions, as the Result fields do
+    - 'conformance/formats/evidence.example.json holds one example document with a record of each kind of value, and it is the oracle: a test decodes real output and checks that its keys are the example''s keys'
+    - The README section describes each key, as the sedum.regions/1 section does, and says that a reader ignores keys it does not know
+  affected_scope:
+    - internal/evidence/report.go
+    - internal/evidence/report_test.go
+    - conformance/formats/README.md
+    - conformance/formats/evidence.example.json
+  implements: prov-2026-8c8032f1
+  implements_version: 1
+  associated_specs:
+    - path: internal/evidence/report_test.go

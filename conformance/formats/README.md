@@ -1,6 +1,6 @@
 # Sedum's JSON report formats
 
-Two commands print JSON for tools that must not link Sedum - the provenance
+Three commands print JSON for tools that must not link Sedum - the provenance
 library and its TypeScript backend among them (`prov-2026-bf01cd6b`). Each
 document names its format and version in `format`. A version changes only when
 a field changes meaning; fields are added without one, so a reader must ignore
@@ -51,3 +51,23 @@ The run's report, in place of the text report.
 | `check_failed` | Under `--check`: some record is stale, needs re-rendering, or has left orphans. Always false otherwise. |
 
 `changed` is what lets a caller run exactly the specs whose code moved.
+
+## `sedum.evidence/1` — `sedum evidence --json`
+
+Whether each record's code is the code its latest evidence entry saw. The
+evidence files are `.sedum/evidence/<record>.jsonl` under `--output`, one entry
+per line, appended by `sedum evidence --refresh` and never rewritten. Read-only
+without `--refresh`.
+
+| Key | Meaning |
+|---|---|
+| `format` | `"sedum.evidence/1"` |
+| `records` | Array, one per non-deprecated record in the records directory, sorted by `record`; `[]` when there are none. |
+| `records[].record` | The record id. |
+| `records[].version` | The record's current version, read from its record file. |
+| `records[].verdict` | `"fresh"` (the latest entry for this version has the current code hash), `"stale"` (it has another), `"none"` (no entry covers this version), `"unknown"` (an owned region has no `gen` or `pkg`), or `"no regions"` (the record owns no region, so there is nothing to track). |
+| `records[].code_hash` | The code hash of the owned regions now (`docs/HASHING.md` section 7 of the provenance library), or `""` when the verdict is `unknown` or `no regions`. |
+| `records[].recorded` | The code hash of the latest entry for this version, or `""` unless the verdict is `fresh` or `stale`. |
+| `records[].regions` | How many owned regions the record has. |
+
+A reader ignores keys it does not know. `unknown` must never be read as fresh.

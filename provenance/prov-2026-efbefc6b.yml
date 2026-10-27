@@ -1,0 +1,49 @@
+id: prov-2026-efbefc6b
+title: 'go: internal/evidence/hash.go, CodeHash'
+type: imprint
+status: implemented
+version: 1
+reason: ""
+created_at: "2026-10-27"
+author: calebcowen@gmail.com
+intent: The CodeHash function returns the code hash of a list of regions, and Owned selects the regions that count.
+constraints:
+  - The functions live in internal/evidence/hash.go, package evidence, and this file's imports are crypto/sha256, encoding/hex, errors, sort and strings, all from the standard library, imported as values
+  - The Region type is an exported struct with the string fields Gen, Pkg and Tier
+  - Tier is empty when the marker has no tier; the value owned marks a region sedum regenerates and any other value, such as seeded, marks one it does not
+  - ErrUnstamped is an exported error value, created with errors.New, whose text says that a region has no gen or pkg hash and that sedum grow --stamp supplies them
+  - Owned is an exported function that receives a slice of Region and returns a slice of Region
+  - Owned keeps a region whose Tier is empty or owned and drops a region with any other Tier
+  - Owned keeps the order of the regions it keeps and returns an empty slice, not an error, when none are kept
+  - CodeHash is an exported function that receives a slice of Region and returns a string and an error
+  - CodeHash first applies Owned to its argument and judges only the regions Owned returns
+  - CodeHash returns an empty string and ErrUnstamped when a kept region has an empty Gen or an empty Pkg, whichever the other fields hold
+  - A region dropped by Owned never causes ErrUnstamped, even when its Gen and Pkg are empty
+  - CodeHash encodes each kept region as a canonical JSON object with the key gen first and the key pkg second, no whitespace, holding the Gen and Pkg strings unchanged
+  - In a canonical JSON string only the double quote, the backslash and each code point from U+0000 to U+001F are escaped
+  - The double quote is written as a backslash and a double quote, the backslash as two backslashes, and a control code point as a backslash, a u and four lowercase hex digits
+  - Every other code point, including non-ASCII ones, a slash, the less-than, greater-than and ampersand signs, U+2028 and U+2029, is written as it is in UTF-8
+  - CodeHash sorts the encoded regions by comparing their bytes, and keeps duplicates
+  - CodeHash joins the sorted encodings with commas between square brackets, so that no regions give the two characters [ and ]
+  - 'CodeHash returns the text sha256: followed by the lowercase hex of the SHA-256 of the UTF-8 bytes of that array, and a nil error'
+  - Given no regions the hash is sha256:4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945
+  - Given the regions gen sha256:aa pkg sha256:01 and gen sha256:bb pkg sha256:02, in either order, the hash is sha256:9aaa1fe3e1be19258596ec7d6e2c8185d8797c55ba85159bc80c3fc528fbd904
+  - Given those two regions plus a region with Tier seeded and empty Gen and Pkg, the hash is that same value
+  - Given two regions with gen sha256:aa and pkg sha256:01, the hash is sha256:2ecdfde41f5c31933ab7587b81c7645940d70ff3f05598717ce6e70d8f8bcf82
+  - Given the regions gen sha256:aa pkg sha256:09 and gen sha256:bb pkg sha256:02, the hash is sha256:f55a1e47c7805e78e7b5ff0114c7163d6993fa62d0bb634c94b2e5d8ad701c89
+  - Given a region with gen sha256:aa and no pkg, or a region with no gen and pkg sha256:01, CodeHash returns ErrUnstamped
+  - CodeHash never changes its argument
+affected_scope:
+  - internal/evidence/hash.go
+  - internal/evidence/hash_test.go
+forbidden_scope: []
+implements: prov-2026-8c8032f1
+implements_version: 1
+related: []
+sealed_at_sha: 216d30aed86fe85d82fc8e1c2f6ac1b7d01faade
+associated_specs:
+  - path: internal/evidence/hash_test.go
+    run_command: go test ./$(dirname {{path}})
+associated_traces: []
+monitors: []
+tags: []
