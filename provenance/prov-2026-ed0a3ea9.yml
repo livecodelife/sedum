@@ -1,0 +1,37 @@
+id: prov-2026-ed0a3ea9
+title: 'go: internal/scaffold/install.go, InstallHook'
+type: imprint
+status: draft
+version: 1
+reason: ""
+created_at: "2026-10-27"
+author: calebcowen@gmail.com
+intent: The InstallHook function writes one hook file into a hooks directory, keeping a different existing hook as a backup.
+constraints:
+  - The unit lives in internal/scaffold/install.go, package scaffold
+  - The file imports, stated once here for every function in the file, os and path/filepath from the standard library, both as values
+  - InstallHook is exported; it receives the hooks directory, the hook file name and the hook text, all as strings, and returns a string result and an error
+  - The hook path is the hooks directory joined with the hook file name
+  - The hooks directory need not exist; InstallHook creates it with its parents, mode 0755, before writing
+  - When no file exists at the path, InstallHook writes the text and returns "installed"
+  - When the existing file holds exactly the text, byte for byte, InstallHook does not rewrite it and returns "unchanged"
+  - When the existing file differs and no file named <name>.bak exists next to it, InstallHook renames it to <name>.bak, writes the text, and returns "replaced (previous hook kept as <name>.bak)" with the hook file name in place of <name>
+  - When the existing file differs and <name>.bak already exists, InstallHook leaves the .bak as it is, overwrites the hook with the text, and returns "replaced"
+  - InstallHook writes the file with mode 0755 and then sets the mode to 0755 explicitly, so a replaced hook is executable whatever the umask
+  - InstallHook returns an empty string and the error for any failure other than a missing file or a missing .bak, and for a failed rename, directory creation, write or mode change
+  - InstallHook touches only the hook file and its .bak; it does not read git configuration and does not run any process
+  - When the existing file holds exactly the text and is not executable, InstallHook sets its mode to 0755 and still returns "unchanged"
+affected_scope:
+  - internal/scaffold/install.go
+  - internal/scaffold/install_test.go
+forbidden_scope: []
+implements: prov-2026-a508d4c6
+implements_version: 1
+related: []
+sealed_at_sha: ""
+associated_specs:
+  - path: internal/scaffold/install_test.go
+    run_command: go test ./$(dirname {{path}})
+associated_traces: []
+monitors: []
+tags: []
