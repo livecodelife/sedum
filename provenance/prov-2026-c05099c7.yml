@@ -1,0 +1,55 @@
+id: prov-2026-c05099c7
+title: The region reader splits a file into text and regions
+type: imprint
+status: draft
+version: 1
+reason: ""
+created_at: "2026-10-27"
+author: calebcowen@gmail.com
+intent: The region reader splits file content into the text outside regions and the regions, and compares two such splits.
+constraints:
+  - A region opens on a line that has optional leading spaces or tabs followed by a comment leader `//` or `#`
+  - After the comment leader of an opening line come one space, `sedum:`, a non-empty action name and one space
+  - After that a JSON object runs to the end of the opening line
+  - Spaces, tabs and a carriage return after the end of an opening line are ignored
+  - The JSON object of an opening line must carry string values for tier, record, gen and pkg
+  - A region closes on a line that has optional leading spaces or tabs followed by the same comment leader as the opening line
+  - After the comment leader of a closing line come one space, `/sedum:` and the same action name as the opening line
+  - The indentation of a closing line may differ from the indentation of the opening line
+  - Spaces, tabs and a carriage return after the end of a closing line are ignored
+  - A region that is never closed makes the file unreadable
+  - A region that opens inside another region makes the file unreadable
+  - An opening line that does not parse is not an opening line, so its lines count as text outside regions
+  - A file whose regions cannot be read gets no waiver
+  - Neither waiver applies when the text outside regions of a governed file differs from the base by a single byte
+  - Neither waiver applies when a governed file has a different number of regions than at the base
+  - Neither waiver applies when the regions of a governed file are in a different order than at the base
+  - Region is a value with string fields Tier, Record, Gen, Pkg, Prefix, Body and Close
+  - A Region field Prefix holds the text of the opening line before its JSON object
+  - A Region field Close holds the closing line as it is in the file
+  - A Region field Body holds the lines between the opening and closing lines, each followed by a newline
+  - ReadRegions takes the file content as bytes and returns the text outside regions as a string, the slice of Region values and a bool that is false when the file is unreadable
+  - The text outside regions replaces each whole region by one fixed placeholder line, so that two files compare by it
+  - SameShape takes the base content as bytes, the commit content as bytes and a bool named strict and returns a bool
+  - SameShape returns false when either file is unreadable
+  - SameShape returns false when the base has no region
+  - SameShape returns false when the text outside regions differs
+  - SameShape returns false when the region count or the region order differs
+  - SameShape returns false when the tier, record or gen of a region differs
+  - With strict false, SameShape allows the body, the closing line, the opening-line prefix, the pkg value and every other JSON key to change
+  - With strict true, SameShape also requires the pkg, the body, the closing line and the opening-line prefix of each region to be identical
+  - This file imports bytes and strings from the Go standard library as values
+affected_scope:
+  - internal/gitcheck/regions.go
+  - internal/gitcheck/regions_test.go
+forbidden_scope: []
+implements: prov-2026-bc259b5c
+implements_version: 1
+related: []
+sealed_at_sha: ""
+associated_specs:
+  - path: internal/gitcheck/regions_test.go
+    run_command: go test ./$(dirname {{path}})
+associated_traces: []
+monitors: []
+tags: []

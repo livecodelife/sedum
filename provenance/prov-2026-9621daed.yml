@@ -1,8 +1,8 @@
 id: prov-2026-9621daed
 title: Grow skips, re-renders or re-selects each record by its hashes
 status: implemented
-version: 12
-reason: Documentation describes marker v2
+version: 15
+reason: Register the spec for the scope-skipping behaviour
 created_at: "2026-10-15"
 author: calebcowen@gmail.com
 intent: Grow decides skip, re-render, re-select or refuse for each record before any model call, from the markers on the regions it owns and, for v2 regions, from the record's recording. A stale gen, or a recording that does not vouch for a v2 region, sends the record to re-select. Otherwise a record whose pkg moved is re-rendered with no model, a record with a region whose text no longer matches its body hash is edited and a re-render over it is refused, and anything else is skipped. --check reports each class without writing, --force re-selects everything and overwrites edits, and --record names the recordings directory.
@@ -23,6 +23,9 @@ constraints:
   - A --record path ending in .json re-selects every record.
   - Replay (--execute) never classifies or skips.
   - The PRD and README describe the classification of a record as select, re-select, skip, re-render or edited, --check's output and exit status, --force, --record, and the kwarg-default and --var limit.
+  - pipeline.Config has a field SkipUnclaimedScope of type bool, false by default
+  - pipeline.Result has a field SkippedScopePaths, a slice of path strings
+  - With Check true and SkipUnclaimedScope true, a scope path, meaning a path in a record's affected scope, that no loaded generator package claims is skipped, is listed in SkippedScopePaths once however many records name it, and is not an error
 affected_scope:
   - internal/pipeline/pipeline.go
   - internal/pipeline/classify.go
@@ -35,11 +38,13 @@ type: blueprint
 related:
   - prov-2026-66bea9f3
   - prov-2026-375f5d4a
-sealed_at_sha: 6fbccc21f946dcb2150f5862ca86fbb5dd97f6f2
+sealed_at_sha: a35f34826d29e60354b6a3c44f15be3f2048448c
 associated_specs:
   - path: internal/pipeline/classify_test.go
     run_command: go test ./$(dirname {{path}})
   - path: internal/cli/flags_test.go
+    run_command: go test ./$(dirname {{path}})
+  - path: internal/pipeline/skipunclaimed_test.go
     run_command: go test ./$(dirname {{path}})
 associated_traces: []
 monitors: []
