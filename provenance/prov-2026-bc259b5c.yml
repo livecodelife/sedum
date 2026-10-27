@@ -1,0 +1,235 @@
+id: prov-2026-bc259b5c
+title: sedum check reports the findings provenance check leaves after waiving proven regenerations and marker migrations
+type: blueprint
+status: draft
+version: 1
+reason: ""
+created_at: "2026-10-27"
+author: calebcowen@gmail.com
+intent: Running sedum check over a commit range or the staged change should run provenance check on each commit, waive only the findings that sedum can prove are a pure regeneration or a pure marker migration, and report the rest as SARIF or text with an exit code a CI job can act on.
+constraints:
+  - The command is `sedum check`, registered on the root command
+  - The command takes no positional arguments
+  - A positional argument is a usage error
+  - Exactly one of the flags --range <a..b> or --staged must be given
+  - Giving both --range and --staged is a usage error
+  - Giving neither --range nor --staged is a usage error
+  - --range takes one string holding two revisions joined by two dots
+  - --staged is a boolean flag
+  - --message-file <path> names a commit message file
+  - --message-file is accepted only with --staged
+  - --message-file with --range is a usage error
+  - With --staged and no --message-file, the message that is judged is the message of HEAD
+  - With --range, each commit is judged with its own commit message
+  - --output <dir> is the directory that holds the provenance config
+  - --output defaults to the current directory
+  - The directory given by --output may lie below the git top level
+  - Git commands run with `-C <output directory>`
+  - --config <path> is optional and names the provenance config
+  - A relative --config is relative to the --output directory
+  - Without --config, provenance's own default config discovery applies, relative to the --output directory
+  - The config is read from the working tree
+  - The exclude_paths come from the config read in the working tree
+  - The records directory is the config's `dir` setting, relative to the --output directory
+  - Every path rule of the command is relative to the --output directory
+  - A changed path outside the --output directory is not governed
+  - A changed path outside the --output directory is dropped from the list of changed paths
+  - A path outside the --output directory does not count toward a governed file having changed
+  - --generators <dir> is optional
+  - --generators defaults to a directory named `generators` under the --output directory
+  - When the generators directory does not exist, there are no generator packages
+  - --generators names the generator packages that class computation loads
+  - --records <dir> is optional
+  - --records defaults to the records directory of the config
+  - --records names the records that class computation reads
+  - For each exported tree, the generators and records directories are taken relative to that tree's counterpart of the --output directory
+  - --format takes `sarif` or `human` and defaults to `human`
+  - Any other --format value is a usage error
+  - --provenance <path> is an optional string that overrides the provenance binary
+  - The provenance binary is the --provenance path when given
+  - Without --provenance, the provenance binary is the path in the PROVENANCE environment variable when it is set and not empty
+  - Without --provenance and PROVENANCE, the provenance binary is the first executable named `provenance` on PATH
+  - A binary whose path, after resolving symlinks, lies under the git top level of the --output directory is refused
+  - A refused binary makes the command exit 2
+  - With --range, the command lists the commits of a..b oldest first with `git rev-list --reverse a..b`
+  - With --range, the command runs `provenance check --commit <sha> --format sarif` once for each listed commit
+  - With --staged, the command runs `provenance check --staged --format sarif`
+  - With --staged and --message-file, the command adds `--message-file <path>` to the provenance invocation
+  - When --config is given, the command passes `--config <path>` to every provenance invocation
+  - Provenance runs with the --output directory as its working directory
+  - With --staged, GIT_DIR is passed through unchanged
+  - With --staged, GIT_WORK_TREE is passed through unchanged
+  - With --staged, GIT_INDEX_FILE is passed through unchanged, so that the index being committed is read
+  - With --staged, every other GIT_* environment variable is cleared
+  - With --range, every GIT_* environment variable is cleared
+  - The provenance subprocess gets the same environment as the git commands
+  - The changed paths of a commit with a first parent are the paths that differ against that first parent
+  - A rename counts as one deleted path and one added path
+  - The changed paths of a root commit are all the paths of its tree
+  - With --staged, the changed paths are the paths that differ between the index and HEAD
+  - For a merge commit, the changed paths are the paths that differ from every one of its parents
+  - For a merge commit, the base is its first parent
+  - For a merge commit, classes are computed from the tree of the first parent
+  - For a merge commit, the message is the merge commit's own message
+  - SARIF output is one log with version 2.1.0 and one run
+  - The tool driver name of the run is "sedum check"
+  - The results of the run are the results of every provenance invocation, copied unchanged, in commit order
+  - Results of one commit keep the order in which provenance printed them
+  - The driver rules of the run are the union of the rules of every provenance log, in order of first appearance
+  - Each result's ruleIndex is recomputed to point into that union
+  - The artifacts of the run are the union of the artifacts of every provenance log, one per uri, sorted by uri
+  - An empty range gives a log with zero results and exit 0
+  - A waived result gets a `suppressions` array with exactly one entry
+  - The suppression entry has the kind "external"
+  - 'The suppression justification of a regeneration waiver is "regeneration: " followed by the 7-character short sha of the commit'
+  - 'The suppression justification of a marker migration waiver is "marker migration: " followed by the 7-character short sha of the commit'
+  - 'For --staged the justifications are "regeneration: staged" and "marker migration: staged"'
+  - The run carries a property named skippedScopePaths holding the skipped-paths count
+  - The skipped-paths count is the number of distinct scope paths, taken from the affected_scope entries of the records, that class computation skipped because no loaded generator package claims them
+  - The skipped-paths count covers every tree computed in the run
+  - The human format prints each remaining finding on one line
+  - 'A human finding line has the shape `<ruleId> <file>: <message>`'
+  - 'A human finding line without a file has the shape `<ruleId>: <message>`'
+  - The file of a finding is the artifact uri of the first location of its result
+  - The human format always prints the line "skipped N scope paths that no generator package claims", with the count in place of N
+  - That line comes immediately before the final line
+  - 'The human format always ends with the line "waived: N", with the count of waived findings in place of N, also when N is 0'
+  - SARIF output and human output go to stdout
+  - Errors and usage messages go to stderr
+  - A scope path that no loaded generator package claims is skipped, never reported as an error
+  - The exit code is 0 when no unwaived finding is left
+  - The exit code is 1 when at least one unwaived finding is left
+  - The exit code is 2 when provenance is not found
+  - The exit code is 2 when provenance cannot start
+  - The exit code is 2 when provenance exits with a status other than 0 or 1
+  - The exit code is 2 when provenance prints nothing
+  - The exit code is 2 when provenance prints output that is not parseable SARIF
+  - The exit code is 2 when git cannot read a commit or a commit message
+  - The exit code is 2 when the SARIF has no `runs` array or an empty one, which is skew
+  - The exit code is 2 when a result lacks a string ruleId, which is skew
+  - The exit code is 2 when a result lacks a message text, which is skew
+  - The results of all input runs are used
+  - The results are written to the single output run
+  - A missing recordId property is not skew
+  - The exit code is 2 for a usage error
+  - Provenance exiting 1 after printing parseable SARIF is normal and is not exit 2
+  - 'An exit of 2 never waives anything: the command fails closed'
+  - An error message about provenance that cannot run or gave bad output starts with "provenance:"
+  - An error message about git that cannot read a commit or a commit message starts with "git:"
+  - A usage error message starts with "usage:"
+  - SCOPE001 is a known provenance rule id
+  - TAG001 is a known provenance rule id
+  - STATE001 is a known provenance rule id
+  - EVID001 is a known provenance rule id
+  - EVID002 is a known provenance rule id
+  - A rule id of PROV followed by digits is a known lint rule id
+  - The record of a finding is read from the recordId property of its SARIF result
+  - A finding without a recordId property is never waived
+  - Finding messages are used as provenance gave them
+  - 'A finding is the implemented-record refusal when its rule id is STATE001 and its message contains the text "is implemented: run ''provenance revise"'
+  - Regeneration waives only the implemented-record refusal whose record is the record R tagged in that commit
+  - Marker migration waives only the implemented-record refusal whose record is the migrated tag's record
+  - Marker migration also waives a SCOPE001 finding whose recordId equals the migrated tag's record
+  - Every other finding is never waived
+  - Each tag of a commit message is judged on its own
+  - A commit message may carry several tags
+  - A tag is written in provenance's bracket form [id] or [id@N]
+  - The waiver granted for one tag does not waive the findings of another tag's record
+  - Regeneration imposes no version rule of its own on the tag
+  - A changed path is governed when it lies in the --output directory and the exclude_paths of the config do not exclude it
+  - A record file is a file directly in the records directory whose name has at least one character before the .yml suffix
+  - A provenance state file is a path that starts with `.provenance/`
+  - A path under the records directory that is not a record file is also a provenance state file
+  - Neither waiver applies when a changed path is a record file, even when exclude_paths excludes it
+  - Neither waiver applies when a changed path is a provenance state file, even when exclude_paths excludes it
+  - A region opens on a line that has optional leading spaces or tabs followed by a comment leader `//` or `#`
+  - After the comment leader of an opening line come one space, `sedum:`, a non-empty action name and one space
+  - After that a JSON object runs to the end of the opening line
+  - Spaces, tabs and a carriage return after the end of an opening line are ignored
+  - The JSON object of an opening line must carry string values for tier, record, gen and pkg
+  - A region closes on a line that has optional leading spaces or tabs followed by the same comment leader as the opening line
+  - After the comment leader of a closing line come one space, `/sedum:` and the same action name as the opening line
+  - The indentation of a closing line may differ from the indentation of the opening line
+  - Spaces, tabs and a carriage return after the end of a closing line are ignored
+  - A region that is never closed makes the file unreadable
+  - A region that opens inside another region makes the file unreadable
+  - An opening line that does not parse is not an opening line, so its lines count as text outside regions
+  - A file whose regions cannot be read gets no waiver
+  - Neither waiver applies when no governed file changed
+  - Neither waiver applies when a governed file is deleted by the commit
+  - Neither waiver applies when a governed file cannot be read at the commit
+  - Neither waiver applies to a governed file that did not exist at the base
+  - Neither waiver applies when the text outside regions of a governed file differs from the base by a single byte
+  - Neither waiver applies when a governed file has a different number of regions than at the base
+  - Neither waiver applies when the regions of a governed file are in a different order than at the base
+  - The base of a commit is its first parent
+  - For --staged the base is HEAD
+  - With --staged and no HEAD, there is no base and no waiver, as for a root commit
+  - With --staged and no --message-file in a repository with no HEAD, the command exits 2 with a message starting "git:"
+  - A root commit has no base and gets no waiver
+  - Regeneration ignores a changed path that exclude_paths excludes, once the record file and state file rules have been applied
+  - A changed recording file is an ordinary governed file that has no regions, so it blocks regeneration unless exclude_paths excludes it
+  - Regeneration requires every changed governed file to have at least one region at the base
+  - Regeneration requires each region to keep the tier, record and gen values it has at the base
+  - Regeneration allows the body, the closing line, the opening-line prefix and every JSON key except tier, record and gen to change
+  - Regeneration requires the class `current` for every record named by a region of any changed governed file
+  - Regeneration computes classes only at the commit's tree
+  - The class `current` is the one that `sedum grow --check` reports for the record
+  - Failing to compute classes for regeneration means the regeneration waiver does not apply
+  - The marker migration waiver applies to a tag whose record owns at least one region of the changed governed files
+  - A tag whose record owns none of the changed regions gets the normal rules
+  - Marker migration requires the tag to be written [id@N] with N the record's current version
+  - A tag [id] without a version is not waived by marker migration
+  - A tag in a migration commit that names a version other than the current one stays a finding
+  - A marker migration needs no version bump of the tagged record
+  - A marker migration needs no revision of the tagged record
+  - Opening lines with a numeric v key and opening lines without one are both accepted on either side of a migration
+  - In a migration, the closing line of each region is identical to the base
+  - In a migration, the body of each region, the lines between its opening and closing lines, is identical to the base byte for byte
+  - In a migration, the part of each opening line before its JSON object is identical to the base
+  - In a migration, the tier, record, gen and pkg values of each opening line are the same strings as at the base
+  - In a migration, any other key of the opening line's JSON object may differ
+  - A hand edit inside a region makes the commit not a pure migration, and the normal rules apply
+  - A commit that mixes a migration with any other change gets the normal rules
+  - A migration treats a changed path that is not a recording and that exclude_paths excludes as making the commit not a migration, once the record file and state file rules have been applied
+  - A recording is a file directly in `.sedum/recordings/` relative to the --output directory, with nothing after the slash that follows that prefix
+  - A file in a subdirectory of `.sedum/recordings/` is not a recording
+  - Added and modified recordings are allowed in a migration
+  - A recording must be a regular file at the commit tree
+  - A deleted recording makes the commit not a pure migration
+  - Recordings need no record and no exclude_paths entry
+  - The only changed files in a migration besides governed files are recordings
+  - A commit that changes only recordings is not a pure migration and gets the normal rules
+  - Migration requires the class of every record named by a region of the changed governed files to be the same at the base tree and at the commit tree
+  - Migration computes classes at both the base tree and the commit tree
+  - 'The class is the first word of the record''s `sedum grow --check` line: current, stale, re-render, edited, unverifiable or foreign'
+  - A record that is stale at the base and still stale at the commit does not block a migration
+  - A record whose class changes makes the commit not a migration
+  - A record that has no class at one of the two trees makes the commit not a migration
+  - Failing to compute classes at either tree makes the commit not a migration
+  - Classes are computed in-process by sedum with the same pipeline as `sedum grow --check`
+  - The command never runs the sedum binary
+  - The command never reads the text output of the sedum binary
+  - The tree of the base is exported from the base commit
+  - The commit's tree is the tree of the commit, or the staged index tree for --staged
+  - The command runs no model
+  - The command opens no network connection
+  - The command writes nothing in the repository
+  - The command uses temporary directories only
+  - The command removes its temporary directories before it returns
+  - The command does not change git state
+  - The help text states that the command complements `provenance check`
+  - The help text states that exit 2 means provenance or git could not be run or read
+  - The help text states that exit 2 also means provenance output lacks fields the command needs (skew)
+  - The help text states that a failure to compute classes leaves the findings in place and exits 0 or 1 by what remains
+affected_scope:
+  - internal/cli/check.go
+  - internal/cli/check_*_test.go
+  - internal/gitcheck/**
+forbidden_scope: []
+related: []
+sealed_at_sha: ""
+associated_specs: []
+associated_traces: []
+monitors: []
+tags: []
