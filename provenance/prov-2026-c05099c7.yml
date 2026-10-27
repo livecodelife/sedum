@@ -1,7 +1,7 @@
 id: prov-2026-c05099c7
 title: The region reader splits a file into text and regions
 type: imprint
-status: draft
+status: implemented
 version: 1
 reason: ""
 created_at: "2026-10-27"
@@ -46,7 +46,7 @@ forbidden_scope: []
 implements: prov-2026-bc259b5c
 implements_version: 1
 related: []
-sealed_at_sha: ""
+sealed_at_sha: b74c9925fc77b957d6e7fe6a9183212b5149d203
 associated_specs:
   - path: internal/gitcheck/regions_test.go
     run_command: go test ./$(dirname {{path}})

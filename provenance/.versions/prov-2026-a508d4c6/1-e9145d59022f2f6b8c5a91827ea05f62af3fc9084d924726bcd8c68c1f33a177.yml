@@ -1,0 +1,67 @@
+id: prov-2026-a508d4c6
+version: 1
+content_hash: sha256:e9145d59022f2f6b8c5a91827ea05f62af3fc9084d924726bcd8c68c1f33a177
+parent_hash: ""
+reason: ""
+author: calebcowen@gmail.com
+created_at: "2026-10-27T12:31:23Z"
+spec_hashes:
+  - sha256:9a317745c3d987105359e2928c865786253669071f9465bfc67c023ce3f85850
+  - sha256:e716f76891aebbc9f27ff8fe36f54511d33d9c44189f2b9deb6afce855ba8fab
+  - sha256:a161b5600faba80927604d83a0ba1bb0960db6f7241d055da25814e65242215d
+  - sha256:0bc2aa88e528f2ac7aaa85343f567ac6e12b4e10dddec2ef2fceeb695afa699a
+  - sha256:b8335471c303d4a2b4ebca7b75f1d0dca81266091e896994fd0bdf0de8c5cb69
+content:
+  id: prov-2026-a508d4c6
+  title: sedum init and sedum hooks install prepare a repository for sedum
+  type: blueprint
+  created_at: "2026-10-27"
+  author: calebcowen@gmail.com
+  intent: sedum init prepares a directory for sedum grow (the advisory context file, the ignore line for the run log and the config exclude entries), and sedum hooks install installs the commit-msg and pre-push git hooks that check commits and pushes with sedum and provenance. Both are quick, local, repeatable commands.
+  constraints:
+    - init takes one optional flag, --dir, naming the directory to prepare; its default is the current directory
+    - init fails with exit status 1, and writes nothing, when the directory does not exist or is not a directory
+    - init creates the advisory context file .sedum/context.md in the directory when that file is absent
+    - init never overwrites an existing context file
+    - init ensures the .gitignore in the directory has a line ignoring .sedum/run.log
+    - The .gitignore is created when it is missing
+    - The ignore line is not added again when .gitignore already has it
+    - Existing .gitignore content is left untouched, except that a missing final newline is added when the ignore line is appended
+    - When .provenance.yml exists in the directory, init ensures its exclude_paths list holds generators/** and .sedum/**
+    - init adds only the missing exclude entries, whether the list is written in flow style or as a block list
+    - Everything in the config file other than the added entries is kept as it was
+    - When the directory has no .provenance.yml, init changes no config and reports the config item as skipped, saying why
+    - init prints one line per item (the context file, .gitignore and the config), each saying created, updated, unchanged or skipped
+    - 'init is idempotent: a second run changes nothing and reports every item as unchanged, or as skipped when there is no config'
+    - init does not run git, does not install hooks and does not touch provenance records
+    - hooks install takes one optional flag, --dir, naming a directory inside a git repository; its default is the current directory
+    - hooks install writes into the hooks directory git uses for that repository
+    - hooks install fails when the directory is not inside a git repository
+    - hooks install installs two hooks, commit-msg and pre-push, both executable
+    - A hook file already holding the content to write is left with its content as it is and reported unchanged
+    - A different existing hook is moved to <name>.bak when no .bak exists yet, and is reported as replaced with the previous hook kept as <name>.bak
+    - A different existing hook is replaced without touching an existing .bak, and is reported as replaced
+    - hooks install does not touch pre-commit, the merge driver or any other hook, and does not change git config
+    - hooks install prints each hook's result and usage notes
+    - The installed hooks run sedum, and provenance for pre-push, from an environment variable else PATH, and exit 1 with an error when one is missing
+    - The commit-msg hook runs sedum check on the staged change for each config root
+    - The commit-msg hook blocks the commit, exiting 1 and saying so, when any of those checks failed
+    - The pre-push hook runs provenance's pre-push hook and then sedum check on each pushed ref's commits
+    - The pre-push hook skips ref deletions
+    - For a new remote ref the pre-push hook checks the pushed commits that are on no remote, and when the oldest of them is a root commit it checks that commit with provenance check alone
+    - The pre-push hook blocks the push, exiting 1, when provenance pre-push or any check failed
+    - Every failure of init or hooks install exits with status 1; neither command exits with any other non-zero status
+    - Neither command runs a model or uses the network
+  affected_scope:
+    - internal/cli/init.go
+    - internal/cli/init_*_test.go
+    - internal/cli/hooks.go
+    - internal/cli/hooks_*_test.go
+    - internal/scaffold/**
+    - internal/cli/root.go
+  associated_specs:
+    - path: internal/cli/init_cmd_test.go
+    - path: internal/cli/hooks_cmd_test.go
+    - path: internal/scaffold/files_test.go
+    - path: internal/scaffold/install_test.go
+    - path: internal/scaffold/hookscripts_test.go
