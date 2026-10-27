@@ -1,7 +1,7 @@
 id: prov-2026-b489f30d
 title: Output writers, exit codes and error kinds
 type: imprint
-status: open
+status: implemented
 version: 1
 reason: ""
 created_at: "2026-10-27"
@@ -38,7 +38,7 @@ forbidden_scope: []
 implements: prov-2026-bc259b5c
 implements_version: 1
 related: []
-sealed_at_sha: ""
+sealed_at_sha: a1ca14baa549b0a879bb82909301a630bce587e0
 associated_specs:
   - path: internal/gitcheck/output_test.go
     run_command: go test ./$(dirname {{path}})
