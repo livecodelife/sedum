@@ -1,7 +1,8 @@
 id: prov-2026-4c49ca46
 title: Phase 3 reconciles an existing file with its template, or halts
-status: implemented
-version: 1
+status: open
+version: 3
+reason: Register the skip unreconcilable files tests
 created_at: "2026-08-19"
 author: calebcowen@gmail.com
 intent: |
@@ -9,11 +10,14 @@ intent: |
   treating it as a thing to reconcile. A file that already exists is compared
   against its rendered template, and either every difference is something the
   template adds - in which case those additions are written into the file - or
-  the run halts naming the file and the first line it could not reconcile.
+  the run halts, unless skipping is requested, naming the file and the first
+  line it could not reconcile.
 
   Two outcomes replace today's two. Not five, and not a mode flag: the same
   comparison answers the empty file, the file a person wrote, the file an
-  earlier run generated, and the file whose template has since grown.
+  earlier run generated, and the file whose template has since grown. The
+  comparison itself has two outcomes and no mode; a run may only ask that
+  the halting outcome be skipped.
 
   ## What is wrong today
 
@@ -168,59 +172,26 @@ intent: |
   discovered as a defect. A leading comment run before the first structural line
   could be special-cased if it turns out to matter.
 constraints:
-  - >-
-    Insertions only. If the edit script from skeleton to rendered template
-    carries any replacement or deletion, the run halts naming the file and the
-    first line it could not reconcile. There is no partial application: a file
-    takes its whole template or none of it.
-  - >-
-    Alignment is over structural lines - not blank, not a plain comment - and a
-    marker is structural. comment_prefix is the only input, and it is already
-    declared by the package, so no target knowledge enters Phase 3 and no line
-    is parsed.
-  - >-
-    Lines are compared with their indentation intact. This is what lets a bare
-    `end` match a class's closing line rather than a nested block's, and
-    normalizing whitespace before comparison would silently break placement
-    rather than fail.
-  - >-
-    The skeleton is the file with every marked region removed, and an insertion
-    that follows a skeleton line is written after the region that line owns. A
-    new private keyword must land below the methods already injected above it,
-    not between an anchor and its own region.
-  - >-
-    The comparison is against the rendered template, never the template source.
-    A pattern like {{name|constantize}} matches nothing in a real file, and
-    Phase 3 already has the rendered text at the point the decision is made.
-  - >-
-    No fuzz, no thresholds, no match distance, and no tunable that trades
-    correctness for success rate. Three-way merge and fuzzy patch application
-    were both measured and both rejected - the first refuses the motivating
-    case, the second accepts it in the wrong place.
-  - >-
-    No new dependency. The rule is a diff over exact line comparison plus one
-    constraint on the edit script.
-  - >-
-    What was written into each existing file is reported. Applying a whole
-    template can add behavior a team did not write, and a team adopting Sedum
-    into a repository must be able to read what it did rather than discover it.
-  - >-
-    Restoring a line deleted from a file's boilerplate is accepted behavior, not
-    a defect. An insertions-only edit script cannot distinguish template growth
-    from file shrinkage, and no file-level record of the template exists to tell
-    them apart.
-  - >-
-    A halt is per run, not per file. A file that cannot be reconciled stops the
-    run rather than being skipped, because a skipped file fails later in Phase 7
-    with a worse message than Phase 3 can give.
-  - >-
-    Fixtures record what Phase 3 must do to a file, never what a prototype did.
-    Where the two disagree the fixture governs. Every input is real: generated
-    by Sedum, or by the target stack's own generator.
-  - >-
-    No durable artifact changes shape. Markers and recordings are untouched, and
-    a repository whose files already carry their markers behaves exactly as it
-    does today.
+  - 'Insertions only. If the edit script from skeleton to rendered template carries any replacement or deletion, then, without skip unreconcilable files, the run halts naming the file and the first line it could not reconcile. There is no partial application: a file takes its whole template or none of it.'
+  - Alignment is over structural lines - not blank, not a plain comment - and a marker is structural. comment_prefix is the only input, and it is already declared by the package, so no target knowledge enters Phase 3 and no line is parsed.
+  - Lines are compared with their indentation intact. This is what lets a bare `end` match a class's closing line rather than a nested block's, and normalizing whitespace before comparison would silently break placement rather than fail.
+  - The skeleton is the file with every marked region removed, and an insertion that follows a skeleton line is written after the region that line owns. A new private keyword must land below the methods already injected above it, not between an anchor and its own region.
+  - The comparison is against the rendered template, never the template source. A pattern like {{name|constantize}} matches nothing in a real file, and Phase 3 already has the rendered text at the point the decision is made.
+  - No fuzz, no thresholds, no match distance, and no tunable that trades correctness for success rate. Three-way merge and fuzzy patch application were both measured and both rejected - the first refuses the motivating case, the second accepts it in the wrong place.
+  - No new dependency. The rule is a diff over exact line comparison plus one constraint on the edit script.
+  - What was written into each existing file is reported. Applying a whole template can add behavior a team did not write, and a team adopting Sedum into a repository must be able to read what it did rather than discover it.
+  - Restoring a line deleted from a file's boilerplate is accepted behavior, not a defect. An insertions-only edit script cannot distinguish template growth from file shrinkage, and no file-level record of the template exists to tell them apart.
+  - Without skip unreconcilable files, a file that cannot be reconciled stops the run rather than being skipped, because a skipped file fails later in Phase 7 with a worse message than Phase 3 can give.
+  - 'Fixtures record what Phase 3 must do to a file, never what a prototype did. Where the two disagree the fixture governs. Every input is real: generated by Sedum, or by the target stack''s own generator.'
+  - No durable artifact changes shape. Markers and recordings are untouched, and a repository whose files already carry their markers behaves exactly as it does today.
+  - Phase 3 takes a Boolean option, skip unreconcilable files, carried in the options of its entry point, which defaults to false, meaning not requested.
+  - When skip unreconcilable files is true, a file its file template cannot reconcile is left unchanged.
+  - When skip unreconcilable files is true, the run continues with the remaining files after a file its file template cannot reconcile.
+  - When skip unreconcilable files is true, the result for a file its file template cannot reconcile carries a text field, unreconciled, in the file's result, holding the same text the halt would have carried.
+  - The unreconciled text is empty for every file that was reconciled or needed nothing, whether or not skip unreconcilable files is true.
+  - When skip unreconcilable files is true, only a failure to reconcile is skipped.
+  - A file that cannot be read halts the run whether or not skip unreconcilable files is true.
+  - When skip unreconcilable files is true, a file its file template cannot reconcile is still reported in the results as an existing file.
 affected_scope:
   - internal/resolve/**
   - internal/genpkg/**
@@ -242,34 +213,14 @@ related:
   - prov-2026-72775ae5
   - prov-2026-59535684
   - prov-2026-b5465dfa
-sealed_at_sha: 7f6d9d7d29e1a94d57d7e472c196dcd6a7ade0de
+sealed_at_sha: ""
 associated_specs:
-  # The fixtures, not the prose. An earlier revision of this record proved
-  # itself with greps against PRD.md and TOOL_BOUNDARIES.md, which is the wrong
-  # artifact to depend on: those documents are reworded often and by records
-  # that have nothing to do with this one, so such a spec fails for reasons
-  # that are not about Phase 3.
-  #
-  # What does not drift is what Phase 3 must do to a given file. Every case in
-  # the corpus is a real input - a rails new scaffold, output rendered from
-  # railties' own generator template - paired with the exact bytes required
-  # back, or the diagnostic the halt must carry.
-  #
-  # The code spec is added when internal/resolve's test file for this exists,
-  # before implementation begins. It reads this corpus rather than restating
-  # it, on the same reasoning as prov-2026-c6580f1e.
-  # The code spec, reading the corpus rather than restating it.
   - path: internal/resolve/reconcile_test.go
     run_command: go test -count=1 ./$(dirname {{path}})
   - path: testdata/reconcile/cases.json
-    run_command: >-
-      python3 -c "import json,os,sys; d=json.load(open(sys.argv[1]));
-      b=os.path.dirname(sys.argv[1])+'/cases';
-      [(_ for _ in ()).throw(SystemExit('bad case: '+c['name'])) for c in d['cases']
-      if not (os.path.isfile(b+'/'+c['name']+'/existing')
-      and os.path.isfile(b+'/'+c['name']+'/template') and c.get('why')
-      and (c.get('diagnostic') if c['outcome']=='halt'
-      else os.path.isfile(b+'/'+c['name']+'/expected')))]"
+    run_command: 'python3 -c "import json,os,sys; d=json.load(open(sys.argv[1])); b=os.path.dirname(sys.argv[1])+''/cases''; [(_ for _ in ()).throw(SystemExit(''bad case: ''+c[''name''])) for c in d[''cases''] if not (os.path.isfile(b+''/''+c[''name'']+''/existing'') and os.path.isfile(b+''/''+c[''name'']+''/template'') and c.get(''why'') and (c.get(''diagnostic'') if c[''outcome'']==''halt'' else os.path.isfile(b+''/''+c[''name'']+''/expected'')))]"'
+  - path: internal/resolve/create_unreconciled_test.go
+    run_command: go test -count=1 ./$(dirname {{path}})
 associated_traces: []
 monitors: []
 tags:
