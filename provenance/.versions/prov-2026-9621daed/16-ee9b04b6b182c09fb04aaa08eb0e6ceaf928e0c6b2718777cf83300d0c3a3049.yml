@@ -1,0 +1,65 @@
+id: prov-2026-9621daed
+version: 16
+content_hash: sha256:ee9b04b6b182c09fb04aaa08eb0e6ceaf928e0c6b2718777cf83300d0c3a3049
+parent_hash: sha256:aa8b099b48a7df701bef86bd7d3180441090ff4fa1edf0ea042ee69d7a17b838
+reason: A check run that skips unclaimed scope also skips unreconcilable files
+author: calebcowen@gmail.com
+created_at: "2026-10-29T16:03:45Z"
+spec_hashes:
+  - sha256:8ee631e90e1bc8eb42c7a007538331cdce7f7309a4dddf8b9663f154dc83f57d
+  - sha256:7113081ded3b93aae46a83b2133d35c7dddd199a97bc149b397d7297ef963442
+  - sha256:27fd6b9f558734b4700378d1f89c868bfa27de302184fd01b963062cc8da2c41
+content:
+  id: prov-2026-9621daed
+  title: Grow skips, re-renders or re-selects each record by its hashes
+  type: blueprint
+  created_at: "2026-10-15"
+  author: calebcowen@gmail.com
+  intent: Grow decides skip, re-render, re-select or refuse for each record before any model call, from the markers on the regions it owns and, for v2 regions, from the record's recording. A stale gen, or a recording that does not vouch for a v2 region, sends the record to re-select. Otherwise a record whose pkg moved is re-rendered with no model, a record with a region whose text no longer matches its body hash is edited and a re-render over it is refused, and anything else is skipped. --check reports each class without writing, --force re-selects everything and overwrites edits, and --record names the recordings directory.
+  constraints:
+    - Classification reads the markers, and the recording of each record that owns v2 regions; Sedum keeps no manifest or lockfile.
+    - A record classified skip makes no model call and its files are not written, not even with identical bytes.
+    - A record classified re-render makes no model call, rewrites only its pkg-stale regions in place, and prunes nothing.
+    - A record with a v2 region that its recording does not vouch for is re-selected.
+    - A missing or unreadable recording costs a re-select and never fails a run.
+    - A v2 region needing a re-render is re-rendered from the kwargs of its recording entry.
+    - A v1 region needing a re-render is re-rendered from the kwargs on its own marker, with no model call and no recording needed.
+    - A record whose regions are all current, with a region whose text no longer hashes to its body hash, is classified edited.
+    - A re-render that would overwrite an edited region is refused and fails the run.
+    - --force overwrites an edited region, because it re-selects every record.
+    - --check makes no model call.
+    - A record that is stale, needs re-rendering or is edited fails --check.
+    - grow --check reports v1 regions as unverifiable and foreign regions without failing on them.
+    - A --record path ending in .json re-selects every record.
+    - Replay (--execute) never classifies or skips.
+    - The PRD and README describe the classification of a record as select, re-select, skip, re-render or edited, --check's output and exit status, --force, --record, and the kwarg-default and --var limit.
+    - pipeline.Config has a field SkipUnclaimedScope of type bool, false by default
+    - pipeline.Result has a field SkippedScopePaths, a slice of path strings
+    - With Check true and SkipUnclaimedScope true, a scope path, meaning a path in a record's affected scope, that no loaded generator package claims is skipped, is listed in SkippedScopePaths once however many records name it, and is not an error
+    - A check run that skips scope paths no generator package claims asks Phase 3 to skip unreconcilable files.
+    - A run that is not a check, and a check run that does not skip scope paths no generator package claims, halts on an existing file its file template cannot reconcile.
+    - The run passes Phase 3 its skip unreconcilable files option and reads the unreconciled reason on each file's result; both belong to Phase 3.
+    - The run's result has a field, SkippedUnreconciledPaths, a list of path strings.
+    - SkippedUnreconciledPaths holds each skipped path once.
+    - SkippedUnreconciledPaths is sorted.
+    - SkippedUnreconciledPaths is separate from SkippedScopePaths.
+    - SkippedUnreconciledPaths is empty when no file was skipped.
+    - A record that owns a path whose file was skipped as unreconcilable is classified select, which the report calls unknown, whatever the markers in its files say.
+    - A record classified select because it owns a skipped unreconcilable file does not fail the check.
+    - A record that owns no skipped unreconcilable path is classified as it is in a run on a tree without that file.
+    - The run log has one entry per skipped unreconcilable path, carrying the path and the reason.
+    - A record that owns a skipped unreconcilable file has the same class on a tree before and after a marker migration of its regions, so a check compares the two as equal.
+  affected_scope:
+    - internal/pipeline/pipeline.go
+    - internal/pipeline/classify.go
+    - internal/pipeline/*_test.go
+    - internal/cli/grow.go
+    - internal/cli/*_test.go
+    - PRD.md
+  related:
+    - prov-2026-66bea9f3
+    - prov-2026-375f5d4a
+  associated_specs:
+    - path: internal/pipeline/classify_test.go
+    - path: internal/cli/flags_test.go
+    - path: internal/pipeline/skipunclaimed_test.go
