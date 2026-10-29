@@ -1,6 +1,6 @@
 id: prov-2026-668746b1
 title: 'Zero-setup default: bundle goinfer-serve and a fine-tuned model in the release archive'
-status: open
+status: implemented
 version: 3
 reason: Register the no-model error test
 created_at: "2026-09-29"
@@ -58,7 +58,7 @@ related:
   - prov-2026-a1ccdd65
   - prov-2026-4746d9ed
   - prov-2026-2f131ba6
-sealed_at_sha: ""
+sealed_at_sha: 737f2f1479ebae5bb6829d1f6851467f19994a7b
 associated_specs:
   - path: internal/selection/bundled_test.go
     run_command: go test -count=1 ./$(dirname {{path}})
