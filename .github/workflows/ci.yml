@@ -63,7 +63,7 @@ jobs:
           cache: false
 
       - name: Install the provenance CLI
-        run: go install github.com/livecodelife/provenance/cmd/provenance@5b9a092eab727cdfab639872ee5ee9b90737d7e2
+        run: go install github.com/livecodelife/provenance/cmd/provenance@520617d4d307c774ea56fb60ece4041411fa38f5
 
       - name: Lint records
         run: provenance lint --enforcement strict
