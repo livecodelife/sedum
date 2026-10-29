@@ -1,8 +1,8 @@
 id: prov-2026-9621daed
 title: Grow skips, re-renders or re-selects each record by its hashes
 status: implemented
-version: 15
-reason: Register the spec for the scope-skipping behaviour
+version: 17
+reason: Register the skipped unreconcilable files tests
 created_at: "2026-10-15"
 author: calebcowen@gmail.com
 intent: Grow decides skip, re-render, re-select or refuse for each record before any model call, from the markers on the regions it owns and, for v2 regions, from the record's recording. A stale gen, or a recording that does not vouch for a v2 region, sends the record to re-select. Otherwise a record whose pkg moved is re-rendered with no model, a record with a region whose text no longer matches its body hash is edited and a re-render over it is refused, and anything else is skipped. --check reports each class without writing, --force re-selects everything and overwrites edits, and --record names the recordings directory.
@@ -26,6 +26,19 @@ constraints:
   - pipeline.Config has a field SkipUnclaimedScope of type bool, false by default
   - pipeline.Result has a field SkippedScopePaths, a slice of path strings
   - With Check true and SkipUnclaimedScope true, a scope path, meaning a path in a record's affected scope, that no loaded generator package claims is skipped, is listed in SkippedScopePaths once however many records name it, and is not an error
+  - A check run that skips scope paths no generator package claims asks Phase 3 to skip unreconcilable files.
+  - A run that is not a check, and a check run that does not skip scope paths no generator package claims, halts on an existing file its file template cannot reconcile.
+  - The run passes Phase 3 its skip unreconcilable files option and reads the unreconciled reason on each file's result; both belong to Phase 3.
+  - The run's result has a field, SkippedUnreconciledPaths, a list of path strings.
+  - SkippedUnreconciledPaths holds each skipped path once.
+  - SkippedUnreconciledPaths is sorted.
+  - SkippedUnreconciledPaths is separate from SkippedScopePaths.
+  - SkippedUnreconciledPaths is empty when no file was skipped.
+  - A record that owns a path whose file was skipped as unreconcilable is classified select, which the report calls unknown, whatever the markers in its files say.
+  - A record classified select because it owns a skipped unreconcilable file does not fail the check.
+  - A record that owns no skipped unreconcilable path is classified as it is in a run on a tree without that file.
+  - The run log has one entry per skipped unreconcilable path, carrying the path and the reason.
+  - A record that owns a skipped unreconcilable file has the same class on a tree before and after a marker migration of its regions, so a check compares the two as equal.
 affected_scope:
   - internal/pipeline/pipeline.go
   - internal/pipeline/classify.go
@@ -33,12 +46,13 @@ affected_scope:
   - internal/cli/grow.go
   - internal/cli/*_test.go
   - PRD.md
+  - internal/gitcheck/check_unreconciled_test.go
 forbidden_scope: []
 type: blueprint
 related:
   - prov-2026-66bea9f3
   - prov-2026-375f5d4a
-sealed_at_sha: a35f34826d29e60354b6a3c44f15be3f2048448c
+sealed_at_sha: 202db2bc32c73f724bc77ae17c163601babfffcd
 associated_specs:
   - path: internal/pipeline/classify_test.go
     run_command: go test ./$(dirname {{path}})
@@ -46,6 +60,10 @@ associated_specs:
     run_command: go test ./$(dirname {{path}})
   - path: internal/pipeline/skipunclaimed_test.go
     run_command: go test ./$(dirname {{path}})
+  - path: internal/pipeline/unreconciled_test.go
+    run_command: go test -count=1 ./$(dirname {{path}})
+  - path: internal/gitcheck/check_unreconciled_test.go
+    run_command: go test -count=1 ./$(dirname {{path}})
 associated_traces: []
 monitors: []
 tags: []

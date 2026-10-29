@@ -206,6 +206,12 @@ type Result struct {
 	// loaded generator package claims them, each distinct path once, sorted.
 	// Empty unless Config.SkipUnclaimedScope was set (prov-2026-9621daed).
 	SkippedScopePaths []string
+
+	// SkippedUnreconciledPaths are the existing files a Check run left alone
+	// because their file template cannot be reconciled with them, each distinct
+	// path once, sorted. Empty unless Config.SkipUnclaimedScope was set
+	// (prov-2026-9621daed).
+	SkippedUnreconciledPaths []string
 }
 
 // CheckFailed reports whether --check fails: some record is stale or needs
@@ -362,15 +368,17 @@ func Run(ctx context.Context, cfg Config) (result *Result, err error) {
 		}()
 	}
 	files, err := resolve.Create(resolutions, resolve.Options{
-		Output:    cfg.Output,
-		DryRun:    writeless,
-		Variables: variables,
-		Log:       log,
+		Output:             cfg.Output,
+		DryRun:             writeless,
+		Variables:          variables,
+		Log:                log,
+		SkipUnreconcilable: cfg.Check && cfg.SkipUnclaimedScope,
 	})
 	if err != nil {
 		return nil, err
 	}
 	result.Files = files
+	result.SkippedUnreconciledPaths = unreconciledPaths(files, log)
 	if cleanup != nil {
 		cleanup.created(files)
 	}
@@ -413,6 +421,7 @@ func Run(ctx context.Context, cfg Config) (result *Result, err error) {
 	if err != nil {
 		return nil, err
 	}
+	markUnreconciledUnknown(classes, files)
 	result.Classifications = classes
 	needsModel := map[string]bool{}
 	for _, c := range classes {
@@ -612,6 +621,37 @@ func selectAll(ctx context.Context, cfg Config, records *record.Set, files []res
 	}
 
 	return out, nil
+}
+
+// unreconciledPaths lists each file Phase 3 skipped as unreconcilable once,
+// sorted, and names each in the run log with its reason.
+func unreconciledPaths(files []resolve.File, log *runlog.Log) []string {
+	seen := map[string]bool{}
+	var paths []string
+	for _, f := range files {
+		if f.Unreconciled == "" || seen[f.Path] {
+			continue
+		}
+		seen[f.Path] = true
+		paths = append(paths, f.Path)
+		log.Info("skipped a file its template cannot be reconciled with", "path", f.Path, "reason", f.Unreconciled)
+	}
+	sort.Strings(paths)
+	return paths
+}
+
+// markUnreconciledUnknown makes a record that owns a skipped unreconcilable
+// file unknown, whatever the markers in its files say: nothing is known about
+// what that file would have become.
+func markUnreconciledUnknown(classes []Classification, files []resolve.File) {
+	for i := range classes {
+		for _, f := range filesOf(files, classes[i].RecordID) {
+			if f.Unreconciled != "" {
+				classes[i].Mode = ModeSelect
+				break
+			}
+		}
+	}
 }
 
 // filesOf returns the files created for one record.

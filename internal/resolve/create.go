@@ -24,6 +24,10 @@ type Options struct {
 	DryRun bool
 	// Log is the run log. A nil log discards.
 	Log *runlog.Log
+	// SkipUnreconcilable leaves an existing file its template cannot reconcile
+	// as it is and reports it as unreconciled, instead of halting the run
+	// (prov-2026-4c49ca46).
+	SkipUnreconcilable bool
 }
 
 // File is one authorized path after Phase 3.
@@ -37,6 +41,10 @@ type File struct {
 	// Existed reports that the path was already on disk and was left as it
 	// was.
 	Existed bool
+	// Unreconciled is the reason an existing file was skipped because its
+	// template could not be reconciled with it, when the run asked to skip such
+	// files. Empty for every other file.
+	Unreconciled string
 }
 
 // Create runs Phase 3: it renders each resolution's file template and writes
@@ -104,6 +112,13 @@ func createOne(res Resolution, opts Options, log *runlog.Log) (File, error) {
 		// lines its template adds are written in (prov-2026-4c49ca46).
 		file.Existed = true
 		if err := reconcileExisting(res, full, rendered, opts, log); err != nil {
+			var failed reconcileError
+			if opts.SkipUnreconcilable && errors.As(err, &failed) {
+				log.Info("file already exists and its template cannot be reconciled with it, so it is left as it is",
+					"path", res.Path, "package", res.Package.Name, "template", res.Template, "reason", failed.Error())
+				file.Unreconciled = failed.Error()
+				return file, nil
+			}
 			return File{}, err
 		}
 		return file, nil
@@ -201,7 +216,7 @@ func reconcileExisting(res Resolution, full, rendered string, opts Options, log 
 
 	result, err := reconcile(res.Package.Comment(), res.Path, res.Template, string(data), rendered)
 	if err != nil {
-		return err
+		return reconcileError{err}
 	}
 	if result.Inserted == 0 {
 		log.Info("file already exists and carries everything its template declares, left as it is",
@@ -224,3 +239,10 @@ func reconcileExisting(res Resolution, full, rendered string, opts Options, log 
 	}
 	return nil
 }
+
+// reconcileError marks a failure to reconcile a file with its template, as
+// opposed to a failure to read or write it.
+type reconcileError struct{ err error }
+
+func (e reconcileError) Error() string { return e.err.Error() }
+func (e reconcileError) Unwrap() error { return e.err }
