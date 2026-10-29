@@ -1,6 +1,6 @@
 id: prov-2026-e8671c88
 title: A pattern in affected_scope authorizes without naming a file
-status: open
+status: implemented
 version: 4
 reason: Refresh the route entry test specs
 created_at: "2026-08-13"
@@ -86,7 +86,7 @@ type: imprint
 implements: prov-2026-1a1a9b52
 implements_version: 1
 related: []
-sealed_at_sha: ""
+sealed_at_sha: 53f787ff150d1cae33c7281b1c55003e615c5834
 associated_specs:
   - path: internal/record/record_test.go
     run_command: go test -count=1 ./$(dirname {{path}})
