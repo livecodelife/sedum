@@ -10,10 +10,21 @@
 # piping a URL into a shell and then skips the checksum it publishes is offering
 # a guarantee it does not keep (prov-2026-4746d9ed).
 #
+# Every full archive is about 1.7GB because it bundles a local model. For the
+# binary alone, install the slim archive (prov-2026-4746d9ed):
+#
+#   curl -fsSL https://raw.githubusercontent.com/livecodelife/sedum/main/install.sh | sh -s -- --no-model
+#
+# Arguments:
+#   --no-model          install the slim archive: the sedum binary, no bundled
+#                       local model. Pass --model or --local-model to sedum grow.
+#
 # Environment:
 #   SEDUM_VERSION       version to install, with or without a leading "v".
 #                       Default: the latest published release.
 #   SEDUM_INSTALL_DIR   directory to install into. Default: $HOME/.local/bin.
+#   SEDUM_NO_MODEL      exactly 1 means --no-model. Any other value, or none,
+#                       installs the full archive.
 #
 # Exits nonzero on any failure, leaving nothing behind.
 
@@ -25,8 +36,8 @@ BIN="sedum"
 # Sedum's zero-flag default local model. Named to match
 # internal/selection/bundled.go's own constants - these are the two files
 # that make sedum grow with neither --model nor --local-model work without
-# an endpoint (prov-2026-668746b1). Required in the archive, not optional:
-# every release bundles both.
+# an endpoint (prov-2026-668746b1). Required in the full archive, not optional:
+# every release bundles both. The slim archive holds neither.
 GOINFER_BIN="goinfer-serve"
 MODEL_FILE="sedum-default-model.gguf"
 
@@ -87,7 +98,7 @@ verify() {
 	archive=$1 sums=$2 name=$3
 
 	expected=$(awk -v n="$name" '$2 == n || $2 == "*" n { print $1; exit }' "$sums")
-	[ -n "$expected" ] || fail "$name is not listed in checksums.txt for this release"
+	[ -n "$expected" ] || fail "$name is not listed in checksums.txt for ${tag}"
 
 	actual=$(sha256_of "$archive")
 	[ "$actual" = "$expected" ] ||
@@ -97,6 +108,15 @@ verify() {
 # --- main ---------------------------------------------------------------------
 
 main() {
+	slim=0
+	[ "${SEDUM_NO_MODEL:-}" = "1" ] && slim=1
+	for arg in "$@"; do
+		case "$arg" in
+			--no-model) slim=1 ;;
+			*) fail "unknown argument: ${arg}. The only argument is --no-model (install the slim archive, without the bundled model)." ;;
+		esac
+	done
+
 	need curl
 	need tar
 	need uname
@@ -114,15 +134,22 @@ main() {
 	dest=${SEDUM_INSTALL_DIR:-$HOME/.local/bin}
 
 	name="${BIN}_${version}_${os}_${arch}.tar.gz"
+	if [ "$slim" = 1 ]; then
+		name="${BIN}_${version}_${os}_${arch}_slim.tar.gz"
+	fi
 	base="https://github.com/${REPO}/releases/download/${tag}"
 
 	tmp=$(mktemp -d) || fail "could not create a temporary directory"
 	trap 'rm -rf "$tmp"' EXIT INT TERM
 
-	info "Installing ${BIN} ${tag} (${os}/${arch})"
+	if [ "$slim" = 1 ]; then
+		info "Installing ${BIN} ${tag} (${os}/${arch}), slim archive without the bundled model"
+	else
+		info "Installing ${BIN} ${tag} (${os}/${arch})"
+	fi
 
 	curl -fsSL -o "${tmp}/${name}" "${base}/${name}" ||
-		fail "could not download ${name}. Check that ${tag} has a ${os}/${arch} build at ${base}"
+		fail "could not download ${name}. Check that ${tag} has a ${os}/${arch} build at ${base}. A release made before slim archives existed has no _slim archive: install without --no-model."
 	curl -fsSL -o "${tmp}/checksums.txt" "${base}/checksums.txt" ||
 		fail "could not download checksums.txt for ${tag}, so the archive cannot be verified"
 
@@ -132,8 +159,10 @@ main() {
 	tar -xzf "${tmp}/${name}" -C "$tmp" ||
 		fail "could not extract ${name}"
 	[ -f "${tmp}/${BIN}" ] || fail "${name} did not contain a ${BIN} binary"
-	[ -f "${tmp}/${GOINFER_BIN}" ] || fail "${name} did not contain ${GOINFER_BIN}"
-	[ -f "${tmp}/${MODEL_FILE}" ] || fail "${name} did not contain ${MODEL_FILE}"
+	if [ "$slim" != 1 ]; then
+		[ -f "${tmp}/${GOINFER_BIN}" ] || fail "${name} did not contain ${GOINFER_BIN}"
+		[ -f "${tmp}/${MODEL_FILE}" ] || fail "${name} did not contain ${MODEL_FILE}"
+	fi
 
 	mkdir -p "$dest" || fail "could not create ${dest}"
 
@@ -150,15 +179,24 @@ main() {
 	}
 
 	install_file "${tmp}/${BIN}" "${dest}/${BIN}" x
-	install_file "${tmp}/${GOINFER_BIN}" "${dest}/${GOINFER_BIN}" x
-	install_file "${tmp}/${MODEL_FILE}" "${dest}/${MODEL_FILE}" ""
+	# A slim install writes the binary alone and leaves what an earlier full
+	# install put beside it.
+	if [ "$slim" != 1 ]; then
+		install_file "${tmp}/${GOINFER_BIN}" "${dest}/${GOINFER_BIN}" x
+		install_file "${tmp}/${MODEL_FILE}" "${dest}/${MODEL_FILE}" ""
+	fi
 
 	installed=$("${dest}/${BIN}" --version 2>/dev/null || true)
 	if [ "$installed" != "$version" ]; then
 		warn "installed binary reports version '${installed}', expected '${version}'"
 	fi
 
-	info "Installed ${dest}/${BIN} (${installed:-$version}), with a bundled local model"
+	if [ "$slim" = 1 ]; then
+		info "Installed ${dest}/${BIN} (${installed:-$version}), with no local model (slim archive)"
+		info "Pass --model or --local-model to ${BIN} grow. To install the full archive, run the installer again without --no-model and with SEDUM_NO_MODEL unset."
+	else
+		info "Installed ${dest}/${BIN} (${installed:-$version}), with a bundled local model"
+	fi
 
 	case ":${PATH}:" in
 		*":${dest}:"*) ;;

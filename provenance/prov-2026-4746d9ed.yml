@@ -1,8 +1,8 @@
 id: prov-2026-4746d9ed
 title: Sedum is installable and versioned, so a caller can pin it
-status: implemented
-version: 4
-reason: 'ci.yml: move the provenance CLI pin to 4aaa1bb, as provisio-mgr asked'
+status: open
+version: 7
+reason: Refresh the slim archive test spec
 created_at: "2026-08-20"
 author: calebcowen@gmail.com
 intent: |
@@ -63,13 +63,18 @@ intent: |
   wants the binary and has no opinion about Go, which is the audience an
   open-source release is for and the one served worst by the other two.
 
-  The installer is not a seventh integration surface. It writes a binary to a
+  The installer is not a seventh integration surface. It writes the files of the archive it installs to a
   directory and exits; it is not read or written by anything built above Sedum,
   and no format passes through it. It resolves OS and architecture, downloads
-  the archive named by the release, verifies it against the published
+  the full or the slim archive the release publishes, verifies it against the published
   `checksums.txt`, and installs. Verification is not optional in it - an
   installer piped into a shell that skips the checksum it publishes is offering
   a guarantee it does not keep.
+
+  ## Slim archive
+
+  Every full archive is about 1.7 GB because of the bundled server and model.
+  A slim archive without them makes CI and container installs cheap.
 
   ## An unlicensed repository is not open source
 
@@ -94,6 +99,30 @@ constraints:
   - No integration surface is added. This record touches distribution and identity only; the six surfaces of prov-2026-b5465dfa are unchanged, and nothing here creates a runtime API or a linking path.
   - CI runs provenance lint (strict), lists stale records and checks the commits of a pull request, with the CLI pinned to a full commit SHA.
   - The provenance CLI that CI installs is pinned to commit 4aaa1bb5eafabc4386a8cf70c02282c402deedac.
+  - A release publishes a slim archive for each os and arch it builds, in the same release as the full archive.
+  - The slim archive contains the sedum binary.
+  - The slim archive contains README.md, LICENSE, TOOL_BOUNDARIES.md and the conformance directory, as the full archive does.
+  - The slim archive contains neither goinfer-serve nor sedum-default-model.gguf.
+  - The full archive is named sedum_<version>_<os>_<arch>.tar.gz and the slim archive sedum_<version>_<os>_<arch>_slim.tar.gz.
+  - The full archive contains the sedum binary, goinfer-serve, sedum-default-model.gguf, README.md, LICENSE, TOOL_BOUNDARIES.md and the conformance directory.
+  - checksums.txt lists every archive the release publishes.
+  - The installer reads --no-model when run as sh -s -- --no-model.
+  - --no-model selects the slim archive.
+  - The installer selects the slim archive when SEDUM_NO_MODEL is exactly 1.
+  - Without --no-model, and unless SEDUM_NO_MODEL is exactly 1, the installer installs the full archive.
+  - An unknown argument makes the installer fail with a message naming the argument.
+  - An unknown argument makes the installer install nothing.
+  - A slim install writes the sedum binary into the install directory.
+  - After it exits, a slim install has written no file into the install directory other than the sedum binary.
+  - A slim install leaves a goinfer-serve and a sedum-default-model.gguf already in the install directory untouched.
+  - A slim install prints 'no local model' to standard error.
+  - A slim install prints to standard error that re-running the installer without --no-model, with SEDUM_NO_MODEL unset, installs the full archive.
+  - A full install prints the text "bundled local model" to standard error.
+  - A slim install does not print the text "bundled local model".
+  - When the checksums.txt of a release does not list the slim archive, a slim request exits nonzero.
+  - When the checksums.txt of a release does not list the slim archive, a slim request installs nothing.
+  - When the checksums.txt of a release does not list the slim archive, the message of a slim request names the tag and the slim archive's file name.
+  - When the checksums.txt of a release does not list the slim archive, a slim request does not install the full archive.
 affected_scope:
   - go.mod
   - go.sum
@@ -112,7 +141,7 @@ type: blueprint
 related:
   - prov-2026-b5465dfa
   - prov-2026-59535684
-sealed_at_sha: a0b194076efb51c9c810c543e0fd7302e54d55e3
+sealed_at_sha: ""
 associated_specs:
   - path: internal/cli/release_test.go
     run_command: go test -count=1 ./$(dirname {{path}})
@@ -122,6 +151,8 @@ associated_specs:
     run_command: sh -n {{path}}
   - path: LICENSE
     run_command: test -f {{path}}
+  - path: internal/cli/release_slim_test.go
+    run_command: go test -count=1 ./$(dirname {{path}})
 associated_traces: []
 monitors: []
 tags:

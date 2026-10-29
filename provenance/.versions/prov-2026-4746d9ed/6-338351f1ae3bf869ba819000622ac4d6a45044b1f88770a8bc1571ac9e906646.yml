@@ -1,0 +1,162 @@
+id: prov-2026-4746d9ed
+version: 6
+content_hash: sha256:338351f1ae3bf869ba819000622ac4d6a45044b1f88770a8bc1571ac9e906646
+parent_hash: sha256:00ba1d2fd4a2760fd9f5d00d863a20e08c3e974c5897b3b7be58823552a72abb
+reason: Register the slim archive tests
+author: calebcowen@gmail.com
+created_at: "2026-10-29T17:38:13Z"
+spec_hashes:
+  - sha256:87794bd28173787fec494ec339698daece91b49e5d003d4b434116fbf2ff98b0
+  - sha256:94293c5ab3d93d2d1c6a09cd19e4346d1d834be08b7d99c56a1937699519b17c
+  - sha256:1a4be3cd30950c28c31ae39531c3f9ef51579de2fea14ef7a18ec1132e865785
+  - sha256:0b48118f225fc18115738de0fc16bcb18a221884730ac9e28f73621df498a288
+  - sha256:720c1c58c1e48618d89faea26b190f3f71d638b720a09928a36f082550e0fbfc
+content:
+  id: prov-2026-4746d9ed
+  title: Sedum is installable and versioned, so a caller can pin it
+  type: blueprint
+  created_at: "2026-08-20"
+  author: calebcowen@gmail.com
+  intent: |
+    Sedum is invoked as an external binary by everything built above it. Tendril's
+    `[bin]` block names `sedum` on PATH and constrains it with a `sedum_version`
+    range; `tend doctor` checks presence and version before doing anything else.
+    None of that works today: there are no tags, no release artifacts, no way to
+    obtain the binary but `go build` in a checkout, and the one command that
+    answers "which one do I have" answers it about a binary nobody can install.
+
+    This makes the binary obtainable and the version pinnable. It adds no surface
+    to the six [[prov-2026-b5465dfa]] counts and does not touch the pipeline.
+
+    ## The module path names an account that does not exist
+
+    `go.mod` says `github.com/calebcowen/sedum`. The repository is
+    `github.com/livecodelife/sedum`; the other path 404s. For `go build` in a
+    checkout this is invisible, which is why it survived - the module path is only
+    resolved as a URL when someone fetches it, and nobody has.
+
+    `go install <path>/cmd/sedum@v0.1.0` resolves that path as a URL and then
+    checks that the `module` line in the go.mod it fetched matches what was asked
+    for. So there is no arrangement under which the current path is installable:
+    fetching `calebcowen` 404s, and fetching `livecodelife` returns a module
+    declaring itself to be something else. The path becomes the remote, which is
+    also the path LineSpec already uses and the one a reader of either repository
+    would predict.
+
+    The rewrite is every import line in the tree. That is mechanical and total,
+    and it is why this record's `affected_scope` is nearly the whole repository -
+    an honest allowlist for a rename, rather than a narrow one that would block
+    the commit it exists to authorize.
+
+    ## The version stays a constant, and CI is what stops it drifting
+
+    [[prov-2026-b5465dfa]] put `Version` in `internal/recording` as a `const`
+    rather than a build-time stamp, with the reason stated at the declaration: a
+    version injected by `-ldflags` is absent from `go build` and `go run`, which
+    is exactly when someone is developing against it.
+
+    Releasing is the moment that decision comes under pressure, because the
+    obvious release-engineering move is `-X ...Version={{.Version}}` and it would
+    quietly reverse it. It is not taken. The tag and the constant are kept honest
+    in the other direction: the release workflow reads the constant out of the
+    source and refuses to publish a tag that disagrees with it. A mismatch fails
+    the release rather than producing a `v0.2.0` binary that reports `0.1.0`, and
+    the recording it writes keeps carrying the same string the binary reports,
+    which is the property b5465dfa was protecting.
+
+    First tag is `v0.1.0`, matching the constant already in the tree. Nothing is
+    renumbered to look more finished than it is; `<1.0.0` is what the six surfaces
+    have earned while [[prov-2026-59535684]] still lists open gaps against them.
+
+    ## Three ways in, for three people
+
+    `go install` for someone who has Go. Signed-by-checksum archives for a CI job
+    or a container build. A `curl | sh` installer for a person on a laptop who
+    wants the binary and has no opinion about Go, which is the audience an
+    open-source release is for and the one served worst by the other two.
+
+    The installer is not a seventh integration surface. It writes the files of the archive it installs to a
+    directory and exits; it is not read or written by anything built above Sedum,
+    and no format passes through it. It resolves OS and architecture, downloads
+    the full or the slim archive the release publishes, verifies it against the published
+    `checksums.txt`, and installs. Verification is not optional in it - an
+    installer piped into a shell that skips the checksum it publishes is offering
+    a guarantee it does not keep.
+
+    ## Slim archive
+
+    Every full archive is about 1.7 GB because of the bundled server and model.
+    A slim archive without them makes CI and container installs cheap.
+
+    ## An unlicensed repository is not open source
+
+    `TOOL_BOUNDARIES.md` states the distribution intent as "Sedum open source" and
+    the repository carries no license, which means the default applies and nobody
+    may use it. Third-party harnesses are the stated reason the six surfaces are
+    formats rather than an API, and a third party cannot build against a
+    repository it has no license to use. MIT, matching LineSpec.
+
+    ## Nothing publishes untested
+
+    There is a Pages workflow and no test workflow, so `go test ./...` has never
+    run anywhere but a developer's machine. A tag that produced binaries without
+    that gate would publish whatever happened to be on `main`. Tests run on push
+    and pull request, and again as a precondition of the release job.
+  constraints:
+    - The module path equals the repository URL. A module whose path does not resolve to the repository serving it is not installable by any means, and no packaging works around it.
+    - 'The version remains a compile-time constant in internal/recording, never a -ldflags stamp. prov-2026-b5465dfa''s reason is unchanged by releasing: a version absent from `go build` and `go run` is absent exactly when someone is developing against it.'
+    - A release whose tag disagrees with that constant does not publish. The binary's answer and the recording's sedum_version field cannot be allowed to drift from the tag a caller pins.
+    - The installer verifies the downloaded archive against the published checksums before installing, and fails if it cannot. An installer run by piping a URL into a shell does not skip its own integrity check.
+    - Tests pass before anything is published. The release job depends on the test job rather than running beside it.
+    - No integration surface is added. This record touches distribution and identity only; the six surfaces of prov-2026-b5465dfa are unchanged, and nothing here creates a runtime API or a linking path.
+    - CI runs provenance lint (strict), lists stale records and checks the commits of a pull request, with the CLI pinned to a full commit SHA.
+    - The provenance CLI that CI installs is pinned to commit 4aaa1bb5eafabc4386a8cf70c02282c402deedac.
+    - A release publishes a slim archive for each os and arch it builds, in the same release as the full archive.
+    - The slim archive contains the sedum binary.
+    - The slim archive contains README.md, LICENSE, TOOL_BOUNDARIES.md and the conformance directory, as the full archive does.
+    - The slim archive contains neither goinfer-serve nor sedum-default-model.gguf.
+    - The full archive is named sedum_<version>_<os>_<arch>.tar.gz and the slim archive sedum_<version>_<os>_<arch>_slim.tar.gz.
+    - The full archive contains the sedum binary, goinfer-serve, sedum-default-model.gguf, README.md, LICENSE, TOOL_BOUNDARIES.md and the conformance directory.
+    - checksums.txt lists every archive the release publishes.
+    - The installer reads --no-model when run as sh -s -- --no-model.
+    - --no-model selects the slim archive.
+    - The installer selects the slim archive when SEDUM_NO_MODEL is exactly 1.
+    - Without --no-model, and unless SEDUM_NO_MODEL is exactly 1, the installer installs the full archive.
+    - An unknown argument makes the installer fail with a message naming the argument.
+    - An unknown argument makes the installer install nothing.
+    - A slim install writes the sedum binary into the install directory.
+    - After it exits, a slim install has written no file into the install directory other than the sedum binary.
+    - A slim install leaves a goinfer-serve and a sedum-default-model.gguf already in the install directory untouched.
+    - A slim install prints 'no local model' to standard error.
+    - A slim install prints to standard error that re-running the installer without --no-model, with SEDUM_NO_MODEL unset, installs the full archive.
+    - A full install prints the text "bundled local model" to standard error.
+    - A slim install does not print the text "bundled local model".
+    - When the checksums.txt of a release does not list the slim archive, a slim request exits nonzero.
+    - When the checksums.txt of a release does not list the slim archive, a slim request installs nothing.
+    - When the checksums.txt of a release does not list the slim archive, the message of a slim request names the tag and the slim archive's file name.
+    - When the checksums.txt of a release does not list the slim archive, a slim request does not install the full archive.
+  affected_scope:
+    - go.mod
+    - go.sum
+    - cmd/**
+    - internal/**
+    - evals/**
+    - conformance/**
+    - docs/**
+    - LICENSE
+    - install.sh
+    - .goreleaser.yml
+    - .github/workflows/ci.yml
+    - .github/workflows/release.yml
+  related:
+    - prov-2026-b5465dfa
+    - prov-2026-59535684
+  associated_specs:
+    - path: internal/cli/release_test.go
+    - path: .goreleaser.yml
+    - path: install.sh
+    - path: LICENSE
+    - path: internal/cli/release_slim_test.go
+  tags:
+    - sedum
+    - distribution
