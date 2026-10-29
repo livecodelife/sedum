@@ -212,7 +212,9 @@ func runGrow(ctx context.Context, out, errOut io.Writer, cfg GrowConfig, respons
 			bundled, ok := selection.BundledLocalConfig()
 			if !ok {
 				return errors.New(
-					"no --model or --local-model given, and no bundled model found next to this binary; pass one of them")
+					"no --model or --local-model given, and no bundled model found next to this binary; " +
+						"pass one of them, or install the full archive with: " +
+						"curl -fsSL https://raw.githubusercontent.com/livecodelife/sedum/main/install.sh | sh")
 			}
 			bundled.Backend = cfg.LocalModelBackend
 			localCfg = bundled

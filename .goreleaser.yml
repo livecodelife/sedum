@@ -71,6 +71,25 @@ archives:
       - src: .release-assets/sedum-default-model.gguf
         dst: sedum-default-model.gguf
 
+  # The slim archive: the binary and the documentation, without the bundled
+  # goinfer-serve and default model that make the full archive about 1.7GB.
+  # install.sh installs it with --no-model or SEDUM_NO_MODEL=1
+  # (prov-2026-4746d9ed). Same build, so the binary is the same file.
+  - id: sedum-slim
+    ids:
+      - sedum
+    name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}_slim"
+    formats:
+      - tar.gz
+    files:
+      - README.md
+      - LICENSE
+      - TOOL_BOUNDARIES.md
+      - conformance/README.md
+      - src: conformance/**/*
+        info:
+          mode: 0644
+
 # The installer verifies against this file, so it is not optional decoration.
 checksum:
   name_template: "checksums.txt"
@@ -108,7 +127,16 @@ release:
     go install github.com/livecodelife/sedum/cmd/sedum@{{ .Tag }}
     ```
 
-    Or download an archive below and verify it against `checksums.txt`.
+    The archives bundle a local model and are about 1.7GB. For the binary alone,
+    without the bundled model (for CI or a container, or when you pass `--model`),
+    install the slim archive:
+
+    ```sh
+    curl -fsSL https://raw.githubusercontent.com/livecodelife/sedum/main/install.sh | sh -s -- --no-model
+    ```
+
+    Or download an archive below and verify it against `checksums.txt`. The slim
+    archives end in `_slim`.
   footer: |
     ### Pinning this version
 

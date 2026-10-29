@@ -1,7 +1,8 @@
 id: prov-2026-668746b1
 title: 'Zero-setup default: bundle goinfer-serve and a fine-tuned model in the release archive'
 status: implemented
-version: 1
+version: 3
+reason: Register the no-model error test
 created_at: "2026-09-29"
 author: calebcowen@gmail.com
 intent: |
@@ -9,38 +10,28 @@ intent: |
   goinfer-serve binary and a gguf bundled in the release archive, rather than
   erroring. CI fetches both at release-build time - goinfer-serve per
   platform from its own releases, the gguf from a release asset in this repo
-  - and goreleaser packages them into every platform archive alongside the
+  - and goreleaser packages them into every full platform archive alongside the
   sedum binary. install.sh copies them into the install directory next to
   sedum; Sedum finds them at runtime as siblings of its own executable path.
 
-  Bundled into the default archive, not a separate one: someone who installs
-  Sedum the ordinary way gets a working default model with no flag, no
-  endpoint, and no network access at run time - the whole point of this
-  record.
+  The model is bundled into the full archive, which install.sh installs unless
+  asked for the slim archive. Someone who runs install.sh without --no-model
+  gets a working default model with no flag, no endpoint, and no network
+  access at run time.
 
-  --model and --local-model still take priority and behave exactly as
-  before ([[prov-2026-a1ccdd65]]). This only changes what happens when
-  neither is given.
+  --model and --local-model take priority over the bundled default, which
+  applies only when neither is given.
 constraints:
-  - >-
-    Bundled asset paths are resolved from os.Executable()'s own directory,
-    never hardcoded to an install location. `go install`, which does not
-    carry these files, gets a clear "no bundled model found, pass --model or
-    --local-model" rather than a wrong path.
-  - >-
-    goinfer-serve's version is pinned in the fetch script and its release
-    checksum verified before use, matching install.sh's own reason for
-    verifying what it downloads.
-  - >-
-    The model asset's sha256 is pinned in the fetch script and verified
-    before it is trusted, for the same reason.
-  - >-
-    A CI fetch failure - a moved asset, a checksum mismatch - fails the
-    release build. An archive with a missing or wrong bundled model is never
-    published rather than silently shipped.
-  - >-
-    No credential or endpoint is introduced. The bundled server is
-    loopback-only, exactly like the explicit --local-model path.
+  - Bundled asset paths are resolved from the directory of the running executable, never hardcoded to an install location.
+  - A go install carries neither bundled file.
+  - goinfer-serve's version is pinned in the fetch script and its release checksum verified before use, matching install.sh's own reason for verifying what it downloads.
+  - The model asset's sha256 is pinned in the fetch script and verified before it is trusted, for the same reason.
+  - A CI fetch failure - a moved asset, a checksum mismatch - fails the release build. A full archive with a missing or wrong bundled model is never published rather than silently shipped.
+  - No credential or endpoint is introduced. The bundled server is loopback-only, exactly like the explicit --local-model path.
+  - A run with neither --model nor --local-model and no bundled model next to the executable fails before any model call.
+  - The error of that run contains the text 'no --model or --local-model given, and no bundled model found'.
+  - The error of that run contains the flag names --model and --local-model.
+  - The error of that run ends by naming the installer command `curl -fsSL https://raw.githubusercontent.com/livecodelife/sedum/main/install.sh | sh` for the full install.
 affected_scope:
   - .goreleaser.yml
   - hack/fetch-release-assets.sh
@@ -48,6 +39,7 @@ affected_scope:
   - internal/selection/bundled_test.go
   - internal/cli/config.go
   - internal/cli/grow.go
+  - internal/cli/grow_nomodel_test.go
   - internal/cli/flags_test.go
   - internal/cli/resolve_test.go
   - install.sh
@@ -66,9 +58,11 @@ related:
   - prov-2026-a1ccdd65
   - prov-2026-4746d9ed
   - prov-2026-2f131ba6
-sealed_at_sha: 99dc0a24c9b5b2f00c828f4c7fdbbaa607662d75
+sealed_at_sha: 737f2f1479ebae5bb6829d1f6851467f19994a7b
 associated_specs:
   - path: internal/selection/bundled_test.go
+    run_command: go test -count=1 ./$(dirname {{path}})
+  - path: internal/cli/grow_nomodel_test.go
     run_command: go test -count=1 ./$(dirname {{path}})
 associated_traces: []
 monitors: []

@@ -1,0 +1,76 @@
+id: prov-2026-668746b1
+version: 3
+content_hash: sha256:2c156582ec693840bbae3d4b7fe6db752c9049897571706f50e03912ddf25ad6
+parent_hash: sha256:54b9b90c15d6fd0ab16eb6d54642ad7a7af1b7b45ba85eb07af528875826e7a7
+reason: Register the no-model error test
+author: calebcowen@gmail.com
+created_at: "2026-10-29T17:38:12Z"
+spec_hashes:
+  - sha256:597c71ff26ca824bc35a97887a2e91793f68e7a8b34984f2f900ae56d275b20d
+  - sha256:f1cac2912cc73f5a380d118599b0c5582d696d3badfbc258b8a7dfb7784adfd3
+content:
+  id: prov-2026-668746b1
+  title: 'Zero-setup default: bundle goinfer-serve and a fine-tuned model in the release archive'
+  type: blueprint
+  created_at: "2026-09-29"
+  author: calebcowen@gmail.com
+  intent: |
+    `sedum grow` with neither --model nor --local-model set defaults to a
+    goinfer-serve binary and a gguf bundled in the release archive, rather than
+    erroring. CI fetches both at release-build time - goinfer-serve per
+    platform from its own releases, the gguf from a release asset in this repo
+    - and goreleaser packages them into every full platform archive alongside the
+    sedum binary. install.sh copies them into the install directory next to
+    sedum; Sedum finds them at runtime as siblings of its own executable path.
+
+    The model is bundled into the full archive, which install.sh installs unless
+    asked for the slim archive. Someone who runs install.sh without --no-model
+    gets a working default model with no flag, no endpoint, and no network
+    access at run time.
+
+    --model and --local-model take priority over the bundled default, which
+    applies only when neither is given.
+  constraints:
+    - Bundled asset paths are resolved from the directory of the running executable, never hardcoded to an install location.
+    - A go install carries neither bundled file.
+    - goinfer-serve's version is pinned in the fetch script and its release checksum verified before use, matching install.sh's own reason for verifying what it downloads.
+    - The model asset's sha256 is pinned in the fetch script and verified before it is trusted, for the same reason.
+    - A CI fetch failure - a moved asset, a checksum mismatch - fails the release build. A full archive with a missing or wrong bundled model is never published rather than silently shipped.
+    - No credential or endpoint is introduced. The bundled server is loopback-only, exactly like the explicit --local-model path.
+    - A run with neither --model nor --local-model and no bundled model next to the executable fails before any model call.
+    - The error of that run contains the text 'no --model or --local-model given, and no bundled model found'.
+    - The error of that run contains the flag names --model and --local-model.
+    - The error of that run ends by naming the installer command `curl -fsSL https://raw.githubusercontent.com/livecodelife/sedum/main/install.sh | sh` for the full install.
+  affected_scope:
+    - .goreleaser.yml
+    - hack/fetch-release-assets.sh
+    - internal/selection/bundled.go
+    - internal/selection/bundled_test.go
+    - internal/cli/config.go
+    - internal/cli/grow.go
+    - internal/cli/grow_nomodel_test.go
+    - internal/cli/flags_test.go
+    - internal/cli/resolve_test.go
+    - install.sh
+    - internal/cli/release_test.go
+    - .gitignore
+    - README.md
+    - PRD.md
+  forbidden_scope:
+    - internal/genpkg/**
+    - internal/inject/**
+    - internal/record/**
+  implements: prov-2026-d554bfc3
+  implements_version: 1
+  related:
+    - prov-2026-a1ccdd65
+    - prov-2026-4746d9ed
+    - prov-2026-2f131ba6
+  associated_specs:
+    - path: internal/selection/bundled_test.go
+    - path: internal/cli/grow_nomodel_test.go
+  tags:
+    - sedum
+    - llm
+    - local-model
+    - release
