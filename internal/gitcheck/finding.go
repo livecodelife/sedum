@@ -28,9 +28,10 @@ func FindingOf(r Result) Finding {
 const refusalText = "is implemented: run 'provenance revise"
 
 // IsRefusal reports whether f is the refusal that a tagged record is implemented
-// and needs a revision: rule STATE001 with that message text.
+// and needs a revision: rule STATE001 (provenance before 3.0.0) or REVISE001
+// with that message text.
 func IsRefusal(f Finding) bool {
-	return f.RuleID == "STATE001" && strings.Contains(f.Message, refusalText)
+	return (f.RuleID == "STATE001" || f.RuleID == "REVISE001") && strings.Contains(f.Message, refusalText)
 }
 
 // Allowed reports whether the proof may waive f for the tagged record. The
