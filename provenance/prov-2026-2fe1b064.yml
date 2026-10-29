@@ -1,7 +1,7 @@
 id: prov-2026-2fe1b064
 title: 'Version 0.11.0: a slim release archive per platform and route folder paths that grow --check reads'
 type: blueprint
-status: draft
+status: open
 version: 1
 reason: ""
 created_at: "2026-10-29"
