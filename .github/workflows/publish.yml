@@ -47,7 +47,7 @@ jobs:
     if: github.repository == 'livecodelife/sedum' && github.ref == 'refs/heads/main'
     environment: provisio-publish
     env:
-      PROVENANCE_VERSION: "2.1.0"
+      PROVENANCE_VERSION: "3.0.0"
     steps:
       # Full history: publish reads the source commit and the [id@N] commit of each version.
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
