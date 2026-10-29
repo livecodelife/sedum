@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.10.1
+
+- `sedum check` recognises the REVISE001 refusal of provenance 3.0.0, which reports "is implemented: run 'provenance revise'" under that rule id instead of STATE001, so a pure regeneration or marker migration of an implemented record is waived again. The STATE001 form of earlier provenance is still recognised.
+
 ## 0.10.0
 
 - **`sedum check`** runs `provenance check` on each commit of `--range` (or on the staged change) and waives only the findings it can prove come from a pure regeneration or a pure marker migration, so the checks that used to live in provenance now live here. Exit 0 means no finding is left, 1 that some are, 2 that provenance or git could not be run or read.
