@@ -926,6 +926,7 @@ Each file is a valid recording holding exactly one record, so `--execute` accept
 
 ## Practical notes for outside users
 
+- **Write records for regeneration with the Sedum rules.** A model writes the code from the record, so the record must state interfaces, collaborators, type-level steps, who owns each import and one function per imprint: see [docs/AGENT_RULES.md](docs/AGENT_RULES.md).
 - **Keep escape-heavy literals out of intents.** A model asked to reproduce a string full of backslashes and quotes, or one holding an exotic character such as U+2028, will double the backslashes or turn the character into a newline, and the region then fails its own tests. Write such values with Go escapes or raw strings that need one level of escaping, and keep an exact-bytes corpus in a checked-in file rather than in an intent.
 - **Give a vendored generator package its own `go.mod`.** A package vendored inside a Go repository (for example `generators/go`) holds templates, some with names like `{pkg}`, and `go build ./...` tries to compile them. A `go.mod` in `generators/` makes it a separate module the root build skips.
 - **A large orphan count usually means a vendored corpus.** `grow` summarizes orphans and names the directories holding the most; `--orphans` lists every region.
@@ -1374,6 +1375,7 @@ provenance/           Provenance records governing Sedum's own development.
 PRD.md                Product requirements, including the milestone plan.
 OPEN_QUESTIONS.md     Design directions explored but deliberately out of scope.
 TOOL_BOUNDARIES.md    What belongs in Sedum and what belongs in a tool above it.
+docs/AGENT_RULES.md   How to write records that Sedum will regenerate.
 ```
 
 Sedum's own development is governed by the provenance records in `provenance/`.
