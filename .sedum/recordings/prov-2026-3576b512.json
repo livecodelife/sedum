@@ -1,0 +1,575 @@
+{
+  "sedum_version": "0.11.0",
+  "packages": {
+    "go": {
+      "extensions": [
+        ".go"
+      ]
+    }
+  },
+  "records": [
+    {
+      "record_id": "prov-2026-3576b512",
+      "gen": "sha256:8fdf237b1cfc5b39c2b61b113e19348370b6fe3df88a1d96d16e3acf278f4cef",
+      "created_at": "2026-10-16",
+      "files": [
+        {
+          "path": "evals/design/grade.go",
+          "package": "go",
+          "template": "*/{pkg}/{name}.go",
+          "captures": {
+            "name": "grade",
+            "pkg": "design"
+          }
+        },
+        {
+          "path": "evals/design/prepare.go",
+          "package": "go",
+          "template": "*/{pkg}/{name}.go",
+          "captures": {
+            "name": "prepare",
+            "pkg": "design"
+          }
+        },
+        {
+          "path": "evals/design/prepare_test.go",
+          "package": "go",
+          "template": "*/{pkg}/{name}.go",
+          "captures": {
+            "name": "prepare_test",
+            "pkg": "design"
+          }
+        }
+      ],
+      "phases": [
+        {
+          "name": "default",
+          "invocations": [
+            {
+              "action": "addImport",
+              "kwargs": {
+                "file": "evals/design/grade.go",
+                "path": "os"
+              }
+            },
+            {
+              "action": "addImport",
+              "kwargs": {
+                "file": "evals/design/grade.go",
+                "path": "os/exec"
+              }
+            },
+            {
+              "action": "addImport",
+              "kwargs": {
+                "file": "evals/design/grade.go",
+                "path": "path/filepath"
+              }
+            },
+            {
+              "action": "setFunction",
+              "kwargs": {
+                "code": "// tail keeps the last n bytes of s.\nfunc tail(s string, n int) string {\n\tif len(s) \u003c= n {\n\t\treturn s\n\t}\n\treturn s[len(s)-n:]\n}",
+                "file": "evals/design/grade.go",
+                "name": "tail"
+              }
+            },
+            {
+              "action": "setFunction",
+              "kwargs": {
+                "code": "// Grade checks what a grow left in dir. It runs go build, which is\n// \"compiled\"; then copies the task's hidden tests in and runs go test, which\n// is \"passed\". The returned output is the tail of whatever failed.\nfunc Grade(t Task, dir string) (compiled, passed bool, output string, err error) {\n\trun := func(args ...string) (string, error) {\n\t\tcmd := exec.Command(\"go\", args...)\n\t\tcmd.Dir = dir\n\t\tout, err := cmd.CombinedOutput()\n\t\treturn string(out), err\n\t}\n\tif out, err := run(\"build\", \"./...\"); err != nil {\n\t\treturn false, false, tail(out, 2000), nil\n\t}\n\tcompiled = true\n\tfor _, f := range t.Hidden {\n\t\tdata, err := os.ReadFile(filepath.Join(t.Dir, \"hidden\", f))\n\t\tif err != nil {\n\t\t\treturn compiled, false, \"\", err\n\t\t}\n\t\tif err := os.WriteFile(filepath.Join(dir, t.Package, f), data, 0o644); err != nil {\n\t\t\treturn compiled, false, \"\", err\n\t\t}\n\t}\n\tout, testErr := run(\"test\", \"-count=1\", \"./...\")\n\tif testErr != nil {\n\t\treturn compiled, false, tail(out, 2000), nil\n\t}\n\treturn compiled, true, \"\", nil\n}",
+                "file": "evals/design/grade.go",
+                "name": "Grade"
+              }
+            },
+            {
+              "action": "addImport",
+              "kwargs": {
+                "file": "evals/design/prepare.go",
+                "path": "fmt"
+              }
+            },
+            {
+              "action": "addImport",
+              "kwargs": {
+                "file": "evals/design/prepare.go",
+                "path": "io/fs"
+              }
+            },
+            {
+              "action": "addImport",
+              "kwargs": {
+                "file": "evals/design/prepare.go",
+                "path": "os"
+              }
+            },
+            {
+              "action": "addImport",
+              "kwargs": {
+                "file": "evals/design/prepare.go",
+                "path": "path/filepath"
+              }
+            },
+            {
+              "action": "addImport",
+              "kwargs": {
+                "file": "evals/design/prepare.go",
+                "path": "gopkg.in/yaml.v3"
+              }
+            },
+            {
+              "action": "addImport",
+              "kwargs": {
+                "file": "evals/design/prepare.go",
+                "path": "strings"
+              }
+            },
+            {
+              "action": "setConst",
+              "kwargs": {
+                "code": "// growPrompt is the same advisory text for every variant, so the variants\n// differ only in the intent.\nconst growPrompt = \"# Context\\n\\nA small Go package. Standard library only (plus what the context files import). Write each target file in full, gofmt-clean, with a doc comment on every exported identifier.\\n\"",
+                "file": "evals/design/prepare.go",
+                "name": "growPrompt"
+              }
+            },
+            {
+              "action": "setType",
+              "kwargs": {
+                "code": "// record is the v1 record a sample's intent is written into.\ntype record struct {\n\tID            string   `yaml:\"id\"`\n\tTitle         string   `yaml:\"title\"`\n\tStatus        string   `yaml:\"status\"`\n\tCreatedAt     string   `yaml:\"created_at\"`\n\tAuthor        string   `yaml:\"author\"`\n\tIntent        string   `yaml:\"intent\"`\n\tConstraints   []string `yaml:\"constraints\"`\n\tAffectedScope []string `yaml:\"affected_scope\"`\n\tForbidden     []string `yaml:\"forbidden_scope\"`\n\tType          string   `yaml:\"type\"`\n}",
+                "file": "evals/design/prepare.go",
+                "name": "record"
+              }
+            },
+            {
+              "action": "setFunction",
+              "kwargs": {
+                "code": "// copyTree copies the directory src into dst.\nfunc copyTree(src, dst string) error {\n\treturn filepath.WalkDir(src, func(p string, d fs.DirEntry, err error) error {\n\t\tif err != nil {\n\t\t\treturn err\n\t\t}\n\t\trel, err := filepath.Rel(src, p)\n\t\tif err != nil {\n\t\t\treturn err\n\t\t}\n\t\ttarget := filepath.Join(dst, rel)\n\t\tif d.IsDir() {\n\t\t\treturn os.MkdirAll(target, 0o755)\n\t\t}\n\t\tdata, err := os.ReadFile(p)\n\t\tif err != nil {\n\t\t\treturn err\n\t\t}\n\t\treturn os.WriteFile(target, data, 0o644)\n\t})\n}",
+                "file": "evals/design/prepare.go",
+                "name": "copyTree"
+              }
+            },
+            {
+              "action": "setFunction",
+              "kwargs": {
+                "code": "// Prepare writes the project for one sample into dir: a go.mod, the task's\n// context files (in the directory named for the task's package), a copy of the generator packages, the grow prompt, and one\n// open record whose intent is the variant's text and whose scope is the target\n// files. The hidden tests are not written; Grade adds them after the grow.\nfunc Prepare(t Task, v Variant, generators, dir string) error {\n\tintent, err := t.Intent(v)\n\tif err != nil {\n\t\treturn err\n\t}\n\tif err := t.Isolated(); err != nil {\n\t\treturn err\n\t}\n\tmod := fmt.Sprintf(\"module design/%s\\n\\ngo 1.25\\n\", t.ID)\n\tif err := os.WriteFile(filepath.Join(dir, \"go.mod\"), []byte(mod), 0o644); err != nil {\n\t\treturn err\n\t}\n\tif err := os.MkdirAll(filepath.Join(dir, t.Package), 0o755); err != nil {\n\t\treturn err\n\t}\n\tfor _, f := range t.Context {\n\t\tdata, err := os.ReadFile(filepath.Join(t.Dir, \"context\", f))\n\t\tif err != nil {\n\t\t\treturn err\n\t\t}\n\t\tif err := os.WriteFile(filepath.Join(dir, t.Package, f), data, 0o644); err != nil {\n\t\t\treturn err\n\t\t}\n\t}\n\tif err := copyTree(generators, filepath.Join(dir, \"generators\")); err != nil {\n\t\treturn fmt.Errorf(\"copy generators: %w\", err)\n\t}\n\tif err := os.WriteFile(filepath.Join(dir, \"PROMPT.md\"), []byte(growPrompt+\"\\nThe target files, as project paths:\\n\"+targetPaths(t)), 0o644); err != nil {\n\t\treturn err\n\t}\n\tscope := make([]string, 0, len(t.Target))\n\tfor _, f := range t.Target {\n\t\tscope = append(scope, t.Package+\"/\"+f)\n\t}\n\trec := record{\n\t\tID:            fmt.Sprintf(\"design-%s-%s\", t.ID, v),\n\t\tTitle:         fmt.Sprintf(\"design eval: %s (%s)\", t.ID, v),\n\t\tStatus:        \"open\",\n\t\tCreatedAt:     \"2026-10-16\",\n\t\tAuthor:        \"eval@example.com\",\n\t\tIntent:        intent,\n\t\tConstraints:   []string{},\n\t\tAffectedScope: scope,\n\t\tForbidden:     []string{},\n\t\tType:          \"blueprint\",\n\t}\n\tdata, err := yaml.Marshal(rec)\n\tif err != nil {\n\t\treturn err\n\t}\n\tif err := os.MkdirAll(filepath.Join(dir, \"provenance\"), 0o755); err != nil {\n\t\treturn err\n\t}\n\treturn os.WriteFile(filepath.Join(dir, \"provenance\", rec.ID+\".yml\"), data, 0o644)\n}",
+                "file": "evals/design/prepare.go",
+                "name": "Prepare"
+              }
+            },
+            {
+              "action": "setFunction",
+              "kwargs": {
+                "code": "// targetPaths lists the task's target files as project paths, one per line.\nfunc targetPaths(t Task) string {\n\tvar b strings.Builder\n\tfor _, f := range t.Target {\n\t\tb.WriteString(t.Package + \"/\" + f + \"\\n\")\n\t}\n\treturn b.String()\n}",
+                "file": "evals/design/prepare.go",
+                "name": "targetPaths"
+              }
+            },
+            {
+              "action": "addImport",
+              "kwargs": {
+                "file": "evals/design/prepare_test.go",
+                "path": "os"
+              }
+            },
+            {
+              "action": "addImport",
+              "kwargs": {
+                "file": "evals/design/prepare_test.go",
+                "path": "path/filepath"
+              }
+            },
+            {
+              "action": "addImport",
+              "kwargs": {
+                "file": "evals/design/prepare_test.go",
+                "path": "strings"
+              }
+            },
+            {
+              "action": "addImport",
+              "kwargs": {
+                "file": "evals/design/prepare_test.go",
+                "path": "testing"
+              }
+            },
+            {
+              "action": "setFunction",
+              "kwargs": {
+                "code": "func TestPrepare(t *testing.T) {\n\ttask, err := LoadTask(writeTask(t, t.TempDir(), \"ok\", validTask))\n\tif err != nil {\n\t\tt.Fatal(err)\n\t}\n\tdir := t.TempDir()\n\tif err := Prepare(task, VariantSignatures, \"../../generators\", dir); err != nil {\n\t\tt.Fatal(err)\n\t}\n\tmod, err := os.ReadFile(filepath.Join(dir, \"go.mod\"))\n\tif err != nil || !strings.Contains(string(mod), \"module design/ok\") {\n\t\tt.Fatalf(\"go.mod = %q, %v\", mod, err)\n\t}\n\tfor _, f := range []string{\"p/ctx.go\", \"PROMPT.md\", \"generators/go/sedum.yaml\", \"provenance/design-ok-signatures.yml\"} {\n\t\tif _, err := os.Stat(filepath.Join(dir, f)); err != nil {\n\t\t\tt.Errorf(\"missing %s: %v\", f, err)\n\t\t}\n\t}\n\trec, err := os.ReadFile(filepath.Join(dir, \"provenance\", \"design-ok-signatures.yml\"))\n\tif err != nil {\n\t\tt.Fatal(err)\n\t}\n\tfor _, want := range []string{\"status: open\", \"intent: s\", \"- p/a.go\"} {\n\t\tif !strings.Contains(string(rec), want) {\n\t\t\tt.Errorf(\"record lacks %q:\\n%s\", want, rec)\n\t\t}\n\t}\n\tprompt, err := os.ReadFile(filepath.Join(dir, \"PROMPT.md\"))\n\tif err != nil || !strings.Contains(string(prompt), \"p/a.go\") {\n\t\tt.Fatalf(\"PROMPT.md must list the target paths: %q, %v\", prompt, err)\n\t}\n\tif _, err := os.Stat(filepath.Join(dir, \"p\", \"a_test.go\")); err == nil {\n\t\tt.Fatal(\"the hidden test must not be written before grading\")\n\t}\n\tif err := Prepare(task, \"nope\", \"../../generators\", t.TempDir()); err == nil {\n\t\tt.Fatal(\"an unknown variant must be an error\")\n\t}\n}",
+                "file": "evals/design/prepare_test.go",
+                "name": "TestPrepare"
+              }
+            }
+          ]
+        }
+      ],
+      "regions": [
+        {
+          "path": "evals/design/grade.go",
+          "action": "addImport",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:d6a9443c14d82b7bdf19bb96637f957fd44ad9bfbe8f167c97e6f7699c8b830f",
+          "id": {
+            "file": "evals/design/grade.go",
+            "path": "os"
+          },
+          "kwargs": {
+            "file": "evals/design/grade.go",
+            "path": "os"
+          },
+          "kwargs_hash": "sha256:7ce9ec40e1ac8d635938e0a2533764cb780a552c2ac8f9fcc2ac1e52c3238484",
+          "body": "sha256:7c6e309eb2575d4aa451ec2ab83161d13e9ae03bbca3a4d2ecf30ce12adf0905"
+        },
+        {
+          "path": "evals/design/grade.go",
+          "action": "addImport",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:d6a9443c14d82b7bdf19bb96637f957fd44ad9bfbe8f167c97e6f7699c8b830f",
+          "id": {
+            "file": "evals/design/grade.go",
+            "path": "os/exec"
+          },
+          "kwargs": {
+            "file": "evals/design/grade.go",
+            "path": "os/exec"
+          },
+          "kwargs_hash": "sha256:91b8bc15e443f85cf4061fba0448d420237e57b63a0e69427064acc113808262",
+          "body": "sha256:5970e9ca793f55e2beb08de623e98bdbc0ced178860fedd953eef7e15026ee19"
+        },
+        {
+          "path": "evals/design/grade.go",
+          "action": "addImport",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:d6a9443c14d82b7bdf19bb96637f957fd44ad9bfbe8f167c97e6f7699c8b830f",
+          "id": {
+            "file": "evals/design/grade.go",
+            "path": "path/filepath"
+          },
+          "kwargs": {
+            "file": "evals/design/grade.go",
+            "path": "path/filepath"
+          },
+          "kwargs_hash": "sha256:cee206797df7e805fa5227e7f6a6e96db74c538e519ea26fcca8928f65cb1cba",
+          "body": "sha256:a6d196b558491e646be93f56a321f339068c64c76aa9d49bb18046e7f9c777a1"
+        },
+        {
+          "path": "evals/design/grade.go",
+          "action": "setFunction",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:6589611adfb6618a7920e43f951a79901428192ea95c1084fde9f222aecd9537",
+          "id": {
+            "file": "evals/design/grade.go",
+            "name": "Grade"
+          },
+          "kwargs": {
+            "code": "// Grade checks what a grow left in dir. It runs go build, which is\n// \"compiled\"; then copies the task's hidden tests in and runs go test, which\n// is \"passed\". The returned output is the tail of whatever failed.\nfunc Grade(t Task, dir string) (compiled, passed bool, output string, err error) {\n\trun := func(args ...string) (string, error) {\n\t\tcmd := exec.Command(\"go\", args...)\n\t\tcmd.Dir = dir\n\t\tout, err := cmd.CombinedOutput()\n\t\treturn string(out), err\n\t}\n\tif out, err := run(\"build\", \"./...\"); err != nil {\n\t\treturn false, false, tail(out, 2000), nil\n\t}\n\tcompiled = true\n\tfor _, f := range t.Hidden {\n\t\tdata, err := os.ReadFile(filepath.Join(t.Dir, \"hidden\", f))\n\t\tif err != nil {\n\t\t\treturn compiled, false, \"\", err\n\t\t}\n\t\tif err := os.WriteFile(filepath.Join(dir, t.Package, f), data, 0o644); err != nil {\n\t\t\treturn compiled, false, \"\", err\n\t\t}\n\t}\n\tout, testErr := run(\"test\", \"-count=1\", \"./...\")\n\tif testErr != nil {\n\t\treturn compiled, false, tail(out, 2000), nil\n\t}\n\treturn compiled, true, \"\", nil\n}",
+            "file": "evals/design/grade.go",
+            "name": "Grade"
+          },
+          "kwargs_hash": "sha256:3cdcd8ae7812a57adfa6dec364d823d5058de6a9564e91c617b08cc15466a73c",
+          "body": "sha256:6ed77ae10f2bd8b6faf0a1c59eeae8f8cc6834db68de74e311bf1eaab3232040"
+        },
+        {
+          "path": "evals/design/grade.go",
+          "action": "setFunction",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:6589611adfb6618a7920e43f951a79901428192ea95c1084fde9f222aecd9537",
+          "id": {
+            "file": "evals/design/grade.go",
+            "name": "tail"
+          },
+          "kwargs": {
+            "code": "// tail keeps the last n bytes of s.\nfunc tail(s string, n int) string {\n\tif len(s) \u003c= n {\n\t\treturn s\n\t}\n\treturn s[len(s)-n:]\n}",
+            "file": "evals/design/grade.go",
+            "name": "tail"
+          },
+          "kwargs_hash": "sha256:65fb428961103276946b1f0f52195bdb41511cde765984162167938469c11644",
+          "body": "sha256:01f41d503ed921b1e1f710a1b92f1329e86b0f81da3a420cc0bfe19e90ec660d"
+        },
+        {
+          "path": "evals/design/prepare.go",
+          "action": "addImport",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:d6a9443c14d82b7bdf19bb96637f957fd44ad9bfbe8f167c97e6f7699c8b830f",
+          "id": {
+            "file": "evals/design/prepare.go",
+            "path": "fmt"
+          },
+          "kwargs": {
+            "file": "evals/design/prepare.go",
+            "path": "fmt"
+          },
+          "kwargs_hash": "sha256:b257cdea935ce463d86174fed588207491e65175d7437315463528e184f708cf",
+          "body": "sha256:bcbac51883cbf8064e9196b371cb880cee429866652447ad557533d817857609"
+        },
+        {
+          "path": "evals/design/prepare.go",
+          "action": "addImport",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:d6a9443c14d82b7bdf19bb96637f957fd44ad9bfbe8f167c97e6f7699c8b830f",
+          "id": {
+            "file": "evals/design/prepare.go",
+            "path": "gopkg.in/yaml.v3"
+          },
+          "kwargs": {
+            "file": "evals/design/prepare.go",
+            "path": "gopkg.in/yaml.v3"
+          },
+          "kwargs_hash": "sha256:6cf5713f052e29e684d16f98fe15d8e565ea511f864ccb75f21156ee8ee6a6f8",
+          "body": "sha256:a4214cbff710690b396b73d2b1ccc9aa8b55a807d07f73aa80f10af0c41e13b9"
+        },
+        {
+          "path": "evals/design/prepare.go",
+          "action": "addImport",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:d6a9443c14d82b7bdf19bb96637f957fd44ad9bfbe8f167c97e6f7699c8b830f",
+          "id": {
+            "file": "evals/design/prepare.go",
+            "path": "io/fs"
+          },
+          "kwargs": {
+            "file": "evals/design/prepare.go",
+            "path": "io/fs"
+          },
+          "kwargs_hash": "sha256:452b93f71adf44ca587c740a7929bd6bcc19a1aaed06bf6864eb13441c13682f",
+          "body": "sha256:80f0597eb523a3ace402ac68fefdf64bf00074dda5ec249d04e8f1e525952547"
+        },
+        {
+          "path": "evals/design/prepare.go",
+          "action": "addImport",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:d6a9443c14d82b7bdf19bb96637f957fd44ad9bfbe8f167c97e6f7699c8b830f",
+          "id": {
+            "file": "evals/design/prepare.go",
+            "path": "os"
+          },
+          "kwargs": {
+            "file": "evals/design/prepare.go",
+            "path": "os"
+          },
+          "kwargs_hash": "sha256:c942067d388ca784cc2b94dd2ce9cd2083692fd4382f1779ee71773aee5c8225",
+          "body": "sha256:7c6e309eb2575d4aa451ec2ab83161d13e9ae03bbca3a4d2ecf30ce12adf0905"
+        },
+        {
+          "path": "evals/design/prepare.go",
+          "action": "addImport",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:d6a9443c14d82b7bdf19bb96637f957fd44ad9bfbe8f167c97e6f7699c8b830f",
+          "id": {
+            "file": "evals/design/prepare.go",
+            "path": "path/filepath"
+          },
+          "kwargs": {
+            "file": "evals/design/prepare.go",
+            "path": "path/filepath"
+          },
+          "kwargs_hash": "sha256:4067d24d84bf68e5cd4a466a02630d07f0ef9401ca5384f266c0c3c44b37b7bc",
+          "body": "sha256:a6d196b558491e646be93f56a321f339068c64c76aa9d49bb18046e7f9c777a1"
+        },
+        {
+          "path": "evals/design/prepare.go",
+          "action": "addImport",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:d6a9443c14d82b7bdf19bb96637f957fd44ad9bfbe8f167c97e6f7699c8b830f",
+          "id": {
+            "file": "evals/design/prepare.go",
+            "path": "strings"
+          },
+          "kwargs": {
+            "file": "evals/design/prepare.go",
+            "path": "strings"
+          },
+          "kwargs_hash": "sha256:b0f4c60907f90278431626ad4a631b562616127828d35ca83b3e9b8bcdadaf95",
+          "body": "sha256:a9af3c0bc4bf9342df9d7e89a324523fdba7941a9ca4190270e68ff3c4a25ea6"
+        },
+        {
+          "path": "evals/design/prepare.go",
+          "action": "setConst",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:51be1c18998d63cc558c253e211a6bd188d96cb251dad68c6ea88e03c2d5cc4c",
+          "id": {
+            "file": "evals/design/prepare.go",
+            "name": "growPrompt"
+          },
+          "kwargs": {
+            "code": "// growPrompt is the same advisory text for every variant, so the variants\n// differ only in the intent.\nconst growPrompt = \"# Context\\n\\nA small Go package. Standard library only (plus what the context files import). Write each target file in full, gofmt-clean, with a doc comment on every exported identifier.\\n\"",
+            "file": "evals/design/prepare.go",
+            "name": "growPrompt"
+          },
+          "kwargs_hash": "sha256:af52f2aca0b126c8e71eccf1d732a013e2559e0e169c0e2e329a7f204ad25e02",
+          "body": "sha256:9974897893e44c24cb0082d91b4a5b30bdd4f72c5abe59543bd95d61c20f35bf"
+        },
+        {
+          "path": "evals/design/prepare.go",
+          "action": "setFunction",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:6589611adfb6618a7920e43f951a79901428192ea95c1084fde9f222aecd9537",
+          "id": {
+            "file": "evals/design/prepare.go",
+            "name": "Prepare"
+          },
+          "kwargs": {
+            "code": "// Prepare writes the project for one sample into dir: a go.mod, the task's\n// context files (in the directory named for the task's package), a copy of the generator packages, the grow prompt, and one\n// open record whose intent is the variant's text and whose scope is the target\n// files. The hidden tests are not written; Grade adds them after the grow.\nfunc Prepare(t Task, v Variant, generators, dir string) error {\n\tintent, err := t.Intent(v)\n\tif err != nil {\n\t\treturn err\n\t}\n\tif err := t.Isolated(); err != nil {\n\t\treturn err\n\t}\n\tmod := fmt.Sprintf(\"module design/%s\\n\\ngo 1.25\\n\", t.ID)\n\tif err := os.WriteFile(filepath.Join(dir, \"go.mod\"), []byte(mod), 0o644); err != nil {\n\t\treturn err\n\t}\n\tif err := os.MkdirAll(filepath.Join(dir, t.Package), 0o755); err != nil {\n\t\treturn err\n\t}\n\tfor _, f := range t.Context {\n\t\tdata, err := os.ReadFile(filepath.Join(t.Dir, \"context\", f))\n\t\tif err != nil {\n\t\t\treturn err\n\t\t}\n\t\tif err := os.WriteFile(filepath.Join(dir, t.Package, f), data, 0o644); err != nil {\n\t\t\treturn err\n\t\t}\n\t}\n\tif err := copyTree(generators, filepath.Join(dir, \"generators\")); err != nil {\n\t\treturn fmt.Errorf(\"copy generators: %w\", err)\n\t}\n\tif err := os.WriteFile(filepath.Join(dir, \"PROMPT.md\"), []byte(growPrompt+\"\\nThe target files, as project paths:\\n\"+targetPaths(t)), 0o644); err != nil {\n\t\treturn err\n\t}\n\tscope := make([]string, 0, len(t.Target))\n\tfor _, f := range t.Target {\n\t\tscope = append(scope, t.Package+\"/\"+f)\n\t}\n\trec := record{\n\t\tID:            fmt.Sprintf(\"design-%s-%s\", t.ID, v),\n\t\tTitle:         fmt.Sprintf(\"design eval: %s (%s)\", t.ID, v),\n\t\tStatus:        \"open\",\n\t\tCreatedAt:     \"2026-10-16\",\n\t\tAuthor:        \"eval@example.com\",\n\t\tIntent:        intent,\n\t\tConstraints:   []string{},\n\t\tAffectedScope: scope,\n\t\tForbidden:     []string{},\n\t\tType:          \"blueprint\",\n\t}\n\tdata, err := yaml.Marshal(rec)\n\tif err != nil {\n\t\treturn err\n\t}\n\tif err := os.MkdirAll(filepath.Join(dir, \"provenance\"), 0o755); err != nil {\n\t\treturn err\n\t}\n\treturn os.WriteFile(filepath.Join(dir, \"provenance\", rec.ID+\".yml\"), data, 0o644)\n}",
+            "file": "evals/design/prepare.go",
+            "name": "Prepare"
+          },
+          "kwargs_hash": "sha256:4098885c1a69daa22b70d5e33c58c30062f5ad45540cab8a4e86388c5b016a03",
+          "body": "sha256:d180f42defb84addf61b1eb491b052c14fbb9da63cd036b2547cfc677c590757"
+        },
+        {
+          "path": "evals/design/prepare.go",
+          "action": "setFunction",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:6589611adfb6618a7920e43f951a79901428192ea95c1084fde9f222aecd9537",
+          "id": {
+            "file": "evals/design/prepare.go",
+            "name": "copyTree"
+          },
+          "kwargs": {
+            "code": "// copyTree copies the directory src into dst.\nfunc copyTree(src, dst string) error {\n\treturn filepath.WalkDir(src, func(p string, d fs.DirEntry, err error) error {\n\t\tif err != nil {\n\t\t\treturn err\n\t\t}\n\t\trel, err := filepath.Rel(src, p)\n\t\tif err != nil {\n\t\t\treturn err\n\t\t}\n\t\ttarget := filepath.Join(dst, rel)\n\t\tif d.IsDir() {\n\t\t\treturn os.MkdirAll(target, 0o755)\n\t\t}\n\t\tdata, err := os.ReadFile(p)\n\t\tif err != nil {\n\t\t\treturn err\n\t\t}\n\t\treturn os.WriteFile(target, data, 0o644)\n\t})\n}",
+            "file": "evals/design/prepare.go",
+            "name": "copyTree"
+          },
+          "kwargs_hash": "sha256:a9b12adcad4a4a0417d0d3e1e171a6974ee82ee95f10e0029217416265d81354",
+          "body": "sha256:1f0dbb2989dffcea94a72f28457abd49d5620c376de83e38962495e5c2c58527"
+        },
+        {
+          "path": "evals/design/prepare.go",
+          "action": "setFunction",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:6589611adfb6618a7920e43f951a79901428192ea95c1084fde9f222aecd9537",
+          "id": {
+            "file": "evals/design/prepare.go",
+            "name": "targetPaths"
+          },
+          "kwargs": {
+            "code": "// targetPaths lists the task's target files as project paths, one per line.\nfunc targetPaths(t Task) string {\n\tvar b strings.Builder\n\tfor _, f := range t.Target {\n\t\tb.WriteString(t.Package + \"/\" + f + \"\\n\")\n\t}\n\treturn b.String()\n}",
+            "file": "evals/design/prepare.go",
+            "name": "targetPaths"
+          },
+          "kwargs_hash": "sha256:660874c58a5e361a077d06a8b3860845c1699457a399b1b320690734ee8aa819",
+          "body": "sha256:74a2c5627aaabffbe579bc35e0fd9d98048e03d384e836896b780fea9a252f8d"
+        },
+        {
+          "path": "evals/design/prepare.go",
+          "action": "setType",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:ebb283283a745fdc09f0294b6e79bd879a830829cb964550ec6b4432fee5bb72",
+          "id": {
+            "file": "evals/design/prepare.go",
+            "name": "record"
+          },
+          "kwargs": {
+            "code": "// record is the v1 record a sample's intent is written into.\ntype record struct {\n\tID            string   `yaml:\"id\"`\n\tTitle         string   `yaml:\"title\"`\n\tStatus        string   `yaml:\"status\"`\n\tCreatedAt     string   `yaml:\"created_at\"`\n\tAuthor        string   `yaml:\"author\"`\n\tIntent        string   `yaml:\"intent\"`\n\tConstraints   []string `yaml:\"constraints\"`\n\tAffectedScope []string `yaml:\"affected_scope\"`\n\tForbidden     []string `yaml:\"forbidden_scope\"`\n\tType          string   `yaml:\"type\"`\n}",
+            "file": "evals/design/prepare.go",
+            "name": "record"
+          },
+          "kwargs_hash": "sha256:602575ad75139ae4dce1c6f07ec2a58ce3f8ee38da76ca179d2f71612aca32f8",
+          "body": "sha256:29e87879c2e561513c855557e25dcdaab463815fc53dd5014239647c18a6c9dc"
+        },
+        {
+          "path": "evals/design/prepare_test.go",
+          "action": "addImport",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:d6a9443c14d82b7bdf19bb96637f957fd44ad9bfbe8f167c97e6f7699c8b830f",
+          "id": {
+            "file": "evals/design/prepare_test.go",
+            "path": "os"
+          },
+          "kwargs": {
+            "file": "evals/design/prepare_test.go",
+            "path": "os"
+          },
+          "kwargs_hash": "sha256:74747564df59b8b51bd2b0f3fe37d0558ee11e0bf4f3c1a9542db52ae0ba0d43",
+          "body": "sha256:7c6e309eb2575d4aa451ec2ab83161d13e9ae03bbca3a4d2ecf30ce12adf0905"
+        },
+        {
+          "path": "evals/design/prepare_test.go",
+          "action": "addImport",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:d6a9443c14d82b7bdf19bb96637f957fd44ad9bfbe8f167c97e6f7699c8b830f",
+          "id": {
+            "file": "evals/design/prepare_test.go",
+            "path": "path/filepath"
+          },
+          "kwargs": {
+            "file": "evals/design/prepare_test.go",
+            "path": "path/filepath"
+          },
+          "kwargs_hash": "sha256:1112ecaa2fb6f9145283026b1a7a2b84a5720162bc30b2a4a66951c43b6d8c50",
+          "body": "sha256:a6d196b558491e646be93f56a321f339068c64c76aa9d49bb18046e7f9c777a1"
+        },
+        {
+          "path": "evals/design/prepare_test.go",
+          "action": "addImport",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:d6a9443c14d82b7bdf19bb96637f957fd44ad9bfbe8f167c97e6f7699c8b830f",
+          "id": {
+            "file": "evals/design/prepare_test.go",
+            "path": "strings"
+          },
+          "kwargs": {
+            "file": "evals/design/prepare_test.go",
+            "path": "strings"
+          },
+          "kwargs_hash": "sha256:56e02d812818ebf79e8a13e4b83450bf6aa750faac0c1d002095897db1bb666e",
+          "body": "sha256:a9af3c0bc4bf9342df9d7e89a324523fdba7941a9ca4190270e68ff3c4a25ea6"
+        },
+        {
+          "path": "evals/design/prepare_test.go",
+          "action": "addImport",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:d6a9443c14d82b7bdf19bb96637f957fd44ad9bfbe8f167c97e6f7699c8b830f",
+          "id": {
+            "file": "evals/design/prepare_test.go",
+            "path": "testing"
+          },
+          "kwargs": {
+            "file": "evals/design/prepare_test.go",
+            "path": "testing"
+          },
+          "kwargs_hash": "sha256:0953def59dfd115a372ed689cc83cb7114947c71b478307536e85c70dd87f536",
+          "body": "sha256:14a4a5f3bfbf9325de04706efa8c15a9446f01d2a26624ce9c66bd1d69dc212e"
+        },
+        {
+          "path": "evals/design/prepare_test.go",
+          "action": "setFunction",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:6589611adfb6618a7920e43f951a79901428192ea95c1084fde9f222aecd9537",
+          "id": {
+            "file": "evals/design/prepare_test.go",
+            "name": "TestPrepare"
+          },
+          "kwargs": {
+            "code": "func TestPrepare(t *testing.T) {\n\ttask, err := LoadTask(writeTask(t, t.TempDir(), \"ok\", validTask))\n\tif err != nil {\n\t\tt.Fatal(err)\n\t}\n\tdir := t.TempDir()\n\tif err := Prepare(task, VariantSignatures, \"../../generators\", dir); err != nil {\n\t\tt.Fatal(err)\n\t}\n\tmod, err := os.ReadFile(filepath.Join(dir, \"go.mod\"))\n\tif err != nil || !strings.Contains(string(mod), \"module design/ok\") {\n\t\tt.Fatalf(\"go.mod = %q, %v\", mod, err)\n\t}\n\tfor _, f := range []string{\"p/ctx.go\", \"PROMPT.md\", \"generators/go/sedum.yaml\", \"provenance/design-ok-signatures.yml\"} {\n\t\tif _, err := os.Stat(filepath.Join(dir, f)); err != nil {\n\t\t\tt.Errorf(\"missing %s: %v\", f, err)\n\t\t}\n\t}\n\trec, err := os.ReadFile(filepath.Join(dir, \"provenance\", \"design-ok-signatures.yml\"))\n\tif err != nil {\n\t\tt.Fatal(err)\n\t}\n\tfor _, want := range []string{\"status: open\", \"intent: s\", \"- p/a.go\"} {\n\t\tif !strings.Contains(string(rec), want) {\n\t\t\tt.Errorf(\"record lacks %q:\\n%s\", want, rec)\n\t\t}\n\t}\n\tprompt, err := os.ReadFile(filepath.Join(dir, \"PROMPT.md\"))\n\tif err != nil || !strings.Contains(string(prompt), \"p/a.go\") {\n\t\tt.Fatalf(\"PROMPT.md must list the target paths: %q, %v\", prompt, err)\n\t}\n\tif _, err := os.Stat(filepath.Join(dir, \"p\", \"a_test.go\")); err == nil {\n\t\tt.Fatal(\"the hidden test must not be written before grading\")\n\t}\n\tif err := Prepare(task, \"nope\", \"../../generators\", t.TempDir()); err == nil {\n\t\tt.Fatal(\"an unknown variant must be an error\")\n\t}\n}",
+            "file": "evals/design/prepare_test.go",
+            "name": "TestPrepare"
+          },
+          "kwargs_hash": "sha256:874280e2ae8c7cd4dfff4ef876b4609e30aece8b1ead455decc039833dcf62e9",
+          "body": "sha256:1d7e85b0ceceae828f19d004eaea999f8df887817db9b180e735f096cbb833c6"
+        }
+      ]
+    }
+  ]
+}

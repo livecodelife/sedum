@@ -1,0 +1,418 @@
+{
+  "sedum_version": "0.11.0",
+  "packages": {
+    "go": {
+      "extensions": [
+        ".go"
+      ]
+    }
+  },
+  "records": [
+    {
+      "record_id": "prov-2026-1e4a5690",
+      "gen": "sha256:dbab15369269c23a1776e610ab2bf128764a026cc1647f1f7b74bc855cc4a4c7",
+      "created_at": "2026-10-16",
+      "files": [
+        {
+          "path": "internal/adopt/build.go",
+          "package": "go",
+          "template": "*/{pkg}/{name}.go",
+          "captures": {
+            "name": "build",
+            "pkg": "adopt"
+          }
+        },
+        {
+          "path": "internal/adopt/build_test.go",
+          "package": "go",
+          "template": "*/{pkg}/{name}.go",
+          "captures": {
+            "name": "build_test",
+            "pkg": "adopt"
+          }
+        }
+      ],
+      "phases": [
+        {
+          "name": "default",
+          "invocations": [
+            {
+              "action": "addImport",
+              "kwargs": {
+                "file": "internal/adopt/build.go",
+                "path": "fmt"
+              }
+            },
+            {
+              "action": "addImport",
+              "kwargs": {
+                "file": "internal/adopt/build.go",
+                "path": "sort"
+              }
+            },
+            {
+              "action": "addImport",
+              "kwargs": {
+                "file": "internal/adopt/build.go",
+                "path": "github.com/livecodelife/sedum/internal/recording"
+              }
+            },
+            {
+              "action": "setType",
+              "kwargs": {
+                "code": "// Adopted is one candidate file together with the unit spans adopted from it.\ntype Adopted struct {\n\tCandidate Candidate\n\tSpans     []Span\n}",
+                "file": "internal/adopt/build.go",
+                "name": "Adopted"
+              }
+            },
+            {
+              "action": "setFunction",
+              "kwargs": {
+                "code": "// BuildRecording turns adopted files into a recording, one record per adoption record ID.\nfunc BuildRecording(items []Adopted) (recording.Recording, error) {\n\tsorted := make([]Adopted, len(items))\n\tcopy(sorted, items)\n\tsort.SliceStable(sorted, func(i, j int) bool {\n\t\treturn sorted[i].Candidate.Path \u003c sorted[j].Candidate.Path\n\t})\n\tout := recording.Recording{\n\t\tSedumVersion: recording.Version,\n\t\tPackages:     map[string]recording.Package{},\n\t}\n\tseen := map[string]bool{}\n\tbyRecord := map[string][]Adopted{}\n\tvar order []string\n\tfor _, it := range sorted {\n\t\tc := it.Candidate\n\t\tif seen[c.Path] {\n\t\t\treturn recording.Recording{}, fmt.Errorf(\"duplicate path %s\", c.Path)\n\t\t}\n\t\tseen[c.Path] = true\n\t\tif c.Record == nil {\n\t\t\treturn recording.Recording{}, fmt.Errorf(\"%s: no record\", c.Path)\n\t\t}\n\t\tunits := 0\n\t\tfor _, s := range it.Spans {\n\t\t\tif s.Kind == KindUnit {\n\t\t\t\tunits++\n\t\t\t}\n\t\t}\n\t\tif units == 0 {\n\t\t\treturn recording.Recording{}, fmt.Errorf(\"%s: no unit spans\", c.Path)\n\t\t}\n\t\tif c.Package != nil {\n\t\t\tout.Packages[c.Package.Name] = recording.Package{\n\t\t\t\tExtensions: append([]string(nil), c.Package.Extensions...),\n\t\t\t}\n\t\t}\n\t\tid := c.Record.ID\n\t\tif _, ok := byRecord[id]; !ok {\n\t\t\torder = append(order, id)\n\t\t}\n\t\tbyRecord[id] = append(byRecord[id], it)\n\t}\n\tfor _, id := range order {\n\t\tgroup := byRecord[id]\n\t\tfirst := group[0].Candidate.Record\n\t\trec := recording.Record{RecordID: id, Gen: first.Gen, CreatedAt: first.CreatedAt}\n\t\tphase := recording.Phase{Name: recording.DefaultPhase}\n\t\tfor _, it := range group {\n\t\t\tc := it.Candidate\n\t\t\tfile := recording.File{Path: c.Path, Template: c.Template}\n\t\t\tif c.Package != nil {\n\t\t\t\tfile.Package = c.Package.Name\n\t\t\t}\n\t\t\tif c.Captures != nil {\n\t\t\t\tfile.Captures = make(map[string]string, len(c.Captures))\n\t\t\t\tfor k, v := range c.Captures {\n\t\t\t\t\tfile.Captures[k] = v\n\t\t\t\t}\n\t\t\t}\n\t\t\trec.Files = append(rec.Files, file)\n\t\t\tfor _, s := range it.Spans {\n\t\t\t\tif s.Kind != KindUnit {\n\t\t\t\t\tcontinue\n\t\t\t\t}\n\t\t\t\tkw := make(map[string]any, len(s.Kwargs))\n\t\t\t\tfor k, v := range s.Kwargs {\n\t\t\t\t\tkw[k] = v\n\t\t\t\t}\n\t\t\t\tphase.Invocations = append(phase.Invocations, recording.Invocation{Action: s.Action, Kwargs: kw})\n\t\t\t}\n\t\t}\n\t\trec.Phases = []recording.Phase{phase}\n\t\tout.Records = append(out.Records, rec)\n\t}\n\treturn out, nil\n}",
+                "file": "internal/adopt/build.go",
+                "name": "BuildRecording"
+              }
+            },
+            {
+              "action": "addImport",
+              "kwargs": {
+                "file": "internal/adopt/build_test.go",
+                "path": "bytes"
+              }
+            },
+            {
+              "action": "addImport",
+              "kwargs": {
+                "file": "internal/adopt/build_test.go",
+                "path": "reflect"
+              }
+            },
+            {
+              "action": "addImport",
+              "kwargs": {
+                "file": "internal/adopt/build_test.go",
+                "path": "testing"
+              }
+            },
+            {
+              "action": "addImport",
+              "kwargs": {
+                "file": "internal/adopt/build_test.go",
+                "path": "github.com/livecodelife/sedum/internal/genpkg"
+              }
+            },
+            {
+              "action": "addImport",
+              "kwargs": {
+                "file": "internal/adopt/build_test.go",
+                "path": "github.com/livecodelife/sedum/internal/record"
+              }
+            },
+            {
+              "action": "addImport",
+              "kwargs": {
+                "file": "internal/adopt/build_test.go",
+                "path": "github.com/livecodelife/sedum/internal/recording"
+              }
+            },
+            {
+              "action": "setFunction",
+              "kwargs": {
+                "code": "func TestBuildRecordingTwoFiles(t *testing.T) {\n\tpkg := \u0026genpkg.Package{Name: \"py\", Extensions: []string{\".py\"}}\n\trec := \u0026record.Record{ID: \"imp-1\", Gen: \"sha256:aa\", CreatedAt: \"2026-10-16\"}\n\tmk := func(path string) Adopted {\n\t\treturn Adopted{\n\t\t\tCandidate: Candidate{Path: path, Package: pkg, Template: \"t\", Record: rec},\n\t\t\tSpans: []Span{\n\t\t\t\t{Kind: KindHeader, Text: \"# header\\n\"},\n\t\t\t\t{Kind: KindUnit, Text: \"a\", Action: \"one\", Kwargs: map[string]any{\"path\": path}},\n\t\t\t\t{Kind: KindUnit, Text: \"b\", Action: \"two\", Kwargs: map[string]any{\"path\": path}},\n\t\t\t},\n\t\t}\n\t}\n\tgot, err := BuildRecording([]Adopted{mk(\"b.py\"), mk(\"a.py\")})\n\tif err != nil {\n\t\tt.Fatal(err)\n\t}\n\tif got.SedumVersion != recording.Version {\n\t\tt.Errorf(\"version = %q\", got.SedumVersion)\n\t}\n\tif !reflect.DeepEqual(got.Packages[\"py\"].Extensions, []string{\".py\"}) {\n\t\tt.Errorf(\"extensions = %v\", got.Packages[\"py\"].Extensions)\n\t}\n\tif len(got.Records) != 1 {\n\t\tt.Fatalf(\"records = %d, want 1\", len(got.Records))\n\t}\n\tr := got.Records[0]\n\tif r.RecordID != \"imp-1\" || r.Gen != \"sha256:aa\" || r.CreatedAt != \"2026-10-16\" {\n\t\tt.Errorf(\"record = %+v\", r)\n\t}\n\tif len(r.Files) != 2 || r.Files[0].Path != \"a.py\" || r.Files[1].Path != \"b.py\" {\n\t\tt.Fatalf(\"files = %+v\", r.Files)\n\t}\n\tinv := r.Phases[0].Invocations\n\tif len(inv) != 4 {\n\t\tt.Fatalf(\"invocations = %d, want 4\", len(inv))\n\t}\n\twant := []struct{ path, action string }{{\"a.py\", \"one\"}, {\"a.py\", \"two\"}, {\"b.py\", \"one\"}, {\"b.py\", \"two\"}}\n\tfor i, w := range want {\n\t\tif inv[i].Action != w.action || inv[i].Kwargs[\"path\"] != w.path {\n\t\t\tt.Errorf(\"invocation %d = %+v\", i, inv[i])\n\t\t}\n\t}\n}",
+                "file": "internal/adopt/build_test.go",
+                "name": "TestBuildRecordingTwoFiles"
+              }
+            },
+            {
+              "action": "setFunction",
+              "kwargs": {
+                "code": "func TestBuildRecordingTwoRecords(t *testing.T) {\n\tpkg := \u0026genpkg.Package{Name: \"py\", Extensions: []string{\".py\"}}\n\tunit := []Span{{Kind: KindUnit, Text: \"x\", Action: \"one\"}}\n\titems := []Adopted{\n\t\t{Candidate: Candidate{Path: \"z.py\", Package: pkg, Record: \u0026record.Record{ID: \"imp-2\"}}, Spans: unit},\n\t\t{Candidate: Candidate{Path: \"a.py\", Package: pkg, Record: \u0026record.Record{ID: \"imp-1\"}}, Spans: unit},\n\t}\n\tgot, err := BuildRecording(items)\n\tif err != nil {\n\t\tt.Fatal(err)\n\t}\n\tif len(got.Records) != 2 || got.Records[0].RecordID != \"imp-1\" || got.Records[1].RecordID != \"imp-2\" {\n\t\tt.Errorf(\"records = %+v\", got.Records)\n\t}\n}",
+                "file": "internal/adopt/build_test.go",
+                "name": "TestBuildRecordingTwoRecords"
+              }
+            },
+            {
+              "action": "setFunction",
+              "kwargs": {
+                "code": "func TestBuildRecordingErrors(t *testing.T) {\n\tpkg := \u0026genpkg.Package{Name: \"py\", Extensions: []string{\".py\"}}\n\trec := \u0026record.Record{ID: \"imp-1\"}\n\tunit := Span{Kind: KindUnit, Text: \"x\", Action: \"one\"}\n\ttests := []struct {\n\t\tname  string\n\t\titems []Adopted\n\t}{\n\t\t{\"no unit spans\", []Adopted{{Candidate: Candidate{Path: \"a.py\", Package: pkg, Record: rec}, Spans: []Span{{Kind: KindHeader, Text: \"h\"}}}}},\n\t\t{\"duplicate path\", []Adopted{\n\t\t\t{Candidate: Candidate{Path: \"a.py\", Package: pkg, Record: rec}, Spans: []Span{unit}},\n\t\t\t{Candidate: Candidate{Path: \"a.py\", Package: pkg, Record: rec}, Spans: []Span{unit}},\n\t\t}},\n\t}\n\tfor _, tt := range tests {\n\t\tt.Run(tt.name, func(t *testing.T) {\n\t\t\tif _, err := BuildRecording(tt.items); err == nil {\n\t\t\t\tt.Fatal(\"want error\")\n\t\t\t}\n\t\t})\n\t}\n}",
+                "file": "internal/adopt/build_test.go",
+                "name": "TestBuildRecordingErrors"
+              }
+            },
+            {
+              "action": "setFunction",
+              "kwargs": {
+                "code": "func TestBuildRecordingRoundTripsThroughWrite(t *testing.T) {\n\tpkg := \u0026genpkg.Package{Name: \"py\", Extensions: []string{\".py\"}}\n\trec := \u0026record.Record{ID: \"imp-1\", Gen: \"sha256:aa\", CreatedAt: \"2026-10-16\"}\n\tmk := func(path string) Adopted {\n\t\treturn Adopted{\n\t\t\tCandidate: Candidate{Path: path, Package: pkg, Template: \"t\", Record: rec},\n\t\t\tSpans: []Span{\n\t\t\t\t{Kind: KindHeader, Text: \"# header\\n\"},\n\t\t\t\t{Kind: KindUnit, Text: \"a\", Action: \"one\", Kwargs: map[string]any{\"path\": path}},\n\t\t\t\t{Kind: KindUnit, Text: \"b\", Action: \"two\", Kwargs: map[string]any{\"path\": path}},\n\t\t\t},\n\t\t}\n\t}\n\tgot, err := BuildRecording([]Adopted{mk(\"b.py\"), mk(\"a.py\")})\n\tif err != nil {\n\t\tt.Fatal(err)\n\t}\n\tvar buf bytes.Buffer\n\tif err := recording.Write(\u0026buf, got); err != nil {\n\t\tt.Fatal(err)\n\t}\n\tback, err := recording.Read(\u0026buf)\n\tif err != nil {\n\t\tt.Fatal(err)\n\t}\n\tif !reflect.DeepEqual(back, got) {\n\t\tt.Errorf(\"round trip differs:\\n got %+v\\nwant %+v\", back, got)\n\t}\n}",
+                "file": "internal/adopt/build_test.go",
+                "name": "TestBuildRecordingRoundTripsThroughWrite"
+              }
+            }
+          ]
+        }
+      ],
+      "regions": [
+        {
+          "path": "internal/adopt/build.go",
+          "action": "addImport",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:d6a9443c14d82b7bdf19bb96637f957fd44ad9bfbe8f167c97e6f7699c8b830f",
+          "id": {
+            "file": "internal/adopt/build.go",
+            "path": "fmt"
+          },
+          "kwargs": {
+            "file": "internal/adopt/build.go",
+            "path": "fmt"
+          },
+          "kwargs_hash": "sha256:a7518489b293b2e15f2149b6bf8c569372aa58200c6d391f4cb654c0b98ac1a4",
+          "body": "sha256:bcbac51883cbf8064e9196b371cb880cee429866652447ad557533d817857609"
+        },
+        {
+          "path": "internal/adopt/build.go",
+          "action": "addImport",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:d6a9443c14d82b7bdf19bb96637f957fd44ad9bfbe8f167c97e6f7699c8b830f",
+          "id": {
+            "file": "internal/adopt/build.go",
+            "path": "github.com/livecodelife/sedum/internal/recording"
+          },
+          "kwargs": {
+            "file": "internal/adopt/build.go",
+            "path": "github.com/livecodelife/sedum/internal/recording"
+          },
+          "kwargs_hash": "sha256:772270b8be800280a1450542a55c6fd02aa19269af5fed58743e2dda6be30a45",
+          "body": "sha256:77eda6b9872215a21291b42d59b9ec4b021705be869f51a3d61adc6dcb120e03"
+        },
+        {
+          "path": "internal/adopt/build.go",
+          "action": "addImport",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:d6a9443c14d82b7bdf19bb96637f957fd44ad9bfbe8f167c97e6f7699c8b830f",
+          "id": {
+            "file": "internal/adopt/build.go",
+            "path": "sort"
+          },
+          "kwargs": {
+            "file": "internal/adopt/build.go",
+            "path": "sort"
+          },
+          "kwargs_hash": "sha256:9456642b00d4845b75f6842365a401285b386a527484b61c9360cfa1eeb31455",
+          "body": "sha256:f197172617ae21ef23b1855b09aafb14571020ae81bff877d63d3ff81f4bf63c"
+        },
+        {
+          "path": "internal/adopt/build.go",
+          "action": "setFunction",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:6589611adfb6618a7920e43f951a79901428192ea95c1084fde9f222aecd9537",
+          "id": {
+            "file": "internal/adopt/build.go",
+            "name": "BuildRecording"
+          },
+          "kwargs": {
+            "code": "// BuildRecording turns adopted files into a recording, one record per adoption record ID.\nfunc BuildRecording(items []Adopted) (recording.Recording, error) {\n\tsorted := make([]Adopted, len(items))\n\tcopy(sorted, items)\n\tsort.SliceStable(sorted, func(i, j int) bool {\n\t\treturn sorted[i].Candidate.Path \u003c sorted[j].Candidate.Path\n\t})\n\tout := recording.Recording{\n\t\tSedumVersion: recording.Version,\n\t\tPackages:     map[string]recording.Package{},\n\t}\n\tseen := map[string]bool{}\n\tbyRecord := map[string][]Adopted{}\n\tvar order []string\n\tfor _, it := range sorted {\n\t\tc := it.Candidate\n\t\tif seen[c.Path] {\n\t\t\treturn recording.Recording{}, fmt.Errorf(\"duplicate path %s\", c.Path)\n\t\t}\n\t\tseen[c.Path] = true\n\t\tif c.Record == nil {\n\t\t\treturn recording.Recording{}, fmt.Errorf(\"%s: no record\", c.Path)\n\t\t}\n\t\tunits := 0\n\t\tfor _, s := range it.Spans {\n\t\t\tif s.Kind == KindUnit {\n\t\t\t\tunits++\n\t\t\t}\n\t\t}\n\t\tif units == 0 {\n\t\t\treturn recording.Recording{}, fmt.Errorf(\"%s: no unit spans\", c.Path)\n\t\t}\n\t\tif c.Package != nil {\n\t\t\tout.Packages[c.Package.Name] = recording.Package{\n\t\t\t\tExtensions: append([]string(nil), c.Package.Extensions...),\n\t\t\t}\n\t\t}\n\t\tid := c.Record.ID\n\t\tif _, ok := byRecord[id]; !ok {\n\t\t\torder = append(order, id)\n\t\t}\n\t\tbyRecord[id] = append(byRecord[id], it)\n\t}\n\tfor _, id := range order {\n\t\tgroup := byRecord[id]\n\t\tfirst := group[0].Candidate.Record\n\t\trec := recording.Record{RecordID: id, Gen: first.Gen, CreatedAt: first.CreatedAt}\n\t\tphase := recording.Phase{Name: recording.DefaultPhase}\n\t\tfor _, it := range group {\n\t\t\tc := it.Candidate\n\t\t\tfile := recording.File{Path: c.Path, Template: c.Template}\n\t\t\tif c.Package != nil {\n\t\t\t\tfile.Package = c.Package.Name\n\t\t\t}\n\t\t\tif c.Captures != nil {\n\t\t\t\tfile.Captures = make(map[string]string, len(c.Captures))\n\t\t\t\tfor k, v := range c.Captures {\n\t\t\t\t\tfile.Captures[k] = v\n\t\t\t\t}\n\t\t\t}\n\t\t\trec.Files = append(rec.Files, file)\n\t\t\tfor _, s := range it.Spans {\n\t\t\t\tif s.Kind != KindUnit {\n\t\t\t\t\tcontinue\n\t\t\t\t}\n\t\t\t\tkw := make(map[string]any, len(s.Kwargs))\n\t\t\t\tfor k, v := range s.Kwargs {\n\t\t\t\t\tkw[k] = v\n\t\t\t\t}\n\t\t\t\tphase.Invocations = append(phase.Invocations, recording.Invocation{Action: s.Action, Kwargs: kw})\n\t\t\t}\n\t\t}\n\t\trec.Phases = []recording.Phase{phase}\n\t\tout.Records = append(out.Records, rec)\n\t}\n\treturn out, nil\n}",
+            "file": "internal/adopt/build.go",
+            "name": "BuildRecording"
+          },
+          "kwargs_hash": "sha256:cd4999a818453c3c4fb7bf456ec8ecd3a8912db565d4313f52b264704793d235",
+          "body": "sha256:f0c1ef1d42397fc520f4df27b63f52e4add32afb75daf3438d80e7f3e7c1179a"
+        },
+        {
+          "path": "internal/adopt/build.go",
+          "action": "setType",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:ebb283283a745fdc09f0294b6e79bd879a830829cb964550ec6b4432fee5bb72",
+          "id": {
+            "file": "internal/adopt/build.go",
+            "name": "Adopted"
+          },
+          "kwargs": {
+            "code": "// Adopted is one candidate file together with the unit spans adopted from it.\ntype Adopted struct {\n\tCandidate Candidate\n\tSpans     []Span\n}",
+            "file": "internal/adopt/build.go",
+            "name": "Adopted"
+          },
+          "kwargs_hash": "sha256:ec0a32cb6cd210949419d5bc82018b6a8b125f6daf67351aa6eb9f6a7a8dc97d",
+          "body": "sha256:078db400b3ab62b3ff24310e57bd1d1e7d51513d2672bd62b3bc9fd6f33c66d6"
+        },
+        {
+          "path": "internal/adopt/build_test.go",
+          "action": "addImport",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:d6a9443c14d82b7bdf19bb96637f957fd44ad9bfbe8f167c97e6f7699c8b830f",
+          "id": {
+            "file": "internal/adopt/build_test.go",
+            "path": "bytes"
+          },
+          "kwargs": {
+            "file": "internal/adopt/build_test.go",
+            "path": "bytes"
+          },
+          "kwargs_hash": "sha256:4037ef22f542c176c4b00a0578700aeefa8134c8374d693d5673115d80e240b7",
+          "body": "sha256:468731f6dd513df0a66690d4649dc9e7244c96de227d8e6ead98cc5e9747c57a"
+        },
+        {
+          "path": "internal/adopt/build_test.go",
+          "action": "addImport",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:d6a9443c14d82b7bdf19bb96637f957fd44ad9bfbe8f167c97e6f7699c8b830f",
+          "id": {
+            "file": "internal/adopt/build_test.go",
+            "path": "github.com/livecodelife/sedum/internal/genpkg"
+          },
+          "kwargs": {
+            "file": "internal/adopt/build_test.go",
+            "path": "github.com/livecodelife/sedum/internal/genpkg"
+          },
+          "kwargs_hash": "sha256:d10bfa475952973d63eab19966dc7e832bf71ce7716b32bcfa0a60ced389a7bb",
+          "body": "sha256:5b4c7dbee430534527d893269527d915be58accc7a8330a8c104c2014153525d"
+        },
+        {
+          "path": "internal/adopt/build_test.go",
+          "action": "addImport",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:d6a9443c14d82b7bdf19bb96637f957fd44ad9bfbe8f167c97e6f7699c8b830f",
+          "id": {
+            "file": "internal/adopt/build_test.go",
+            "path": "github.com/livecodelife/sedum/internal/record"
+          },
+          "kwargs": {
+            "file": "internal/adopt/build_test.go",
+            "path": "github.com/livecodelife/sedum/internal/record"
+          },
+          "kwargs_hash": "sha256:8621b2c90afa076527c6eb37bf887bebcb3ed6e81f1fd183f7ce0883a52c36cb",
+          "body": "sha256:527c0befadfcad873cb5f9da4ab560755bc3040424ba6241011c3abf87fcc5e0"
+        },
+        {
+          "path": "internal/adopt/build_test.go",
+          "action": "addImport",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:d6a9443c14d82b7bdf19bb96637f957fd44ad9bfbe8f167c97e6f7699c8b830f",
+          "id": {
+            "file": "internal/adopt/build_test.go",
+            "path": "github.com/livecodelife/sedum/internal/recording"
+          },
+          "kwargs": {
+            "file": "internal/adopt/build_test.go",
+            "path": "github.com/livecodelife/sedum/internal/recording"
+          },
+          "kwargs_hash": "sha256:1aae84d7d8154c5f3715630d92bcafdebfef6489d24b644c2177a3b661911100",
+          "body": "sha256:77eda6b9872215a21291b42d59b9ec4b021705be869f51a3d61adc6dcb120e03"
+        },
+        {
+          "path": "internal/adopt/build_test.go",
+          "action": "addImport",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:d6a9443c14d82b7bdf19bb96637f957fd44ad9bfbe8f167c97e6f7699c8b830f",
+          "id": {
+            "file": "internal/adopt/build_test.go",
+            "path": "reflect"
+          },
+          "kwargs": {
+            "file": "internal/adopt/build_test.go",
+            "path": "reflect"
+          },
+          "kwargs_hash": "sha256:284d6e66995913de55bcb3abcda8cb93ca4ed75c95a6790490e7cb4a9538a225",
+          "body": "sha256:893cf368d31e1d8fe04189a0aba8627e8e69b39eafe10bea46d39a275e986fa2"
+        },
+        {
+          "path": "internal/adopt/build_test.go",
+          "action": "addImport",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:d6a9443c14d82b7bdf19bb96637f957fd44ad9bfbe8f167c97e6f7699c8b830f",
+          "id": {
+            "file": "internal/adopt/build_test.go",
+            "path": "testing"
+          },
+          "kwargs": {
+            "file": "internal/adopt/build_test.go",
+            "path": "testing"
+          },
+          "kwargs_hash": "sha256:f3f3688668cade5e2d7eec656534ffe02c4b306f6b8b494fc178f35f021d15ba",
+          "body": "sha256:14a4a5f3bfbf9325de04706efa8c15a9446f01d2a26624ce9c66bd1d69dc212e"
+        },
+        {
+          "path": "internal/adopt/build_test.go",
+          "action": "setFunction",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:6589611adfb6618a7920e43f951a79901428192ea95c1084fde9f222aecd9537",
+          "id": {
+            "file": "internal/adopt/build_test.go",
+            "name": "TestBuildRecordingErrors"
+          },
+          "kwargs": {
+            "code": "func TestBuildRecordingErrors(t *testing.T) {\n\tpkg := \u0026genpkg.Package{Name: \"py\", Extensions: []string{\".py\"}}\n\trec := \u0026record.Record{ID: \"imp-1\"}\n\tunit := Span{Kind: KindUnit, Text: \"x\", Action: \"one\"}\n\ttests := []struct {\n\t\tname  string\n\t\titems []Adopted\n\t}{\n\t\t{\"no unit spans\", []Adopted{{Candidate: Candidate{Path: \"a.py\", Package: pkg, Record: rec}, Spans: []Span{{Kind: KindHeader, Text: \"h\"}}}}},\n\t\t{\"duplicate path\", []Adopted{\n\t\t\t{Candidate: Candidate{Path: \"a.py\", Package: pkg, Record: rec}, Spans: []Span{unit}},\n\t\t\t{Candidate: Candidate{Path: \"a.py\", Package: pkg, Record: rec}, Spans: []Span{unit}},\n\t\t}},\n\t}\n\tfor _, tt := range tests {\n\t\tt.Run(tt.name, func(t *testing.T) {\n\t\t\tif _, err := BuildRecording(tt.items); err == nil {\n\t\t\t\tt.Fatal(\"want error\")\n\t\t\t}\n\t\t})\n\t}\n}",
+            "file": "internal/adopt/build_test.go",
+            "name": "TestBuildRecordingErrors"
+          },
+          "kwargs_hash": "sha256:eeeb8af8c0f4890605e892843933463ed0711366aae1026b670c8948ed425ebf",
+          "body": "sha256:73b2cec6c76b6888e4947111e451082babc53eef3d033608d15782b2fe8436af"
+        },
+        {
+          "path": "internal/adopt/build_test.go",
+          "action": "setFunction",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:6589611adfb6618a7920e43f951a79901428192ea95c1084fde9f222aecd9537",
+          "id": {
+            "file": "internal/adopt/build_test.go",
+            "name": "TestBuildRecordingRoundTripsThroughWrite"
+          },
+          "kwargs": {
+            "code": "func TestBuildRecordingRoundTripsThroughWrite(t *testing.T) {\n\tpkg := \u0026genpkg.Package{Name: \"py\", Extensions: []string{\".py\"}}\n\trec := \u0026record.Record{ID: \"imp-1\", Gen: \"sha256:aa\", CreatedAt: \"2026-10-16\"}\n\tmk := func(path string) Adopted {\n\t\treturn Adopted{\n\t\t\tCandidate: Candidate{Path: path, Package: pkg, Template: \"t\", Record: rec},\n\t\t\tSpans: []Span{\n\t\t\t\t{Kind: KindHeader, Text: \"# header\\n\"},\n\t\t\t\t{Kind: KindUnit, Text: \"a\", Action: \"one\", Kwargs: map[string]any{\"path\": path}},\n\t\t\t\t{Kind: KindUnit, Text: \"b\", Action: \"two\", Kwargs: map[string]any{\"path\": path}},\n\t\t\t},\n\t\t}\n\t}\n\tgot, err := BuildRecording([]Adopted{mk(\"b.py\"), mk(\"a.py\")})\n\tif err != nil {\n\t\tt.Fatal(err)\n\t}\n\tvar buf bytes.Buffer\n\tif err := recording.Write(\u0026buf, got); err != nil {\n\t\tt.Fatal(err)\n\t}\n\tback, err := recording.Read(\u0026buf)\n\tif err != nil {\n\t\tt.Fatal(err)\n\t}\n\tif !reflect.DeepEqual(back, got) {\n\t\tt.Errorf(\"round trip differs:\\n got %+v\\nwant %+v\", back, got)\n\t}\n}",
+            "file": "internal/adopt/build_test.go",
+            "name": "TestBuildRecordingRoundTripsThroughWrite"
+          },
+          "kwargs_hash": "sha256:09d8c95640282cf53ecffca71a8f2f6c0aceabab02a757f90e23d4c2dac1411b",
+          "body": "sha256:556173ba57f318175804bc2871a1762788446321fcea4b665caabf3fee394fe2"
+        },
+        {
+          "path": "internal/adopt/build_test.go",
+          "action": "setFunction",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:6589611adfb6618a7920e43f951a79901428192ea95c1084fde9f222aecd9537",
+          "id": {
+            "file": "internal/adopt/build_test.go",
+            "name": "TestBuildRecordingTwoFiles"
+          },
+          "kwargs": {
+            "code": "func TestBuildRecordingTwoFiles(t *testing.T) {\n\tpkg := \u0026genpkg.Package{Name: \"py\", Extensions: []string{\".py\"}}\n\trec := \u0026record.Record{ID: \"imp-1\", Gen: \"sha256:aa\", CreatedAt: \"2026-10-16\"}\n\tmk := func(path string) Adopted {\n\t\treturn Adopted{\n\t\t\tCandidate: Candidate{Path: path, Package: pkg, Template: \"t\", Record: rec},\n\t\t\tSpans: []Span{\n\t\t\t\t{Kind: KindHeader, Text: \"# header\\n\"},\n\t\t\t\t{Kind: KindUnit, Text: \"a\", Action: \"one\", Kwargs: map[string]any{\"path\": path}},\n\t\t\t\t{Kind: KindUnit, Text: \"b\", Action: \"two\", Kwargs: map[string]any{\"path\": path}},\n\t\t\t},\n\t\t}\n\t}\n\tgot, err := BuildRecording([]Adopted{mk(\"b.py\"), mk(\"a.py\")})\n\tif err != nil {\n\t\tt.Fatal(err)\n\t}\n\tif got.SedumVersion != recording.Version {\n\t\tt.Errorf(\"version = %q\", got.SedumVersion)\n\t}\n\tif !reflect.DeepEqual(got.Packages[\"py\"].Extensions, []string{\".py\"}) {\n\t\tt.Errorf(\"extensions = %v\", got.Packages[\"py\"].Extensions)\n\t}\n\tif len(got.Records) != 1 {\n\t\tt.Fatalf(\"records = %d, want 1\", len(got.Records))\n\t}\n\tr := got.Records[0]\n\tif r.RecordID != \"imp-1\" || r.Gen != \"sha256:aa\" || r.CreatedAt != \"2026-10-16\" {\n\t\tt.Errorf(\"record = %+v\", r)\n\t}\n\tif len(r.Files) != 2 || r.Files[0].Path != \"a.py\" || r.Files[1].Path != \"b.py\" {\n\t\tt.Fatalf(\"files = %+v\", r.Files)\n\t}\n\tinv := r.Phases[0].Invocations\n\tif len(inv) != 4 {\n\t\tt.Fatalf(\"invocations = %d, want 4\", len(inv))\n\t}\n\twant := []struct{ path, action string }{{\"a.py\", \"one\"}, {\"a.py\", \"two\"}, {\"b.py\", \"one\"}, {\"b.py\", \"two\"}}\n\tfor i, w := range want {\n\t\tif inv[i].Action != w.action || inv[i].Kwargs[\"path\"] != w.path {\n\t\t\tt.Errorf(\"invocation %d = %+v\", i, inv[i])\n\t\t}\n\t}\n}",
+            "file": "internal/adopt/build_test.go",
+            "name": "TestBuildRecordingTwoFiles"
+          },
+          "kwargs_hash": "sha256:1dcfbe1ddd8bf00cb2b90541a84941a3f966e4deac6f15ec2d33ede57c0c17df",
+          "body": "sha256:0bac2d952b88994a60d4ba46e9c80baad0911879a56d46ee01eeb2a8766e2912"
+        },
+        {
+          "path": "internal/adopt/build_test.go",
+          "action": "setFunction",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:6589611adfb6618a7920e43f951a79901428192ea95c1084fde9f222aecd9537",
+          "id": {
+            "file": "internal/adopt/build_test.go",
+            "name": "TestBuildRecordingTwoRecords"
+          },
+          "kwargs": {
+            "code": "func TestBuildRecordingTwoRecords(t *testing.T) {\n\tpkg := \u0026genpkg.Package{Name: \"py\", Extensions: []string{\".py\"}}\n\tunit := []Span{{Kind: KindUnit, Text: \"x\", Action: \"one\"}}\n\titems := []Adopted{\n\t\t{Candidate: Candidate{Path: \"z.py\", Package: pkg, Record: \u0026record.Record{ID: \"imp-2\"}}, Spans: unit},\n\t\t{Candidate: Candidate{Path: \"a.py\", Package: pkg, Record: \u0026record.Record{ID: \"imp-1\"}}, Spans: unit},\n\t}\n\tgot, err := BuildRecording(items)\n\tif err != nil {\n\t\tt.Fatal(err)\n\t}\n\tif len(got.Records) != 2 || got.Records[0].RecordID != \"imp-1\" || got.Records[1].RecordID != \"imp-2\" {\n\t\tt.Errorf(\"records = %+v\", got.Records)\n\t}\n}",
+            "file": "internal/adopt/build_test.go",
+            "name": "TestBuildRecordingTwoRecords"
+          },
+          "kwargs_hash": "sha256:ba790148683fcc7313f1940c310b0cbae2ac0107492c608905912734236ba370",
+          "body": "sha256:af386712ddb1fc01e3327d5114e39efa954e219c9e34a0c88bd3c79994757b6a"
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,422 @@
+{
+  "sedum_version": "0.11.0",
+  "packages": {
+    "go": {
+      "extensions": [
+        ".go"
+      ]
+    }
+  },
+  "records": [
+    {
+      "record_id": "prov-2026-806865fb",
+      "gen": "sha256:e631702fd73e9908ecef5a5b2b0ba1b871e3b9bb22f36b8b974964eb896a5156",
+      "created_at": "2026-10-16",
+      "files": [
+        {
+          "path": "internal/genpkg/gomod.go",
+          "package": "go",
+          "template": "*/{pkg}/{name}.go",
+          "captures": {
+            "name": "gomod",
+            "pkg": "genpkg"
+          }
+        },
+        {
+          "path": "internal/genpkg/gomod_test.go",
+          "package": "go",
+          "template": "*/{pkg}/{name}.go",
+          "captures": {
+            "name": "gomod_test",
+            "pkg": "genpkg"
+          }
+        }
+      ],
+      "phases": [
+        {
+          "name": "default",
+          "invocations": [
+            {
+              "action": "addImport",
+              "kwargs": {
+                "file": "internal/genpkg/gomod.go",
+                "path": "io/fs"
+              }
+            },
+            {
+              "action": "addImport",
+              "kwargs": {
+                "file": "internal/genpkg/gomod.go",
+                "path": "os"
+              }
+            },
+            {
+              "action": "addImport",
+              "kwargs": {
+                "file": "internal/genpkg/gomod.go",
+                "path": "path/filepath"
+              }
+            },
+            {
+              "action": "addImport",
+              "kwargs": {
+                "file": "internal/genpkg/gomod.go",
+                "path": "strings"
+              }
+            },
+            {
+              "action": "setFunction",
+              "kwargs": {
+                "code": "// checkGoModBoundary reports a warning when dir holds Go template files\n// anywhere below it but has no go.mod at its root.\nfunc checkGoModBoundary(dir string) Findings {\n\thasGo := false\n\terr := filepath.WalkDir(dir, func(path string, d fs.DirEntry, err error) error {\n\t\tif err != nil {\n\t\t\treturn err\n\t\t}\n\t\tif d.Type().IsRegular() \u0026\u0026 strings.HasSuffix(d.Name(), \".go\") {\n\t\t\thasGo = true\n\t\t\treturn fs.SkipAll\n\t\t}\n\t\treturn nil\n\t})\n\tif err != nil || !hasGo {\n\t\treturn nil\n\t}\n\tif _, statErr := os.Stat(filepath.Join(dir, \"go.mod\")); statErr == nil {\n\t\treturn nil\n\t}\n\treturn Findings{{\n\t\tKind:    KindWarning,\n\t\tRule:    RuleGoModMissing,\n\t\tPackage: filepath.Base(dir),\n\t\tMessage: \"holds Go template files but has no go.mod, so go build/test ./... will try to compile them; run `sedum generators install` or add a go.mod with `module generators`\",\n\t}}\n}",
+                "file": "internal/genpkg/gomod.go",
+                "name": "checkGoModBoundary"
+              }
+            },
+            {
+              "action": "addImport",
+              "kwargs": {
+                "file": "internal/genpkg/gomod_test.go",
+                "path": "os"
+              }
+            },
+            {
+              "action": "addImport",
+              "kwargs": {
+                "file": "internal/genpkg/gomod_test.go",
+                "path": "path/filepath"
+              }
+            },
+            {
+              "action": "addImport",
+              "kwargs": {
+                "file": "internal/genpkg/gomod_test.go",
+                "path": "testing"
+              }
+            },
+            {
+              "action": "setFunction",
+              "kwargs": {
+                "code": "// writeGenFile creates rel under dir with a placeholder body.\nfunc writeGenFile(t *testing.T, dir, rel string) {\n\tt.Helper()\n\tp := filepath.Join(dir, rel)\n\tif err := os.MkdirAll(filepath.Dir(p), 0o755); err != nil {\n\t\tt.Fatal(err)\n\t}\n\tif err := os.WriteFile(p, []byte(\"package x\\n\"), 0o644); err != nil {\n\t\tt.Fatal(err)\n\t}\n}",
+                "file": "internal/genpkg/gomod_test.go",
+                "name": "writeGenFile"
+              }
+            },
+            {
+              "action": "setFunction",
+              "kwargs": {
+                "code": "func TestGoModBoundaryWarnsWithoutGoMod(t *testing.T) {\n\tdir := t.TempDir()\n\twriteGenFile(t, dir, \"tpl/main.go\")\n\tgot := checkGoModBoundary(dir)\n\tif len(got) != 1 {\n\t\tt.Fatalf(\"got %d findings, want 1\", len(got))\n\t}\n\tif got[0].Rule != RuleGoModMissing || got[0].Kind != KindWarning {\n\t\tt.Fatalf(\"unexpected finding: %+v\", got[0])\n\t}\n\twant := \"holds Go template files but has no go.mod, so go build/test ./... will try to compile them; run `sedum generators install` or add a go.mod with `module generators`\"\n\tif got[0].Message != want {\n\t\tt.Fatalf(\"message = %q, want %q\", got[0].Message, want)\n\t}\n}",
+                "file": "internal/genpkg/gomod_test.go",
+                "name": "TestGoModBoundaryWarnsWithoutGoMod"
+              }
+            },
+            {
+              "action": "setFunction",
+              "kwargs": {
+                "code": "func TestGoModBoundaryQuietWithGoMod(t *testing.T) {\n\tdir := t.TempDir()\n\twriteGenFile(t, dir, \"main.go\")\n\twriteGenFile(t, dir, \"go.mod\")\n\tif got := checkGoModBoundary(dir); got != nil {\n\t\tt.Fatalf(\"got %+v, want nil\", got)\n\t}\n}",
+                "file": "internal/genpkg/gomod_test.go",
+                "name": "TestGoModBoundaryQuietWithGoMod"
+              }
+            },
+            {
+              "action": "setFunction",
+              "kwargs": {
+                "code": "func TestGoModBoundaryIgnoresNonGoFiles(t *testing.T) {\n\tdir := t.TempDir()\n\twriteGenFile(t, dir, \"install.yaml\")\n\twriteGenFile(t, dir, \"tpl/render.rb\")\n\tif got := checkGoModBoundary(dir); got != nil {\n\t\tt.Fatalf(\"got %+v, want nil\", got)\n\t}\n}",
+                "file": "internal/genpkg/gomod_test.go",
+                "name": "TestGoModBoundaryIgnoresNonGoFiles"
+              }
+            },
+            {
+              "action": "setFunction",
+              "kwargs": {
+                "code": "func TestGoModBoundaryFindsNestedGoFile(t *testing.T) {\n\tdir := t.TempDir()\n\twriteGenFile(t, dir, \"a/b/c/d/deep.go\")\n\tgot := checkGoModBoundary(dir)\n\tif len(got) != 1 || got[0].Rule != RuleGoModMissing {\n\t\tt.Fatalf(\"got %+v, want one %s finding\", got, RuleGoModMissing)\n\t}\n}",
+                "file": "internal/genpkg/gomod_test.go",
+                "name": "TestGoModBoundaryFindsNestedGoFile"
+              }
+            },
+            {
+              "action": "setFunction",
+              "kwargs": {
+                "code": "func TestGoModBoundarySubdirGoModStillWarns(t *testing.T) {\n\tdir := t.TempDir()\n\twriteGenFile(t, dir, \"tpl/main.go\")\n\twriteGenFile(t, dir, \"sub/go.mod\")\n\tgot := checkGoModBoundary(dir)\n\tif len(got) != 1 || got[0].Rule != RuleGoModMissing {\n\t\tt.Fatalf(\"got %+v, want one %s finding\", got, RuleGoModMissing)\n\t}\n}",
+                "file": "internal/genpkg/gomod_test.go",
+                "name": "TestGoModBoundarySubdirGoModStillWarns"
+              }
+            },
+            {
+              "action": "setFunction",
+              "kwargs": {
+                "code": "func TestGoModBoundaryMissingDir(t *testing.T) {\n\tdir := filepath.Join(t.TempDir(), \"absent\")\n\tif got := checkGoModBoundary(dir); got != nil {\n\t\tt.Fatalf(\"got %+v, want nil\", got)\n\t}\n}",
+                "file": "internal/genpkg/gomod_test.go",
+                "name": "TestGoModBoundaryMissingDir"
+              }
+            }
+          ]
+        }
+      ],
+      "regions": [
+        {
+          "path": "internal/genpkg/gomod.go",
+          "action": "addImport",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:d6a9443c14d82b7bdf19bb96637f957fd44ad9bfbe8f167c97e6f7699c8b830f",
+          "id": {
+            "file": "internal/genpkg/gomod.go",
+            "path": "io/fs"
+          },
+          "kwargs": {
+            "file": "internal/genpkg/gomod.go",
+            "path": "io/fs"
+          },
+          "kwargs_hash": "sha256:4b2c7d4c698fde82e5c5f06def41847ea55f94c3c5d09ce8a0e93dbd313f553b",
+          "body": "sha256:80f0597eb523a3ace402ac68fefdf64bf00074dda5ec249d04e8f1e525952547"
+        },
+        {
+          "path": "internal/genpkg/gomod.go",
+          "action": "addImport",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:d6a9443c14d82b7bdf19bb96637f957fd44ad9bfbe8f167c97e6f7699c8b830f",
+          "id": {
+            "file": "internal/genpkg/gomod.go",
+            "path": "os"
+          },
+          "kwargs": {
+            "file": "internal/genpkg/gomod.go",
+            "path": "os"
+          },
+          "kwargs_hash": "sha256:e3625cb90235ab417a59119754690cd18124d825f7b858883a2dfe97d55b695f",
+          "body": "sha256:7c6e309eb2575d4aa451ec2ab83161d13e9ae03bbca3a4d2ecf30ce12adf0905"
+        },
+        {
+          "path": "internal/genpkg/gomod.go",
+          "action": "addImport",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:d6a9443c14d82b7bdf19bb96637f957fd44ad9bfbe8f167c97e6f7699c8b830f",
+          "id": {
+            "file": "internal/genpkg/gomod.go",
+            "path": "path/filepath"
+          },
+          "kwargs": {
+            "file": "internal/genpkg/gomod.go",
+            "path": "path/filepath"
+          },
+          "kwargs_hash": "sha256:1c62db65b1c247f452d4eb5d0363447df5ede61117d7be6692b14dc07d0dc37c",
+          "body": "sha256:a6d196b558491e646be93f56a321f339068c64c76aa9d49bb18046e7f9c777a1"
+        },
+        {
+          "path": "internal/genpkg/gomod.go",
+          "action": "addImport",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:d6a9443c14d82b7bdf19bb96637f957fd44ad9bfbe8f167c97e6f7699c8b830f",
+          "id": {
+            "file": "internal/genpkg/gomod.go",
+            "path": "strings"
+          },
+          "kwargs": {
+            "file": "internal/genpkg/gomod.go",
+            "path": "strings"
+          },
+          "kwargs_hash": "sha256:dfe81107b051474524ab7255027ffb16f2bf78fab081987b28da739cfb2221e8",
+          "body": "sha256:a9af3c0bc4bf9342df9d7e89a324523fdba7941a9ca4190270e68ff3c4a25ea6"
+        },
+        {
+          "path": "internal/genpkg/gomod.go",
+          "action": "setFunction",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:6589611adfb6618a7920e43f951a79901428192ea95c1084fde9f222aecd9537",
+          "id": {
+            "file": "internal/genpkg/gomod.go",
+            "name": "checkGoModBoundary"
+          },
+          "kwargs": {
+            "code": "// checkGoModBoundary reports a warning when dir holds Go template files\n// anywhere below it but has no go.mod at its root.\nfunc checkGoModBoundary(dir string) Findings {\n\thasGo := false\n\terr := filepath.WalkDir(dir, func(path string, d fs.DirEntry, err error) error {\n\t\tif err != nil {\n\t\t\treturn err\n\t\t}\n\t\tif d.Type().IsRegular() \u0026\u0026 strings.HasSuffix(d.Name(), \".go\") {\n\t\t\thasGo = true\n\t\t\treturn fs.SkipAll\n\t\t}\n\t\treturn nil\n\t})\n\tif err != nil || !hasGo {\n\t\treturn nil\n\t}\n\tif _, statErr := os.Stat(filepath.Join(dir, \"go.mod\")); statErr == nil {\n\t\treturn nil\n\t}\n\treturn Findings{{\n\t\tKind:    KindWarning,\n\t\tRule:    RuleGoModMissing,\n\t\tPackage: filepath.Base(dir),\n\t\tMessage: \"holds Go template files but has no go.mod, so go build/test ./... will try to compile them; run `sedum generators install` or add a go.mod with `module generators`\",\n\t}}\n}",
+            "file": "internal/genpkg/gomod.go",
+            "name": "checkGoModBoundary"
+          },
+          "kwargs_hash": "sha256:505a0dd2ae71a653b758a93448dcccd50b109592c48f025502461947500ed8d5",
+          "body": "sha256:fd4da9f827bd81a8770936a03c8afb14ff0f49b865f367f9ab75943061bb0967"
+        },
+        {
+          "path": "internal/genpkg/gomod_test.go",
+          "action": "addImport",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:d6a9443c14d82b7bdf19bb96637f957fd44ad9bfbe8f167c97e6f7699c8b830f",
+          "id": {
+            "file": "internal/genpkg/gomod_test.go",
+            "path": "os"
+          },
+          "kwargs": {
+            "file": "internal/genpkg/gomod_test.go",
+            "path": "os"
+          },
+          "kwargs_hash": "sha256:e15650787027cac7c83179c3190e01bdb61dbbe639cfbb3af2a318cc0b32670f",
+          "body": "sha256:7c6e309eb2575d4aa451ec2ab83161d13e9ae03bbca3a4d2ecf30ce12adf0905"
+        },
+        {
+          "path": "internal/genpkg/gomod_test.go",
+          "action": "addImport",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:d6a9443c14d82b7bdf19bb96637f957fd44ad9bfbe8f167c97e6f7699c8b830f",
+          "id": {
+            "file": "internal/genpkg/gomod_test.go",
+            "path": "path/filepath"
+          },
+          "kwargs": {
+            "file": "internal/genpkg/gomod_test.go",
+            "path": "path/filepath"
+          },
+          "kwargs_hash": "sha256:9ba986960e0ad133a20a1f0d87ac85567a315380888e8719fd04333fbbd5613f",
+          "body": "sha256:a6d196b558491e646be93f56a321f339068c64c76aa9d49bb18046e7f9c777a1"
+        },
+        {
+          "path": "internal/genpkg/gomod_test.go",
+          "action": "addImport",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:d6a9443c14d82b7bdf19bb96637f957fd44ad9bfbe8f167c97e6f7699c8b830f",
+          "id": {
+            "file": "internal/genpkg/gomod_test.go",
+            "path": "testing"
+          },
+          "kwargs": {
+            "file": "internal/genpkg/gomod_test.go",
+            "path": "testing"
+          },
+          "kwargs_hash": "sha256:d8c6088e080819df91039e9a195d3b974e6b945c6688380cbc44f19227a5e4d0",
+          "body": "sha256:14a4a5f3bfbf9325de04706efa8c15a9446f01d2a26624ce9c66bd1d69dc212e"
+        },
+        {
+          "path": "internal/genpkg/gomod_test.go",
+          "action": "setFunction",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:6589611adfb6618a7920e43f951a79901428192ea95c1084fde9f222aecd9537",
+          "id": {
+            "file": "internal/genpkg/gomod_test.go",
+            "name": "TestGoModBoundaryFindsNestedGoFile"
+          },
+          "kwargs": {
+            "code": "func TestGoModBoundaryFindsNestedGoFile(t *testing.T) {\n\tdir := t.TempDir()\n\twriteGenFile(t, dir, \"a/b/c/d/deep.go\")\n\tgot := checkGoModBoundary(dir)\n\tif len(got) != 1 || got[0].Rule != RuleGoModMissing {\n\t\tt.Fatalf(\"got %+v, want one %s finding\", got, RuleGoModMissing)\n\t}\n}",
+            "file": "internal/genpkg/gomod_test.go",
+            "name": "TestGoModBoundaryFindsNestedGoFile"
+          },
+          "kwargs_hash": "sha256:101925158599089e00696e8d5d7fcae7268e6d37b8bd7bc7c4eee4f58fcc171b",
+          "body": "sha256:92cf160222a30852b7c02b515fabbad4cb8d6a871f9a17f80b0f04bc689ce8d8"
+        },
+        {
+          "path": "internal/genpkg/gomod_test.go",
+          "action": "setFunction",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:6589611adfb6618a7920e43f951a79901428192ea95c1084fde9f222aecd9537",
+          "id": {
+            "file": "internal/genpkg/gomod_test.go",
+            "name": "TestGoModBoundaryIgnoresNonGoFiles"
+          },
+          "kwargs": {
+            "code": "func TestGoModBoundaryIgnoresNonGoFiles(t *testing.T) {\n\tdir := t.TempDir()\n\twriteGenFile(t, dir, \"install.yaml\")\n\twriteGenFile(t, dir, \"tpl/render.rb\")\n\tif got := checkGoModBoundary(dir); got != nil {\n\t\tt.Fatalf(\"got %+v, want nil\", got)\n\t}\n}",
+            "file": "internal/genpkg/gomod_test.go",
+            "name": "TestGoModBoundaryIgnoresNonGoFiles"
+          },
+          "kwargs_hash": "sha256:93c5a06382e2d17d5fc6df79b8982b97ee4145eca56efc26c90477f2c732df9e",
+          "body": "sha256:e280ca0205ce41ab5b695c19e0eea2398a3ef6243ed522c91b595609b17e4bdc"
+        },
+        {
+          "path": "internal/genpkg/gomod_test.go",
+          "action": "setFunction",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:6589611adfb6618a7920e43f951a79901428192ea95c1084fde9f222aecd9537",
+          "id": {
+            "file": "internal/genpkg/gomod_test.go",
+            "name": "TestGoModBoundaryMissingDir"
+          },
+          "kwargs": {
+            "code": "func TestGoModBoundaryMissingDir(t *testing.T) {\n\tdir := filepath.Join(t.TempDir(), \"absent\")\n\tif got := checkGoModBoundary(dir); got != nil {\n\t\tt.Fatalf(\"got %+v, want nil\", got)\n\t}\n}",
+            "file": "internal/genpkg/gomod_test.go",
+            "name": "TestGoModBoundaryMissingDir"
+          },
+          "kwargs_hash": "sha256:3ec44218c517f3c5f2e92f106d95341a6bdd8b0cc349fb213d469740814cc8a3",
+          "body": "sha256:f3c5d9bbd16d043ac388160a4c74ee91a8666c03bb25b1376e8fe7fbd349b792"
+        },
+        {
+          "path": "internal/genpkg/gomod_test.go",
+          "action": "setFunction",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:6589611adfb6618a7920e43f951a79901428192ea95c1084fde9f222aecd9537",
+          "id": {
+            "file": "internal/genpkg/gomod_test.go",
+            "name": "TestGoModBoundaryQuietWithGoMod"
+          },
+          "kwargs": {
+            "code": "func TestGoModBoundaryQuietWithGoMod(t *testing.T) {\n\tdir := t.TempDir()\n\twriteGenFile(t, dir, \"main.go\")\n\twriteGenFile(t, dir, \"go.mod\")\n\tif got := checkGoModBoundary(dir); got != nil {\n\t\tt.Fatalf(\"got %+v, want nil\", got)\n\t}\n}",
+            "file": "internal/genpkg/gomod_test.go",
+            "name": "TestGoModBoundaryQuietWithGoMod"
+          },
+          "kwargs_hash": "sha256:8332d69c0f7aa51fe50102007173398801bf3fb5931641751a7ae4a40b625db4",
+          "body": "sha256:56b9dbc53a22f4e725c2c56fd66c3c39bbeddd6ff651aa3fd45165dc0bd2b7e6"
+        },
+        {
+          "path": "internal/genpkg/gomod_test.go",
+          "action": "setFunction",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:6589611adfb6618a7920e43f951a79901428192ea95c1084fde9f222aecd9537",
+          "id": {
+            "file": "internal/genpkg/gomod_test.go",
+            "name": "TestGoModBoundarySubdirGoModStillWarns"
+          },
+          "kwargs": {
+            "code": "func TestGoModBoundarySubdirGoModStillWarns(t *testing.T) {\n\tdir := t.TempDir()\n\twriteGenFile(t, dir, \"tpl/main.go\")\n\twriteGenFile(t, dir, \"sub/go.mod\")\n\tgot := checkGoModBoundary(dir)\n\tif len(got) != 1 || got[0].Rule != RuleGoModMissing {\n\t\tt.Fatalf(\"got %+v, want one %s finding\", got, RuleGoModMissing)\n\t}\n}",
+            "file": "internal/genpkg/gomod_test.go",
+            "name": "TestGoModBoundarySubdirGoModStillWarns"
+          },
+          "kwargs_hash": "sha256:cbb205988fc8b96295364cd2e5e71b13c5b906a866d2b5353a919fac86221817",
+          "body": "sha256:ce3543ca56d9f7f7109866551b760ef4b485508820d56e56f919ad91c1f8b3c8"
+        },
+        {
+          "path": "internal/genpkg/gomod_test.go",
+          "action": "setFunction",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:6589611adfb6618a7920e43f951a79901428192ea95c1084fde9f222aecd9537",
+          "id": {
+            "file": "internal/genpkg/gomod_test.go",
+            "name": "TestGoModBoundaryWarnsWithoutGoMod"
+          },
+          "kwargs": {
+            "code": "func TestGoModBoundaryWarnsWithoutGoMod(t *testing.T) {\n\tdir := t.TempDir()\n\twriteGenFile(t, dir, \"tpl/main.go\")\n\tgot := checkGoModBoundary(dir)\n\tif len(got) != 1 {\n\t\tt.Fatalf(\"got %d findings, want 1\", len(got))\n\t}\n\tif got[0].Rule != RuleGoModMissing || got[0].Kind != KindWarning {\n\t\tt.Fatalf(\"unexpected finding: %+v\", got[0])\n\t}\n\twant := \"holds Go template files but has no go.mod, so go build/test ./... will try to compile them; run `sedum generators install` or add a go.mod with `module generators`\"\n\tif got[0].Message != want {\n\t\tt.Fatalf(\"message = %q, want %q\", got[0].Message, want)\n\t}\n}",
+            "file": "internal/genpkg/gomod_test.go",
+            "name": "TestGoModBoundaryWarnsWithoutGoMod"
+          },
+          "kwargs_hash": "sha256:e719d6aace355e156ec6b133200fed1e9c57f9591bb374a0223f6c1a5015e01d",
+          "body": "sha256:9a06f06882d11e6a0f2014bdf6ca5913d7cc92ad30f6392677e339fd0d77bd57"
+        },
+        {
+          "path": "internal/genpkg/gomod_test.go",
+          "action": "setFunction",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:6589611adfb6618a7920e43f951a79901428192ea95c1084fde9f222aecd9537",
+          "id": {
+            "file": "internal/genpkg/gomod_test.go",
+            "name": "writeGenFile"
+          },
+          "kwargs": {
+            "code": "// writeGenFile creates rel under dir with a placeholder body.\nfunc writeGenFile(t *testing.T, dir, rel string) {\n\tt.Helper()\n\tp := filepath.Join(dir, rel)\n\tif err := os.MkdirAll(filepath.Dir(p), 0o755); err != nil {\n\t\tt.Fatal(err)\n\t}\n\tif err := os.WriteFile(p, []byte(\"package x\\n\"), 0o644); err != nil {\n\t\tt.Fatal(err)\n\t}\n}",
+            "file": "internal/genpkg/gomod_test.go",
+            "name": "writeGenFile"
+          },
+          "kwargs_hash": "sha256:c2920c8c2f002c8028f096c69c3a63338251617425ce6317875c05b86b9811f3",
+          "body": "sha256:ae1fc01954f8763e502a649276801e0ee9604264b07f21b0ed0b1bcec36bdab3"
+        }
+      ]
+    }
+  ]
+}

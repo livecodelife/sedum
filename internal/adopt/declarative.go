@@ -1,25 +1,25 @@
 package adopt
 
 // sedum:anchor:imports
-// sedum:addImport {"tier":"owned","record":"prov-2026-856f85eb","gen":"sha256:e6570a4fd6ea725d919e68451b96892a2f182bf97c341497b36f9681d7725f3a","pkg":"sha256:d6a9443c14d82b7bdf19bb96637f957fd44ad9bfbe8f167c97e6f7699c8b830f","kwargs":{"file":"internal/adopt/declarative.go","path":"fmt"}}
+// sedum:addImport {"v":2,"tier":"owned","record":"prov-2026-856f85eb","gen":"sha256:e6570a4fd6ea725d919e68451b96892a2f182bf97c341497b36f9681d7725f3a","pkg":"sha256:d6a9443c14d82b7bdf19bb96637f957fd44ad9bfbe8f167c97e6f7699c8b830f","id":{"file":"internal/adopt/declarative.go","path":"fmt"},"kwargs":"sha256:79da9bebb30be3c7919ae968752e0e410d15315f2d4e78f5223b070b5d05c9cb","body":"sha256:bcbac51883cbf8064e9196b371cb880cee429866652447ad557533d817857609"}
 import "fmt"
 
 // /sedum:addImport
-// sedum:addImport {"tier":"owned","record":"prov-2026-856f85eb","gen":"sha256:e6570a4fd6ea725d919e68451b96892a2f182bf97c341497b36f9681d7725f3a","pkg":"sha256:d6a9443c14d82b7bdf19bb96637f957fd44ad9bfbe8f167c97e6f7699c8b830f","kwargs":{"file":"internal/adopt/declarative.go","path":"regexp"}}
+// sedum:addImport {"v":2,"tier":"owned","record":"prov-2026-856f85eb","gen":"sha256:e6570a4fd6ea725d919e68451b96892a2f182bf97c341497b36f9681d7725f3a","pkg":"sha256:d6a9443c14d82b7bdf19bb96637f957fd44ad9bfbe8f167c97e6f7699c8b830f","id":{"file":"internal/adopt/declarative.go","path":"regexp"},"kwargs":"sha256:320ea0fa006e2bbbdb5869cb95fc5eb73213834667802b9f9d694dae91353318","body":"sha256:b437bd748876cfcdfa00102314b52d7ce19d023c66492336bdfd27288b1329d2"}
 import "regexp"
 
 // /sedum:addImport
-// sedum:addImport {"tier":"owned","record":"prov-2026-856f85eb","gen":"sha256:e6570a4fd6ea725d919e68451b96892a2f182bf97c341497b36f9681d7725f3a","pkg":"sha256:d6a9443c14d82b7bdf19bb96637f957fd44ad9bfbe8f167c97e6f7699c8b830f","kwargs":{"file":"internal/adopt/declarative.go","path":"strings"}}
+// sedum:addImport {"v":2,"tier":"owned","record":"prov-2026-856f85eb","gen":"sha256:e6570a4fd6ea725d919e68451b96892a2f182bf97c341497b36f9681d7725f3a","pkg":"sha256:d6a9443c14d82b7bdf19bb96637f957fd44ad9bfbe8f167c97e6f7699c8b830f","id":{"file":"internal/adopt/declarative.go","path":"strings"},"kwargs":"sha256:1bd1e834bc95c41a81b6f917147965c11e9372513203be3334f5f33809298642","body":"sha256:a9af3c0bc4bf9342df9d7e89a324523fdba7941a9ca4190270e68ff3c4a25ea6"}
 import "strings"
 
 // /sedum:addImport
-// sedum:addImport {"tier":"owned","record":"prov-2026-856f85eb","gen":"sha256:e6570a4fd6ea725d919e68451b96892a2f182bf97c341497b36f9681d7725f3a","pkg":"sha256:d6a9443c14d82b7bdf19bb96637f957fd44ad9bfbe8f167c97e6f7699c8b830f","kwargs":{"file":"internal/adopt/declarative.go","path":"github.com/livecodelife/sedum/internal/genpkg"}}
+// sedum:addImport {"v":2,"tier":"owned","record":"prov-2026-856f85eb","gen":"sha256:e6570a4fd6ea725d919e68451b96892a2f182bf97c341497b36f9681d7725f3a","pkg":"sha256:d6a9443c14d82b7bdf19bb96637f957fd44ad9bfbe8f167c97e6f7699c8b830f","id":{"file":"internal/adopt/declarative.go","path":"github.com/livecodelife/sedum/internal/genpkg"},"kwargs":"sha256:f5d41a6e241d7cf587c87cb707771f5a91c5aac70c557a209218a7d93cc49b34","body":"sha256:5b4c7dbee430534527d893269527d915be58accc7a8330a8c104c2014153525d"}
 import "github.com/livecodelife/sedum/internal/genpkg"
 
 // /sedum:addImport
 
 // sedum:anchor:decls
-// sedum:setType {"tier":"owned","record":"prov-2026-856f85eb","gen":"sha256:e6570a4fd6ea725d919e68451b96892a2f182bf97c341497b36f9681d7725f3a","pkg":"sha256:ebb283283a745fdc09f0294b6e79bd879a830829cb964550ec6b4432fee5bb72","kwargs":{"code":"// Declarative splits files by the rules in a package's adopt section.\ntype Declarative struct {\n\theader    *regexp.Regexp\n\tunitStart *regexp.Regexp\n\tattach    []*regexp.Regexp\n\tunitEnd   *regexp.Regexp\n\tendMode   string\n\tkinds     map[string]string\n\tdeclared  map[string]map[string]bool\n}","file":"internal/adopt/declarative.go","name":"Declarative"}}
+// sedum:setType {"v":2,"tier":"owned","record":"prov-2026-856f85eb","gen":"sha256:e6570a4fd6ea725d919e68451b96892a2f182bf97c341497b36f9681d7725f3a","pkg":"sha256:ebb283283a745fdc09f0294b6e79bd879a830829cb964550ec6b4432fee5bb72","id":{"file":"internal/adopt/declarative.go","name":"Declarative"},"kwargs":"sha256:974d12e103e4de87463609d9c82e385bdcd689003de64d3e79679d1118fb2072","body":"sha256:2c1064614787e8fadcb039c8fca5436a02bd19630aaa1b4e745294a7e24e16d6"}
 // Declarative splits files by the rules in a package's adopt section.
 type Declarative struct {
 	header    *regexp.Regexp
@@ -32,7 +32,7 @@ type Declarative struct {
 }
 
 // /sedum:setType
-// sedum:setFunction {"tier":"owned","record":"prov-2026-856f85eb","gen":"sha256:e6570a4fd6ea725d919e68451b96892a2f182bf97c341497b36f9681d7725f3a","pkg":"sha256:6589611adfb6618a7920e43f951a79901428192ea95c1084fde9f222aecd9537","kwargs":{"code":"// NewDeclarative builds a Declarative adopter from a declarative package.\nfunc NewDeclarative(pkg *genpkg.Package) (*Declarative, error) {\n\tif pkg.Adopt == nil {\n\t\treturn nil, fmt.Errorf(\"package %s: no adopt section\", pkg.Name)\n\t}\n\tad := pkg.Adopt\n\tif len(ad.Command) > 0 {\n\t\treturn nil, fmt.Errorf(\"package %s: adopt command is not declarative\", pkg.Name)\n\t}\n\tif ad.UnitEnd == \"\" {\n\t\treturn nil, fmt.Errorf(\"package %s: unit_end is required\", pkg.Name)\n\t}\n\td := &Declarative{\n\t\tendMode:  ad.UnitEnd,\n\t\tkinds:    map[string]string{},\n\t\tdeclared: map[string]map[string]bool{},\n\t}\n\tvar err error\n\tif d.unitStart, err = regexp.Compile(ad.UnitStart); err != nil {\n\t\treturn nil, fmt.Errorf(\"package %s: unit_start: %w\", pkg.Name, err)\n\t}\n\tif ad.Header != \"\" {\n\t\tif d.header, err = regexp.Compile(ad.Header); err != nil {\n\t\t\treturn nil, fmt.Errorf(\"package %s: header: %w\", pkg.Name, err)\n\t\t}\n\t}\n\tfor _, pat := range ad.AttachAbove {\n\t\tre, err := regexp.Compile(pat)\n\t\tif err != nil {\n\t\t\treturn nil, fmt.Errorf(\"package %s: attach_above: %w\", pkg.Name, err)\n\t\t}\n\t\td.attach = append(d.attach, re)\n\t}\n\tif ad.UnitEnd != \"dedent\" && ad.UnitEnd != \"blank\" {\n\t\tif d.unitEnd, err = regexp.Compile(ad.UnitEnd); err != nil {\n\t\t\treturn nil, fmt.Errorf(\"package %s: unit_end: %w\", pkg.Name, err)\n\t\t}\n\t}\n\tfor kind, action := range ad.Actions {\n\t\td.kinds[kind] = action\n\t\tset := map[string]bool{}\n\t\tif a, ok := pkg.Actions[action]; ok && a != nil {\n\t\t\tfor _, k := range []string{\"file\", \"name\", \"code\"} {\n\t\t\t\tif _, ok := a.Kwargs[k]; ok {\n\t\t\t\t\tset[k] = true\n\t\t\t\t}\n\t\t\t}\n\t\t}\n\t\td.declared[action] = set\n\t}\n\treturn d, nil\n}","file":"internal/adopt/declarative.go","name":"NewDeclarative"}}
+// sedum:setFunction {"v":2,"tier":"owned","record":"prov-2026-856f85eb","gen":"sha256:e6570a4fd6ea725d919e68451b96892a2f182bf97c341497b36f9681d7725f3a","pkg":"sha256:6589611adfb6618a7920e43f951a79901428192ea95c1084fde9f222aecd9537","id":{"file":"internal/adopt/declarative.go","name":"NewDeclarative"},"kwargs":"sha256:717d9bd168487a370360933a9861122c0889042ea9803092987f01211ffc77fb","body":"sha256:413cbb6c47f52eee2ce702261c0a93e7b1e5bff6115b85ad4f0513c1e3b58120"}
 // NewDeclarative builds a Declarative adopter from a declarative package.
 func NewDeclarative(pkg *genpkg.Package) (*Declarative, error) {
 	if pkg.Adopt == nil {
@@ -87,7 +87,7 @@ func NewDeclarative(pkg *genpkg.Package) (*Declarative, error) {
 }
 
 // /sedum:setFunction
-// sedum:setFunction {"tier":"owned","record":"prov-2026-856f85eb","gen":"sha256:e6570a4fd6ea725d919e68451b96892a2f182bf97c341497b36f9681d7725f3a","pkg":"sha256:6589611adfb6618a7920e43f951a79901428192ea95c1084fde9f222aecd9537","kwargs":{"code":"// splitLines splits s into lines, keeping each line's newline.\nfunc splitLines(s string) []string {\n\tvar out []string\n\tfor len(s) > 0 {\n\t\ti := strings.IndexByte(s, '\\n')\n\t\tif i < 0 {\n\t\t\tout = append(out, s)\n\t\t\tbreak\n\t\t}\n\t\tout = append(out, s[:i+1])\n\t\ts = s[i+1:]\n\t}\n\treturn out\n}","file":"internal/adopt/declarative.go","name":"splitLines"}}
+// sedum:setFunction {"v":2,"tier":"owned","record":"prov-2026-856f85eb","gen":"sha256:e6570a4fd6ea725d919e68451b96892a2f182bf97c341497b36f9681d7725f3a","pkg":"sha256:6589611adfb6618a7920e43f951a79901428192ea95c1084fde9f222aecd9537","id":{"file":"internal/adopt/declarative.go","name":"splitLines"},"kwargs":"sha256:1af4da0aea8c09c4b062aa2d17b6f77312cdf73fac14a7d6915d746d529118d2","body":"sha256:00143b7dc4b76648106f5258392d39592e1c6bf16f377eb24e8b2ab161bee593"}
 // splitLines splits s into lines, keeping each line's newline.
 func splitLines(s string) []string {
 	var out []string
@@ -104,7 +104,7 @@ func splitLines(s string) []string {
 }
 
 // /sedum:setFunction
-// sedum:setMethod {"tier":"owned","record":"prov-2026-856f85eb","gen":"sha256:e6570a4fd6ea725d919e68451b96892a2f182bf97c341497b36f9681d7725f3a","pkg":"sha256:8ea07fc52bbc260836983438ef08ad02746b86a1028c8b1a51b60eeb7b83cc2b","kwargs":{"code":"// Split divides src into header, unit and residual spans in file order.\nfunc (d *Declarative) Split(path string, src []byte) ([]Span, error) {\n\tout := []Span{}\n\ttext := string(src)\n\tif d.header != nil {\n\t\tif loc := d.header.FindStringIndex(text); loc != nil && loc[0] == 0 && loc[1] > 0 {\n\t\t\tout = append(out, Span{Kind: KindHeader, Text: text[:loc[1]]})\n\t\t\ttext = text[loc[1]:]\n\t\t}\n\t}\n\tlines := splitLines(text)\n\tpending := 0\n\tfor i := 0; i < len(lines); {\n\t\tkind, name, ok := d.matchStart(lines[i])\n\t\taction, known := d.kinds[kind]\n\t\tif !ok || !known {\n\t\t\ti++\n\t\t\tcontinue\n\t\t}\n\t\tb := i\n\t\tfor b > pending && d.attaches(lines[b-1]) {\n\t\t\tb--\n\t\t}\n\t\te := d.endOf(lines, i)\n\t\tif b > pending {\n\t\t\tout = append(out, residualSpan(lines[pending:b]))\n\t\t}\n\t\tout = append(out, d.unitSpan(path, action, name, lines[b:e]))\n\t\tpending = e\n\t\ti = e\n\t}\n\tif pending < len(lines) {\n\t\tout = append(out, residualSpan(lines[pending:]))\n\t}\n\treturn out, nil\n}","file":"internal/adopt/declarative.go","name":"Split","receiver":"Declarative"}}
+// sedum:setMethod {"v":2,"tier":"owned","record":"prov-2026-856f85eb","gen":"sha256:e6570a4fd6ea725d919e68451b96892a2f182bf97c341497b36f9681d7725f3a","pkg":"sha256:8ea07fc52bbc260836983438ef08ad02746b86a1028c8b1a51b60eeb7b83cc2b","id":{"file":"internal/adopt/declarative.go","name":"Split","receiver":"Declarative"},"kwargs":"sha256:2dffe1843396c33a0fb8757f42edf127ab414fccf66a726c4f2a5e5c22fb348f","body":"sha256:b46849b49f902a79e36afdda508d3ab2bb537ce9318c20d9121d4577607008ed"}
 // Split divides src into header, unit and residual spans in file order.
 func (d *Declarative) Split(path string, src []byte) ([]Span, error) {
 	out := []Span{}
@@ -143,7 +143,7 @@ func (d *Declarative) Split(path string, src []byte) ([]Span, error) {
 }
 
 // /sedum:setMethod
-// sedum:setMethod {"tier":"owned","record":"prov-2026-856f85eb","gen":"sha256:e6570a4fd6ea725d919e68451b96892a2f182bf97c341497b36f9681d7725f3a","pkg":"sha256:8ea07fc52bbc260836983438ef08ad02746b86a1028c8b1a51b60eeb7b83cc2b","kwargs":{"code":"// endOf returns the exclusive index where the unit starting at start ends.\nfunc (d *Declarative) endOf(lines []string, start int) int {\n\tswitch d.endMode {\n\tcase \"dedent\":\n\t\te := start + 1\n\t\tfor j := start + 1; j < len(lines); j++ {\n\t\t\tline := lines[j]\n\t\t\tif isBlank(line) {\n\t\t\t\tcontinue\n\t\t\t}\n\t\t\tif line[0] != ' ' && line[0] != '\\t' {\n\t\t\t\tbreak\n\t\t\t}\n\t\t\te = j + 1\n\t\t}\n\t\treturn e\n\tcase \"blank\":\n\t\te := start + 1\n\t\tfor e < len(lines) && !isBlank(lines[e]) {\n\t\t\te++\n\t\t}\n\t\treturn e\n\t}\n\tfor j := start; j < len(lines); j++ {\n\t\tif d.unitEnd.MatchString(stripEOL(lines[j])) {\n\t\t\treturn j + 1\n\t\t}\n\t}\n\treturn len(lines)\n}","file":"internal/adopt/declarative.go","name":"endOf","receiver":"Declarative"}}
+// sedum:setMethod {"v":2,"tier":"owned","record":"prov-2026-856f85eb","gen":"sha256:e6570a4fd6ea725d919e68451b96892a2f182bf97c341497b36f9681d7725f3a","pkg":"sha256:8ea07fc52bbc260836983438ef08ad02746b86a1028c8b1a51b60eeb7b83cc2b","id":{"file":"internal/adopt/declarative.go","name":"endOf","receiver":"Declarative"},"kwargs":"sha256:cb75ff24ba5d92fa149983f18dfe067aaa852fc74cb744e5af6ecc7c678e72ea","body":"sha256:4bfb36266ad25c66ea2a5dcd899445e8f1c51a67fa726bcf78bf69a28a78a409"}
 // endOf returns the exclusive index where the unit starting at start ends.
 func (d *Declarative) endOf(lines []string, start int) int {
 	switch d.endMode {
@@ -176,7 +176,7 @@ func (d *Declarative) endOf(lines []string, start int) int {
 }
 
 // /sedum:setMethod
-// sedum:setMethod {"tier":"owned","record":"prov-2026-856f85eb","gen":"sha256:e6570a4fd6ea725d919e68451b96892a2f182bf97c341497b36f9681d7725f3a","pkg":"sha256:8ea07fc52bbc260836983438ef08ad02746b86a1028c8b1a51b60eeb7b83cc2b","kwargs":{"code":"// matchStart reports the kind and name of a line that starts a unit.\nfunc (d *Declarative) matchStart(line string) (kind, name string, ok bool) {\n\tm := d.unitStart.FindStringSubmatch(stripEOL(line))\n\tif m == nil {\n\t\treturn \"\", \"\", false\n\t}\n\treturn namedGroup(d.unitStart, m, \"kind\"), namedGroup(d.unitStart, m, \"name\"), true\n}","file":"internal/adopt/declarative.go","name":"matchStart","receiver":"Declarative"}}
+// sedum:setMethod {"v":2,"tier":"owned","record":"prov-2026-856f85eb","gen":"sha256:e6570a4fd6ea725d919e68451b96892a2f182bf97c341497b36f9681d7725f3a","pkg":"sha256:8ea07fc52bbc260836983438ef08ad02746b86a1028c8b1a51b60eeb7b83cc2b","id":{"file":"internal/adopt/declarative.go","name":"matchStart","receiver":"Declarative"},"kwargs":"sha256:cb0ebe509523b8d98e7e4a582b6d3b638d56a82cfd19dd1d117366b7807f39e0","body":"sha256:a16c35929ed6f6cc0538293498333d1ac8b028802f2e915b86b780a7281b883c"}
 // matchStart reports the kind and name of a line that starts a unit.
 func (d *Declarative) matchStart(line string) (kind, name string, ok bool) {
 	m := d.unitStart.FindStringSubmatch(stripEOL(line))
@@ -187,7 +187,7 @@ func (d *Declarative) matchStart(line string) (kind, name string, ok bool) {
 }
 
 // /sedum:setMethod
-// sedum:setMethod {"tier":"owned","record":"prov-2026-856f85eb","gen":"sha256:e6570a4fd6ea725d919e68451b96892a2f182bf97c341497b36f9681d7725f3a","pkg":"sha256:8ea07fc52bbc260836983438ef08ad02746b86a1028c8b1a51b60eeb7b83cc2b","kwargs":{"code":"// attaches reports whether a line matches any AttachAbove regexp.\nfunc (d *Declarative) attaches(line string) bool {\n\tbody := stripEOL(line)\n\tfor _, re := range d.attach {\n\t\tif re.MatchString(body) {\n\t\t\treturn true\n\t\t}\n\t}\n\treturn false\n}","file":"internal/adopt/declarative.go","name":"attaches","receiver":"Declarative"}}
+// sedum:setMethod {"v":2,"tier":"owned","record":"prov-2026-856f85eb","gen":"sha256:e6570a4fd6ea725d919e68451b96892a2f182bf97c341497b36f9681d7725f3a","pkg":"sha256:8ea07fc52bbc260836983438ef08ad02746b86a1028c8b1a51b60eeb7b83cc2b","id":{"file":"internal/adopt/declarative.go","name":"attaches","receiver":"Declarative"},"kwargs":"sha256:e3ba63dbeb7e31a1dd9bd96ea33a726ba2c972072ccf2251ecb2ed367bb38bfe","body":"sha256:b097b29963d446336323feb85445ea8ee38753f2ad2620d23517a23b9e94b93a"}
 // attaches reports whether a line matches any AttachAbove regexp.
 func (d *Declarative) attaches(line string) bool {
 	body := stripEOL(line)
@@ -200,7 +200,7 @@ func (d *Declarative) attaches(line string) bool {
 }
 
 // /sedum:setMethod
-// sedum:setMethod {"tier":"owned","record":"prov-2026-856f85eb","gen":"sha256:e6570a4fd6ea725d919e68451b96892a2f182bf97c341497b36f9681d7725f3a","pkg":"sha256:8ea07fc52bbc260836983438ef08ad02746b86a1028c8b1a51b60eeb7b83cc2b","kwargs":{"code":"// unitSpan builds a unit span carrying only the kwargs its action declares.\nfunc (d *Declarative) unitSpan(path, action, name string, lines []string) Span {\n\ttext := strings.Join(lines, \"\")\n\tkwargs := map[string]any{}\n\tfor k := range d.declared[action] {\n\t\tswitch k {\n\t\tcase \"file\":\n\t\t\tkwargs[k] = path\n\t\tcase \"name\":\n\t\t\tkwargs[k] = name\n\t\tcase \"code\":\n\t\t\tkwargs[k] = strings.TrimSuffix(text, \"\\n\")\n\t\t}\n\t}\n\treturn Span{Kind: KindUnit, Text: text, Action: action, Kwargs: kwargs}\n}","file":"internal/adopt/declarative.go","name":"unitSpan","receiver":"Declarative"}}
+// sedum:setMethod {"v":2,"tier":"owned","record":"prov-2026-856f85eb","gen":"sha256:e6570a4fd6ea725d919e68451b96892a2f182bf97c341497b36f9681d7725f3a","pkg":"sha256:8ea07fc52bbc260836983438ef08ad02746b86a1028c8b1a51b60eeb7b83cc2b","id":{"file":"internal/adopt/declarative.go","name":"unitSpan","receiver":"Declarative"},"kwargs":"sha256:cdc6764a4e47cf8ce3972b08e1427cbda2ede29df8820e5b677acde4c1c779ff","body":"sha256:029313d39d4e089a5745d0a20ad5bcea2a2d6ba04f7146181f433277363db9e5"}
 // unitSpan builds a unit span carrying only the kwargs its action declares.
 func (d *Declarative) unitSpan(path, action, name string, lines []string) Span {
 	text := strings.Join(lines, "")
@@ -219,21 +219,21 @@ func (d *Declarative) unitSpan(path, action, name string, lines []string) Span {
 }
 
 // /sedum:setMethod
-// sedum:setFunction {"tier":"owned","record":"prov-2026-856f85eb","gen":"sha256:e6570a4fd6ea725d919e68451b96892a2f182bf97c341497b36f9681d7725f3a","pkg":"sha256:6589611adfb6618a7920e43f951a79901428192ea95c1084fde9f222aecd9537","kwargs":{"code":"// residualSpan builds a residual span from consecutive leftover lines.\nfunc residualSpan(lines []string) Span {\n\treturn Span{Kind: KindResidual, Text: strings.Join(lines, \"\")}\n}","file":"internal/adopt/declarative.go","name":"residualSpan"}}
+// sedum:setFunction {"v":2,"tier":"owned","record":"prov-2026-856f85eb","gen":"sha256:e6570a4fd6ea725d919e68451b96892a2f182bf97c341497b36f9681d7725f3a","pkg":"sha256:6589611adfb6618a7920e43f951a79901428192ea95c1084fde9f222aecd9537","id":{"file":"internal/adopt/declarative.go","name":"residualSpan"},"kwargs":"sha256:27491e688928bd4976a806ff977cd51b1ecb31f241c4ebc4b2c94e88b252f7a2","body":"sha256:b2d36af21f34af114e92b5a7215579843c7decbfe650a65b54aa8b2395b860bc"}
 // residualSpan builds a residual span from consecutive leftover lines.
 func residualSpan(lines []string) Span {
 	return Span{Kind: KindResidual, Text: strings.Join(lines, "")}
 }
 
 // /sedum:setFunction
-// sedum:setFunction {"tier":"owned","record":"prov-2026-856f85eb","gen":"sha256:e6570a4fd6ea725d919e68451b96892a2f182bf97c341497b36f9681d7725f3a","pkg":"sha256:6589611adfb6618a7920e43f951a79901428192ea95c1084fde9f222aecd9537","kwargs":{"code":"// stripEOL removes a trailing line ending.\nfunc stripEOL(line string) string {\n\treturn strings.TrimRight(line, \"\\r\\n\")\n}","file":"internal/adopt/declarative.go","name":"stripEOL"}}
+// sedum:setFunction {"v":2,"tier":"owned","record":"prov-2026-856f85eb","gen":"sha256:e6570a4fd6ea725d919e68451b96892a2f182bf97c341497b36f9681d7725f3a","pkg":"sha256:6589611adfb6618a7920e43f951a79901428192ea95c1084fde9f222aecd9537","id":{"file":"internal/adopt/declarative.go","name":"stripEOL"},"kwargs":"sha256:eb8a7e0a9d9a58ef3a47e45d73051757cdddb987c54baf2480fe0b6c8bacb321","body":"sha256:bb07cd5f9ed5d810a21594e553851a6fb57e53f1970d6e00ca1854f6c920f9f1"}
 // stripEOL removes a trailing line ending.
 func stripEOL(line string) string {
 	return strings.TrimRight(line, "\r\n")
 }
 
 // /sedum:setFunction
-// sedum:setFunction {"tier":"owned","record":"prov-2026-856f85eb","gen":"sha256:e6570a4fd6ea725d919e68451b96892a2f182bf97c341497b36f9681d7725f3a","pkg":"sha256:6589611adfb6618a7920e43f951a79901428192ea95c1084fde9f222aecd9537","kwargs":{"code":"// namedGroup returns the text of a named submatch, or empty when absent.\nfunc namedGroup(re *regexp.Regexp, m []string, name string) string {\n\ti := re.SubexpIndex(name)\n\tif i < 0 || i >= len(m) {\n\t\treturn \"\"\n\t}\n\treturn m[i]\n}","file":"internal/adopt/declarative.go","name":"namedGroup"}}
+// sedum:setFunction {"v":2,"tier":"owned","record":"prov-2026-856f85eb","gen":"sha256:e6570a4fd6ea725d919e68451b96892a2f182bf97c341497b36f9681d7725f3a","pkg":"sha256:6589611adfb6618a7920e43f951a79901428192ea95c1084fde9f222aecd9537","id":{"file":"internal/adopt/declarative.go","name":"namedGroup"},"kwargs":"sha256:8438e430e74efb760f9757e8e18d940d7409d87b6e3c7c243ac13295e2e02c82","body":"sha256:dd4c921546ba90dd22a1cc30687edc84550c7e38172e81975279797e4abca412"}
 // namedGroup returns the text of a named submatch, or empty when absent.
 func namedGroup(re *regexp.Regexp, m []string, name string) string {
 	i := re.SubexpIndex(name)
@@ -244,7 +244,7 @@ func namedGroup(re *regexp.Regexp, m []string, name string) string {
 }
 
 // /sedum:setFunction
-// sedum:setFunction {"tier":"owned","record":"prov-2026-856f85eb","gen":"sha256:e6570a4fd6ea725d919e68451b96892a2f182bf97c341497b36f9681d7725f3a","pkg":"sha256:6589611adfb6618a7920e43f951a79901428192ea95c1084fde9f222aecd9537","kwargs":{"code":"// isBlank reports whether a line is empty or whitespace only.\nfunc isBlank(line string) bool {\n\treturn strings.TrimSpace(line) == \"\"\n}","file":"internal/adopt/declarative.go","name":"isBlank"}}
+// sedum:setFunction {"v":2,"tier":"owned","record":"prov-2026-856f85eb","gen":"sha256:e6570a4fd6ea725d919e68451b96892a2f182bf97c341497b36f9681d7725f3a","pkg":"sha256:6589611adfb6618a7920e43f951a79901428192ea95c1084fde9f222aecd9537","id":{"file":"internal/adopt/declarative.go","name":"isBlank"},"kwargs":"sha256:c04f407a65b988ebe3cf3e081e095641d6ff1a793277519ab6fc0e2cb25290e5","body":"sha256:687075b4717ba26a201ebcc9696b4124987f2b9066e377ea4f3ed2a93ce74a80"}
 // isBlank reports whether a line is empty or whitespace only.
 func isBlank(line string) bool {
 	return strings.TrimSpace(line) == ""

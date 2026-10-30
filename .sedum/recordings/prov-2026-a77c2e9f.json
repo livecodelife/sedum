@@ -1,0 +1,503 @@
+{
+  "sedum_version": "0.11.0",
+  "packages": {
+    "go": {
+      "extensions": [
+        ".go"
+      ]
+    }
+  },
+  "records": [
+    {
+      "record_id": "prov-2026-a77c2e9f",
+      "gen": "sha256:52f45c66197b92b8180e46912fc1ad38be50faebe69122f0b9cb64741d610d29",
+      "created_at": "2026-10-16",
+      "files": [
+        {
+          "path": "internal/cli/adopt.go",
+          "package": "go",
+          "template": "*/{pkg}/{name}.go",
+          "captures": {
+            "name": "adopt",
+            "pkg": "cli"
+          }
+        },
+        {
+          "path": "internal/cli/adopt_test.go",
+          "package": "go",
+          "template": "*/{pkg}/{name}.go",
+          "captures": {
+            "name": "adopt_test",
+            "pkg": "cli"
+          }
+        },
+        {
+          "path": "internal/cli/root.go",
+          "package": "go",
+          "template": "*/{pkg}/{name}.go",
+          "captures": {
+            "name": "root",
+            "pkg": "cli"
+          }
+        }
+      ],
+      "phases": [
+        {
+          "name": "default",
+          "invocations": [
+            {
+              "action": "addImport",
+              "kwargs": {
+                "file": "internal/cli/adopt.go",
+                "path": "fmt"
+              }
+            },
+            {
+              "action": "addImport",
+              "kwargs": {
+                "file": "internal/cli/adopt.go",
+                "path": "io"
+              }
+            },
+            {
+              "action": "addImport",
+              "kwargs": {
+                "file": "internal/cli/adopt.go",
+                "path": "github.com/livecodelife/sedum/internal/adopt"
+              }
+            },
+            {
+              "action": "addImport",
+              "kwargs": {
+                "file": "internal/cli/adopt.go",
+                "path": "github.com/spf13/cobra"
+              }
+            },
+            {
+              "action": "setType",
+              "kwargs": {
+                "code": "// AdoptConfig holds the flags of sedum adopt.\ntype AdoptConfig struct {\n\tGenerators, Records, Output, Recording    string\n\tTests, AllowCommandAdopters, DryRun, JSON bool\n}",
+                "file": "internal/cli/adopt.go",
+                "name": "AdoptConfig"
+              }
+            },
+            {
+              "action": "setFunction",
+              "kwargs": {
+                "code": "func newAdoptCommand() *cobra.Command {\n\tvar cfg AdoptConfig\n\tcmd := \u0026cobra.Command{\n\t\tUse:   \"adopt \u003cpath\u003e...\",\n\t\tShort: \"Bring existing files under Sedum without a model\",\n\t\tLong:  \"Bring existing files under Sedum without a model. For each file, sedum splits it with the adopter its generator package declares, builds a recording, replays it, and keeps the file only if stripping the markers gives back the original. Files it cannot adopt are skipped and named with the reason. --dry-run writes only the recording; no model is called.\",\n\t\tArgs:  cobra.MinimumNArgs(1),\n\t\tRunE: func(cmd *cobra.Command, args []string) error {\n\t\t\treturn runAdopt(cmd.OutOrStdout(), cfg, args)\n\t\t},\n\t}\n\tcmd.Flags().StringVar(\u0026cfg.Generators, \"generators\", \"\", \"directory of generator packages\")\n\tcmd.Flags().StringVar(\u0026cfg.Records, \"records\", \"\", \"directory of records\")\n\tcmd.Flags().StringVar(\u0026cfg.Output, \"output\", defaultOutput, \"the project root the paths are relative to\")\n\tcmd.Flags().StringVar(\u0026cfg.Recording, \"recording\", \"\", \"where to write the recording (default .sedum/adopt/adopt.json under --output)\")\n\tcmd.Flags().BoolVar(\u0026cfg.Tests, \"tests\", false, \"also adopt test files\")\n\tcmd.Flags().BoolVar(\u0026cfg.AllowCommandAdopters, \"allow-command-adopters\", false, \"allow adopters that run an external command\")\n\tcmd.Flags().BoolVar(\u0026cfg.DryRun, \"dry-run\", false, \"write only the recording; change no files\")\n\tcmd.Flags().BoolVar(\u0026cfg.JSON, \"json\", false, \"print the report as JSON\")\n\tmustMarkRequired(cmd, \"generators\", \"records\")\n\treturn cmd\n}",
+                "file": "internal/cli/adopt.go",
+                "name": "newAdoptCommand"
+              }
+            },
+            {
+              "action": "setFunction",
+              "kwargs": {
+                "code": "func runAdopt(out io.Writer, cfg AdoptConfig, paths []string) error {\n\trep, err := adopt.Run(adopt.Config{\n\t\tRoot:          cfg.Output,\n\t\tGenerators:    cfg.Generators,\n\t\tRecords:       cfg.Records,\n\t\tPaths:         paths,\n\t\tTests:         cfg.Tests,\n\t\tAllowCommand:  cfg.AllowCommandAdopters,\n\t\tDryRun:        cfg.DryRun,\n\t\tRecordingPath: cfg.Recording,\n\t})\n\tif err != nil {\n\t\treturn err\n\t}\n\tif cfg.JSON {\n\t\tb, err := rep.JSON()\n\t\tif err != nil {\n\t\t\treturn err\n\t\t}\n\t\tif _, err := out.Write(b); err != nil {\n\t\t\treturn err\n\t\t}\n\t} else {\n\t\tif _, err := io.WriteString(out, rep.Text()); err != nil {\n\t\t\treturn err\n\t\t}\n\t}\n\tif rep.Totals.Rejected \u003e 0 {\n\t\treturn fmt.Errorf(\"adopt: %d file(s) rejected\", rep.Totals.Rejected)\n\t}\n\treturn nil\n}",
+                "file": "internal/cli/adopt.go",
+                "name": "runAdopt"
+              }
+            },
+            {
+              "action": "addImport",
+              "kwargs": {
+                "file": "internal/cli/adopt_test.go",
+                "path": "bytes"
+              }
+            },
+            {
+              "action": "addImport",
+              "kwargs": {
+                "file": "internal/cli/adopt_test.go",
+                "path": "encoding/json"
+              }
+            },
+            {
+              "action": "addImport",
+              "kwargs": {
+                "file": "internal/cli/adopt_test.go",
+                "path": "os"
+              }
+            },
+            {
+              "action": "addImport",
+              "kwargs": {
+                "file": "internal/cli/adopt_test.go",
+                "path": "path/filepath"
+              }
+            },
+            {
+              "action": "addImport",
+              "kwargs": {
+                "file": "internal/cli/adopt_test.go",
+                "path": "strings"
+              }
+            },
+            {
+              "action": "addImport",
+              "kwargs": {
+                "file": "internal/cli/adopt_test.go",
+                "path": "testing"
+              }
+            },
+            {
+              "action": "setFunction",
+              "kwargs": {
+                "code": "func newAdoptCLIFixture(t *testing.T) (gen, prov, proj string) {\n\tt.Helper()\n\troot := t.TempDir()\n\tgen = filepath.Join(root, \"gen\")\n\tprov = filepath.Join(root, \"prov\")\n\tproj = filepath.Join(root, \"proj\")\n\tfiles := map[string]string{\n\t\tfilepath.Join(gen, \"py\", \"sedum.yaml\"):              \"name: py\\nextensions: [\\\".py\\\"]\\ncomment_prefix: \\\"#\\\"\\nadopt:\\n  unit_start: '^(?P\u003ckind\u003edef) (?P\u003cname\u003e\\\\w+)'\\n  unit_end: dedent\\n  actions:\\n    def: setThing\\n\",\n\t\tfilepath.Join(gen, \"py\", \"files\", \"{name}.py\"):      \"# sedum:anchor:decls\\n\",\n\t\tfilepath.Join(gen, \"py\", \"actions\", \"actions.yaml\"): \"actions:\\n  setThing:\\n    kwargs:\\n      file: { type: string, required: true }\\n      name: { type: string, required: true }\\n      code: { type: string, required: true }\\n    injects_into: \\\"{{file}}\\\"\\n    anchor: decls\\n\",\n\t\tfilepath.Join(gen, \"py\", \"actions\", \"setThing.py\"):  \"{{code}}\\n\",\n\t\tfilepath.Join(prov, \"imp.yml\"):                      \"id: prov-2026-aaaaaaaa\\ntype: imprint\\nstatus: open\\nintent: adopt py files\\ncreated_at: \\\"2026-10-16\\\"\\naffected_scope: [\\\"*.py\\\"]\\n\",\n\t\tfilepath.Join(proj, \"a.py\"):                         \"def f():\\n    return 1\\n\",\n\t\tfilepath.Join(proj, \"b.py\"):                         \"import os\\n\\ndef g():\\n    return 1\\n\",\n\t}\n\tfor path, content := range files {\n\t\tif err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {\n\t\t\tt.Fatal(err)\n\t\t}\n\t\tif err := os.WriteFile(path, []byte(content), 0o644); err != nil {\n\t\t\tt.Fatal(err)\n\t\t}\n\t}\n\treturn gen, prov, proj\n}",
+                "file": "internal/cli/adopt_test.go",
+                "name": "newAdoptCLIFixture"
+              }
+            },
+            {
+              "action": "setFunction",
+              "kwargs": {
+                "code": "func TestAdoptCommandText(t *testing.T) {\n\tgen, prov, proj := newAdoptCLIFixture(t)\n\troot := NewRootCommand()\n\tvar buf bytes.Buffer\n\troot.SetOut(\u0026buf)\n\troot.SetErr(\u0026buf)\n\troot.SetArgs([]string{\"adopt\", \"--generators\", gen, \"--records\", prov, \"--output\", proj, \"--dry-run\", \".\"})\n\tif err := root.Execute(); err != nil {\n\t\tt.Fatal(err)\n\t}\n\tout := buf.String()\n\tfor _, want := range []string{\"adopt: 2 file(s): 1 adopted, 1 skipped, 0 rejected\", \"other_residual\"} {\n\t\tif !strings.Contains(out, want) {\n\t\t\tt.Errorf(\"output missing %q:\\n%s\", want, out)\n\t\t}\n\t}\n\tgot, err := os.ReadFile(filepath.Join(proj, \"a.py\"))\n\tif err != nil {\n\t\tt.Fatal(err)\n\t}\n\tif string(got) != \"def f():\\n    return 1\\n\" {\n\t\tt.Errorf(\"a.py changed on dry run: %q\", got)\n\t}\n}",
+                "file": "internal/cli/adopt_test.go",
+                "name": "TestAdoptCommandText"
+              }
+            },
+            {
+              "action": "setFunction",
+              "kwargs": {
+                "code": "func TestAdoptCommandJSON(t *testing.T) {\n\tgen, prov, proj := newAdoptCLIFixture(t)\n\troot := NewRootCommand()\n\tvar buf bytes.Buffer\n\troot.SetOut(\u0026buf)\n\troot.SetErr(\u0026buf)\n\troot.SetArgs([]string{\"adopt\", \"--generators\", gen, \"--records\", prov, \"--output\", proj, \"--dry-run\", \"--json\", \".\"})\n\tif err := root.Execute(); err != nil {\n\t\tt.Fatal(err)\n\t}\n\tvar m map[string]any\n\tif err := json.Unmarshal(buf.Bytes(), \u0026m); err != nil {\n\t\tt.Fatalf(\"output is not JSON: %v\\n%s\", err, buf.String())\n\t}\n\ttotals, ok := m[\"totals\"].(map[string]any)\n\tif !ok {\n\t\tt.Fatalf(\"missing totals in %v\", m)\n\t}\n\tif totals[\"adopted\"] != float64(1) {\n\t\tt.Errorf(\"adopted = %v, want 1\", totals[\"adopted\"])\n\t}\n}",
+                "file": "internal/cli/adopt_test.go",
+                "name": "TestAdoptCommandJSON"
+              }
+            },
+            {
+              "action": "setFunction",
+              "kwargs": {
+                "code": "func TestAdoptCommandWritesTheFile(t *testing.T) {\n\tgen, prov, proj := newAdoptCLIFixture(t)\n\troot := NewRootCommand()\n\tvar buf bytes.Buffer\n\troot.SetOut(\u0026buf)\n\troot.SetErr(\u0026buf)\n\troot.SetArgs([]string{\"adopt\", \"--generators\", gen, \"--records\", prov, \"--output\", proj, \".\"})\n\tif err := root.Execute(); err != nil {\n\t\tt.Fatalf(\"%v\\n%s\", err, buf.String())\n\t}\n\ta, err := os.ReadFile(filepath.Join(proj, \"a.py\"))\n\tif err != nil {\n\t\tt.Fatal(err)\n\t}\n\tif !strings.Contains(string(a), \"# sedum:setThing\") {\n\t\tt.Errorf(\"a.py not adopted:\\n%s\", a)\n\t}\n\tb, err := os.ReadFile(filepath.Join(proj, \"b.py\"))\n\tif err != nil {\n\t\tt.Fatal(err)\n\t}\n\tif string(b) != \"import os\\n\\ndef g():\\n    return 1\\n\" {\n\t\tt.Errorf(\"b.py changed:\\n%s\", b)\n\t}\n}",
+                "file": "internal/cli/adopt_test.go",
+                "name": "TestAdoptCommandWritesTheFile"
+              }
+            },
+            {
+              "action": "setFunction",
+              "kwargs": {
+                "code": "func TestAdoptCommandRequiresGeneratorsAndRecords(t *testing.T) {\n\troot := NewRootCommand()\n\tvar buf bytes.Buffer\n\troot.SetOut(\u0026buf)\n\troot.SetErr(\u0026buf)\n\troot.SetArgs([]string{\"adopt\", \".\"})\n\terr := root.Execute()\n\tif err == nil {\n\t\tt.Fatal(\"expected an error without --generators and --records\")\n\t}\n\tif !strings.Contains(err.Error(), \"generators\") \u0026\u0026 !strings.Contains(err.Error(), \"records\") {\n\t\tt.Errorf(\"error does not mention the missing flag: %v\", err)\n\t}\n}",
+                "file": "internal/cli/adopt_test.go",
+                "name": "TestAdoptCommandRequiresGeneratorsAndRecords"
+              }
+            }
+          ]
+        }
+      ],
+      "regions": [
+        {
+          "path": "internal/cli/adopt.go",
+          "action": "addImport",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:d6a9443c14d82b7bdf19bb96637f957fd44ad9bfbe8f167c97e6f7699c8b830f",
+          "id": {
+            "file": "internal/cli/adopt.go",
+            "path": "fmt"
+          },
+          "kwargs": {
+            "file": "internal/cli/adopt.go",
+            "path": "fmt"
+          },
+          "kwargs_hash": "sha256:fe9666ccf95a3f3d342a47f984c024a73724d7455dee49b2a26efa791e0492a2",
+          "body": "sha256:bcbac51883cbf8064e9196b371cb880cee429866652447ad557533d817857609"
+        },
+        {
+          "path": "internal/cli/adopt.go",
+          "action": "addImport",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:d6a9443c14d82b7bdf19bb96637f957fd44ad9bfbe8f167c97e6f7699c8b830f",
+          "id": {
+            "file": "internal/cli/adopt.go",
+            "path": "github.com/livecodelife/sedum/internal/adopt"
+          },
+          "kwargs": {
+            "file": "internal/cli/adopt.go",
+            "path": "github.com/livecodelife/sedum/internal/adopt"
+          },
+          "kwargs_hash": "sha256:f14d10eda4b5b8a03f3561ecd7d0347301155d0eb4f4ebb24e5e0002988b9604",
+          "body": "sha256:14c711162319c41280adf8c125370979e81aede4a5448dd7800444f91371acd1"
+        },
+        {
+          "path": "internal/cli/adopt.go",
+          "action": "addImport",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:d6a9443c14d82b7bdf19bb96637f957fd44ad9bfbe8f167c97e6f7699c8b830f",
+          "id": {
+            "file": "internal/cli/adopt.go",
+            "path": "github.com/spf13/cobra"
+          },
+          "kwargs": {
+            "file": "internal/cli/adopt.go",
+            "path": "github.com/spf13/cobra"
+          },
+          "kwargs_hash": "sha256:1b63536416b07f6f18fd34caab41a5bde9afd4dc02b7ac7b1d2b2fb447126ebe",
+          "body": "sha256:f361c02d0f8e1999cf3fb715393e16310eeec9debd5aaa13936af7617e2b46aa"
+        },
+        {
+          "path": "internal/cli/adopt.go",
+          "action": "addImport",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:d6a9443c14d82b7bdf19bb96637f957fd44ad9bfbe8f167c97e6f7699c8b830f",
+          "id": {
+            "file": "internal/cli/adopt.go",
+            "path": "io"
+          },
+          "kwargs": {
+            "file": "internal/cli/adopt.go",
+            "path": "io"
+          },
+          "kwargs_hash": "sha256:d7dbd756ae5ee3bf6bcd4e19ba284f3417c443d1561f342d83dccb630b916b63",
+          "body": "sha256:ef8e8abf4ef5ee40a19dc85b49bf09c5df1fe32abfe834e0ab4c2175baf80ddf"
+        },
+        {
+          "path": "internal/cli/adopt.go",
+          "action": "setFunction",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:6589611adfb6618a7920e43f951a79901428192ea95c1084fde9f222aecd9537",
+          "id": {
+            "file": "internal/cli/adopt.go",
+            "name": "newAdoptCommand"
+          },
+          "kwargs": {
+            "code": "func newAdoptCommand() *cobra.Command {\n\tvar cfg AdoptConfig\n\tcmd := \u0026cobra.Command{\n\t\tUse:   \"adopt \u003cpath\u003e...\",\n\t\tShort: \"Bring existing files under Sedum without a model\",\n\t\tLong:  \"Bring existing files under Sedum without a model. For each file, sedum splits it with the adopter its generator package declares, builds a recording, replays it, and keeps the file only if stripping the markers gives back the original. Files it cannot adopt are skipped and named with the reason. --dry-run writes only the recording; no model is called.\",\n\t\tArgs:  cobra.MinimumNArgs(1),\n\t\tRunE: func(cmd *cobra.Command, args []string) error {\n\t\t\treturn runAdopt(cmd.OutOrStdout(), cfg, args)\n\t\t},\n\t}\n\tcmd.Flags().StringVar(\u0026cfg.Generators, \"generators\", \"\", \"directory of generator packages\")\n\tcmd.Flags().StringVar(\u0026cfg.Records, \"records\", \"\", \"directory of records\")\n\tcmd.Flags().StringVar(\u0026cfg.Output, \"output\", defaultOutput, \"the project root the paths are relative to\")\n\tcmd.Flags().StringVar(\u0026cfg.Recording, \"recording\", \"\", \"where to write the recording (default .sedum/adopt/adopt.json under --output)\")\n\tcmd.Flags().BoolVar(\u0026cfg.Tests, \"tests\", false, \"also adopt test files\")\n\tcmd.Flags().BoolVar(\u0026cfg.AllowCommandAdopters, \"allow-command-adopters\", false, \"allow adopters that run an external command\")\n\tcmd.Flags().BoolVar(\u0026cfg.DryRun, \"dry-run\", false, \"write only the recording; change no files\")\n\tcmd.Flags().BoolVar(\u0026cfg.JSON, \"json\", false, \"print the report as JSON\")\n\tmustMarkRequired(cmd, \"generators\", \"records\")\n\treturn cmd\n}",
+            "file": "internal/cli/adopt.go",
+            "name": "newAdoptCommand"
+          },
+          "kwargs_hash": "sha256:3727a8490e47a3aff6e3702853e0a4393b3cd0bc55548b458598ebff98074383",
+          "body": "sha256:3f75c3a613214bc3b13b4642cd76c27c5002785da8f107b25ae527cfffac6408"
+        },
+        {
+          "path": "internal/cli/adopt.go",
+          "action": "setFunction",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:6589611adfb6618a7920e43f951a79901428192ea95c1084fde9f222aecd9537",
+          "id": {
+            "file": "internal/cli/adopt.go",
+            "name": "runAdopt"
+          },
+          "kwargs": {
+            "code": "func runAdopt(out io.Writer, cfg AdoptConfig, paths []string) error {\n\trep, err := adopt.Run(adopt.Config{\n\t\tRoot:          cfg.Output,\n\t\tGenerators:    cfg.Generators,\n\t\tRecords:       cfg.Records,\n\t\tPaths:         paths,\n\t\tTests:         cfg.Tests,\n\t\tAllowCommand:  cfg.AllowCommandAdopters,\n\t\tDryRun:        cfg.DryRun,\n\t\tRecordingPath: cfg.Recording,\n\t})\n\tif err != nil {\n\t\treturn err\n\t}\n\tif cfg.JSON {\n\t\tb, err := rep.JSON()\n\t\tif err != nil {\n\t\t\treturn err\n\t\t}\n\t\tif _, err := out.Write(b); err != nil {\n\t\t\treturn err\n\t\t}\n\t} else {\n\t\tif _, err := io.WriteString(out, rep.Text()); err != nil {\n\t\t\treturn err\n\t\t}\n\t}\n\tif rep.Totals.Rejected \u003e 0 {\n\t\treturn fmt.Errorf(\"adopt: %d file(s) rejected\", rep.Totals.Rejected)\n\t}\n\treturn nil\n}",
+            "file": "internal/cli/adopt.go",
+            "name": "runAdopt"
+          },
+          "kwargs_hash": "sha256:f26edd4b899a6f939e6505261c748157d1351557ddc820f83c73095951489a34",
+          "body": "sha256:8201d6dd7a55ef7a689a3f3cd2d016192dff6747ddafd6cb02ade5f126f25890"
+        },
+        {
+          "path": "internal/cli/adopt.go",
+          "action": "setType",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:ebb283283a745fdc09f0294b6e79bd879a830829cb964550ec6b4432fee5bb72",
+          "id": {
+            "file": "internal/cli/adopt.go",
+            "name": "AdoptConfig"
+          },
+          "kwargs": {
+            "code": "// AdoptConfig holds the flags of sedum adopt.\ntype AdoptConfig struct {\n\tGenerators, Records, Output, Recording    string\n\tTests, AllowCommandAdopters, DryRun, JSON bool\n}",
+            "file": "internal/cli/adopt.go",
+            "name": "AdoptConfig"
+          },
+          "kwargs_hash": "sha256:8478822c323ea020ba674f6c971a340d7d3bed2de977177bb40da2e9fc6efbb4",
+          "body": "sha256:88731b9e9350d8db0dab87f392be7c1d04f6777f1f01db3ad2f7fd637b8c95ec"
+        },
+        {
+          "path": "internal/cli/adopt_test.go",
+          "action": "addImport",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:d6a9443c14d82b7bdf19bb96637f957fd44ad9bfbe8f167c97e6f7699c8b830f",
+          "id": {
+            "file": "internal/cli/adopt_test.go",
+            "path": "bytes"
+          },
+          "kwargs": {
+            "file": "internal/cli/adopt_test.go",
+            "path": "bytes"
+          },
+          "kwargs_hash": "sha256:c484bffaee1ccf73b74798ea4035492b4b229ec30fffcf47ca095f9fe673e9a6",
+          "body": "sha256:468731f6dd513df0a66690d4649dc9e7244c96de227d8e6ead98cc5e9747c57a"
+        },
+        {
+          "path": "internal/cli/adopt_test.go",
+          "action": "addImport",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:d6a9443c14d82b7bdf19bb96637f957fd44ad9bfbe8f167c97e6f7699c8b830f",
+          "id": {
+            "file": "internal/cli/adopt_test.go",
+            "path": "encoding/json"
+          },
+          "kwargs": {
+            "file": "internal/cli/adopt_test.go",
+            "path": "encoding/json"
+          },
+          "kwargs_hash": "sha256:aeaf04b643e3517d9e9e8f002e35d6fd98ba672a0f1603f39e19f1690f207bf2",
+          "body": "sha256:872d7c3e9dee608e79a7f8ef57930d24b5e30f2a57d891a52549179ace45946a"
+        },
+        {
+          "path": "internal/cli/adopt_test.go",
+          "action": "addImport",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:d6a9443c14d82b7bdf19bb96637f957fd44ad9bfbe8f167c97e6f7699c8b830f",
+          "id": {
+            "file": "internal/cli/adopt_test.go",
+            "path": "os"
+          },
+          "kwargs": {
+            "file": "internal/cli/adopt_test.go",
+            "path": "os"
+          },
+          "kwargs_hash": "sha256:da7523694e9649629f572984fce3e1a934c2e41a88c48bce7b82df729d444a96",
+          "body": "sha256:7c6e309eb2575d4aa451ec2ab83161d13e9ae03bbca3a4d2ecf30ce12adf0905"
+        },
+        {
+          "path": "internal/cli/adopt_test.go",
+          "action": "addImport",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:d6a9443c14d82b7bdf19bb96637f957fd44ad9bfbe8f167c97e6f7699c8b830f",
+          "id": {
+            "file": "internal/cli/adopt_test.go",
+            "path": "path/filepath"
+          },
+          "kwargs": {
+            "file": "internal/cli/adopt_test.go",
+            "path": "path/filepath"
+          },
+          "kwargs_hash": "sha256:dec2c5bb4a2f92f57396e0cf77bb5f2b2410b646500cd387948687e0851c019d",
+          "body": "sha256:a6d196b558491e646be93f56a321f339068c64c76aa9d49bb18046e7f9c777a1"
+        },
+        {
+          "path": "internal/cli/adopt_test.go",
+          "action": "addImport",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:d6a9443c14d82b7bdf19bb96637f957fd44ad9bfbe8f167c97e6f7699c8b830f",
+          "id": {
+            "file": "internal/cli/adopt_test.go",
+            "path": "strings"
+          },
+          "kwargs": {
+            "file": "internal/cli/adopt_test.go",
+            "path": "strings"
+          },
+          "kwargs_hash": "sha256:da151e52dff07afbfb06385c9b216e4b6e659b795059acb30a23e322341cb970",
+          "body": "sha256:a9af3c0bc4bf9342df9d7e89a324523fdba7941a9ca4190270e68ff3c4a25ea6"
+        },
+        {
+          "path": "internal/cli/adopt_test.go",
+          "action": "addImport",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:d6a9443c14d82b7bdf19bb96637f957fd44ad9bfbe8f167c97e6f7699c8b830f",
+          "id": {
+            "file": "internal/cli/adopt_test.go",
+            "path": "testing"
+          },
+          "kwargs": {
+            "file": "internal/cli/adopt_test.go",
+            "path": "testing"
+          },
+          "kwargs_hash": "sha256:69cc8d42d96abd9b25fbd3a3488ebc6b09f47b622bcfb4361096b12198234674",
+          "body": "sha256:14a4a5f3bfbf9325de04706efa8c15a9446f01d2a26624ce9c66bd1d69dc212e"
+        },
+        {
+          "path": "internal/cli/adopt_test.go",
+          "action": "setFunction",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:6589611adfb6618a7920e43f951a79901428192ea95c1084fde9f222aecd9537",
+          "id": {
+            "file": "internal/cli/adopt_test.go",
+            "name": "TestAdoptCommandJSON"
+          },
+          "kwargs": {
+            "code": "func TestAdoptCommandJSON(t *testing.T) {\n\tgen, prov, proj := newAdoptCLIFixture(t)\n\troot := NewRootCommand()\n\tvar buf bytes.Buffer\n\troot.SetOut(\u0026buf)\n\troot.SetErr(\u0026buf)\n\troot.SetArgs([]string{\"adopt\", \"--generators\", gen, \"--records\", prov, \"--output\", proj, \"--dry-run\", \"--json\", \".\"})\n\tif err := root.Execute(); err != nil {\n\t\tt.Fatal(err)\n\t}\n\tvar m map[string]any\n\tif err := json.Unmarshal(buf.Bytes(), \u0026m); err != nil {\n\t\tt.Fatalf(\"output is not JSON: %v\\n%s\", err, buf.String())\n\t}\n\ttotals, ok := m[\"totals\"].(map[string]any)\n\tif !ok {\n\t\tt.Fatalf(\"missing totals in %v\", m)\n\t}\n\tif totals[\"adopted\"] != float64(1) {\n\t\tt.Errorf(\"adopted = %v, want 1\", totals[\"adopted\"])\n\t}\n}",
+            "file": "internal/cli/adopt_test.go",
+            "name": "TestAdoptCommandJSON"
+          },
+          "kwargs_hash": "sha256:fb89536ab4f2c71b9f97253c21e5303cd397d00befbb9efe9858fb58b4c4e57e",
+          "body": "sha256:1ec7d36f86984e6938f77f9895e587f3f244c0fb528d4324e3b4963eb2363d1e"
+        },
+        {
+          "path": "internal/cli/adopt_test.go",
+          "action": "setFunction",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:6589611adfb6618a7920e43f951a79901428192ea95c1084fde9f222aecd9537",
+          "id": {
+            "file": "internal/cli/adopt_test.go",
+            "name": "TestAdoptCommandRequiresGeneratorsAndRecords"
+          },
+          "kwargs": {
+            "code": "func TestAdoptCommandRequiresGeneratorsAndRecords(t *testing.T) {\n\troot := NewRootCommand()\n\tvar buf bytes.Buffer\n\troot.SetOut(\u0026buf)\n\troot.SetErr(\u0026buf)\n\troot.SetArgs([]string{\"adopt\", \".\"})\n\terr := root.Execute()\n\tif err == nil {\n\t\tt.Fatal(\"expected an error without --generators and --records\")\n\t}\n\tif !strings.Contains(err.Error(), \"generators\") \u0026\u0026 !strings.Contains(err.Error(), \"records\") {\n\t\tt.Errorf(\"error does not mention the missing flag: %v\", err)\n\t}\n}",
+            "file": "internal/cli/adopt_test.go",
+            "name": "TestAdoptCommandRequiresGeneratorsAndRecords"
+          },
+          "kwargs_hash": "sha256:7a51c50c2eda2287e732fce984c2199dd397aeac45ede0bb52e125cd13809101",
+          "body": "sha256:61109f37ae310ebbb51a5b8a920a25c79f45a5f6dbc9d6cd222a8e492699d022"
+        },
+        {
+          "path": "internal/cli/adopt_test.go",
+          "action": "setFunction",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:6589611adfb6618a7920e43f951a79901428192ea95c1084fde9f222aecd9537",
+          "id": {
+            "file": "internal/cli/adopt_test.go",
+            "name": "TestAdoptCommandText"
+          },
+          "kwargs": {
+            "code": "func TestAdoptCommandText(t *testing.T) {\n\tgen, prov, proj := newAdoptCLIFixture(t)\n\troot := NewRootCommand()\n\tvar buf bytes.Buffer\n\troot.SetOut(\u0026buf)\n\troot.SetErr(\u0026buf)\n\troot.SetArgs([]string{\"adopt\", \"--generators\", gen, \"--records\", prov, \"--output\", proj, \"--dry-run\", \".\"})\n\tif err := root.Execute(); err != nil {\n\t\tt.Fatal(err)\n\t}\n\tout := buf.String()\n\tfor _, want := range []string{\"adopt: 2 file(s): 1 adopted, 1 skipped, 0 rejected\", \"other_residual\"} {\n\t\tif !strings.Contains(out, want) {\n\t\t\tt.Errorf(\"output missing %q:\\n%s\", want, out)\n\t\t}\n\t}\n\tgot, err := os.ReadFile(filepath.Join(proj, \"a.py\"))\n\tif err != nil {\n\t\tt.Fatal(err)\n\t}\n\tif string(got) != \"def f():\\n    return 1\\n\" {\n\t\tt.Errorf(\"a.py changed on dry run: %q\", got)\n\t}\n}",
+            "file": "internal/cli/adopt_test.go",
+            "name": "TestAdoptCommandText"
+          },
+          "kwargs_hash": "sha256:83039ced10351fe28a7d57d4d1ac2293c18c57dfdab5b6245c511ca0e9bbf208",
+          "body": "sha256:ba7b4b9c13c7c3e1fb3581fb7e6b4f49b3174a51f14494dc524eda7ada79a845"
+        },
+        {
+          "path": "internal/cli/adopt_test.go",
+          "action": "setFunction",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:6589611adfb6618a7920e43f951a79901428192ea95c1084fde9f222aecd9537",
+          "id": {
+            "file": "internal/cli/adopt_test.go",
+            "name": "TestAdoptCommandWritesTheFile"
+          },
+          "kwargs": {
+            "code": "func TestAdoptCommandWritesTheFile(t *testing.T) {\n\tgen, prov, proj := newAdoptCLIFixture(t)\n\troot := NewRootCommand()\n\tvar buf bytes.Buffer\n\troot.SetOut(\u0026buf)\n\troot.SetErr(\u0026buf)\n\troot.SetArgs([]string{\"adopt\", \"--generators\", gen, \"--records\", prov, \"--output\", proj, \".\"})\n\tif err := root.Execute(); err != nil {\n\t\tt.Fatalf(\"%v\\n%s\", err, buf.String())\n\t}\n\ta, err := os.ReadFile(filepath.Join(proj, \"a.py\"))\n\tif err != nil {\n\t\tt.Fatal(err)\n\t}\n\tif !strings.Contains(string(a), \"# sedum:setThing\") {\n\t\tt.Errorf(\"a.py not adopted:\\n%s\", a)\n\t}\n\tb, err := os.ReadFile(filepath.Join(proj, \"b.py\"))\n\tif err != nil {\n\t\tt.Fatal(err)\n\t}\n\tif string(b) != \"import os\\n\\ndef g():\\n    return 1\\n\" {\n\t\tt.Errorf(\"b.py changed:\\n%s\", b)\n\t}\n}",
+            "file": "internal/cli/adopt_test.go",
+            "name": "TestAdoptCommandWritesTheFile"
+          },
+          "kwargs_hash": "sha256:1acdf8e41a49cdeabe6b7703ebabdb64c9a9fbb4f0ac88648c6004deaf375cd1",
+          "body": "sha256:af71e3dde8d98492247d57d4262f7e894dcdc13e55c9bd7ec24274b1dc8ddba9"
+        },
+        {
+          "path": "internal/cli/adopt_test.go",
+          "action": "setFunction",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:6589611adfb6618a7920e43f951a79901428192ea95c1084fde9f222aecd9537",
+          "id": {
+            "file": "internal/cli/adopt_test.go",
+            "name": "newAdoptCLIFixture"
+          },
+          "kwargs": {
+            "code": "func newAdoptCLIFixture(t *testing.T) (gen, prov, proj string) {\n\tt.Helper()\n\troot := t.TempDir()\n\tgen = filepath.Join(root, \"gen\")\n\tprov = filepath.Join(root, \"prov\")\n\tproj = filepath.Join(root, \"proj\")\n\tfiles := map[string]string{\n\t\tfilepath.Join(gen, \"py\", \"sedum.yaml\"):              \"name: py\\nextensions: [\\\".py\\\"]\\ncomment_prefix: \\\"#\\\"\\nadopt:\\n  unit_start: '^(?P\u003ckind\u003edef) (?P\u003cname\u003e\\\\w+)'\\n  unit_end: dedent\\n  actions:\\n    def: setThing\\n\",\n\t\tfilepath.Join(gen, \"py\", \"files\", \"{name}.py\"):      \"# sedum:anchor:decls\\n\",\n\t\tfilepath.Join(gen, \"py\", \"actions\", \"actions.yaml\"): \"actions:\\n  setThing:\\n    kwargs:\\n      file: { type: string, required: true }\\n      name: { type: string, required: true }\\n      code: { type: string, required: true }\\n    injects_into: \\\"{{file}}\\\"\\n    anchor: decls\\n\",\n\t\tfilepath.Join(gen, \"py\", \"actions\", \"setThing.py\"):  \"{{code}}\\n\",\n\t\tfilepath.Join(prov, \"imp.yml\"):                      \"id: prov-2026-aaaaaaaa\\ntype: imprint\\nstatus: open\\nintent: adopt py files\\ncreated_at: \\\"2026-10-16\\\"\\naffected_scope: [\\\"*.py\\\"]\\n\",\n\t\tfilepath.Join(proj, \"a.py\"):                         \"def f():\\n    return 1\\n\",\n\t\tfilepath.Join(proj, \"b.py\"):                         \"import os\\n\\ndef g():\\n    return 1\\n\",\n\t}\n\tfor path, content := range files {\n\t\tif err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {\n\t\t\tt.Fatal(err)\n\t\t}\n\t\tif err := os.WriteFile(path, []byte(content), 0o644); err != nil {\n\t\t\tt.Fatal(err)\n\t\t}\n\t}\n\treturn gen, prov, proj\n}",
+            "file": "internal/cli/adopt_test.go",
+            "name": "newAdoptCLIFixture"
+          },
+          "kwargs_hash": "sha256:de47892779f8030bc2a6b2434ff48ae23c03b6926070b215d75bf838010b9ed6",
+          "body": "sha256:c82997c200ee01ef6f783e9a319d000b9d3fe15b3f6f560fc324aa08a4f97309"
+        }
+      ]
+    }
+  ]
+}

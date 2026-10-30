@@ -1,0 +1,453 @@
+{
+  "sedum_version": "0.11.0",
+  "packages": {
+    "go": {
+      "extensions": [
+        ".go"
+      ]
+    }
+  },
+  "records": [
+    {
+      "record_id": "prov-2026-a15d039a",
+      "gen": "sha256:137e61eead5f9d18cba8b4328c62bfcd17878220afcdb70d2c4b12446a27938e",
+      "created_at": "2026-10-16",
+      "files": [
+        {
+          "path": "internal/adopt/verify.go",
+          "package": "go",
+          "template": "*/{pkg}/{name}.go",
+          "captures": {
+            "name": "verify",
+            "pkg": "adopt"
+          }
+        },
+        {
+          "path": "internal/adopt/verify_test.go",
+          "package": "go",
+          "template": "*/{pkg}/{name}.go",
+          "captures": {
+            "name": "verify_test",
+            "pkg": "adopt"
+          }
+        }
+      ],
+      "phases": [
+        {
+          "name": "default",
+          "invocations": [
+            {
+              "action": "addImport",
+              "kwargs": {
+                "file": "internal/adopt/verify.go",
+                "path": "fmt"
+              }
+            },
+            {
+              "action": "addImport",
+              "kwargs": {
+                "file": "internal/adopt/verify.go",
+                "path": "strings"
+              }
+            },
+            {
+              "action": "addImport",
+              "kwargs": {
+                "file": "internal/adopt/verify.go",
+                "path": "github.com/livecodelife/sedum/internal/genpkg"
+              }
+            },
+            {
+              "action": "setFunction",
+              "kwargs": {
+                "code": "// StripMarkers removes every Sedum marker line from content, leaving all other lines unchanged.\nfunc StripMarkers(comment genpkg.Comment, content string) string {\n\tif comment.Prefix == \"\" {\n\t\treturn content\n\t}\n\topen := comment.Prefix + \" sedum:\"\n\tclosing := comment.Prefix + \" /sedum:\"\n\tvar b strings.Builder\n\tfor _, line := range strings.SplitAfter(content, \"\\n\") {\n\t\ttrimmed := strings.TrimLeft(line, \" \\t\")\n\t\tif strings.HasPrefix(trimmed, open) || strings.HasPrefix(trimmed, closing) {\n\t\t\tcontinue\n\t\t}\n\t\tb.WriteString(line)\n\t}\n\treturn b.String()\n}",
+                "file": "internal/adopt/verify.go",
+                "name": "StripMarkers"
+              }
+            },
+            {
+              "action": "setType",
+              "kwargs": {
+                "code": "// VerifyError reports the first line where a round trip differs.\ntype VerifyError struct {\n\tLine int\n\tWant string\n\tGot  string\n}",
+                "file": "internal/adopt/verify.go",
+                "name": "VerifyError"
+              }
+            },
+            {
+              "action": "setMethod",
+              "kwargs": {
+                "code": "// Error describes the differing line.\nfunc (e *VerifyError) Error() string {\n\treturn fmt.Sprintf(\"round trip: line %d differs: want \\\"%s\\\" got \\\"%s\\\"\", e.Line, e.Want, e.Got)\n}",
+                "file": "internal/adopt/verify.go",
+                "name": "Error",
+                "receiver": "VerifyError"
+              }
+            },
+            {
+              "action": "setFunction",
+              "kwargs": {
+                "code": "// Verify checks that adopted, with its Sedum markers removed, matches original line by line.\n// Blank lines are ignored and trailing whitespace is trimmed.\nfunc Verify(comment genpkg.Comment, original, adopted string) error {\n\tsignificant := func(s string) []string {\n\t\tvar out []string\n\t\tfor _, line := range strings.Split(s, \"\\n\") {\n\t\t\tline = strings.TrimRight(line, \" \\t\\r\")\n\t\t\tif line != \"\" {\n\t\t\t\tout = append(out, line)\n\t\t\t}\n\t\t}\n\t\treturn out\n\t}\n\twant := significant(original)\n\tgot := significant(StripMarkers(comment, adopted))\n\tfor i := 0; i \u003c len(want) || i \u003c len(got); i++ {\n\t\tw := \"\u003cend of file\u003e\"\n\t\tif i \u003c len(want) {\n\t\t\tw = want[i]\n\t\t}\n\t\tg := \"\u003cend of file\u003e\"\n\t\tif i \u003c len(got) {\n\t\t\tg = got[i]\n\t\t}\n\t\tif w != g {\n\t\t\treturn \u0026VerifyError{Line: i + 1, Want: w, Got: g}\n\t\t}\n\t}\n\treturn nil\n}",
+                "file": "internal/adopt/verify.go",
+                "name": "Verify"
+              }
+            },
+            {
+              "action": "addImport",
+              "kwargs": {
+                "file": "internal/adopt/verify_test.go",
+                "path": "errors"
+              }
+            },
+            {
+              "action": "addImport",
+              "kwargs": {
+                "file": "internal/adopt/verify_test.go",
+                "path": "testing"
+              }
+            },
+            {
+              "action": "addImport",
+              "kwargs": {
+                "file": "internal/adopt/verify_test.go",
+                "path": "github.com/livecodelife/sedum/internal/genpkg"
+              }
+            },
+            {
+              "action": "setFunction",
+              "kwargs": {
+                "code": "func TestStripMarkers(t *testing.T) {\n\tin := \"package p\\n\\n// sedum:anchor:decls\\n// sedum:setFunction {\\\"a\\\":1}\\nfunc f() {}\\n\\n// /sedum:setFunction\\n\"\n\twant := \"package p\\n\\nfunc f() {}\\n\\n\"\n\tgot := StripMarkers(genpkg.Comment{Prefix: \"//\"}, in)\n\tif got != want {\n\t\tt.Errorf(\"StripMarkers() = %q, want %q\", got, want)\n\t}\n}",
+                "file": "internal/adopt/verify_test.go",
+                "name": "TestStripMarkers"
+              }
+            },
+            {
+              "action": "setFunction",
+              "kwargs": {
+                "code": "func TestStripMarkersKeepsIndentedMarkerLookalikes(t *testing.T) {\n\tin := \"\\tx := \\\"// sedum:\\\"\\n\\t// sedum:setFunction {}\\n\"\n\twant := \"\\tx := \\\"// sedum:\\\"\\n\"\n\tgot := StripMarkers(genpkg.Comment{Prefix: \"//\"}, in)\n\tif got != want {\n\t\tt.Errorf(\"StripMarkers() = %q, want %q\", got, want)\n\t}\n}",
+                "file": "internal/adopt/verify_test.go",
+                "name": "TestStripMarkersKeepsIndentedMarkerLookalikes"
+              }
+            },
+            {
+              "action": "setFunction",
+              "kwargs": {
+                "code": "func TestVerifyIgnoresBlankLines(t *testing.T) {\n\toriginal := \"a\\nb\\n\"\n\tadopted := \"a\\n\\n// sedum:x {}\\nb\\n// /sedum:x\\n\\n\"\n\tif err := Verify(genpkg.Comment{Prefix: \"//\"}, original, adopted); err != nil {\n\t\tt.Fatalf(\"unexpected error: %v\", err)\n\t}\n}",
+                "file": "internal/adopt/verify_test.go",
+                "name": "TestVerifyIgnoresBlankLines"
+              }
+            },
+            {
+              "action": "setFunction",
+              "kwargs": {
+                "code": "func TestVerifyReportsFirstDifference(t *testing.T) {\n\terr := Verify(genpkg.Comment{Prefix: \"//\"}, \"a\\nb\\nc\\n\", \"a\\nB\\nc\\n\")\n\tvar verr *VerifyError\n\tif !errors.As(err, \u0026verr) {\n\t\tt.Fatalf(\"want *VerifyError, got %v\", err)\n\t}\n\tif verr.Line != 2 || verr.Want != \"b\" || verr.Got != \"B\" {\n\t\tt.Errorf(\"got %+v\", *verr)\n\t}\n}",
+                "file": "internal/adopt/verify_test.go",
+                "name": "TestVerifyReportsFirstDifference"
+              }
+            },
+            {
+              "action": "setFunction",
+              "kwargs": {
+                "code": "func TestVerifyLengthMismatch(t *testing.T) {\n\terr := Verify(genpkg.Comment{Prefix: \"//\"}, \"a\\nb\\n\", \"a\\n\")\n\tvar verr *VerifyError\n\tif !errors.As(err, \u0026verr) {\n\t\tt.Fatalf(\"want *VerifyError, got %v\", err)\n\t}\n\tif verr.Line != 2 || verr.Want != \"b\" || verr.Got != \"\u003cend of file\u003e\" {\n\t\tt.Errorf(\"got %+v\", *verr)\n\t}\n\terr = Verify(genpkg.Comment{Prefix: \"//\"}, \"a\\n\", \"a\\nb\\n\")\n\tif !errors.As(err, \u0026verr) {\n\t\tt.Fatalf(\"want *VerifyError, got %v\", err)\n\t}\n\tif verr.Want != \"\u003cend of file\u003e\" {\n\t\tt.Errorf(\"got %+v\", *verr)\n\t}\n}",
+                "file": "internal/adopt/verify_test.go",
+                "name": "TestVerifyLengthMismatch"
+              }
+            },
+            {
+              "action": "setFunction",
+              "kwargs": {
+                "code": "func TestVerifyLeadingWhitespaceMatters(t *testing.T) {\n\tif err := Verify(genpkg.Comment{Prefix: \"//\"}, \"a\\n\\tb\\n\", \"a\\n    b\\n\"); err == nil {\n\t\tt.Error(\"expected a difference for changed leading whitespace\")\n\t}\n}",
+                "file": "internal/adopt/verify_test.go",
+                "name": "TestVerifyLeadingWhitespaceMatters"
+              }
+            }
+          ]
+        }
+      ],
+      "regions": [
+        {
+          "path": "internal/adopt/verify.go",
+          "action": "addImport",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:d6a9443c14d82b7bdf19bb96637f957fd44ad9bfbe8f167c97e6f7699c8b830f",
+          "id": {
+            "file": "internal/adopt/verify.go",
+            "path": "fmt"
+          },
+          "kwargs": {
+            "file": "internal/adopt/verify.go",
+            "path": "fmt"
+          },
+          "kwargs_hash": "sha256:9c4c1464fd2d77f5f1c585f313bc37fc100a0a4d35ab4b1d880d33e48156b9c7",
+          "body": "sha256:bcbac51883cbf8064e9196b371cb880cee429866652447ad557533d817857609"
+        },
+        {
+          "path": "internal/adopt/verify.go",
+          "action": "addImport",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:d6a9443c14d82b7bdf19bb96637f957fd44ad9bfbe8f167c97e6f7699c8b830f",
+          "id": {
+            "file": "internal/adopt/verify.go",
+            "path": "github.com/livecodelife/sedum/internal/genpkg"
+          },
+          "kwargs": {
+            "file": "internal/adopt/verify.go",
+            "path": "github.com/livecodelife/sedum/internal/genpkg"
+          },
+          "kwargs_hash": "sha256:541a490a4ad1d772f889be260e4b11fe99875dc461ea969436cbc3788c234495",
+          "body": "sha256:5b4c7dbee430534527d893269527d915be58accc7a8330a8c104c2014153525d"
+        },
+        {
+          "path": "internal/adopt/verify.go",
+          "action": "addImport",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:d6a9443c14d82b7bdf19bb96637f957fd44ad9bfbe8f167c97e6f7699c8b830f",
+          "id": {
+            "file": "internal/adopt/verify.go",
+            "path": "strings"
+          },
+          "kwargs": {
+            "file": "internal/adopt/verify.go",
+            "path": "strings"
+          },
+          "kwargs_hash": "sha256:8294cddd1c21ff442c65ba6e781f65a11ac3fdef782d5259c294b6c1d23aac68",
+          "body": "sha256:a9af3c0bc4bf9342df9d7e89a324523fdba7941a9ca4190270e68ff3c4a25ea6"
+        },
+        {
+          "path": "internal/adopt/verify.go",
+          "action": "setFunction",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:6589611adfb6618a7920e43f951a79901428192ea95c1084fde9f222aecd9537",
+          "id": {
+            "file": "internal/adopt/verify.go",
+            "name": "StripMarkers"
+          },
+          "kwargs": {
+            "code": "// StripMarkers removes every Sedum marker line from content, leaving all other lines unchanged.\nfunc StripMarkers(comment genpkg.Comment, content string) string {\n\tif comment.Prefix == \"\" {\n\t\treturn content\n\t}\n\topen := comment.Prefix + \" sedum:\"\n\tclosing := comment.Prefix + \" /sedum:\"\n\tvar b strings.Builder\n\tfor _, line := range strings.SplitAfter(content, \"\\n\") {\n\t\ttrimmed := strings.TrimLeft(line, \" \\t\")\n\t\tif strings.HasPrefix(trimmed, open) || strings.HasPrefix(trimmed, closing) {\n\t\t\tcontinue\n\t\t}\n\t\tb.WriteString(line)\n\t}\n\treturn b.String()\n}",
+            "file": "internal/adopt/verify.go",
+            "name": "StripMarkers"
+          },
+          "kwargs_hash": "sha256:2fbf7bae6747d4c8abb06c1a5a4412939e16c573488de35559a6a9f5c75b2efb",
+          "body": "sha256:cc0dfa4d91869816d680d2aeb079be4f595ad0b47f2ab4077a00eadc43ac37d4"
+        },
+        {
+          "path": "internal/adopt/verify.go",
+          "action": "setFunction",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:6589611adfb6618a7920e43f951a79901428192ea95c1084fde9f222aecd9537",
+          "id": {
+            "file": "internal/adopt/verify.go",
+            "name": "Verify"
+          },
+          "kwargs": {
+            "code": "// Verify checks that adopted, with its Sedum markers removed, matches original line by line.\n// Blank lines are ignored and trailing whitespace is trimmed.\nfunc Verify(comment genpkg.Comment, original, adopted string) error {\n\tsignificant := func(s string) []string {\n\t\tvar out []string\n\t\tfor _, line := range strings.Split(s, \"\\n\") {\n\t\t\tline = strings.TrimRight(line, \" \\t\\r\")\n\t\t\tif line != \"\" {\n\t\t\t\tout = append(out, line)\n\t\t\t}\n\t\t}\n\t\treturn out\n\t}\n\twant := significant(original)\n\tgot := significant(StripMarkers(comment, adopted))\n\tfor i := 0; i \u003c len(want) || i \u003c len(got); i++ {\n\t\tw := \"\u003cend of file\u003e\"\n\t\tif i \u003c len(want) {\n\t\t\tw = want[i]\n\t\t}\n\t\tg := \"\u003cend of file\u003e\"\n\t\tif i \u003c len(got) {\n\t\t\tg = got[i]\n\t\t}\n\t\tif w != g {\n\t\t\treturn \u0026VerifyError{Line: i + 1, Want: w, Got: g}\n\t\t}\n\t}\n\treturn nil\n}",
+            "file": "internal/adopt/verify.go",
+            "name": "Verify"
+          },
+          "kwargs_hash": "sha256:dead2e668252edd70c04e1da46c0f0483f4cb0f2ee58072dd36af8dddce3b5e8",
+          "body": "sha256:8ac94e145a2a6405978e4ccda467d1adfaf7ea36a01191d03c77f168b1f91e4c"
+        },
+        {
+          "path": "internal/adopt/verify.go",
+          "action": "setMethod",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:8ea07fc52bbc260836983438ef08ad02746b86a1028c8b1a51b60eeb7b83cc2b",
+          "id": {
+            "file": "internal/adopt/verify.go",
+            "name": "Error",
+            "receiver": "VerifyError"
+          },
+          "kwargs": {
+            "code": "// Error describes the differing line.\nfunc (e *VerifyError) Error() string {\n\treturn fmt.Sprintf(\"round trip: line %d differs: want \\\"%s\\\" got \\\"%s\\\"\", e.Line, e.Want, e.Got)\n}",
+            "file": "internal/adopt/verify.go",
+            "name": "Error",
+            "receiver": "VerifyError"
+          },
+          "kwargs_hash": "sha256:dab4b3e1f9d7d5e49fb014fbea691be9db6e3705d17317a27c75f34df5bbad27",
+          "body": "sha256:5544c35f4e65bff86c62adaf545f04c7e4889c38ea60b6f0b79b07638d04c68a"
+        },
+        {
+          "path": "internal/adopt/verify.go",
+          "action": "setType",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:ebb283283a745fdc09f0294b6e79bd879a830829cb964550ec6b4432fee5bb72",
+          "id": {
+            "file": "internal/adopt/verify.go",
+            "name": "VerifyError"
+          },
+          "kwargs": {
+            "code": "// VerifyError reports the first line where a round trip differs.\ntype VerifyError struct {\n\tLine int\n\tWant string\n\tGot  string\n}",
+            "file": "internal/adopt/verify.go",
+            "name": "VerifyError"
+          },
+          "kwargs_hash": "sha256:a3d6822b928e6efb098354adb9e1c3922e85a5aa3129712e4730446cf0e1f864",
+          "body": "sha256:630ca09ed62f8a8d0ebb647a784cc34b3d72291e07986602e6b019f50657dbc3"
+        },
+        {
+          "path": "internal/adopt/verify_test.go",
+          "action": "addImport",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:d6a9443c14d82b7bdf19bb96637f957fd44ad9bfbe8f167c97e6f7699c8b830f",
+          "id": {
+            "file": "internal/adopt/verify_test.go",
+            "path": "errors"
+          },
+          "kwargs": {
+            "file": "internal/adopt/verify_test.go",
+            "path": "errors"
+          },
+          "kwargs_hash": "sha256:41c176716dde17bc02724b76d52fd57d893ab281cc2af302780cb7083192e8ac",
+          "body": "sha256:2b718237ba0a56467c8fd494cc131e942ef410e6228c03b644d70476c71862dc"
+        },
+        {
+          "path": "internal/adopt/verify_test.go",
+          "action": "addImport",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:d6a9443c14d82b7bdf19bb96637f957fd44ad9bfbe8f167c97e6f7699c8b830f",
+          "id": {
+            "file": "internal/adopt/verify_test.go",
+            "path": "github.com/livecodelife/sedum/internal/genpkg"
+          },
+          "kwargs": {
+            "file": "internal/adopt/verify_test.go",
+            "path": "github.com/livecodelife/sedum/internal/genpkg"
+          },
+          "kwargs_hash": "sha256:9e2a5e4be15a8546157fc26059d0c464b99519bd06567d8049b908d105806435",
+          "body": "sha256:5b4c7dbee430534527d893269527d915be58accc7a8330a8c104c2014153525d"
+        },
+        {
+          "path": "internal/adopt/verify_test.go",
+          "action": "addImport",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:d6a9443c14d82b7bdf19bb96637f957fd44ad9bfbe8f167c97e6f7699c8b830f",
+          "id": {
+            "file": "internal/adopt/verify_test.go",
+            "path": "testing"
+          },
+          "kwargs": {
+            "file": "internal/adopt/verify_test.go",
+            "path": "testing"
+          },
+          "kwargs_hash": "sha256:443d7e68b116949f353e2e6ed4ebd5949dad32787874102b51ddb742c624c73c",
+          "body": "sha256:14a4a5f3bfbf9325de04706efa8c15a9446f01d2a26624ce9c66bd1d69dc212e"
+        },
+        {
+          "path": "internal/adopt/verify_test.go",
+          "action": "setFunction",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:6589611adfb6618a7920e43f951a79901428192ea95c1084fde9f222aecd9537",
+          "id": {
+            "file": "internal/adopt/verify_test.go",
+            "name": "TestStripMarkers"
+          },
+          "kwargs": {
+            "code": "func TestStripMarkers(t *testing.T) {\n\tin := \"package p\\n\\n// sedum:anchor:decls\\n// sedum:setFunction {\\\"a\\\":1}\\nfunc f() {}\\n\\n// /sedum:setFunction\\n\"\n\twant := \"package p\\n\\nfunc f() {}\\n\\n\"\n\tgot := StripMarkers(genpkg.Comment{Prefix: \"//\"}, in)\n\tif got != want {\n\t\tt.Errorf(\"StripMarkers() = %q, want %q\", got, want)\n\t}\n}",
+            "file": "internal/adopt/verify_test.go",
+            "name": "TestStripMarkers"
+          },
+          "kwargs_hash": "sha256:8028407c3116a3c6afc1ca8d2e83f46bd31901d19cf2f1cb6a029c0245ec796e",
+          "body": "sha256:0f3e40d48bb353867d02afce91b802eb140e05f9780048c85b980781400383f9"
+        },
+        {
+          "path": "internal/adopt/verify_test.go",
+          "action": "setFunction",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:6589611adfb6618a7920e43f951a79901428192ea95c1084fde9f222aecd9537",
+          "id": {
+            "file": "internal/adopt/verify_test.go",
+            "name": "TestStripMarkersKeepsIndentedMarkerLookalikes"
+          },
+          "kwargs": {
+            "code": "func TestStripMarkersKeepsIndentedMarkerLookalikes(t *testing.T) {\n\tin := \"\\tx := \\\"// sedum:\\\"\\n\\t// sedum:setFunction {}\\n\"\n\twant := \"\\tx := \\\"// sedum:\\\"\\n\"\n\tgot := StripMarkers(genpkg.Comment{Prefix: \"//\"}, in)\n\tif got != want {\n\t\tt.Errorf(\"StripMarkers() = %q, want %q\", got, want)\n\t}\n}",
+            "file": "internal/adopt/verify_test.go",
+            "name": "TestStripMarkersKeepsIndentedMarkerLookalikes"
+          },
+          "kwargs_hash": "sha256:2489ce53c5383953c13c21e77472eddb6f82f3729344ae3002fa8b00cc63e229",
+          "body": "sha256:9529d09aa73b3b5696460a25a91598f4cf16cedf2dec5ba7edb6693b458a8301"
+        },
+        {
+          "path": "internal/adopt/verify_test.go",
+          "action": "setFunction",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:6589611adfb6618a7920e43f951a79901428192ea95c1084fde9f222aecd9537",
+          "id": {
+            "file": "internal/adopt/verify_test.go",
+            "name": "TestVerifyIgnoresBlankLines"
+          },
+          "kwargs": {
+            "code": "func TestVerifyIgnoresBlankLines(t *testing.T) {\n\toriginal := \"a\\nb\\n\"\n\tadopted := \"a\\n\\n// sedum:x {}\\nb\\n// /sedum:x\\n\\n\"\n\tif err := Verify(genpkg.Comment{Prefix: \"//\"}, original, adopted); err != nil {\n\t\tt.Fatalf(\"unexpected error: %v\", err)\n\t}\n}",
+            "file": "internal/adopt/verify_test.go",
+            "name": "TestVerifyIgnoresBlankLines"
+          },
+          "kwargs_hash": "sha256:6ff275fe09cc78a06647f33f8b25ea355b2fe6101de041c245617a0881b90d8f",
+          "body": "sha256:ead2fd7a78ca27f3abb515a00f634aa4be4e2ce9bb9affbb2e44c68e169ace14"
+        },
+        {
+          "path": "internal/adopt/verify_test.go",
+          "action": "setFunction",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:6589611adfb6618a7920e43f951a79901428192ea95c1084fde9f222aecd9537",
+          "id": {
+            "file": "internal/adopt/verify_test.go",
+            "name": "TestVerifyLeadingWhitespaceMatters"
+          },
+          "kwargs": {
+            "code": "func TestVerifyLeadingWhitespaceMatters(t *testing.T) {\n\tif err := Verify(genpkg.Comment{Prefix: \"//\"}, \"a\\n\\tb\\n\", \"a\\n    b\\n\"); err == nil {\n\t\tt.Error(\"expected a difference for changed leading whitespace\")\n\t}\n}",
+            "file": "internal/adopt/verify_test.go",
+            "name": "TestVerifyLeadingWhitespaceMatters"
+          },
+          "kwargs_hash": "sha256:f6b05e23a0906bc8f8a9c8bb025ed2dd18ff51a47e6be192860aec9618b636f5",
+          "body": "sha256:4f37541324baeb2372c813563cf58b4b3b617e3133495a250695383ec653c914"
+        },
+        {
+          "path": "internal/adopt/verify_test.go",
+          "action": "setFunction",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:6589611adfb6618a7920e43f951a79901428192ea95c1084fde9f222aecd9537",
+          "id": {
+            "file": "internal/adopt/verify_test.go",
+            "name": "TestVerifyLengthMismatch"
+          },
+          "kwargs": {
+            "code": "func TestVerifyLengthMismatch(t *testing.T) {\n\terr := Verify(genpkg.Comment{Prefix: \"//\"}, \"a\\nb\\n\", \"a\\n\")\n\tvar verr *VerifyError\n\tif !errors.As(err, \u0026verr) {\n\t\tt.Fatalf(\"want *VerifyError, got %v\", err)\n\t}\n\tif verr.Line != 2 || verr.Want != \"b\" || verr.Got != \"\u003cend of file\u003e\" {\n\t\tt.Errorf(\"got %+v\", *verr)\n\t}\n\terr = Verify(genpkg.Comment{Prefix: \"//\"}, \"a\\n\", \"a\\nb\\n\")\n\tif !errors.As(err, \u0026verr) {\n\t\tt.Fatalf(\"want *VerifyError, got %v\", err)\n\t}\n\tif verr.Want != \"\u003cend of file\u003e\" {\n\t\tt.Errorf(\"got %+v\", *verr)\n\t}\n}",
+            "file": "internal/adopt/verify_test.go",
+            "name": "TestVerifyLengthMismatch"
+          },
+          "kwargs_hash": "sha256:d774484abc91c2215f3b464ce499af00dac828935908e8bff8b0a24391d2cb8c",
+          "body": "sha256:75ebc327278ba3ae0d744009978e6209de2f11b223959c2eaead903881258c69"
+        },
+        {
+          "path": "internal/adopt/verify_test.go",
+          "action": "setFunction",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:6589611adfb6618a7920e43f951a79901428192ea95c1084fde9f222aecd9537",
+          "id": {
+            "file": "internal/adopt/verify_test.go",
+            "name": "TestVerifyReportsFirstDifference"
+          },
+          "kwargs": {
+            "code": "func TestVerifyReportsFirstDifference(t *testing.T) {\n\terr := Verify(genpkg.Comment{Prefix: \"//\"}, \"a\\nb\\nc\\n\", \"a\\nB\\nc\\n\")\n\tvar verr *VerifyError\n\tif !errors.As(err, \u0026verr) {\n\t\tt.Fatalf(\"want *VerifyError, got %v\", err)\n\t}\n\tif verr.Line != 2 || verr.Want != \"b\" || verr.Got != \"B\" {\n\t\tt.Errorf(\"got %+v\", *verr)\n\t}\n}",
+            "file": "internal/adopt/verify_test.go",
+            "name": "TestVerifyReportsFirstDifference"
+          },
+          "kwargs_hash": "sha256:a5fc1233943acde0e80024a528400b4f16bcf1ffe64d50e9a4735060b1691279",
+          "body": "sha256:6c04be1b2fb992802b4d424c23191501fa8072f801b0b4d8b62b3b611123e525"
+        }
+      ]
+    }
+  ]
+}

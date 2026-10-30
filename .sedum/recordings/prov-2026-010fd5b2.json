@@ -1,0 +1,292 @@
+{
+  "sedum_version": "0.11.0",
+  "packages": {
+    "go": {
+      "extensions": [
+        ".go"
+      ]
+    }
+  },
+  "records": [
+    {
+      "record_id": "prov-2026-010fd5b2",
+      "gen": "sha256:b75409b540af694c1bb43f58f412e0fa8c9ac878e8d5f64dfb6ed63753e9d10f",
+      "created_at": "2026-10-16",
+      "files": [
+        {
+          "path": "internal/pipeline/restamp.go",
+          "package": "go",
+          "template": "*/{pkg}/{name}.go",
+          "captures": {
+            "name": "restamp",
+            "pkg": "pipeline"
+          }
+        }
+      ],
+      "phases": [
+        {
+          "name": "default",
+          "invocations": [
+            {
+              "action": "addImport",
+              "kwargs": {
+                "file": "internal/pipeline/restamp.go",
+                "path": "fmt"
+              }
+            },
+            {
+              "action": "addImport",
+              "kwargs": {
+                "file": "internal/pipeline/restamp.go",
+                "path": "github.com/livecodelife/sedum/internal/inject"
+              }
+            },
+            {
+              "action": "addImport",
+              "kwargs": {
+                "file": "internal/pipeline/restamp.go",
+                "path": "github.com/livecodelife/sedum/internal/record"
+              }
+            },
+            {
+              "action": "addImport",
+              "kwargs": {
+                "file": "internal/pipeline/restamp.go",
+                "path": "github.com/livecodelife/sedum/internal/recording"
+              }
+            },
+            {
+              "action": "setType",
+              "kwargs": {
+                "code": "// Restamp is one record whose gen a replay took from the current record\n// instead of from the recording (prov-2026-c637c262).\ntype Restamp struct {\n\tRecordID string\n\tOld      string\n\tNew      string\n}",
+                "file": "internal/pipeline/restamp.go",
+                "name": "Restamp"
+              }
+            },
+            {
+              "action": "setMethod",
+              "kwargs": {
+                "code": "// String is the one-line report: the record and the first eight characters of\n// each gen, without the algorithm prefix.\nfunc (r Restamp) String() string {\n\treturn fmt.Sprintf(\"restamped %s: gen %s -\u003e %s\", r.RecordID, shortGen(r.Old), shortGen(r.New))\n}",
+                "file": "internal/pipeline/restamp.go",
+                "name": "String",
+                "receiver": "Restamp"
+              }
+            },
+            {
+              "action": "setFunction",
+              "kwargs": {
+                "code": "// shortGen is the first eight hex characters of a gen, \"none\" when it is empty.\nfunc shortGen(gen string) string {\n\tconst prefix = \"sha256:\"\n\tif len(gen) \u003e len(prefix) \u0026\u0026 gen[:len(prefix)] == prefix {\n\t\tgen = gen[len(prefix):]\n\t}\n\tif gen == \"\" {\n\t\treturn \"none\"\n\t}\n\tif len(gen) \u003e 8 {\n\t\treturn gen[:8]\n\t}\n\treturn gen\n}",
+                "file": "internal/pipeline/restamp.go",
+                "name": "shortGen"
+              }
+            },
+            {
+              "action": "setFunction",
+              "kwargs": {
+                "code": "// replayGenFor is the gen a replay stamps on a record's regions. Without\n// restamp it is what replayGen decides. With restamp it is the current\n// record's gen, and the second result says what changed; a record that is\n// missing or deprecated has no current gen and keeps the recorded one, and a\n// record whose gen did not change reports nothing.\nfunc replayGenFor(rec recording.Recording, records *record.Set, recordID string, restamp bool) (string, *Restamp) {\n\tgen := replayGen(rec, records, recordID)\n\tif !restamp {\n\t\treturn gen, nil\n\t}\n\tcurrent := genOf(records, recordID)\n\tif current == \"\" || current == gen {\n\t\treturn gen, nil\n\t}\n\treturn current, \u0026Restamp{RecordID: recordID, Old: gen, New: current}\n}",
+                "file": "internal/pipeline/restamp.go",
+                "name": "replayGenFor"
+              }
+            },
+            {
+              "action": "setFunction",
+              "kwargs": {
+                "code": "// replayReconcile names the records a replay reconciles: every record the\n// recording selected for, over its managed files. Whether that prunes or only\n// reports is the recording's to say (recording.Recording.Complete).\nfunc replayReconcile(selections []Selection) []inject.Reconcile {\n\tvar out []inject.Reconcile\n\tfor _, s := range selections {\n\t\tif !anyManaged(s.Files) {\n\t\t\tcontinue\n\t\t}\n\t\tout = append(out, inject.Reconcile{RecordID: s.RecordID, Targets: targetsOf(s.Files)})\n\t}\n\treturn out\n}",
+                "file": "internal/pipeline/restamp.go",
+                "name": "replayReconcile"
+              }
+            },
+            {
+              "action": "setFunction",
+              "kwargs": {
+                "code": "// ReplayWouldChange reports that a replay's result differs from the tree: a\n// region it writes with different bytes, or a region of a named record it no\n// longer selects. It is the verdict of a replay run with --check.\nfunc ReplayWouldChange(applied []inject.Result) bool {\n\tfor _, r := range applied {\n\t\tif r.Changed || r.Unselected {\n\t\t\treturn true\n\t\t}\n\t}\n\treturn false\n}",
+                "file": "internal/pipeline/restamp.go",
+                "name": "ReplayWouldChange"
+              }
+            }
+          ]
+        }
+      ],
+      "regions": [
+        {
+          "path": "internal/pipeline/restamp.go",
+          "action": "addImport",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:d6a9443c14d82b7bdf19bb96637f957fd44ad9bfbe8f167c97e6f7699c8b830f",
+          "id": {
+            "file": "internal/pipeline/restamp.go",
+            "path": "fmt"
+          },
+          "kwargs": {
+            "file": "internal/pipeline/restamp.go",
+            "path": "fmt"
+          },
+          "kwargs_hash": "sha256:0b7a5f8645c9030627fd98d0c0b100e78b54d834e1ff2d69ce1f5fa9e83e659a",
+          "body": "sha256:bcbac51883cbf8064e9196b371cb880cee429866652447ad557533d817857609"
+        },
+        {
+          "path": "internal/pipeline/restamp.go",
+          "action": "addImport",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:d6a9443c14d82b7bdf19bb96637f957fd44ad9bfbe8f167c97e6f7699c8b830f",
+          "id": {
+            "file": "internal/pipeline/restamp.go",
+            "path": "github.com/livecodelife/sedum/internal/inject"
+          },
+          "kwargs": {
+            "file": "internal/pipeline/restamp.go",
+            "path": "github.com/livecodelife/sedum/internal/inject"
+          },
+          "kwargs_hash": "sha256:f576aaed08719652313b3e7dc17ab8837606997af1b6f5e213a1d0626871f38f",
+          "body": "sha256:c32cfeba25229dcfd3a66390c7c5b1c1c3cb162181c8360a4df0ff1bdfad701f"
+        },
+        {
+          "path": "internal/pipeline/restamp.go",
+          "action": "addImport",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:d6a9443c14d82b7bdf19bb96637f957fd44ad9bfbe8f167c97e6f7699c8b830f",
+          "id": {
+            "file": "internal/pipeline/restamp.go",
+            "path": "github.com/livecodelife/sedum/internal/record"
+          },
+          "kwargs": {
+            "file": "internal/pipeline/restamp.go",
+            "path": "github.com/livecodelife/sedum/internal/record"
+          },
+          "kwargs_hash": "sha256:9eb5d77e4801594bc8f88d10467fea9e35c58743ed45e56d2236801797c948a0",
+          "body": "sha256:527c0befadfcad873cb5f9da4ab560755bc3040424ba6241011c3abf87fcc5e0"
+        },
+        {
+          "path": "internal/pipeline/restamp.go",
+          "action": "addImport",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:d6a9443c14d82b7bdf19bb96637f957fd44ad9bfbe8f167c97e6f7699c8b830f",
+          "id": {
+            "file": "internal/pipeline/restamp.go",
+            "path": "github.com/livecodelife/sedum/internal/recording"
+          },
+          "kwargs": {
+            "file": "internal/pipeline/restamp.go",
+            "path": "github.com/livecodelife/sedum/internal/recording"
+          },
+          "kwargs_hash": "sha256:964df166f915fdc1ee0fab80b6eaf9bdef4285e0b81e096a0a4ebc5de008089d",
+          "body": "sha256:77eda6b9872215a21291b42d59b9ec4b021705be869f51a3d61adc6dcb120e03"
+        },
+        {
+          "path": "internal/pipeline/restamp.go",
+          "action": "setFunction",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:6589611adfb6618a7920e43f951a79901428192ea95c1084fde9f222aecd9537",
+          "id": {
+            "file": "internal/pipeline/restamp.go",
+            "name": "ReplayWouldChange"
+          },
+          "kwargs": {
+            "code": "// ReplayWouldChange reports that a replay's result differs from the tree: a\n// region it writes with different bytes, or a region of a named record it no\n// longer selects. It is the verdict of a replay run with --check.\nfunc ReplayWouldChange(applied []inject.Result) bool {\n\tfor _, r := range applied {\n\t\tif r.Changed || r.Unselected {\n\t\t\treturn true\n\t\t}\n\t}\n\treturn false\n}",
+            "file": "internal/pipeline/restamp.go",
+            "name": "ReplayWouldChange"
+          },
+          "kwargs_hash": "sha256:0668c038cfb8733b8f56c5472988f992c08be0ff61daa18c4555ab073a7b48c5",
+          "body": "sha256:e8d3341c65f75992e795ad7c2e0854f2e3f2fe16cfa95395a1b9455317ab4ee5"
+        },
+        {
+          "path": "internal/pipeline/restamp.go",
+          "action": "setFunction",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:6589611adfb6618a7920e43f951a79901428192ea95c1084fde9f222aecd9537",
+          "id": {
+            "file": "internal/pipeline/restamp.go",
+            "name": "replayGenFor"
+          },
+          "kwargs": {
+            "code": "// replayGenFor is the gen a replay stamps on a record's regions. Without\n// restamp it is what replayGen decides. With restamp it is the current\n// record's gen, and the second result says what changed; a record that is\n// missing or deprecated has no current gen and keeps the recorded one, and a\n// record whose gen did not change reports nothing.\nfunc replayGenFor(rec recording.Recording, records *record.Set, recordID string, restamp bool) (string, *Restamp) {\n\tgen := replayGen(rec, records, recordID)\n\tif !restamp {\n\t\treturn gen, nil\n\t}\n\tcurrent := genOf(records, recordID)\n\tif current == \"\" || current == gen {\n\t\treturn gen, nil\n\t}\n\treturn current, \u0026Restamp{RecordID: recordID, Old: gen, New: current}\n}",
+            "file": "internal/pipeline/restamp.go",
+            "name": "replayGenFor"
+          },
+          "kwargs_hash": "sha256:05170e0d67aec9645aa406fab7ac5a1297f2c115181b558bf7d8954aa9b92097",
+          "body": "sha256:7099cfd62830f3c955834af4c69fd04a6302c0846b2a0116e877406d41fa72ac"
+        },
+        {
+          "path": "internal/pipeline/restamp.go",
+          "action": "setFunction",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:6589611adfb6618a7920e43f951a79901428192ea95c1084fde9f222aecd9537",
+          "id": {
+            "file": "internal/pipeline/restamp.go",
+            "name": "replayReconcile"
+          },
+          "kwargs": {
+            "code": "// replayReconcile names the records a replay reconciles: every record the\n// recording selected for, over its managed files. Whether that prunes or only\n// reports is the recording's to say (recording.Recording.Complete).\nfunc replayReconcile(selections []Selection) []inject.Reconcile {\n\tvar out []inject.Reconcile\n\tfor _, s := range selections {\n\t\tif !anyManaged(s.Files) {\n\t\t\tcontinue\n\t\t}\n\t\tout = append(out, inject.Reconcile{RecordID: s.RecordID, Targets: targetsOf(s.Files)})\n\t}\n\treturn out\n}",
+            "file": "internal/pipeline/restamp.go",
+            "name": "replayReconcile"
+          },
+          "kwargs_hash": "sha256:b5f23e2af16861858de7ac57767fb0b03768043d80caff76fcd296aa0c616a78",
+          "body": "sha256:6273a32733ca9ef517e3eb46d0e63c151e27fce61d6805b74196d78ed1ce6ea8"
+        },
+        {
+          "path": "internal/pipeline/restamp.go",
+          "action": "setFunction",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:6589611adfb6618a7920e43f951a79901428192ea95c1084fde9f222aecd9537",
+          "id": {
+            "file": "internal/pipeline/restamp.go",
+            "name": "shortGen"
+          },
+          "kwargs": {
+            "code": "// shortGen is the first eight hex characters of a gen, \"none\" when it is empty.\nfunc shortGen(gen string) string {\n\tconst prefix = \"sha256:\"\n\tif len(gen) \u003e len(prefix) \u0026\u0026 gen[:len(prefix)] == prefix {\n\t\tgen = gen[len(prefix):]\n\t}\n\tif gen == \"\" {\n\t\treturn \"none\"\n\t}\n\tif len(gen) \u003e 8 {\n\t\treturn gen[:8]\n\t}\n\treturn gen\n}",
+            "file": "internal/pipeline/restamp.go",
+            "name": "shortGen"
+          },
+          "kwargs_hash": "sha256:9c48bd387429654c89f118dd7d90891543473d88e3937db9a0acb190b59659db",
+          "body": "sha256:4cd0305ef8976d27a11612b8072f7b53fcc7c8d2aa27c7b292a0a1aa94e154aa"
+        },
+        {
+          "path": "internal/pipeline/restamp.go",
+          "action": "setMethod",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:8ea07fc52bbc260836983438ef08ad02746b86a1028c8b1a51b60eeb7b83cc2b",
+          "id": {
+            "file": "internal/pipeline/restamp.go",
+            "name": "String",
+            "receiver": "Restamp"
+          },
+          "kwargs": {
+            "code": "// String is the one-line report: the record and the first eight characters of\n// each gen, without the algorithm prefix.\nfunc (r Restamp) String() string {\n\treturn fmt.Sprintf(\"restamped %s: gen %s -\u003e %s\", r.RecordID, shortGen(r.Old), shortGen(r.New))\n}",
+            "file": "internal/pipeline/restamp.go",
+            "name": "String",
+            "receiver": "Restamp"
+          },
+          "kwargs_hash": "sha256:618b799de52e1b59c2770b6d91b0ff09837bd880575aac16be3a2e3583a63577",
+          "body": "sha256:5aea58e1ec483b9ceb4f680a49e95b744f4b01f814e1d5cde64c9b2df85894c6"
+        },
+        {
+          "path": "internal/pipeline/restamp.go",
+          "action": "setType",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:ebb283283a745fdc09f0294b6e79bd879a830829cb964550ec6b4432fee5bb72",
+          "id": {
+            "file": "internal/pipeline/restamp.go",
+            "name": "Restamp"
+          },
+          "kwargs": {
+            "code": "// Restamp is one record whose gen a replay took from the current record\n// instead of from the recording (prov-2026-c637c262).\ntype Restamp struct {\n\tRecordID string\n\tOld      string\n\tNew      string\n}",
+            "file": "internal/pipeline/restamp.go",
+            "name": "Restamp"
+          },
+          "kwargs_hash": "sha256:074550799e1a8b56f0adbb718716acfc98af6f41b9981d3047d60d364d10f9cc",
+          "body": "sha256:d6a6627aacbc0756c21ae5e6aea1be4aff3a04caee512f476d4d8a16f74dc10e"
+        }
+      ]
+    }
+  ]
+}

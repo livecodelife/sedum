@@ -1,0 +1,514 @@
+{
+  "sedum_version": "0.11.0",
+  "packages": {
+    "go": {
+      "extensions": [
+        ".go"
+      ]
+    }
+  },
+  "records": [
+    {
+      "record_id": "prov-2026-87743cfa",
+      "gen": "sha256:4cc82a967421f4715a1da93b5093f4959c47a025a161533ab78ae7307539a5a9",
+      "created_at": "2026-10-16",
+      "files": [
+        {
+          "path": "internal/cli/growlogcmd.go",
+          "package": "go",
+          "template": "*/{pkg}/{name}.go",
+          "captures": {
+            "name": "growlogcmd",
+            "pkg": "cli"
+          }
+        },
+        {
+          "path": "internal/cli/growlogcmd_test.go",
+          "package": "go",
+          "template": "*/{pkg}/{name}.go",
+          "captures": {
+            "name": "growlogcmd_test",
+            "pkg": "cli"
+          }
+        }
+      ],
+      "phases": [
+        {
+          "name": "default",
+          "invocations": [
+            {
+              "action": "addImport",
+              "kwargs": {
+                "file": "internal/cli/growlogcmd.go",
+                "path": "fmt"
+              }
+            },
+            {
+              "action": "addImport",
+              "kwargs": {
+                "file": "internal/cli/growlogcmd.go",
+                "path": "io"
+              }
+            },
+            {
+              "action": "addImport",
+              "kwargs": {
+                "file": "internal/cli/growlogcmd.go",
+                "path": "strconv"
+              }
+            },
+            {
+              "action": "addImport",
+              "kwargs": {
+                "file": "internal/cli/growlogcmd.go",
+                "path": "strings"
+              }
+            },
+            {
+              "action": "addImport",
+              "kwargs": {
+                "file": "internal/cli/growlogcmd.go",
+                "path": "time"
+              }
+            },
+            {
+              "action": "addImport",
+              "kwargs": {
+                "file": "internal/cli/growlogcmd.go",
+                "path": "github.com/livecodelife/sedum/internal/growlog"
+              }
+            },
+            {
+              "action": "addImport",
+              "kwargs": {
+                "file": "internal/cli/growlogcmd.go",
+                "path": "github.com/spf13/cobra"
+              }
+            },
+            {
+              "action": "setFunction",
+              "kwargs": {
+                "code": "// parseSince reads --since: a Go duration (\"36h\"), a number of days (\"7d\"), a\n// date (\"2026-10-01\") or an RFC3339 time. The empty string is the zero time.\nfunc parseSince(s string, now time.Time) (time.Time, error) {\n\tif s == \"\" {\n\t\treturn time.Time{}, nil\n\t}\n\tif days, ok := strings.CutSuffix(s, \"d\"); ok {\n\t\tif n, err := strconv.Atoi(days); err == nil {\n\t\t\treturn now.AddDate(0, 0, -n), nil\n\t\t}\n\t}\n\tif d, err := time.ParseDuration(s); err == nil {\n\t\treturn now.Add(-d), nil\n\t}\n\tfor _, layout := range []string{\"2006-01-02\", time.RFC3339} {\n\t\tif t, err := time.Parse(layout, s); err == nil {\n\t\t\treturn t, nil\n\t\t}\n\t}\n\treturn time.Time{}, fmt.Errorf(\"--since %q is not a duration (36h), a number of days (7d), a date (2026-10-01) or an RFC3339 time\", s)\n}",
+                "file": "internal/cli/growlogcmd.go",
+                "name": "parseSince"
+              }
+            },
+            {
+              "action": "setFunction",
+              "kwargs": {
+                "code": "// runGrowLog prints the summary of the grow log at path.\nfunc runGrowLog(out io.Writer, path string, asJSON bool, since, record, model string, now time.Time) error {\n\tfrom, err := parseSince(since, now)\n\tif err != nil {\n\t\treturn err\n\t}\n\tentries, malformed, err := growlog.Read(path)\n\tif err != nil {\n\t\treturn err\n\t}\n\ts := growlog.Summarize(entries, growlog.Filter{Since: from, Record: record, Model: model})\n\ts.Malformed = malformed\n\tif asJSON {\n\t\tb, err := s.JSON()\n\t\tif err != nil {\n\t\t\treturn err\n\t\t}\n\t\t_, err = out.Write(b)\n\t\treturn err\n\t}\n\t_, err = io.WriteString(out, s.Text())\n\treturn err\n}",
+                "file": "internal/cli/growlogcmd.go",
+                "name": "runGrowLog"
+              }
+            },
+            {
+              "action": "setFunction",
+              "kwargs": {
+                "code": "// newGrowLogCommand builds `sedum grow-log`.\nfunc newGrowLogCommand() *cobra.Command {\n\tvar asJSON bool\n\tvar since, record, model string\n\tcmd := \u0026cobra.Command{\n\t\tUse:   \"grow-log [path]\",\n\t\tShort: \"Summarize the persistent grow log\",\n\t\tLong:  \"Summarize the persistent grow log (default \" + defaultGrowLogPath + \"): per model, how many grows, failures, model calls, retries (answers the model had refused), repairs (verification send-backs), tokens and the share of invocations that carried model-written code.\",\n\t\tArgs:  cobra.MaximumNArgs(1),\n\t\tRunE: func(cmd *cobra.Command, args []string) error {\n\t\t\tpath := defaultGrowLogPath\n\t\t\tif len(args) == 1 {\n\t\t\t\tpath = args[0]\n\t\t\t}\n\t\t\treturn runGrowLog(cmd.OutOrStdout(), path, asJSON, since, record, model, time.Now())\n\t\t},\n\t}\n\tcmd.Flags().BoolVar(\u0026asJSON, \"json\", false, \"print the summary as JSON\")\n\tcmd.Flags().StringVar(\u0026since, \"since\", \"\", \"only entries since a duration (36h), days (7d), a date (2026-10-01) or an RFC3339 time\")\n\tcmd.Flags().StringVar(\u0026record, \"record\", \"\", \"only entries for this record id\")\n\tcmd.Flags().StringVar(\u0026model, \"model\", \"\", \"only entries for this model\")\n\treturn cmd\n}",
+                "file": "internal/cli/growlogcmd.go",
+                "name": "newGrowLogCommand"
+              }
+            },
+            {
+              "action": "addImport",
+              "kwargs": {
+                "file": "internal/cli/growlogcmd_test.go",
+                "path": "bytes"
+              }
+            },
+            {
+              "action": "addImport",
+              "kwargs": {
+                "file": "internal/cli/growlogcmd_test.go",
+                "path": "path/filepath"
+              }
+            },
+            {
+              "action": "addImport",
+              "kwargs": {
+                "file": "internal/cli/growlogcmd_test.go",
+                "path": "strings"
+              }
+            },
+            {
+              "action": "addImport",
+              "kwargs": {
+                "file": "internal/cli/growlogcmd_test.go",
+                "path": "testing"
+              }
+            },
+            {
+              "action": "addImport",
+              "kwargs": {
+                "file": "internal/cli/growlogcmd_test.go",
+                "path": "time"
+              }
+            },
+            {
+              "action": "addImport",
+              "kwargs": {
+                "file": "internal/cli/growlogcmd_test.go",
+                "path": "github.com/livecodelife/sedum/internal/growlog"
+              }
+            },
+            {
+              "action": "setFunction",
+              "kwargs": {
+                "code": "func TestParseSince(t *testing.T) {\n\tnow := time.Date(2026, 10, 16, 12, 0, 0, 0, time.UTC)\n\tcases := []struct {\n\t\tin   string\n\t\twant time.Time\n\t\tbad  bool\n\t}{\n\t\t{\"\", time.Time{}, false},\n\t\t{\"7d\", time.Date(2026, 10, 9, 12, 0, 0, 0, time.UTC), false},\n\t\t{\"36h\", time.Date(2026, 10, 15, 0, 0, 0, 0, time.UTC), false},\n\t\t{\"2026-10-01\", time.Date(2026, 10, 1, 0, 0, 0, 0, time.UTC), false},\n\t\t{\"2026-10-01T06:00:00Z\", time.Date(2026, 10, 1, 6, 0, 0, 0, time.UTC), false},\n\t\t{\"yesterday\", time.Time{}, true},\n\t}\n\tfor _, tc := range cases {\n\t\tgot, err := parseSince(tc.in, now)\n\t\tif (err != nil) != tc.bad {\n\t\t\tt.Errorf(\"parseSince(%q) error = %v, want error %v\", tc.in, err, tc.bad)\n\t\t\tcontinue\n\t\t}\n\t\tif !tc.bad \u0026\u0026 !got.Equal(tc.want) {\n\t\t\tt.Errorf(\"parseSince(%q) = %v, want %v\", tc.in, got, tc.want)\n\t\t}\n\t}\n}",
+                "file": "internal/cli/growlogcmd_test.go",
+                "name": "TestParseSince"
+              }
+            },
+            {
+              "action": "setFunction",
+              "kwargs": {
+                "code": "func TestRunGrowLog(t *testing.T) {\n\tpath := filepath.Join(t.TempDir(), \"grow.jsonl\")\n\tfor _, e := range []growlog.Entry{\n\t\t{TS: \"2026-10-10T00:00:00Z\", Record: \"r1\", Mode: \"select\", Model: \"haiku\", Outcome: \"ok\", Calls: 2, Rejected: 1},\n\t\t{TS: \"2026-10-15T00:00:00Z\", Record: \"r2\", Mode: \"select\", Model: \"stub\", Outcome: \"ok\", Calls: 1},\n\t} {\n\t\tif err := growlog.Append(path, e); err != nil {\n\t\t\tt.Fatal(err)\n\t\t}\n\t}\n\tnow := time.Date(2026, 10, 16, 0, 0, 0, 0, time.UTC)\n\tvar out bytes.Buffer\n\tif err := runGrowLog(\u0026out, path, false, \"\", \"\", \"\", now); err != nil {\n\t\tt.Fatal(err)\n\t}\n\tif !strings.Contains(out.String(), \"grow log: 2 line(s), 0 malformed\") || !strings.Contains(out.String(), \"haiku\") {\n\t\tt.Fatalf(\"text output:\\n%s\", out.String())\n\t}\n\tout.Reset()\n\tif err := runGrowLog(\u0026out, path, true, \"3d\", \"\", \"\", now); err != nil {\n\t\tt.Fatal(err)\n\t}\n\tif !strings.Contains(out.String(), `\"entries\": 1`) {\n\t\tt.Fatalf(\"--since 3d should keep one entry:\\n%s\", out.String())\n\t}\n\tout.Reset()\n\tif err := runGrowLog(\u0026out, path, true, \"\", \"\", \"haiku\", now); err != nil {\n\t\tt.Fatal(err)\n\t}\n\tif !strings.Contains(out.String(), `\"entries\": 1`) {\n\t\tt.Fatalf(\"--model haiku should keep one entry:\\n%s\", out.String())\n\t}\n}",
+                "file": "internal/cli/growlogcmd_test.go",
+                "name": "TestRunGrowLog"
+              }
+            },
+            {
+              "action": "setFunction",
+              "kwargs": {
+                "code": "func TestRunGrowLogErrors(t *testing.T) {\n\tvar out bytes.Buffer\n\tif err := runGrowLog(\u0026out, filepath.Join(t.TempDir(), \"none.jsonl\"), false, \"\", \"\", \"\", time.Now()); err == nil {\n\t\tt.Fatal(\"a missing log must be an error\")\n\t}\n\tpath := filepath.Join(t.TempDir(), \"grow.jsonl\")\n\tif err := growlog.Append(path, growlog.Entry{TS: \"2026-10-10T00:00:00Z\", Outcome: \"ok\"}); err != nil {\n\t\tt.Fatal(err)\n\t}\n\tif err := runGrowLog(\u0026out, path, false, \"yesterday\", \"\", \"\", time.Now()); err == nil {\n\t\tt.Fatal(\"a bad --since must be an error\")\n\t}\n}",
+                "file": "internal/cli/growlogcmd_test.go",
+                "name": "TestRunGrowLogErrors"
+              }
+            }
+          ]
+        }
+      ],
+      "regions": [
+        {
+          "path": "internal/cli/growlogcmd.go",
+          "action": "addImport",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:d6a9443c14d82b7bdf19bb96637f957fd44ad9bfbe8f167c97e6f7699c8b830f",
+          "id": {
+            "file": "internal/cli/growlogcmd.go",
+            "path": "fmt"
+          },
+          "kwargs": {
+            "file": "internal/cli/growlogcmd.go",
+            "path": "fmt"
+          },
+          "kwargs_hash": "sha256:4ff215b38a19c7936af1a3b50c08453e12c7309088a238da0d54c2acea086a14",
+          "body": "sha256:bcbac51883cbf8064e9196b371cb880cee429866652447ad557533d817857609"
+        },
+        {
+          "path": "internal/cli/growlogcmd.go",
+          "action": "addImport",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:d6a9443c14d82b7bdf19bb96637f957fd44ad9bfbe8f167c97e6f7699c8b830f",
+          "id": {
+            "file": "internal/cli/growlogcmd.go",
+            "path": "github.com/livecodelife/sedum/internal/growlog"
+          },
+          "kwargs": {
+            "file": "internal/cli/growlogcmd.go",
+            "path": "github.com/livecodelife/sedum/internal/growlog"
+          },
+          "kwargs_hash": "sha256:56d86235b182d280f659c34907418cc7b70076962bbc6f8bdc24efd9e4f9b06a",
+          "body": "sha256:b7968f24df7d76473f917ee9527158f424f930250a91e5407a0140aa4c56c91f"
+        },
+        {
+          "path": "internal/cli/growlogcmd.go",
+          "action": "addImport",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:d6a9443c14d82b7bdf19bb96637f957fd44ad9bfbe8f167c97e6f7699c8b830f",
+          "id": {
+            "file": "internal/cli/growlogcmd.go",
+            "path": "github.com/spf13/cobra"
+          },
+          "kwargs": {
+            "file": "internal/cli/growlogcmd.go",
+            "path": "github.com/spf13/cobra"
+          },
+          "kwargs_hash": "sha256:f05a6d32478032ec81469fca3fb190e15b0aee2f8bf6311c4ef531fcd031b94f",
+          "body": "sha256:f361c02d0f8e1999cf3fb715393e16310eeec9debd5aaa13936af7617e2b46aa"
+        },
+        {
+          "path": "internal/cli/growlogcmd.go",
+          "action": "addImport",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:d6a9443c14d82b7bdf19bb96637f957fd44ad9bfbe8f167c97e6f7699c8b830f",
+          "id": {
+            "file": "internal/cli/growlogcmd.go",
+            "path": "io"
+          },
+          "kwargs": {
+            "file": "internal/cli/growlogcmd.go",
+            "path": "io"
+          },
+          "kwargs_hash": "sha256:61ce0bac05e8a0fa6d8e1e236312c7b3ccc13abe7c2ced36ea0c74dd4ab77576",
+          "body": "sha256:ef8e8abf4ef5ee40a19dc85b49bf09c5df1fe32abfe834e0ab4c2175baf80ddf"
+        },
+        {
+          "path": "internal/cli/growlogcmd.go",
+          "action": "addImport",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:d6a9443c14d82b7bdf19bb96637f957fd44ad9bfbe8f167c97e6f7699c8b830f",
+          "id": {
+            "file": "internal/cli/growlogcmd.go",
+            "path": "strconv"
+          },
+          "kwargs": {
+            "file": "internal/cli/growlogcmd.go",
+            "path": "strconv"
+          },
+          "kwargs_hash": "sha256:4b3c75ec5c7c126436247bf513c567adcef4410fc5cc48cffadc66d31f283e96",
+          "body": "sha256:f33f981c64a42d78a5daa7ff3fca15b10045080cccd282fef544b59eaf7f6dc8"
+        },
+        {
+          "path": "internal/cli/growlogcmd.go",
+          "action": "addImport",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:d6a9443c14d82b7bdf19bb96637f957fd44ad9bfbe8f167c97e6f7699c8b830f",
+          "id": {
+            "file": "internal/cli/growlogcmd.go",
+            "path": "strings"
+          },
+          "kwargs": {
+            "file": "internal/cli/growlogcmd.go",
+            "path": "strings"
+          },
+          "kwargs_hash": "sha256:e0f8d3ee4751dbf6be26d9c435cd36f5408d2ce215c214bac29b1873f50aa868",
+          "body": "sha256:a9af3c0bc4bf9342df9d7e89a324523fdba7941a9ca4190270e68ff3c4a25ea6"
+        },
+        {
+          "path": "internal/cli/growlogcmd.go",
+          "action": "addImport",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:d6a9443c14d82b7bdf19bb96637f957fd44ad9bfbe8f167c97e6f7699c8b830f",
+          "id": {
+            "file": "internal/cli/growlogcmd.go",
+            "path": "time"
+          },
+          "kwargs": {
+            "file": "internal/cli/growlogcmd.go",
+            "path": "time"
+          },
+          "kwargs_hash": "sha256:4c6da2cf5f7569e6db002ecdd7d7e4a5c0f9edb7b754be90e39e3243de63a4d1",
+          "body": "sha256:e99128ebf4e36998f40b33adf2eef57f4d6c315f1a4d1bdd3b7fc09a0d7bc82d"
+        },
+        {
+          "path": "internal/cli/growlogcmd.go",
+          "action": "setFunction",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:6589611adfb6618a7920e43f951a79901428192ea95c1084fde9f222aecd9537",
+          "id": {
+            "file": "internal/cli/growlogcmd.go",
+            "name": "newGrowLogCommand"
+          },
+          "kwargs": {
+            "code": "// newGrowLogCommand builds `sedum grow-log`.\nfunc newGrowLogCommand() *cobra.Command {\n\tvar asJSON bool\n\tvar since, record, model string\n\tcmd := \u0026cobra.Command{\n\t\tUse:   \"grow-log [path]\",\n\t\tShort: \"Summarize the persistent grow log\",\n\t\tLong:  \"Summarize the persistent grow log (default \" + defaultGrowLogPath + \"): per model, how many grows, failures, model calls, retries (answers the model had refused), repairs (verification send-backs), tokens and the share of invocations that carried model-written code.\",\n\t\tArgs:  cobra.MaximumNArgs(1),\n\t\tRunE: func(cmd *cobra.Command, args []string) error {\n\t\t\tpath := defaultGrowLogPath\n\t\t\tif len(args) == 1 {\n\t\t\t\tpath = args[0]\n\t\t\t}\n\t\t\treturn runGrowLog(cmd.OutOrStdout(), path, asJSON, since, record, model, time.Now())\n\t\t},\n\t}\n\tcmd.Flags().BoolVar(\u0026asJSON, \"json\", false, \"print the summary as JSON\")\n\tcmd.Flags().StringVar(\u0026since, \"since\", \"\", \"only entries since a duration (36h), days (7d), a date (2026-10-01) or an RFC3339 time\")\n\tcmd.Flags().StringVar(\u0026record, \"record\", \"\", \"only entries for this record id\")\n\tcmd.Flags().StringVar(\u0026model, \"model\", \"\", \"only entries for this model\")\n\treturn cmd\n}",
+            "file": "internal/cli/growlogcmd.go",
+            "name": "newGrowLogCommand"
+          },
+          "kwargs_hash": "sha256:bdee7094df15681624ccff8d2e00271015eb0b252aa2010530765323c872fffa",
+          "body": "sha256:05ed55699b393e2c60a10d19f333f8de36fda7da36fddf1f7e39ef1c813257f4"
+        },
+        {
+          "path": "internal/cli/growlogcmd.go",
+          "action": "setFunction",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:6589611adfb6618a7920e43f951a79901428192ea95c1084fde9f222aecd9537",
+          "id": {
+            "file": "internal/cli/growlogcmd.go",
+            "name": "parseSince"
+          },
+          "kwargs": {
+            "code": "// parseSince reads --since: a Go duration (\"36h\"), a number of days (\"7d\"), a\n// date (\"2026-10-01\") or an RFC3339 time. The empty string is the zero time.\nfunc parseSince(s string, now time.Time) (time.Time, error) {\n\tif s == \"\" {\n\t\treturn time.Time{}, nil\n\t}\n\tif days, ok := strings.CutSuffix(s, \"d\"); ok {\n\t\tif n, err := strconv.Atoi(days); err == nil {\n\t\t\treturn now.AddDate(0, 0, -n), nil\n\t\t}\n\t}\n\tif d, err := time.ParseDuration(s); err == nil {\n\t\treturn now.Add(-d), nil\n\t}\n\tfor _, layout := range []string{\"2006-01-02\", time.RFC3339} {\n\t\tif t, err := time.Parse(layout, s); err == nil {\n\t\t\treturn t, nil\n\t\t}\n\t}\n\treturn time.Time{}, fmt.Errorf(\"--since %q is not a duration (36h), a number of days (7d), a date (2026-10-01) or an RFC3339 time\", s)\n}",
+            "file": "internal/cli/growlogcmd.go",
+            "name": "parseSince"
+          },
+          "kwargs_hash": "sha256:2a7dea934433354c2e9dd8d4385b920228fe7d8423f2a1fee3c656d0cfbaff7a",
+          "body": "sha256:c4c373115f8069f572c6ca90095a8e143d78f2f5f49910cb9a023e686f30d168"
+        },
+        {
+          "path": "internal/cli/growlogcmd.go",
+          "action": "setFunction",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:6589611adfb6618a7920e43f951a79901428192ea95c1084fde9f222aecd9537",
+          "id": {
+            "file": "internal/cli/growlogcmd.go",
+            "name": "runGrowLog"
+          },
+          "kwargs": {
+            "code": "// runGrowLog prints the summary of the grow log at path.\nfunc runGrowLog(out io.Writer, path string, asJSON bool, since, record, model string, now time.Time) error {\n\tfrom, err := parseSince(since, now)\n\tif err != nil {\n\t\treturn err\n\t}\n\tentries, malformed, err := growlog.Read(path)\n\tif err != nil {\n\t\treturn err\n\t}\n\ts := growlog.Summarize(entries, growlog.Filter{Since: from, Record: record, Model: model})\n\ts.Malformed = malformed\n\tif asJSON {\n\t\tb, err := s.JSON()\n\t\tif err != nil {\n\t\t\treturn err\n\t\t}\n\t\t_, err = out.Write(b)\n\t\treturn err\n\t}\n\t_, err = io.WriteString(out, s.Text())\n\treturn err\n}",
+            "file": "internal/cli/growlogcmd.go",
+            "name": "runGrowLog"
+          },
+          "kwargs_hash": "sha256:8bd9e6fe10d4dd58914c2f7be1eb7560985fdc16095582fbc4ac0e3f01bcf59f",
+          "body": "sha256:8910dec3a354286f1d0ac0f2f319a3b552e45f6dbc8d3fb2f97e0ab849b9ded4"
+        },
+        {
+          "path": "internal/cli/growlogcmd_test.go",
+          "action": "addImport",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:d6a9443c14d82b7bdf19bb96637f957fd44ad9bfbe8f167c97e6f7699c8b830f",
+          "id": {
+            "file": "internal/cli/growlogcmd_test.go",
+            "path": "bytes"
+          },
+          "kwargs": {
+            "file": "internal/cli/growlogcmd_test.go",
+            "path": "bytes"
+          },
+          "kwargs_hash": "sha256:f0faa2fffa6a7de3306cae5f6311260e18f8e5bf9de12c624c41119916f02655",
+          "body": "sha256:468731f6dd513df0a66690d4649dc9e7244c96de227d8e6ead98cc5e9747c57a"
+        },
+        {
+          "path": "internal/cli/growlogcmd_test.go",
+          "action": "addImport",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:d6a9443c14d82b7bdf19bb96637f957fd44ad9bfbe8f167c97e6f7699c8b830f",
+          "id": {
+            "file": "internal/cli/growlogcmd_test.go",
+            "path": "github.com/livecodelife/sedum/internal/growlog"
+          },
+          "kwargs": {
+            "file": "internal/cli/growlogcmd_test.go",
+            "path": "github.com/livecodelife/sedum/internal/growlog"
+          },
+          "kwargs_hash": "sha256:0502c7fda0bed26466f16514da4178cc4aac67ec98810757be916ab15276b2a3",
+          "body": "sha256:b7968f24df7d76473f917ee9527158f424f930250a91e5407a0140aa4c56c91f"
+        },
+        {
+          "path": "internal/cli/growlogcmd_test.go",
+          "action": "addImport",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:d6a9443c14d82b7bdf19bb96637f957fd44ad9bfbe8f167c97e6f7699c8b830f",
+          "id": {
+            "file": "internal/cli/growlogcmd_test.go",
+            "path": "path/filepath"
+          },
+          "kwargs": {
+            "file": "internal/cli/growlogcmd_test.go",
+            "path": "path/filepath"
+          },
+          "kwargs_hash": "sha256:49d80ecc24244c53a04721848ae3bd7a63c642d1f23ae6ccf54b89c969d1c822",
+          "body": "sha256:a6d196b558491e646be93f56a321f339068c64c76aa9d49bb18046e7f9c777a1"
+        },
+        {
+          "path": "internal/cli/growlogcmd_test.go",
+          "action": "addImport",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:d6a9443c14d82b7bdf19bb96637f957fd44ad9bfbe8f167c97e6f7699c8b830f",
+          "id": {
+            "file": "internal/cli/growlogcmd_test.go",
+            "path": "strings"
+          },
+          "kwargs": {
+            "file": "internal/cli/growlogcmd_test.go",
+            "path": "strings"
+          },
+          "kwargs_hash": "sha256:578f3ce46021d682b9f1f8a882679d8884823194bc9ba089e456e920d05c631d",
+          "body": "sha256:a9af3c0bc4bf9342df9d7e89a324523fdba7941a9ca4190270e68ff3c4a25ea6"
+        },
+        {
+          "path": "internal/cli/growlogcmd_test.go",
+          "action": "addImport",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:d6a9443c14d82b7bdf19bb96637f957fd44ad9bfbe8f167c97e6f7699c8b830f",
+          "id": {
+            "file": "internal/cli/growlogcmd_test.go",
+            "path": "testing"
+          },
+          "kwargs": {
+            "file": "internal/cli/growlogcmd_test.go",
+            "path": "testing"
+          },
+          "kwargs_hash": "sha256:8a87cd78977fdb2a197f9e0a895895c233d6abb575674b2dd6e6b2e87f108316",
+          "body": "sha256:14a4a5f3bfbf9325de04706efa8c15a9446f01d2a26624ce9c66bd1d69dc212e"
+        },
+        {
+          "path": "internal/cli/growlogcmd_test.go",
+          "action": "addImport",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:d6a9443c14d82b7bdf19bb96637f957fd44ad9bfbe8f167c97e6f7699c8b830f",
+          "id": {
+            "file": "internal/cli/growlogcmd_test.go",
+            "path": "time"
+          },
+          "kwargs": {
+            "file": "internal/cli/growlogcmd_test.go",
+            "path": "time"
+          },
+          "kwargs_hash": "sha256:bef585836c90aea98163b2a83ef1dc83fa34b84696ad10ef9dba55c02a31f78d",
+          "body": "sha256:e99128ebf4e36998f40b33adf2eef57f4d6c315f1a4d1bdd3b7fc09a0d7bc82d"
+        },
+        {
+          "path": "internal/cli/growlogcmd_test.go",
+          "action": "setFunction",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:6589611adfb6618a7920e43f951a79901428192ea95c1084fde9f222aecd9537",
+          "id": {
+            "file": "internal/cli/growlogcmd_test.go",
+            "name": "TestParseSince"
+          },
+          "kwargs": {
+            "code": "func TestParseSince(t *testing.T) {\n\tnow := time.Date(2026, 10, 16, 12, 0, 0, 0, time.UTC)\n\tcases := []struct {\n\t\tin   string\n\t\twant time.Time\n\t\tbad  bool\n\t}{\n\t\t{\"\", time.Time{}, false},\n\t\t{\"7d\", time.Date(2026, 10, 9, 12, 0, 0, 0, time.UTC), false},\n\t\t{\"36h\", time.Date(2026, 10, 15, 0, 0, 0, 0, time.UTC), false},\n\t\t{\"2026-10-01\", time.Date(2026, 10, 1, 0, 0, 0, 0, time.UTC), false},\n\t\t{\"2026-10-01T06:00:00Z\", time.Date(2026, 10, 1, 6, 0, 0, 0, time.UTC), false},\n\t\t{\"yesterday\", time.Time{}, true},\n\t}\n\tfor _, tc := range cases {\n\t\tgot, err := parseSince(tc.in, now)\n\t\tif (err != nil) != tc.bad {\n\t\t\tt.Errorf(\"parseSince(%q) error = %v, want error %v\", tc.in, err, tc.bad)\n\t\t\tcontinue\n\t\t}\n\t\tif !tc.bad \u0026\u0026 !got.Equal(tc.want) {\n\t\t\tt.Errorf(\"parseSince(%q) = %v, want %v\", tc.in, got, tc.want)\n\t\t}\n\t}\n}",
+            "file": "internal/cli/growlogcmd_test.go",
+            "name": "TestParseSince"
+          },
+          "kwargs_hash": "sha256:121ebdaef6b72e0f6024126c20664c8e4516f1d76aa645e7c9bd2a5483dd62cb",
+          "body": "sha256:4d6fe39d866e7e821a621a496cbaa2e745bf2c81821d7bc145a223c2d793a380"
+        },
+        {
+          "path": "internal/cli/growlogcmd_test.go",
+          "action": "setFunction",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:6589611adfb6618a7920e43f951a79901428192ea95c1084fde9f222aecd9537",
+          "id": {
+            "file": "internal/cli/growlogcmd_test.go",
+            "name": "TestRunGrowLog"
+          },
+          "kwargs": {
+            "code": "func TestRunGrowLog(t *testing.T) {\n\tpath := filepath.Join(t.TempDir(), \"grow.jsonl\")\n\tfor _, e := range []growlog.Entry{\n\t\t{TS: \"2026-10-10T00:00:00Z\", Record: \"r1\", Mode: \"select\", Model: \"haiku\", Outcome: \"ok\", Calls: 2, Rejected: 1},\n\t\t{TS: \"2026-10-15T00:00:00Z\", Record: \"r2\", Mode: \"select\", Model: \"stub\", Outcome: \"ok\", Calls: 1},\n\t} {\n\t\tif err := growlog.Append(path, e); err != nil {\n\t\t\tt.Fatal(err)\n\t\t}\n\t}\n\tnow := time.Date(2026, 10, 16, 0, 0, 0, 0, time.UTC)\n\tvar out bytes.Buffer\n\tif err := runGrowLog(\u0026out, path, false, \"\", \"\", \"\", now); err != nil {\n\t\tt.Fatal(err)\n\t}\n\tif !strings.Contains(out.String(), \"grow log: 2 line(s), 0 malformed\") || !strings.Contains(out.String(), \"haiku\") {\n\t\tt.Fatalf(\"text output:\\n%s\", out.String())\n\t}\n\tout.Reset()\n\tif err := runGrowLog(\u0026out, path, true, \"3d\", \"\", \"\", now); err != nil {\n\t\tt.Fatal(err)\n\t}\n\tif !strings.Contains(out.String(), `\"entries\": 1`) {\n\t\tt.Fatalf(\"--since 3d should keep one entry:\\n%s\", out.String())\n\t}\n\tout.Reset()\n\tif err := runGrowLog(\u0026out, path, true, \"\", \"\", \"haiku\", now); err != nil {\n\t\tt.Fatal(err)\n\t}\n\tif !strings.Contains(out.String(), `\"entries\": 1`) {\n\t\tt.Fatalf(\"--model haiku should keep one entry:\\n%s\", out.String())\n\t}\n}",
+            "file": "internal/cli/growlogcmd_test.go",
+            "name": "TestRunGrowLog"
+          },
+          "kwargs_hash": "sha256:a978e12b901b0e26dbfdeb00dbaea65fd2093a87df925d6d466b6f7120d89a3e",
+          "body": "sha256:ed4d1341e289b45e788e244f442239dd3b9c87b7bc853d204ba847431eb8de50"
+        },
+        {
+          "path": "internal/cli/growlogcmd_test.go",
+          "action": "setFunction",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:6589611adfb6618a7920e43f951a79901428192ea95c1084fde9f222aecd9537",
+          "id": {
+            "file": "internal/cli/growlogcmd_test.go",
+            "name": "TestRunGrowLogErrors"
+          },
+          "kwargs": {
+            "code": "func TestRunGrowLogErrors(t *testing.T) {\n\tvar out bytes.Buffer\n\tif err := runGrowLog(\u0026out, filepath.Join(t.TempDir(), \"none.jsonl\"), false, \"\", \"\", \"\", time.Now()); err == nil {\n\t\tt.Fatal(\"a missing log must be an error\")\n\t}\n\tpath := filepath.Join(t.TempDir(), \"grow.jsonl\")\n\tif err := growlog.Append(path, growlog.Entry{TS: \"2026-10-10T00:00:00Z\", Outcome: \"ok\"}); err != nil {\n\t\tt.Fatal(err)\n\t}\n\tif err := runGrowLog(\u0026out, path, false, \"yesterday\", \"\", \"\", time.Now()); err == nil {\n\t\tt.Fatal(\"a bad --since must be an error\")\n\t}\n}",
+            "file": "internal/cli/growlogcmd_test.go",
+            "name": "TestRunGrowLogErrors"
+          },
+          "kwargs_hash": "sha256:ab766affe481fe6e5cc1a0361673d66036354ac96d8d5287d5fabff036ec4f43",
+          "body": "sha256:33eed7d495946048ab7bddde2fec28ab531cce98e26754de47d6f5c00bf0c740"
+        }
+      ]
+    }
+  ]
+}

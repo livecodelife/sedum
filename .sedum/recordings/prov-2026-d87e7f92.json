@@ -1,0 +1,588 @@
+{
+  "sedum_version": "0.11.0",
+  "packages": {
+    "go": {
+      "extensions": [
+        ".go"
+      ]
+    }
+  },
+  "records": [
+    {
+      "record_id": "prov-2026-d87e7f92",
+      "gen": "sha256:be079f96fee77ea810342a75f22d0f5b007cec1f10482b632a21550cc79041fc",
+      "created_at": "2026-10-16",
+      "files": [
+        {
+          "path": "internal/adopt/span.go",
+          "package": "go",
+          "template": "*/{pkg}/{name}.go",
+          "captures": {
+            "name": "span",
+            "pkg": "adopt"
+          }
+        },
+        {
+          "path": "internal/adopt/span_test.go",
+          "package": "go",
+          "template": "*/{pkg}/{name}.go",
+          "captures": {
+            "name": "span_test",
+            "pkg": "adopt"
+          }
+        }
+      ],
+      "phases": [
+        {
+          "name": "default",
+          "invocations": [
+            {
+              "action": "addImport",
+              "kwargs": {
+                "file": "internal/adopt/span.go",
+                "path": "fmt"
+              }
+            },
+            {
+              "action": "addImport",
+              "kwargs": {
+                "file": "internal/adopt/span.go",
+                "path": "strings"
+              }
+            },
+            {
+              "action": "setType",
+              "kwargs": {
+                "code": "type Kind string",
+                "file": "internal/adopt/span.go",
+                "name": "Kind"
+              }
+            },
+            {
+              "action": "setConst",
+              "kwargs": {
+                "code": "const KindHeader Kind = \"header\"",
+                "file": "internal/adopt/span.go",
+                "name": "KindHeader"
+              }
+            },
+            {
+              "action": "setConst",
+              "kwargs": {
+                "code": "const KindUnit Kind = \"unit\"",
+                "file": "internal/adopt/span.go",
+                "name": "KindUnit"
+              }
+            },
+            {
+              "action": "setConst",
+              "kwargs": {
+                "code": "const KindResidual Kind = \"residual\"",
+                "file": "internal/adopt/span.go",
+                "name": "KindResidual"
+              }
+            },
+            {
+              "action": "setType",
+              "kwargs": {
+                "code": "type Span struct {\n\tKind   Kind           `json:\"kind\"`\n\tText   string         `json:\"text\"`\n\tAction string         `json:\"action,omitempty\"`\n\tKwargs map[string]any `json:\"kwargs,omitempty\"`\n}",
+                "file": "internal/adopt/span.go",
+                "name": "Span"
+              }
+            },
+            {
+              "action": "setType",
+              "kwargs": {
+                "code": "type Adopter interface {\n\tSplit(path string, src []byte) ([]Span, error)\n}",
+                "file": "internal/adopt/span.go",
+                "name": "Adopter"
+              }
+            },
+            {
+              "action": "setType",
+              "kwargs": {
+                "code": "type CoverageError struct {\n\tOffset int\n\tLine   int\n\tWant   string\n\tGot    string\n}",
+                "file": "internal/adopt/span.go",
+                "name": "CoverageError"
+              }
+            },
+            {
+              "action": "setMethod",
+              "kwargs": {
+                "code": "func (e CoverageError) Error() string {\n\treturn fmt.Sprintf(\"coverage: spans differ from the file at byte %d (line %d): want %q got %q\", e.Offset, e.Line, e.Want, e.Got)\n}",
+                "file": "internal/adopt/span.go",
+                "name": "Error",
+                "receiver": "CoverageError"
+              }
+            },
+            {
+              "action": "setFunction",
+              "kwargs": {
+                "code": "func Coverage(src []byte, spans []Span) error {\n\tvar got []byte\n\tfor _, s := range spans {\n\t\tgot = append(got, s.Text...)\n\t}\n\tif string(got) == string(src) {\n\t\treturn nil\n\t}\n\toff := 0\n\tfor off \u003c len(got) \u0026\u0026 off \u003c len(src) \u0026\u0026 got[off] == src[off] {\n\t\toff++\n\t}\n\tline := 1\n\tfor _, c := range src[:off] {\n\t\tif c == '\\n' {\n\t\t\tline++\n\t\t}\n\t}\n\tend := off + 40\n\tif end \u003e len(src) {\n\t\tend = len(src)\n\t}\n\tgend := off + 40\n\tif gend \u003e len(got) {\n\t\tgend = len(got)\n\t}\n\treturn \u0026CoverageError{Offset: off, Line: line, Want: string(src[off:end]), Got: string(got[off:gend])}\n}",
+                "file": "internal/adopt/span.go",
+                "name": "Coverage"
+              }
+            },
+            {
+              "action": "setMethod",
+              "kwargs": {
+                "code": "func (s Span) Valid() error {\n\tswitch s.Kind {\n\tcase KindUnit:\n\t\tif s.Action == \"\" || s.Text == \"\" {\n\t\t\treturn fmt.Errorf(\"unit span needs an action and text\")\n\t\t}\n\tcase KindHeader:\n\t\tif s.Action != \"\" || s.Kwargs != nil {\n\t\t\treturn fmt.Errorf(\"%s span must not carry an action or kwargs\", s.Kind)\n\t\t}\n\tcase KindResidual:\n\t\tif s.Action != \"\" || s.Kwargs != nil {\n\t\t\treturn fmt.Errorf(\"%s span must not carry an action or kwargs\", s.Kind)\n\t\t}\n\tdefault:\n\t\treturn fmt.Errorf(\"unknown span kind %q\", s.Kind)\n\t}\n\treturn nil\n}",
+                "file": "internal/adopt/span.go",
+                "name": "Valid",
+                "receiver": "Span"
+              }
+            },
+            {
+              "action": "setFunction",
+              "kwargs": {
+                "code": "func CheckSpans(src []byte, spans []Span) error {\n\tif len(spans) == 0 \u0026\u0026 len(src) \u003e 0 {\n\t\treturn fmt.Errorf(\"no spans for a non-empty file\")\n\t}\n\tfor i, s := range spans {\n\t\tif err := s.Valid(); err != nil {\n\t\t\treturn fmt.Errorf(\"span %d: %w\", i, err)\n\t\t}\n\t}\n\treturn Coverage(src, spans)\n}",
+                "file": "internal/adopt/span.go",
+                "name": "CheckSpans"
+              }
+            },
+            {
+              "action": "setFunction",
+              "kwargs": {
+                "code": "func ResidualIsBlank(s Span) bool {\n\treturn s.Kind == KindResidual \u0026\u0026 strings.TrimSpace(s.Text) == \"\"\n}",
+                "file": "internal/adopt/span.go",
+                "name": "ResidualIsBlank"
+              }
+            },
+            {
+              "action": "addImport",
+              "kwargs": {
+                "file": "internal/adopt/span_test.go",
+                "path": "errors"
+              }
+            },
+            {
+              "action": "addImport",
+              "kwargs": {
+                "file": "internal/adopt/span_test.go",
+                "path": "strings"
+              }
+            },
+            {
+              "action": "addImport",
+              "kwargs": {
+                "file": "internal/adopt/span_test.go",
+                "path": "testing"
+              }
+            },
+            {
+              "action": "setFunction",
+              "kwargs": {
+                "code": "func TestCoverage(t *testing.T) {\n\tsrc := []byte(\"a\\nfunc b\\n\")\n\ttests := []struct {\n\t\tname   string\n\t\tspans  []Span\n\t\toffset int\n\t\tline   int\n\t}{\n\t\t{\"exact\", []Span{{Kind: KindHeader, Text: \"a\\n\"}, {Kind: KindUnit, Text: \"func b\\n\"}}, -1, 0},\n\t\t{\"missing byte\", []Span{{Kind: KindHeader, Text: \"a\\n\"}, {Kind: KindUnit, Text: \"func \\n\"}}, 7, 2},\n\t\t{\"extra byte\", []Span{{Kind: KindHeader, Text: \"a\\n\"}, {Kind: KindUnit, Text: \"func bb\\n\"}}, 8, 2},\n\t\t{\"changed byte\", []Span{{Kind: KindHeader, Text: \"a\\n\"}, {Kind: KindUnit, Text: \"func c\\n\"}}, 7, 2},\n\t\t{\"prefix\", []Span{{Kind: KindHeader, Text: \"a\\nfunc \"}}, 7, 2},\n\t\t{\"empty spans\", nil, 0, 1},\n\t}\n\tfor _, tc := range tests {\n\t\tt.Run(tc.name, func(t *testing.T) {\n\t\t\terr := Coverage(src, tc.spans)\n\t\t\tif tc.offset \u003c 0 {\n\t\t\t\tif err != nil {\n\t\t\t\t\tt.Fatalf(\"unexpected error: %v\", err)\n\t\t\t\t}\n\t\t\t\treturn\n\t\t\t}\n\t\t\tvar ce *CoverageError\n\t\t\tif !errors.As(err, \u0026ce) {\n\t\t\t\tt.Fatalf(\"want *CoverageError, got %v\", err)\n\t\t\t}\n\t\t\tif ce.Offset != tc.offset || ce.Line != tc.line {\n\t\t\t\tt.Fatalf(\"got offset %d line %d, want offset %d line %d\", ce.Offset, ce.Line, tc.offset, tc.line)\n\t\t\t}\n\t\t})\n\t}\n}",
+                "file": "internal/adopt/span_test.go",
+                "name": "TestCoverage"
+              }
+            },
+            {
+              "action": "setFunction",
+              "kwargs": {
+                "code": "func TestValid(t *testing.T) {\n\ttests := []struct {\n\t\tname    string\n\t\tspan    Span\n\t\twantErr bool\n\t}{\n\t\t{\"unit ok\", Span{Kind: KindUnit, Text: \"x\", Action: \"setFunction\"}, false},\n\t\t{\"unit no action\", Span{Kind: KindUnit, Text: \"x\"}, true},\n\t\t{\"unit no text\", Span{Kind: KindUnit, Action: \"setFunction\"}, true},\n\t\t{\"header ok\", Span{Kind: KindHeader, Text: \"x\"}, false},\n\t\t{\"header with action\", Span{Kind: KindHeader, Text: \"x\", Action: \"setFunction\"}, true},\n\t\t{\"residual with kwargs\", Span{Kind: KindResidual, Text: \"x\", Kwargs: map[string]any{\"a\": 1}}, true},\n\t\t{\"unknown kind\", Span{Kind: \"bogus\", Text: \"x\"}, true},\n\t}\n\tfor _, tc := range tests {\n\t\tt.Run(tc.name, func(t *testing.T) {\n\t\t\terr := tc.span.Valid()\n\t\t\tif (err != nil) != tc.wantErr {\n\t\t\t\tt.Fatalf(\"Valid() error = %v, wantErr %v\", err, tc.wantErr)\n\t\t\t}\n\t\t})\n\t}\n}",
+                "file": "internal/adopt/span_test.go",
+                "name": "TestValid"
+              }
+            },
+            {
+              "action": "setFunction",
+              "kwargs": {
+                "code": "func TestCheckSpans(t *testing.T) {\n\tsrc := []byte(\"a\\nb\\n\")\n\tgood := Span{Kind: KindHeader, Text: \"a\\n\"}\n\ttests := []struct {\n\t\tname    string\n\t\tspans   []Span\n\t\twantErr string\n\t}{\n\t\t{\"ok\", []Span{good, {Kind: KindResidual, Text: \"b\\n\"}}, \"\"},\n\t\t{\"empty spans\", nil, \"no spans\"},\n\t\t{\"bad span index\", []Span{good, {Kind: KindUnit, Text: \"b\\n\"}}, \"span 1:\"},\n\t\t{\"coverage\", []Span{good}, \"coverage\"},\n\t}\n\tfor _, tc := range tests {\n\t\tt.Run(tc.name, func(t *testing.T) {\n\t\t\terr := CheckSpans(src, tc.spans)\n\t\t\tif tc.wantErr == \"\" {\n\t\t\t\tif err != nil {\n\t\t\t\t\tt.Fatalf(\"unexpected error: %v\", err)\n\t\t\t\t}\n\t\t\t\treturn\n\t\t\t}\n\t\t\tif err == nil || !strings.Contains(err.Error(), tc.wantErr) {\n\t\t\t\tt.Fatalf(\"got error %v, want it to contain %q\", err, tc.wantErr)\n\t\t\t}\n\t\t})\n\t}\n}",
+                "file": "internal/adopt/span_test.go",
+                "name": "TestCheckSpans"
+              }
+            },
+            {
+              "action": "setFunction",
+              "kwargs": {
+                "code": "func TestResidualIsBlank(t *testing.T) {\n\ttests := []struct {\n\t\tname string\n\t\tspan Span\n\t\twant bool\n\t}{\n\t\t{\"blank residual\", Span{Kind: KindResidual, Text: \" \\n\\t\"}, true},\n\t\t{\"text residual\", Span{Kind: KindResidual, Text: \"x\"}, false},\n\t\t{\"blank header\", Span{Kind: KindHeader, Text: \"  \"}, false},\n\t\t{\"blank unit\", Span{Kind: KindUnit, Text: \" \", Action: \"setFunction\"}, false},\n\t}\n\tfor _, tc := range tests {\n\t\tt.Run(tc.name, func(t *testing.T) {\n\t\t\tif got := ResidualIsBlank(tc.span); got != tc.want {\n\t\t\t\tt.Fatalf(\"ResidualIsBlank() = %v, want %v\", got, tc.want)\n\t\t\t}\n\t\t})\n\t}\n}",
+                "file": "internal/adopt/span_test.go",
+                "name": "TestResidualIsBlank"
+              }
+            }
+          ]
+        }
+      ],
+      "regions": [
+        {
+          "path": "internal/adopt/span.go",
+          "action": "addImport",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:d6a9443c14d82b7bdf19bb96637f957fd44ad9bfbe8f167c97e6f7699c8b830f",
+          "id": {
+            "file": "internal/adopt/span.go",
+            "path": "fmt"
+          },
+          "kwargs": {
+            "file": "internal/adopt/span.go",
+            "path": "fmt"
+          },
+          "kwargs_hash": "sha256:a511fead2ad746f881b30316e314362a81081e1368f6bee25dce1e82bba7637a",
+          "body": "sha256:bcbac51883cbf8064e9196b371cb880cee429866652447ad557533d817857609"
+        },
+        {
+          "path": "internal/adopt/span.go",
+          "action": "addImport",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:d6a9443c14d82b7bdf19bb96637f957fd44ad9bfbe8f167c97e6f7699c8b830f",
+          "id": {
+            "file": "internal/adopt/span.go",
+            "path": "strings"
+          },
+          "kwargs": {
+            "file": "internal/adopt/span.go",
+            "path": "strings"
+          },
+          "kwargs_hash": "sha256:537e91dc804ab1fea6670bb8d9a2d0273a1bcf2cbd10980f6ed564470ddb4a2e",
+          "body": "sha256:a9af3c0bc4bf9342df9d7e89a324523fdba7941a9ca4190270e68ff3c4a25ea6"
+        },
+        {
+          "path": "internal/adopt/span.go",
+          "action": "setConst",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:51be1c18998d63cc558c253e211a6bd188d96cb251dad68c6ea88e03c2d5cc4c",
+          "id": {
+            "file": "internal/adopt/span.go",
+            "name": "KindHeader"
+          },
+          "kwargs": {
+            "code": "const KindHeader Kind = \"header\"",
+            "file": "internal/adopt/span.go",
+            "name": "KindHeader"
+          },
+          "kwargs_hash": "sha256:ecaf69c6f5df6364e891ccb182e8bb085178ef6f747afc0c26d43bcf4dc86ebd",
+          "body": "sha256:0f726fdb3940e4e5d72e661141630ac2c2f07c4a5c7ece37911e24691c3425a7"
+        },
+        {
+          "path": "internal/adopt/span.go",
+          "action": "setConst",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:51be1c18998d63cc558c253e211a6bd188d96cb251dad68c6ea88e03c2d5cc4c",
+          "id": {
+            "file": "internal/adopt/span.go",
+            "name": "KindResidual"
+          },
+          "kwargs": {
+            "code": "const KindResidual Kind = \"residual\"",
+            "file": "internal/adopt/span.go",
+            "name": "KindResidual"
+          },
+          "kwargs_hash": "sha256:b01592e9393633d3aa7cd2ecd231b16e39cbb3d997cd5ac7da35cd38f41aad59",
+          "body": "sha256:14a81aeadabcfccb501e0e91b2bf7bb5ee5f2dd483418370cdb53ad318539770"
+        },
+        {
+          "path": "internal/adopt/span.go",
+          "action": "setConst",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:51be1c18998d63cc558c253e211a6bd188d96cb251dad68c6ea88e03c2d5cc4c",
+          "id": {
+            "file": "internal/adopt/span.go",
+            "name": "KindUnit"
+          },
+          "kwargs": {
+            "code": "const KindUnit Kind = \"unit\"",
+            "file": "internal/adopt/span.go",
+            "name": "KindUnit"
+          },
+          "kwargs_hash": "sha256:c4093ec6cdd2ad6167b3eed34efda79347809f5d6deae8cd21507f20e8c45e0c",
+          "body": "sha256:c6d70636874902b973eedd0f2e0e58954cf27f54ab9e15c50645ab232bba7641"
+        },
+        {
+          "path": "internal/adopt/span.go",
+          "action": "setFunction",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:6589611adfb6618a7920e43f951a79901428192ea95c1084fde9f222aecd9537",
+          "id": {
+            "file": "internal/adopt/span.go",
+            "name": "CheckSpans"
+          },
+          "kwargs": {
+            "code": "func CheckSpans(src []byte, spans []Span) error {\n\tif len(spans) == 0 \u0026\u0026 len(src) \u003e 0 {\n\t\treturn fmt.Errorf(\"no spans for a non-empty file\")\n\t}\n\tfor i, s := range spans {\n\t\tif err := s.Valid(); err != nil {\n\t\t\treturn fmt.Errorf(\"span %d: %w\", i, err)\n\t\t}\n\t}\n\treturn Coverage(src, spans)\n}",
+            "file": "internal/adopt/span.go",
+            "name": "CheckSpans"
+          },
+          "kwargs_hash": "sha256:a46bffa7e6f31ecae21a7ae88877550718444a7791e39a4c8133849f6daecb99",
+          "body": "sha256:d20677e8b95efff0470ef10a7c4bcf687324449e7ebeac65b54b54c5cd790ba7"
+        },
+        {
+          "path": "internal/adopt/span.go",
+          "action": "setFunction",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:6589611adfb6618a7920e43f951a79901428192ea95c1084fde9f222aecd9537",
+          "id": {
+            "file": "internal/adopt/span.go",
+            "name": "Coverage"
+          },
+          "kwargs": {
+            "code": "func Coverage(src []byte, spans []Span) error {\n\tvar got []byte\n\tfor _, s := range spans {\n\t\tgot = append(got, s.Text...)\n\t}\n\tif string(got) == string(src) {\n\t\treturn nil\n\t}\n\toff := 0\n\tfor off \u003c len(got) \u0026\u0026 off \u003c len(src) \u0026\u0026 got[off] == src[off] {\n\t\toff++\n\t}\n\tline := 1\n\tfor _, c := range src[:off] {\n\t\tif c == '\\n' {\n\t\t\tline++\n\t\t}\n\t}\n\tend := off + 40\n\tif end \u003e len(src) {\n\t\tend = len(src)\n\t}\n\tgend := off + 40\n\tif gend \u003e len(got) {\n\t\tgend = len(got)\n\t}\n\treturn \u0026CoverageError{Offset: off, Line: line, Want: string(src[off:end]), Got: string(got[off:gend])}\n}",
+            "file": "internal/adopt/span.go",
+            "name": "Coverage"
+          },
+          "kwargs_hash": "sha256:476440da31bf6b33d6a41a9b18df80bcfd9a6d3f25ead9aeebbfc4132dfe37af",
+          "body": "sha256:9f29d866ba61b1aa56195aea57660b6df845a93d91a1a72113023a6e10f82d97"
+        },
+        {
+          "path": "internal/adopt/span.go",
+          "action": "setFunction",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:6589611adfb6618a7920e43f951a79901428192ea95c1084fde9f222aecd9537",
+          "id": {
+            "file": "internal/adopt/span.go",
+            "name": "ResidualIsBlank"
+          },
+          "kwargs": {
+            "code": "func ResidualIsBlank(s Span) bool {\n\treturn s.Kind == KindResidual \u0026\u0026 strings.TrimSpace(s.Text) == \"\"\n}",
+            "file": "internal/adopt/span.go",
+            "name": "ResidualIsBlank"
+          },
+          "kwargs_hash": "sha256:21bb0baabdc53d22b4047cf0ebc45ed09320d4b5d2074bc2f1a99bf2c49859a4",
+          "body": "sha256:2e7608a373418fefec44ed86a7434f2632c80aebfd0521a80f4bad2704dce003"
+        },
+        {
+          "path": "internal/adopt/span.go",
+          "action": "setMethod",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:8ea07fc52bbc260836983438ef08ad02746b86a1028c8b1a51b60eeb7b83cc2b",
+          "id": {
+            "file": "internal/adopt/span.go",
+            "name": "Error",
+            "receiver": "CoverageError"
+          },
+          "kwargs": {
+            "code": "func (e CoverageError) Error() string {\n\treturn fmt.Sprintf(\"coverage: spans differ from the file at byte %d (line %d): want %q got %q\", e.Offset, e.Line, e.Want, e.Got)\n}",
+            "file": "internal/adopt/span.go",
+            "name": "Error",
+            "receiver": "CoverageError"
+          },
+          "kwargs_hash": "sha256:93edfd02762d4f6f6dbb072f05548127dd0b2ec2d711af66b720f7afe4a65386",
+          "body": "sha256:6a70ad0b766af6d5e6b8e77f0c0011405dd24b078182e121477faca791b828f4"
+        },
+        {
+          "path": "internal/adopt/span.go",
+          "action": "setMethod",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:8ea07fc52bbc260836983438ef08ad02746b86a1028c8b1a51b60eeb7b83cc2b",
+          "id": {
+            "file": "internal/adopt/span.go",
+            "name": "Valid",
+            "receiver": "Span"
+          },
+          "kwargs": {
+            "code": "func (s Span) Valid() error {\n\tswitch s.Kind {\n\tcase KindUnit:\n\t\tif s.Action == \"\" || s.Text == \"\" {\n\t\t\treturn fmt.Errorf(\"unit span needs an action and text\")\n\t\t}\n\tcase KindHeader:\n\t\tif s.Action != \"\" || s.Kwargs != nil {\n\t\t\treturn fmt.Errorf(\"%s span must not carry an action or kwargs\", s.Kind)\n\t\t}\n\tcase KindResidual:\n\t\tif s.Action != \"\" || s.Kwargs != nil {\n\t\t\treturn fmt.Errorf(\"%s span must not carry an action or kwargs\", s.Kind)\n\t\t}\n\tdefault:\n\t\treturn fmt.Errorf(\"unknown span kind %q\", s.Kind)\n\t}\n\treturn nil\n}",
+            "file": "internal/adopt/span.go",
+            "name": "Valid",
+            "receiver": "Span"
+          },
+          "kwargs_hash": "sha256:7ae3dda69265bab622435e896b95ce8a84f7d9ecafe1449fcce8af0f17c4cb04",
+          "body": "sha256:d4f2ea104e9587c2ea880cb2b8544287d2a6b0f6258a3243028d48dea258d39c"
+        },
+        {
+          "path": "internal/adopt/span.go",
+          "action": "setType",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:ebb283283a745fdc09f0294b6e79bd879a830829cb964550ec6b4432fee5bb72",
+          "id": {
+            "file": "internal/adopt/span.go",
+            "name": "Adopter"
+          },
+          "kwargs": {
+            "code": "type Adopter interface {\n\tSplit(path string, src []byte) ([]Span, error)\n}",
+            "file": "internal/adopt/span.go",
+            "name": "Adopter"
+          },
+          "kwargs_hash": "sha256:9987c437b00799b7c974214c09a85e194375ea3224139454f84bdbc57f6ed9f2",
+          "body": "sha256:74e9d1b6d169faf234808d70ecc265f0d06562e72546a230df80b05f1f052d2c"
+        },
+        {
+          "path": "internal/adopt/span.go",
+          "action": "setType",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:ebb283283a745fdc09f0294b6e79bd879a830829cb964550ec6b4432fee5bb72",
+          "id": {
+            "file": "internal/adopt/span.go",
+            "name": "CoverageError"
+          },
+          "kwargs": {
+            "code": "type CoverageError struct {\n\tOffset int\n\tLine   int\n\tWant   string\n\tGot    string\n}",
+            "file": "internal/adopt/span.go",
+            "name": "CoverageError"
+          },
+          "kwargs_hash": "sha256:e3ab8c44d149de907a6c676ccb24d8a9ec01e2130cbcca0d33dad542b1bcf8b1",
+          "body": "sha256:3eec0e038600c7c9f1a4209f50eeeb45a33ba59703ad31a0c85660689a16c6ce"
+        },
+        {
+          "path": "internal/adopt/span.go",
+          "action": "setType",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:ebb283283a745fdc09f0294b6e79bd879a830829cb964550ec6b4432fee5bb72",
+          "id": {
+            "file": "internal/adopt/span.go",
+            "name": "Kind"
+          },
+          "kwargs": {
+            "code": "type Kind string",
+            "file": "internal/adopt/span.go",
+            "name": "Kind"
+          },
+          "kwargs_hash": "sha256:1d3fd9c43039035de381a38d7d10f78f7f27502c78ba7b67ebdb137816ca4f7f",
+          "body": "sha256:3758224b6a2cac6ae53f6d3dad4627aaf0d22e62b3b46a15ddb134aae8f8dd7a"
+        },
+        {
+          "path": "internal/adopt/span.go",
+          "action": "setType",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:ebb283283a745fdc09f0294b6e79bd879a830829cb964550ec6b4432fee5bb72",
+          "id": {
+            "file": "internal/adopt/span.go",
+            "name": "Span"
+          },
+          "kwargs": {
+            "code": "type Span struct {\n\tKind   Kind           `json:\"kind\"`\n\tText   string         `json:\"text\"`\n\tAction string         `json:\"action,omitempty\"`\n\tKwargs map[string]any `json:\"kwargs,omitempty\"`\n}",
+            "file": "internal/adopt/span.go",
+            "name": "Span"
+          },
+          "kwargs_hash": "sha256:d09c9bcb4d5a1af2f5ea2569fc3d45ca215ec08395b1a4ea5e22d54b1b665e92",
+          "body": "sha256:3c62b48fea21b3cb45b745550203c24182a4ebc744bac8091f304f6426addaf8"
+        },
+        {
+          "path": "internal/adopt/span_test.go",
+          "action": "addImport",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:d6a9443c14d82b7bdf19bb96637f957fd44ad9bfbe8f167c97e6f7699c8b830f",
+          "id": {
+            "file": "internal/adopt/span_test.go",
+            "path": "errors"
+          },
+          "kwargs": {
+            "file": "internal/adopt/span_test.go",
+            "path": "errors"
+          },
+          "kwargs_hash": "sha256:0484934529edeaf0c79ada3cc4ff57c3005a6e4cccdb0e70bf8dfa90ecb5e91a",
+          "body": "sha256:2b718237ba0a56467c8fd494cc131e942ef410e6228c03b644d70476c71862dc"
+        },
+        {
+          "path": "internal/adopt/span_test.go",
+          "action": "addImport",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:d6a9443c14d82b7bdf19bb96637f957fd44ad9bfbe8f167c97e6f7699c8b830f",
+          "id": {
+            "file": "internal/adopt/span_test.go",
+            "path": "strings"
+          },
+          "kwargs": {
+            "file": "internal/adopt/span_test.go",
+            "path": "strings"
+          },
+          "kwargs_hash": "sha256:0fbfe1ef5e471e09ad7fc9f7694098a92a881e017e2db148061909ca8f58f732",
+          "body": "sha256:a9af3c0bc4bf9342df9d7e89a324523fdba7941a9ca4190270e68ff3c4a25ea6"
+        },
+        {
+          "path": "internal/adopt/span_test.go",
+          "action": "addImport",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:d6a9443c14d82b7bdf19bb96637f957fd44ad9bfbe8f167c97e6f7699c8b830f",
+          "id": {
+            "file": "internal/adopt/span_test.go",
+            "path": "testing"
+          },
+          "kwargs": {
+            "file": "internal/adopt/span_test.go",
+            "path": "testing"
+          },
+          "kwargs_hash": "sha256:ae443d866e814c557184998fff088e5787a3536a603cdca6db97553ec46e42a6",
+          "body": "sha256:14a4a5f3bfbf9325de04706efa8c15a9446f01d2a26624ce9c66bd1d69dc212e"
+        },
+        {
+          "path": "internal/adopt/span_test.go",
+          "action": "setFunction",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:6589611adfb6618a7920e43f951a79901428192ea95c1084fde9f222aecd9537",
+          "id": {
+            "file": "internal/adopt/span_test.go",
+            "name": "TestCheckSpans"
+          },
+          "kwargs": {
+            "code": "func TestCheckSpans(t *testing.T) {\n\tsrc := []byte(\"a\\nb\\n\")\n\tgood := Span{Kind: KindHeader, Text: \"a\\n\"}\n\ttests := []struct {\n\t\tname    string\n\t\tspans   []Span\n\t\twantErr string\n\t}{\n\t\t{\"ok\", []Span{good, {Kind: KindResidual, Text: \"b\\n\"}}, \"\"},\n\t\t{\"empty spans\", nil, \"no spans\"},\n\t\t{\"bad span index\", []Span{good, {Kind: KindUnit, Text: \"b\\n\"}}, \"span 1:\"},\n\t\t{\"coverage\", []Span{good}, \"coverage\"},\n\t}\n\tfor _, tc := range tests {\n\t\tt.Run(tc.name, func(t *testing.T) {\n\t\t\terr := CheckSpans(src, tc.spans)\n\t\t\tif tc.wantErr == \"\" {\n\t\t\t\tif err != nil {\n\t\t\t\t\tt.Fatalf(\"unexpected error: %v\", err)\n\t\t\t\t}\n\t\t\t\treturn\n\t\t\t}\n\t\t\tif err == nil || !strings.Contains(err.Error(), tc.wantErr) {\n\t\t\t\tt.Fatalf(\"got error %v, want it to contain %q\", err, tc.wantErr)\n\t\t\t}\n\t\t})\n\t}\n}",
+            "file": "internal/adopt/span_test.go",
+            "name": "TestCheckSpans"
+          },
+          "kwargs_hash": "sha256:70c930fee8e96394b8886e0053d1dbd8136a11a6cddf455aaf752728c5d5041e",
+          "body": "sha256:9212d79899778c7c820b50237d542470e79d63c72802ea384523fbf4d6f15a56"
+        },
+        {
+          "path": "internal/adopt/span_test.go",
+          "action": "setFunction",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:6589611adfb6618a7920e43f951a79901428192ea95c1084fde9f222aecd9537",
+          "id": {
+            "file": "internal/adopt/span_test.go",
+            "name": "TestCoverage"
+          },
+          "kwargs": {
+            "code": "func TestCoverage(t *testing.T) {\n\tsrc := []byte(\"a\\nfunc b\\n\")\n\ttests := []struct {\n\t\tname   string\n\t\tspans  []Span\n\t\toffset int\n\t\tline   int\n\t}{\n\t\t{\"exact\", []Span{{Kind: KindHeader, Text: \"a\\n\"}, {Kind: KindUnit, Text: \"func b\\n\"}}, -1, 0},\n\t\t{\"missing byte\", []Span{{Kind: KindHeader, Text: \"a\\n\"}, {Kind: KindUnit, Text: \"func \\n\"}}, 7, 2},\n\t\t{\"extra byte\", []Span{{Kind: KindHeader, Text: \"a\\n\"}, {Kind: KindUnit, Text: \"func bb\\n\"}}, 8, 2},\n\t\t{\"changed byte\", []Span{{Kind: KindHeader, Text: \"a\\n\"}, {Kind: KindUnit, Text: \"func c\\n\"}}, 7, 2},\n\t\t{\"prefix\", []Span{{Kind: KindHeader, Text: \"a\\nfunc \"}}, 7, 2},\n\t\t{\"empty spans\", nil, 0, 1},\n\t}\n\tfor _, tc := range tests {\n\t\tt.Run(tc.name, func(t *testing.T) {\n\t\t\terr := Coverage(src, tc.spans)\n\t\t\tif tc.offset \u003c 0 {\n\t\t\t\tif err != nil {\n\t\t\t\t\tt.Fatalf(\"unexpected error: %v\", err)\n\t\t\t\t}\n\t\t\t\treturn\n\t\t\t}\n\t\t\tvar ce *CoverageError\n\t\t\tif !errors.As(err, \u0026ce) {\n\t\t\t\tt.Fatalf(\"want *CoverageError, got %v\", err)\n\t\t\t}\n\t\t\tif ce.Offset != tc.offset || ce.Line != tc.line {\n\t\t\t\tt.Fatalf(\"got offset %d line %d, want offset %d line %d\", ce.Offset, ce.Line, tc.offset, tc.line)\n\t\t\t}\n\t\t})\n\t}\n}",
+            "file": "internal/adopt/span_test.go",
+            "name": "TestCoverage"
+          },
+          "kwargs_hash": "sha256:cff6728caf30f7fe1b465ba43bd878e3e7b852362de4900e90ddfaa46e7d3187",
+          "body": "sha256:f42f132095be607e3902a9d1c0f98b0edc35efdb3d611db6bc08b567fa0eb427"
+        },
+        {
+          "path": "internal/adopt/span_test.go",
+          "action": "setFunction",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:6589611adfb6618a7920e43f951a79901428192ea95c1084fde9f222aecd9537",
+          "id": {
+            "file": "internal/adopt/span_test.go",
+            "name": "TestResidualIsBlank"
+          },
+          "kwargs": {
+            "code": "func TestResidualIsBlank(t *testing.T) {\n\ttests := []struct {\n\t\tname string\n\t\tspan Span\n\t\twant bool\n\t}{\n\t\t{\"blank residual\", Span{Kind: KindResidual, Text: \" \\n\\t\"}, true},\n\t\t{\"text residual\", Span{Kind: KindResidual, Text: \"x\"}, false},\n\t\t{\"blank header\", Span{Kind: KindHeader, Text: \"  \"}, false},\n\t\t{\"blank unit\", Span{Kind: KindUnit, Text: \" \", Action: \"setFunction\"}, false},\n\t}\n\tfor _, tc := range tests {\n\t\tt.Run(tc.name, func(t *testing.T) {\n\t\t\tif got := ResidualIsBlank(tc.span); got != tc.want {\n\t\t\t\tt.Fatalf(\"ResidualIsBlank() = %v, want %v\", got, tc.want)\n\t\t\t}\n\t\t})\n\t}\n}",
+            "file": "internal/adopt/span_test.go",
+            "name": "TestResidualIsBlank"
+          },
+          "kwargs_hash": "sha256:7d3a7f1a1a26f0b9b4729af4f0b3147e7630e0bc2a27b9db11b9ce3a99beb096",
+          "body": "sha256:d6889a2bb63e771acb5ea805474b8a3922845d28a884a25b7f18e48c6fc67f8f"
+        },
+        {
+          "path": "internal/adopt/span_test.go",
+          "action": "setFunction",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:6589611adfb6618a7920e43f951a79901428192ea95c1084fde9f222aecd9537",
+          "id": {
+            "file": "internal/adopt/span_test.go",
+            "name": "TestValid"
+          },
+          "kwargs": {
+            "code": "func TestValid(t *testing.T) {\n\ttests := []struct {\n\t\tname    string\n\t\tspan    Span\n\t\twantErr bool\n\t}{\n\t\t{\"unit ok\", Span{Kind: KindUnit, Text: \"x\", Action: \"setFunction\"}, false},\n\t\t{\"unit no action\", Span{Kind: KindUnit, Text: \"x\"}, true},\n\t\t{\"unit no text\", Span{Kind: KindUnit, Action: \"setFunction\"}, true},\n\t\t{\"header ok\", Span{Kind: KindHeader, Text: \"x\"}, false},\n\t\t{\"header with action\", Span{Kind: KindHeader, Text: \"x\", Action: \"setFunction\"}, true},\n\t\t{\"residual with kwargs\", Span{Kind: KindResidual, Text: \"x\", Kwargs: map[string]any{\"a\": 1}}, true},\n\t\t{\"unknown kind\", Span{Kind: \"bogus\", Text: \"x\"}, true},\n\t}\n\tfor _, tc := range tests {\n\t\tt.Run(tc.name, func(t *testing.T) {\n\t\t\terr := tc.span.Valid()\n\t\t\tif (err != nil) != tc.wantErr {\n\t\t\t\tt.Fatalf(\"Valid() error = %v, wantErr %v\", err, tc.wantErr)\n\t\t\t}\n\t\t})\n\t}\n}",
+            "file": "internal/adopt/span_test.go",
+            "name": "TestValid"
+          },
+          "kwargs_hash": "sha256:e0566b9fbaa6a657685f9045e399c0e8bb70e73e708cd6a12e3370bb792bc331",
+          "body": "sha256:29c3d35b283ef7afb27eab42bf872f39907cb37b1f63251fadcd746b3e038858"
+        }
+      ]
+    }
+  ]
+}

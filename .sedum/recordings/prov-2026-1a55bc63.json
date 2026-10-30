@@ -1,0 +1,237 @@
+{
+  "sedum_version": "0.11.0",
+  "packages": {
+    "go": {
+      "extensions": [
+        ".go"
+      ]
+    }
+  },
+  "records": [
+    {
+      "record_id": "prov-2026-1a55bc63",
+      "gen": "sha256:50dbb2109211cfaffb8624aa1e7c541e9662b5cc018317ad8d168033916054e4",
+      "created_at": "2026-10-15",
+      "files": [
+        {
+          "path": "internal/genpkg/pkghash.go",
+          "package": "go",
+          "template": "*/{pkg}/{name}.go",
+          "captures": {
+            "name": "pkghash",
+            "pkg": "genpkg"
+          }
+        }
+      ],
+      "phases": [
+        {
+          "name": "default",
+          "invocations": [
+            {
+              "action": "addImport",
+              "kwargs": {
+                "file": "internal/genpkg/pkghash.go",
+                "path": "crypto/sha256"
+              }
+            },
+            {
+              "action": "addImport",
+              "kwargs": {
+                "file": "internal/genpkg/pkghash.go",
+                "path": "encoding/hex"
+              }
+            },
+            {
+              "action": "addImport",
+              "kwargs": {
+                "file": "internal/genpkg/pkghash.go",
+                "path": "fmt"
+              }
+            },
+            {
+              "action": "addImport",
+              "kwargs": {
+                "file": "internal/genpkg/pkghash.go",
+                "path": "github.com/livecodelife/provenance/record"
+              }
+            },
+            {
+              "action": "setConst",
+              "kwargs": {
+                "code": "// The pkg hash a marker carries: everything that decides what an action\n// renders for fixed kwargs, hashed at load (prov-2026-66bea9f3).\n//\n// A region whose pkg differs from its action's current one was rendered from an\n// older package, and is brought up to date by re-rendering it from the kwargs\n// already on its marker - no model call, because nothing the model chose has\n// changed. So the hash has to cover every input of rendering and should cover\n// nothing else:\n//\n//   - the resolved action declaration: name, kwargs with their types,\n//     required flags and defaults, discriminator, variants in declared order,\n//     injects_into, the anchor fields, and identity\n//   - the content of each of the action's templates, keyed by variant name,\n//     or by the empty string for a simple action\n//   - the package's transforms and op_exceptions, since any template may use\n//     any of them\n//\n// Descriptions are left out, of the action and of each kwarg: they reach the\n// model and never the renderer. The package-wide part errs the other way on\n// purpose. An unrelated transform edit costs a re-render, while leaving out an\n// input that does matter would make a stale region read as current.\n//\n// The inflection table ships with Sedum rather than with a package, so a Sedum\n// upgrade that changes an irregular plural is not seen here.\n//\n// The encoding is published in conformance/pkghash so a tool above Sedum can\n// compute the same value without linking it.\n\n// pkgFormat names this encoding inside the hashed object, so a later change to\n// what is covered changes every hash rather than colliding with this one.\nconst pkgFormat = \"sedum.pkg/1\"",
+                "file": "internal/genpkg/pkghash.go",
+                "name": "pkgFormat"
+              }
+            },
+            {
+              "action": "setFunction",
+              "kwargs": {
+                "code": "// stampPkgHashes sets PkgHash on every action in a loaded package.\nfunc stampPkgHashes(pkg *Package) error {\n\tfor _, action := range pkg.Actions {\n\t\tcanonical, err := pkgCanonical(pkg, action)\n\t\tif err != nil {\n\t\t\treturn err\n\t\t}\n\t\tsum := sha256.Sum256(canonical)\n\t\taction.PkgHash = \"sha256:\" + hex.EncodeToString(sum[:])\n\t}\n\treturn nil\n}",
+                "file": "internal/genpkg/pkghash.go",
+                "name": "stampPkgHashes"
+              }
+            },
+            {
+              "action": "setFunction",
+              "kwargs": {
+                "code": "// pkgCanonical is the exact bytes the pkg hash is taken over: the object below\n// encoded by the provenance library's record.Canonical, the same canonical form\n// gen_hash uses.\nfunc pkgCanonical(pkg *Package, action *Action) (canonical []byte, err error) {\n\t// record.Canonical panics on a value it cannot encode. Load validation\n\t// keeps kwarg defaults to string, int, bool and list, so this is\n\t// unreachable for a valid package; it is an error rather than a crash\n\t// for any other.\n\tdefer func() {\n\t\tif r := recover(); r != nil {\n\t\t\tcanonical, err = nil, fmt.Errorf(\"package %s: action %s: cannot be hashed: %v\", pkg.Name, action.Name, r)\n\t\t}\n\t}()\n\n\tkwargs := map[string]any{}\n\tfor name, k := range action.Kwargs {\n\t\tkwargs[name] = map[string]any{\n\t\t\t\"type\":     k.Type,\n\t\t\t\"required\": k.Required,\n\t\t\t\"default\":  k.Default,\n\t\t}\n\t}\n\n\ttemplates := map[string]any{}\n\tpaths := map[string]string{}\n\tif action.Template != \"\" {\n\t\tpaths[SoleTemplate] = action.Template\n\t}\n\tfor variant, path := range action.Templates {\n\t\tpaths[variant] = path\n\t}\n\tfor key, path := range paths {\n\t\tcontent, ok := pkg.ActionTemplate(path)\n\t\tif !ok {\n\t\t\treturn nil, fmt.Errorf(\"package %s: action %s: template %s was not loaded\", pkg.Name, action.Name, path)\n\t\t}\n\t\ttemplates[key] = content\n\t}\n\n\ttransforms := map[string]any{}\n\tfor name, ops := range pkg.Transforms {\n\t\ttransforms[name] = stringList(ops)\n\t}\n\texceptions := map[string]any{}\n\tfor op, table := range pkg.OpExceptions {\n\t\twords := map[string]any{}\n\t\tfor word, replacement := range table {\n\t\t\twords[word] = replacement\n\t\t}\n\t\texceptions[op] = words\n\t}\n\n\tobject := map[string]any{\n\t\t\"format\": pkgFormat,\n\t\t\"action\": map[string]any{\n\t\t\t\"name\":           action.Name,\n\t\t\t\"kwargs\":         kwargs,\n\t\t\t\"discriminator\":  action.Discriminator,\n\t\t\t\"variants\":       stringList(action.Variants),\n\t\t\t\"injects_into\":   action.InjectsInto,\n\t\t\t\"anchor\":         action.Anchor,\n\t\t\t\"anchor_start\":   action.AnchorStart,\n\t\t\t\"anchor_end\":     action.AnchorEnd,\n\t\t\t\"anchor_pattern\": action.AnchorPattern,\n\t\t\t\"identity\":       stringList(action.Identity),\n\t\t},\n\t\t\"templates\":     templates,\n\t\t\"transforms\":    transforms,\n\t\t\"op_exceptions\": exceptions,\n\t}\n\n\treturn []byte(record.Canonical(object)), nil\n}",
+                "file": "internal/genpkg/pkghash.go",
+                "name": "pkgCanonical"
+              }
+            },
+            {
+              "action": "setFunction",
+              "kwargs": {
+                "code": "// stringList turns a possibly nil string list into a JSON list, so an absent list\n// and an empty one encode alike.\nfunc stringList(list []string) []any {\n\tout := make([]any, len(list))\n\tfor i, s := range list {\n\t\tout[i] = s\n\t}\n\treturn out\n}",
+                "file": "internal/genpkg/pkghash.go",
+                "name": "stringList"
+              }
+            }
+          ]
+        }
+      ],
+      "regions": [
+        {
+          "path": "internal/genpkg/pkghash.go",
+          "action": "addImport",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:d6a9443c14d82b7bdf19bb96637f957fd44ad9bfbe8f167c97e6f7699c8b830f",
+          "id": {
+            "file": "internal/genpkg/pkghash.go",
+            "path": "crypto/sha256"
+          },
+          "kwargs": {
+            "file": "internal/genpkg/pkghash.go",
+            "path": "crypto/sha256"
+          },
+          "kwargs_hash": "sha256:50bc76c5ef0b7dab3f582c6649890d878e6c70e3218b56e4f2205d2a9a04fd27",
+          "body": "sha256:449ec1ed24bf227b1713290d01a3cedc4fc91ebc26ceac7be6fe2ad3eedd60a1"
+        },
+        {
+          "path": "internal/genpkg/pkghash.go",
+          "action": "addImport",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:d6a9443c14d82b7bdf19bb96637f957fd44ad9bfbe8f167c97e6f7699c8b830f",
+          "id": {
+            "file": "internal/genpkg/pkghash.go",
+            "path": "encoding/hex"
+          },
+          "kwargs": {
+            "file": "internal/genpkg/pkghash.go",
+            "path": "encoding/hex"
+          },
+          "kwargs_hash": "sha256:f445bcad71f0cfbf5e10eac1b365c119fb07718a29f94cceec8eedd265582da0",
+          "body": "sha256:5b4bad0c96848696f832da102bacefeeafa1eec6d331d5241ac31b3f4b803432"
+        },
+        {
+          "path": "internal/genpkg/pkghash.go",
+          "action": "addImport",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:d6a9443c14d82b7bdf19bb96637f957fd44ad9bfbe8f167c97e6f7699c8b830f",
+          "id": {
+            "file": "internal/genpkg/pkghash.go",
+            "path": "fmt"
+          },
+          "kwargs": {
+            "file": "internal/genpkg/pkghash.go",
+            "path": "fmt"
+          },
+          "kwargs_hash": "sha256:c05024ba196483203ac7e962c42bfa4e5b5359d5e497d1e7013e11ee3b556c27",
+          "body": "sha256:bcbac51883cbf8064e9196b371cb880cee429866652447ad557533d817857609"
+        },
+        {
+          "path": "internal/genpkg/pkghash.go",
+          "action": "addImport",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:d6a9443c14d82b7bdf19bb96637f957fd44ad9bfbe8f167c97e6f7699c8b830f",
+          "id": {
+            "file": "internal/genpkg/pkghash.go",
+            "path": "github.com/livecodelife/provenance/record"
+          },
+          "kwargs": {
+            "file": "internal/genpkg/pkghash.go",
+            "path": "github.com/livecodelife/provenance/record"
+          },
+          "kwargs_hash": "sha256:25725f681597ed180e636790c4ab31d962cab94045a3a8b775ea047e6b0cd9cd",
+          "body": "sha256:acbf8628061291d11aa39e9ea64ecc91095a117057cfe6f1958ef2c437fac003"
+        },
+        {
+          "path": "internal/genpkg/pkghash.go",
+          "action": "setConst",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:51be1c18998d63cc558c253e211a6bd188d96cb251dad68c6ea88e03c2d5cc4c",
+          "id": {
+            "file": "internal/genpkg/pkghash.go",
+            "name": "pkgFormat"
+          },
+          "kwargs": {
+            "code": "// The pkg hash a marker carries: everything that decides what an action\n// renders for fixed kwargs, hashed at load (prov-2026-66bea9f3).\n//\n// A region whose pkg differs from its action's current one was rendered from an\n// older package, and is brought up to date by re-rendering it from the kwargs\n// already on its marker - no model call, because nothing the model chose has\n// changed. So the hash has to cover every input of rendering and should cover\n// nothing else:\n//\n//   - the resolved action declaration: name, kwargs with their types,\n//     required flags and defaults, discriminator, variants in declared order,\n//     injects_into, the anchor fields, and identity\n//   - the content of each of the action's templates, keyed by variant name,\n//     or by the empty string for a simple action\n//   - the package's transforms and op_exceptions, since any template may use\n//     any of them\n//\n// Descriptions are left out, of the action and of each kwarg: they reach the\n// model and never the renderer. The package-wide part errs the other way on\n// purpose. An unrelated transform edit costs a re-render, while leaving out an\n// input that does matter would make a stale region read as current.\n//\n// The inflection table ships with Sedum rather than with a package, so a Sedum\n// upgrade that changes an irregular plural is not seen here.\n//\n// The encoding is published in conformance/pkghash so a tool above Sedum can\n// compute the same value without linking it.\n\n// pkgFormat names this encoding inside the hashed object, so a later change to\n// what is covered changes every hash rather than colliding with this one.\nconst pkgFormat = \"sedum.pkg/1\"",
+            "file": "internal/genpkg/pkghash.go",
+            "name": "pkgFormat"
+          },
+          "kwargs_hash": "sha256:b7146f9b2d99b8dbd5e1fafba1bc3918060e1ed181041b5b5331166162e792f8",
+          "body": "sha256:b0951460dc30cb5434ed441eb07a0c016cfa7e9f928fdb5e986a75488088788e"
+        },
+        {
+          "path": "internal/genpkg/pkghash.go",
+          "action": "setFunction",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:6589611adfb6618a7920e43f951a79901428192ea95c1084fde9f222aecd9537",
+          "id": {
+            "file": "internal/genpkg/pkghash.go",
+            "name": "pkgCanonical"
+          },
+          "kwargs": {
+            "code": "// pkgCanonical is the exact bytes the pkg hash is taken over: the object below\n// encoded by the provenance library's record.Canonical, the same canonical form\n// gen_hash uses.\nfunc pkgCanonical(pkg *Package, action *Action) (canonical []byte, err error) {\n\t// record.Canonical panics on a value it cannot encode. Load validation\n\t// keeps kwarg defaults to string, int, bool and list, so this is\n\t// unreachable for a valid package; it is an error rather than a crash\n\t// for any other.\n\tdefer func() {\n\t\tif r := recover(); r != nil {\n\t\t\tcanonical, err = nil, fmt.Errorf(\"package %s: action %s: cannot be hashed: %v\", pkg.Name, action.Name, r)\n\t\t}\n\t}()\n\n\tkwargs := map[string]any{}\n\tfor name, k := range action.Kwargs {\n\t\tkwargs[name] = map[string]any{\n\t\t\t\"type\":     k.Type,\n\t\t\t\"required\": k.Required,\n\t\t\t\"default\":  k.Default,\n\t\t}\n\t}\n\n\ttemplates := map[string]any{}\n\tpaths := map[string]string{}\n\tif action.Template != \"\" {\n\t\tpaths[SoleTemplate] = action.Template\n\t}\n\tfor variant, path := range action.Templates {\n\t\tpaths[variant] = path\n\t}\n\tfor key, path := range paths {\n\t\tcontent, ok := pkg.ActionTemplate(path)\n\t\tif !ok {\n\t\t\treturn nil, fmt.Errorf(\"package %s: action %s: template %s was not loaded\", pkg.Name, action.Name, path)\n\t\t}\n\t\ttemplates[key] = content\n\t}\n\n\ttransforms := map[string]any{}\n\tfor name, ops := range pkg.Transforms {\n\t\ttransforms[name] = stringList(ops)\n\t}\n\texceptions := map[string]any{}\n\tfor op, table := range pkg.OpExceptions {\n\t\twords := map[string]any{}\n\t\tfor word, replacement := range table {\n\t\t\twords[word] = replacement\n\t\t}\n\t\texceptions[op] = words\n\t}\n\n\tobject := map[string]any{\n\t\t\"format\": pkgFormat,\n\t\t\"action\": map[string]any{\n\t\t\t\"name\":           action.Name,\n\t\t\t\"kwargs\":         kwargs,\n\t\t\t\"discriminator\":  action.Discriminator,\n\t\t\t\"variants\":       stringList(action.Variants),\n\t\t\t\"injects_into\":   action.InjectsInto,\n\t\t\t\"anchor\":         action.Anchor,\n\t\t\t\"anchor_start\":   action.AnchorStart,\n\t\t\t\"anchor_end\":     action.AnchorEnd,\n\t\t\t\"anchor_pattern\": action.AnchorPattern,\n\t\t\t\"identity\":       stringList(action.Identity),\n\t\t},\n\t\t\"templates\":     templates,\n\t\t\"transforms\":    transforms,\n\t\t\"op_exceptions\": exceptions,\n\t}\n\n\treturn []byte(record.Canonical(object)), nil\n}",
+            "file": "internal/genpkg/pkghash.go",
+            "name": "pkgCanonical"
+          },
+          "kwargs_hash": "sha256:c8caeaf6763a1c9dcd09f2ce06d548a61d4cd443d7771cb4012244ef58bed8ec",
+          "body": "sha256:7257d99b64136c3a6588026ae5a29892509ad1be44549e8f2c5a175b54e9f4f4"
+        },
+        {
+          "path": "internal/genpkg/pkghash.go",
+          "action": "setFunction",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:6589611adfb6618a7920e43f951a79901428192ea95c1084fde9f222aecd9537",
+          "id": {
+            "file": "internal/genpkg/pkghash.go",
+            "name": "stampPkgHashes"
+          },
+          "kwargs": {
+            "code": "// stampPkgHashes sets PkgHash on every action in a loaded package.\nfunc stampPkgHashes(pkg *Package) error {\n\tfor _, action := range pkg.Actions {\n\t\tcanonical, err := pkgCanonical(pkg, action)\n\t\tif err != nil {\n\t\t\treturn err\n\t\t}\n\t\tsum := sha256.Sum256(canonical)\n\t\taction.PkgHash = \"sha256:\" + hex.EncodeToString(sum[:])\n\t}\n\treturn nil\n}",
+            "file": "internal/genpkg/pkghash.go",
+            "name": "stampPkgHashes"
+          },
+          "kwargs_hash": "sha256:32c779598fd60f2757156210d1e2cad7d9a9544a9bd53e5402e2b2ff805ba07e",
+          "body": "sha256:fdfc9c0ca0097c40577c5012e1c368de197f78a83db0e462c4f361d3dd8127c7"
+        },
+        {
+          "path": "internal/genpkg/pkghash.go",
+          "action": "setFunction",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:6589611adfb6618a7920e43f951a79901428192ea95c1084fde9f222aecd9537",
+          "id": {
+            "file": "internal/genpkg/pkghash.go",
+            "name": "stringList"
+          },
+          "kwargs": {
+            "code": "// stringList turns a possibly nil string list into a JSON list, so an absent list\n// and an empty one encode alike.\nfunc stringList(list []string) []any {\n\tout := make([]any, len(list))\n\tfor i, s := range list {\n\t\tout[i] = s\n\t}\n\treturn out\n}",
+            "file": "internal/genpkg/pkghash.go",
+            "name": "stringList"
+          },
+          "kwargs_hash": "sha256:650709db79226d4e1a667cf50dd8106dbf11f763174f041d3d7db3c74338e412",
+          "body": "sha256:ab218d772fbf12b8aa25e30d17ffc5ac619ab614162a20460a5b470377bf9d32"
+        }
+      ]
+    }
+  ]
+}

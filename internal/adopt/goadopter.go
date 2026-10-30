@@ -1,48 +1,48 @@
 package adopt
 
 // sedum:anchor:imports
-// sedum:addImport {"tier":"owned","record":"prov-2026-9bc22cf7","gen":"sha256:bc2ac7f452b6ca292315e0250983a1bc6ea42ba5db0787d556851e7dba11d8e7","pkg":"sha256:d6a9443c14d82b7bdf19bb96637f957fd44ad9bfbe8f167c97e6f7699c8b830f","kwargs":{"file":"internal/adopt/goadopter.go","path":"bytes"}}
+// sedum:addImport {"v":2,"tier":"owned","record":"prov-2026-9bc22cf7","gen":"sha256:bc2ac7f452b6ca292315e0250983a1bc6ea42ba5db0787d556851e7dba11d8e7","pkg":"sha256:d6a9443c14d82b7bdf19bb96637f957fd44ad9bfbe8f167c97e6f7699c8b830f","id":{"file":"internal/adopt/goadopter.go","path":"bytes"},"kwargs":"sha256:10d4b3aa994ac760576c84b7675867b74dd86228dfc3aa9e05ac03d61863f266","body":"sha256:468731f6dd513df0a66690d4649dc9e7244c96de227d8e6ead98cc5e9747c57a"}
 import "bytes"
 
 // /sedum:addImport
-// sedum:addImport {"tier":"owned","record":"prov-2026-9bc22cf7","gen":"sha256:bc2ac7f452b6ca292315e0250983a1bc6ea42ba5db0787d556851e7dba11d8e7","pkg":"sha256:d6a9443c14d82b7bdf19bb96637f957fd44ad9bfbe8f167c97e6f7699c8b830f","kwargs":{"file":"internal/adopt/goadopter.go","path":"fmt"}}
+// sedum:addImport {"v":2,"tier":"owned","record":"prov-2026-9bc22cf7","gen":"sha256:bc2ac7f452b6ca292315e0250983a1bc6ea42ba5db0787d556851e7dba11d8e7","pkg":"sha256:d6a9443c14d82b7bdf19bb96637f957fd44ad9bfbe8f167c97e6f7699c8b830f","id":{"file":"internal/adopt/goadopter.go","path":"fmt"},"kwargs":"sha256:0d58f82fc1ed49a368692bb0c8054ba6701be2624373a4b3a32caf26ff0db9a8","body":"sha256:bcbac51883cbf8064e9196b371cb880cee429866652447ad557533d817857609"}
 import "fmt"
 
 // /sedum:addImport
-// sedum:addImport {"tier":"owned","record":"prov-2026-9bc22cf7","gen":"sha256:bc2ac7f452b6ca292315e0250983a1bc6ea42ba5db0787d556851e7dba11d8e7","pkg":"sha256:d6a9443c14d82b7bdf19bb96637f957fd44ad9bfbe8f167c97e6f7699c8b830f","kwargs":{"file":"internal/adopt/goadopter.go","path":"go/ast"}}
+// sedum:addImport {"v":2,"tier":"owned","record":"prov-2026-9bc22cf7","gen":"sha256:bc2ac7f452b6ca292315e0250983a1bc6ea42ba5db0787d556851e7dba11d8e7","pkg":"sha256:d6a9443c14d82b7bdf19bb96637f957fd44ad9bfbe8f167c97e6f7699c8b830f","id":{"file":"internal/adopt/goadopter.go","path":"go/ast"},"kwargs":"sha256:5c15e8c88614f6b49242537f41f8cdf6e8f7e032d94c9c1967400d70dc93c562","body":"sha256:87ecade8212d1fdaaf2d64e42d4ca60dcb760b315cef84fec0e0ea33c456f9bd"}
 import "go/ast"
 
 // /sedum:addImport
-// sedum:addImport {"tier":"owned","record":"prov-2026-9bc22cf7","gen":"sha256:bc2ac7f452b6ca292315e0250983a1bc6ea42ba5db0787d556851e7dba11d8e7","pkg":"sha256:d6a9443c14d82b7bdf19bb96637f957fd44ad9bfbe8f167c97e6f7699c8b830f","kwargs":{"file":"internal/adopt/goadopter.go","path":"go/format"}}
+// sedum:addImport {"v":2,"tier":"owned","record":"prov-2026-9bc22cf7","gen":"sha256:bc2ac7f452b6ca292315e0250983a1bc6ea42ba5db0787d556851e7dba11d8e7","pkg":"sha256:d6a9443c14d82b7bdf19bb96637f957fd44ad9bfbe8f167c97e6f7699c8b830f","id":{"file":"internal/adopt/goadopter.go","path":"go/format"},"kwargs":"sha256:210700bb9d0670faec087c0386389a45ddd965e55ea9bcd644459f9efa45d176","body":"sha256:beeb535979eb17fc4afc70c9568d421f75255020e7b8349095a3acbcb7c60ca8"}
 import "go/format"
 
 // /sedum:addImport
-// sedum:addImport {"tier":"owned","record":"prov-2026-9bc22cf7","gen":"sha256:bc2ac7f452b6ca292315e0250983a1bc6ea42ba5db0787d556851e7dba11d8e7","pkg":"sha256:d6a9443c14d82b7bdf19bb96637f957fd44ad9bfbe8f167c97e6f7699c8b830f","kwargs":{"file":"internal/adopt/goadopter.go","path":"go/parser"}}
+// sedum:addImport {"v":2,"tier":"owned","record":"prov-2026-9bc22cf7","gen":"sha256:bc2ac7f452b6ca292315e0250983a1bc6ea42ba5db0787d556851e7dba11d8e7","pkg":"sha256:d6a9443c14d82b7bdf19bb96637f957fd44ad9bfbe8f167c97e6f7699c8b830f","id":{"file":"internal/adopt/goadopter.go","path":"go/parser"},"kwargs":"sha256:18ac952efab261702ae4d7cc6abb905d86992be3be4dcb55c256fa4e2ee1b8ef","body":"sha256:0ac92d8b32b3e16ba33377f8c2360a9e5c3de365754dcdc80d2b394f274d3af3"}
 import "go/parser"
 
 // /sedum:addImport
-// sedum:addImport {"tier":"owned","record":"prov-2026-9bc22cf7","gen":"sha256:bc2ac7f452b6ca292315e0250983a1bc6ea42ba5db0787d556851e7dba11d8e7","pkg":"sha256:d6a9443c14d82b7bdf19bb96637f957fd44ad9bfbe8f167c97e6f7699c8b830f","kwargs":{"file":"internal/adopt/goadopter.go","path":"go/token"}}
+// sedum:addImport {"v":2,"tier":"owned","record":"prov-2026-9bc22cf7","gen":"sha256:bc2ac7f452b6ca292315e0250983a1bc6ea42ba5db0787d556851e7dba11d8e7","pkg":"sha256:d6a9443c14d82b7bdf19bb96637f957fd44ad9bfbe8f167c97e6f7699c8b830f","id":{"file":"internal/adopt/goadopter.go","path":"go/token"},"kwargs":"sha256:d8228c8c2b931521127457105f48512831686c43c99709e2375118e234f1b34c","body":"sha256:5f01267812de3043b1217a858c3f33ce10a6b446ef5481ed844862caa5f6fc56"}
 import "go/token"
 
 // /sedum:addImport
-// sedum:addImport {"tier":"owned","record":"prov-2026-9bc22cf7","gen":"sha256:bc2ac7f452b6ca292315e0250983a1bc6ea42ba5db0787d556851e7dba11d8e7","pkg":"sha256:d6a9443c14d82b7bdf19bb96637f957fd44ad9bfbe8f167c97e6f7699c8b830f","kwargs":{"file":"internal/adopt/goadopter.go","path":"strconv"}}
+// sedum:addImport {"v":2,"tier":"owned","record":"prov-2026-9bc22cf7","gen":"sha256:bc2ac7f452b6ca292315e0250983a1bc6ea42ba5db0787d556851e7dba11d8e7","pkg":"sha256:d6a9443c14d82b7bdf19bb96637f957fd44ad9bfbe8f167c97e6f7699c8b830f","id":{"file":"internal/adopt/goadopter.go","path":"strconv"},"kwargs":"sha256:a898843b3e251fcf57c0dbe5114a165a92507cfc2f3ee6f456648288947945c8","body":"sha256:f33f981c64a42d78a5daa7ff3fca15b10045080cccd282fef544b59eaf7f6dc8"}
 import "strconv"
 
 // /sedum:addImport
-// sedum:addImport {"tier":"owned","record":"prov-2026-9bc22cf7","gen":"sha256:bc2ac7f452b6ca292315e0250983a1bc6ea42ba5db0787d556851e7dba11d8e7","pkg":"sha256:d6a9443c14d82b7bdf19bb96637f957fd44ad9bfbe8f167c97e6f7699c8b830f","kwargs":{"file":"internal/adopt/goadopter.go","path":"strings"}}
+// sedum:addImport {"v":2,"tier":"owned","record":"prov-2026-9bc22cf7","gen":"sha256:bc2ac7f452b6ca292315e0250983a1bc6ea42ba5db0787d556851e7dba11d8e7","pkg":"sha256:d6a9443c14d82b7bdf19bb96637f957fd44ad9bfbe8f167c97e6f7699c8b830f","id":{"file":"internal/adopt/goadopter.go","path":"strings"},"kwargs":"sha256:1cf8eac22ff09bafae2147a63b49928986ee2cf7bb3d0df4ea37b34657162383","body":"sha256:a9af3c0bc4bf9342df9d7e89a324523fdba7941a9ca4190270e68ff3c4a25ea6"}
 import "strings"
 
 // /sedum:addImport
 
 // sedum:anchor:decls
-// sedum:setType {"tier":"owned","record":"prov-2026-9bc22cf7","gen":"sha256:bc2ac7f452b6ca292315e0250983a1bc6ea42ba5db0787d556851e7dba11d8e7","pkg":"sha256:ebb283283a745fdc09f0294b6e79bd879a830829cb964550ec6b4432fee5bb72","kwargs":{"code":"// GoAdopter is the built-in adopter for Go source (adopt: {builtin: go}). It\n// needs gofmt-clean input and splits a file with go/parser into a header, one\n// unit per declaration, and residual spans for everything else.\ntype GoAdopter struct{}","file":"internal/adopt/goadopter.go","name":"GoAdopter"}}
+// sedum:setType {"v":2,"tier":"owned","record":"prov-2026-9bc22cf7","gen":"sha256:bc2ac7f452b6ca292315e0250983a1bc6ea42ba5db0787d556851e7dba11d8e7","pkg":"sha256:ebb283283a745fdc09f0294b6e79bd879a830829cb964550ec6b4432fee5bb72","id":{"file":"internal/adopt/goadopter.go","name":"GoAdopter"},"kwargs":"sha256:c9b9d46d7f856ba22098043377d6061c71117c9af1f6b77f3a9cd3c6d9dce8ac","body":"sha256:9eb7b505b423713a6a34c33ceb76345f14f51b2fb65b9e3bb9e7c5b013a04c4a"}
 // GoAdopter is the built-in adopter for Go source (adopt: {builtin: go}). It
 // needs gofmt-clean input and splits a file with go/parser into a header, one
 // unit per declaration, and residual spans for everything else.
 type GoAdopter struct{}
 
 // /sedum:setType
-// sedum:setFunction {"tier":"owned","record":"prov-2026-9bc22cf7","gen":"sha256:bc2ac7f452b6ca292315e0250983a1bc6ea42ba5db0787d556851e7dba11d8e7","pkg":"sha256:6589611adfb6618a7920e43f951a79901428192ea95c1084fde9f222aecd9537","kwargs":{"code":"// goRecvName returns the receiver's base type name: no star, parentheses or type parameters.\nfunc goRecvName(e ast.Expr) string {\n\tswitch t := e.(type) {\n\tcase *ast.StarExpr:\n\t\treturn goRecvName(t.X)\n\tcase *ast.ParenExpr:\n\t\treturn goRecvName(t.X)\n\tcase *ast.IndexExpr:\n\t\treturn goRecvName(t.X)\n\tcase *ast.IndexListExpr:\n\t\treturn goRecvName(t.X)\n\tcase *ast.Ident:\n\t\treturn t.Name\n\t}\n\treturn \"\"\n}","file":"internal/adopt/goadopter.go","name":"goRecvName"}}
+// sedum:setFunction {"v":2,"tier":"owned","record":"prov-2026-9bc22cf7","gen":"sha256:bc2ac7f452b6ca292315e0250983a1bc6ea42ba5db0787d556851e7dba11d8e7","pkg":"sha256:6589611adfb6618a7920e43f951a79901428192ea95c1084fde9f222aecd9537","id":{"file":"internal/adopt/goadopter.go","name":"goRecvName"},"kwargs":"sha256:e80fac2f6bcbdf42e9450707b15e13c148be94cd1c20520aeb5273dc6afb0277","body":"sha256:a97d85799ca7cac92bd75971401a59cb9aeb3168187d46914777cc937574b60c"}
 // goRecvName returns the receiver's base type name: no star, parentheses or type parameters.
 func goRecvName(e ast.Expr) string {
 	switch t := e.(type) {
@@ -61,7 +61,7 @@ func goRecvName(e ast.Expr) string {
 }
 
 // /sedum:setFunction
-// sedum:setFunction {"tier":"owned","record":"prov-2026-9bc22cf7","gen":"sha256:bc2ac7f452b6ca292315e0250983a1bc6ea42ba5db0787d556851e7dba11d8e7","pkg":"sha256:6589611adfb6618a7920e43f951a79901428192ea95c1084fde9f222aecd9537","kwargs":{"code":"// goGenName returns the name of a type, var or const declaration: the first\n// name of its first spec. It returns \"\" for a declaration with no specs.\nfunc goGenName(d *ast.GenDecl) string {\n\tif len(d.Specs) == 0 {\n\t\treturn \"\"\n\t}\n\tswitch s := d.Specs[0].(type) {\n\tcase *ast.TypeSpec:\n\t\treturn s.Name.Name\n\tcase *ast.ValueSpec:\n\t\treturn s.Names[0].Name\n\t}\n\treturn \"\"\n}","file":"internal/adopt/goadopter.go","name":"goGenName"}}
+// sedum:setFunction {"v":2,"tier":"owned","record":"prov-2026-9bc22cf7","gen":"sha256:bc2ac7f452b6ca292315e0250983a1bc6ea42ba5db0787d556851e7dba11d8e7","pkg":"sha256:6589611adfb6618a7920e43f951a79901428192ea95c1084fde9f222aecd9537","id":{"file":"internal/adopt/goadopter.go","name":"goGenName"},"kwargs":"sha256:08ee4e9af33ccacab8c02181b552e4230b149f51d7eeea826997cdec0aca8e3d","body":"sha256:c3893992faff9fe4075df1680218332ac16c6d8c35181a584cc107df1421c5ff"}
 // goGenName returns the name of a type, var or const declaration: the first
 // name of its first spec. It returns "" for a declaration with no specs.
 func goGenName(d *ast.GenDecl) string {
@@ -78,7 +78,7 @@ func goGenName(d *ast.GenDecl) string {
 }
 
 // /sedum:setFunction
-// sedum:setFunction {"tier":"owned","record":"prov-2026-9bc22cf7","gen":"sha256:bc2ac7f452b6ca292315e0250983a1bc6ea42ba5db0787d556851e7dba11d8e7","pkg":"sha256:6589611adfb6618a7920e43f951a79901428192ea95c1084fde9f222aecd9537","kwargs":{"code":"// goLineEnd returns the offset just past the line that contains offset off.\nfunc goLineEnd(src []byte, off int) int {\n\tif i := bytes.IndexByte(src[off:], '\\n'); i >= 0 {\n\t\treturn off + i + 1\n\t}\n\treturn len(src)\n}","file":"internal/adopt/goadopter.go","name":"goLineEnd"}}
+// sedum:setFunction {"v":2,"tier":"owned","record":"prov-2026-9bc22cf7","gen":"sha256:bc2ac7f452b6ca292315e0250983a1bc6ea42ba5db0787d556851e7dba11d8e7","pkg":"sha256:6589611adfb6618a7920e43f951a79901428192ea95c1084fde9f222aecd9537","id":{"file":"internal/adopt/goadopter.go","name":"goLineEnd"},"kwargs":"sha256:0117e3dcd77550eff08e8de6f82dfd43b91399e356eefc7130022efac82d9794","body":"sha256:a3a629349b5b73fa8bc7be3104a4c00ee0b56235db9076d5aca873427742bf66"}
 // goLineEnd returns the offset just past the line that contains offset off.
 func goLineEnd(src []byte, off int) int {
 	if i := bytes.IndexByte(src[off:], '\n'); i >= 0 {
@@ -88,7 +88,7 @@ func goLineEnd(src []byte, off int) int {
 }
 
 // /sedum:setFunction
-// sedum:setFunction {"tier":"owned","record":"prov-2026-9bc22cf7","gen":"sha256:bc2ac7f452b6ca292315e0250983a1bc6ea42ba5db0787d556851e7dba11d8e7","pkg":"sha256:6589611adfb6618a7920e43f951a79901428192ea95c1084fde9f222aecd9537","kwargs":{"code":"// goPlainImport reports whether d is one ungrouped, unaliased, uncommented\n// import that is not cgo, and returns its path.\nfunc goPlainImport(d *ast.GenDecl) (string, bool) {\n\tif d.Lparen.IsValid() || len(d.Specs) != 1 || d.Doc != nil {\n\t\treturn \"\", false\n\t}\n\ts := d.Specs[0].(*ast.ImportSpec)\n\tif s.Name != nil || s.Doc != nil || s.Comment != nil {\n\t\treturn \"\", false\n\t}\n\tp, err := strconv.Unquote(s.Path.Value)\n\tif err != nil || p == \"C\" {\n\t\treturn \"\", false\n\t}\n\treturn p, true\n}","file":"internal/adopt/goadopter.go","name":"goPlainImport"}}
+// sedum:setFunction {"v":2,"tier":"owned","record":"prov-2026-9bc22cf7","gen":"sha256:bc2ac7f452b6ca292315e0250983a1bc6ea42ba5db0787d556851e7dba11d8e7","pkg":"sha256:6589611adfb6618a7920e43f951a79901428192ea95c1084fde9f222aecd9537","id":{"file":"internal/adopt/goadopter.go","name":"goPlainImport"},"kwargs":"sha256:6036c1cb49d8827628affba036d9403f879063ac3a9cf8b84894c68244a4addc","body":"sha256:900ae0c1c8b828ab15fb21549b2cb966929c081c9c2d4dfa96927735666d878a"}
 // goPlainImport reports whether d is one ungrouped, unaliased, uncommented
 // import that is not cgo, and returns its path.
 func goPlainImport(d *ast.GenDecl) (string, bool) {
@@ -107,7 +107,7 @@ func goPlainImport(d *ast.GenDecl) (string, bool) {
 }
 
 // /sedum:setFunction
-// sedum:setMethod {"tier":"owned","record":"prov-2026-9bc22cf7","gen":"sha256:bc2ac7f452b6ca292315e0250983a1bc6ea42ba5db0787d556851e7dba11d8e7","pkg":"sha256:8ea07fc52bbc260836983438ef08ad02746b86a1028c8b1a51b60eeb7b83cc2b","kwargs":{"code":"// Split implements Adopter.\nfunc (GoAdopter) Split(path string, src []byte) ([]Span, error) {\n\tformatted, err := format.Source(src)\n\tif err != nil {\n\t\treturn nil, fmt.Errorf(\"parse %s: %w\", path, err)\n\t}\n\tif !bytes.Equal(formatted, src) {\n\t\treturn nil, fmt.Errorf(\"%s: not gofmt-clean\", path)\n\t}\n\tfset := token.NewFileSet()\n\tfile, err := parser.ParseFile(fset, path, src, parser.ParseComments)\n\tif err != nil {\n\t\treturn nil, fmt.Errorf(\"parse %s: %w\", path, err)\n\t}\n\toff := func(p token.Pos) int { return fset.Position(p).Offset }\n\tvar spans []Span\n\tpos := 0\n\tgap := func(to int) {\n\t\tif to > pos {\n\t\t\tspans = append(spans, Span{Kind: KindResidual, Text: string(src[pos:to])})\n\t\t\tpos = to\n\t\t}\n\t}\n\tgap(off(file.Package))\n\theaderEnd := goLineEnd(src, off(file.Name.End()))\n\theaderKind := KindHeader\n\tif !strings.Contains(path, \"/\") && file.Name.Name != \"main\" {\n\t\theaderKind = KindResidual\n\t}\n\tspans = append(spans, Span{Kind: headerKind, Text: string(src[pos:headerEnd])})\n\tpos = headerEnd\n\tseen := map[string]int{}\n\timports := 0\n\tfor _, decl := range file.Decls {\n\t\tstart := off(decl.Pos())\n\t\tvar doc *ast.CommentGroup\n\t\tvar action, name string\n\t\tkwargs := map[string]any{\"file\": path}\n\t\tswitch d := decl.(type) {\n\t\tcase *ast.FuncDecl:\n\t\t\tdoc = d.Doc\n\t\t\tname = d.Name.Name\n\t\t\taction = \"setFunction\"\n\t\t\tif d.Recv != nil && len(d.Recv.List) == 1 {\n\t\t\t\taction = \"setMethod\"\n\t\t\t\tkwargs[\"receiver\"] = goRecvName(d.Recv.List[0].Type)\n\t\t\t}\n\t\t\tif d.Recv == nil && name == \"init\" {\n\t\t\t\tseen[\"init\"]++\n\t\t\t\tname = fmt.Sprintf(\"init#%d\", seen[\"init\"])\n\t\t\t}\n\t\tcase *ast.GenDecl:\n\t\t\tdoc = d.Doc\n\t\t\tswitch d.Tok {\n\t\t\tcase token.IMPORT:\n\t\t\t\tif p, ok := goPlainImport(d); ok {\n\t\t\t\t\taction = \"addImport\"\n\t\t\t\t\tkwargs[\"path\"] = p\n\t\t\t\t} else if len(d.Specs) == 1 && d.Specs[0].(*ast.ImportSpec).Path.Value == `\"C\"` {\n\t\t\t\t\taction = \"\"\n\t\t\t\t} else {\n\t\t\t\t\timports++\n\t\t\t\t\taction = \"setImports\"\n\t\t\t\t\tname = fmt.Sprintf(\"imports#%d\", imports)\n\t\t\t\t}\n\t\t\tcase token.TYPE:\n\t\t\t\taction, name = \"setType\", goGenName(d)\n\t\t\tcase token.VAR:\n\t\t\t\taction, name = \"setVar\", goGenName(d)\n\t\t\tcase token.CONST:\n\t\t\t\taction, name = \"setConst\", goGenName(d)\n\t\t\t}\n\t\t\tif d.Tok != token.IMPORT && name == \"\" {\n\t\t\t\taction = \"\"\n\t\t\t}\n\t\t}\n\t\tif doc != nil {\n\t\t\tstart = off(doc.Pos())\n\t\t}\n\t\tend := goLineEnd(src, off(decl.End()))\n\t\tgap(start)\n\t\ttext := string(src[start:end])\n\t\tif action == \"\" {\n\t\t\tspans = append(spans, Span{Kind: KindResidual, Text: text})\n\t\t\tpos = end\n\t\t\tcontinue\n\t\t}\n\t\tif action != \"addImport\" && !(action == \"setFunction\" && len(name) > 5 && name[:5] == \"init#\") {\n\t\t\tkey := action + \"/\" + name\n\t\t\tif r, ok := kwargs[\"receiver\"].(string); ok {\n\t\t\t\tkey += \"/\" + r\n\t\t\t}\n\t\t\tseen[key]++\n\t\t\tif seen[key] > 1 {\n\t\t\t\tname = fmt.Sprintf(\"%s#%d\", name, seen[key])\n\t\t\t}\n\t\t}\n\t\tif action != \"addImport\" {\n\t\t\tkwargs[\"name\"] = name\n\t\t}\n\t\tif action != \"addImport\" {\n\t\t\tkwargs[\"code\"] = strings.TrimSuffix(text, \"\\n\")\n\t\t}\n\t\tspans = append(spans, Span{Kind: KindUnit, Text: text, Action: action, Kwargs: kwargs})\n\t\tpos = end\n\t}\n\tgap(len(src))\n\treturn spans, nil\n}","file":"internal/adopt/goadopter.go","name":"Split","receiver":"GoAdopter"}}
+// sedum:setMethod {"v":2,"tier":"owned","record":"prov-2026-9bc22cf7","gen":"sha256:bc2ac7f452b6ca292315e0250983a1bc6ea42ba5db0787d556851e7dba11d8e7","pkg":"sha256:8ea07fc52bbc260836983438ef08ad02746b86a1028c8b1a51b60eeb7b83cc2b","id":{"file":"internal/adopt/goadopter.go","name":"Split","receiver":"GoAdopter"},"kwargs":"sha256:8b87e6d4fec84319b4f28e025b9b464e5b344c8b1704a0fae628846ed2128eb0","body":"sha256:ea186de96947b8188faa3823faa2697ae64c86f246505cae957ceaf318dc29f8"}
 // Split implements Adopter.
 func (GoAdopter) Split(path string, src []byte) ([]Span, error) {
 	formatted, err := format.Source(src)

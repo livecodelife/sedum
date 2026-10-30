@@ -1,0 +1,918 @@
+{
+  "sedum_version": "0.11.0",
+  "packages": {
+    "go": {
+      "extensions": [
+        ".go"
+      ]
+    }
+  },
+  "records": [
+    {
+      "record_id": "prov-2026-84c8ca99",
+      "gen": "sha256:bdcd1b73d07f62bb1943c9864fd4f0e31a5dcc1bf700073bf0c10cdb9cac0e01",
+      "created_at": "2026-10-16",
+      "files": [
+        {
+          "path": "evals/design/task.go",
+          "package": "go",
+          "template": "*/{pkg}/{name}.go",
+          "captures": {
+            "name": "task",
+            "pkg": "design"
+          }
+        },
+        {
+          "path": "evals/design/task_test.go",
+          "package": "go",
+          "template": "*/{pkg}/{name}.go",
+          "captures": {
+            "name": "task_test",
+            "pkg": "design"
+          }
+        },
+        {
+          "path": "evals/design/variants.go",
+          "package": "go",
+          "template": "*/{pkg}/{name}.go",
+          "captures": {
+            "name": "variants",
+            "pkg": "design"
+          }
+        },
+        {
+          "path": "evals/design/variants_test.go",
+          "package": "go",
+          "template": "*/{pkg}/{name}.go",
+          "captures": {
+            "name": "variants_test",
+            "pkg": "design"
+          }
+        }
+      ],
+      "phases": [
+        {
+          "name": "default",
+          "invocations": [
+            {
+              "action": "addImport",
+              "kwargs": {
+                "file": "evals/design/task.go",
+                "path": "fmt"
+              }
+            },
+            {
+              "action": "addImport",
+              "kwargs": {
+                "file": "evals/design/task.go",
+                "path": "os"
+              }
+            },
+            {
+              "action": "addImport",
+              "kwargs": {
+                "file": "evals/design/task.go",
+                "path": "path/filepath"
+              }
+            },
+            {
+              "action": "addImport",
+              "kwargs": {
+                "file": "evals/design/task.go",
+                "path": "sort"
+              }
+            },
+            {
+              "action": "addImport",
+              "kwargs": {
+                "file": "evals/design/task.go",
+                "path": "strings"
+              }
+            },
+            {
+              "action": "addImport",
+              "kwargs": {
+                "file": "evals/design/task.go",
+                "path": "gopkg.in/yaml.v3"
+              }
+            },
+            {
+              "action": "setType",
+              "kwargs": {
+                "code": "// Task is one design task: a small Go package the model must write, graded by\n// hidden tests it is never shown. Context files are copied in beside it.\ntype Task struct {\n\tID         string   `yaml:\"id\"`\n\tPackage    string   `yaml:\"package\"`\n\tTarget     []string `yaml:\"target\"`\n\tContext    []string `yaml:\"context\"`\n\tHidden     []string `yaml:\"hidden\"`\n\tBehaviour  string   `yaml:\"behaviour\"`\n\tSignatures string   `yaml:\"signatures\"`\n\tCode       string   `yaml:\"code\"`\n\n\t// Dir is the task directory it was loaded from.\n\tDir string `yaml:\"-\"`\n}",
+                "file": "evals/design/task.go",
+                "name": "Task"
+              }
+            },
+            {
+              "action": "setFunction",
+              "kwargs": {
+                "code": "// LoadTask reads dir/task.yaml and checks it. Context files live under\n// dir/context/ and hidden test files under dir/hidden/; every one named must\n// exist, hidden files must end in _test.go, and no target file may also be a\n// context or hidden file.\nfunc LoadTask(dir string) (Task, error) {\n\tdata, err := os.ReadFile(filepath.Join(dir, \"task.yaml\"))\n\tif err != nil {\n\t\treturn Task{}, fmt.Errorf(\"read task: %w\", err)\n\t}\n\tvar t Task\n\tif err := yaml.Unmarshal(data, \u0026t); err != nil {\n\t\treturn Task{}, fmt.Errorf(\"parse %s: %w\", filepath.Join(dir, \"task.yaml\"), err)\n\t}\n\tt.Dir = dir\n\tif t.ID == \"\" || t.ID != filepath.Base(dir) {\n\t\treturn Task{}, fmt.Errorf(\"task %s: id %q must equal the directory name\", dir, t.ID)\n\t}\n\tif t.Package == \"\" || len(t.Target) == 0 || len(t.Hidden) == 0 {\n\t\treturn Task{}, fmt.Errorf(\"task %s: package, target and hidden are required\", t.ID)\n\t}\n\tif t.Behaviour == \"\" || t.Signatures == \"\" || t.Code == \"\" {\n\t\treturn Task{}, fmt.Errorf(\"task %s: behaviour, signatures and code intents are all required\", t.ID)\n\t}\n\tfor _, f := range t.Hidden {\n\t\tif !strings.HasSuffix(f, \"_test.go\") {\n\t\t\treturn Task{}, fmt.Errorf(\"task %s: hidden file %s must end in _test.go\", t.ID, f)\n\t\t}\n\t\tif _, err := os.Stat(filepath.Join(dir, \"hidden\", f)); err != nil {\n\t\t\treturn Task{}, fmt.Errorf(\"task %s: %w\", t.ID, err)\n\t\t}\n\t}\n\tfor _, f := range t.Context {\n\t\tif _, err := os.Stat(filepath.Join(dir, \"context\", f)); err != nil {\n\t\t\treturn Task{}, fmt.Errorf(\"task %s: %w\", t.ID, err)\n\t\t}\n\t}\n\tfor _, f := range t.Target {\n\t\tfor _, other := range append(append([]string{}, t.Context...), t.Hidden...) {\n\t\t\tif f == other {\n\t\t\t\treturn Task{}, fmt.Errorf(\"task %s: target %s is also a context or hidden file\", t.ID, f)\n\t\t\t}\n\t\t}\n\t}\n\treturn t, nil\n}",
+                "file": "evals/design/task.go",
+                "name": "LoadTask"
+              }
+            },
+            {
+              "action": "setFunction",
+              "kwargs": {
+                "code": "// LoadTasks loads every subdirectory of root that holds a task.yaml, sorted by\n// task id.\nfunc LoadTasks(root string) ([]Task, error) {\n\tentries, err := os.ReadDir(root)\n\tif err != nil {\n\t\treturn nil, fmt.Errorf(\"read tasks: %w\", err)\n\t}\n\tvar tasks []Task\n\tfor _, e := range entries {\n\t\tif !e.IsDir() {\n\t\t\tcontinue\n\t\t}\n\t\tif _, err := os.Stat(filepath.Join(root, e.Name(), \"task.yaml\")); err != nil {\n\t\t\tcontinue\n\t\t}\n\t\tt, err := LoadTask(filepath.Join(root, e.Name()))\n\t\tif err != nil {\n\t\t\treturn nil, err\n\t\t}\n\t\ttasks = append(tasks, t)\n\t}\n\tsort.Slice(tasks, func(i, j int) bool { return tasks[i].ID \u003c tasks[j].ID })\n\treturn tasks, nil\n}",
+                "file": "evals/design/task.go",
+                "name": "LoadTasks"
+              }
+            },
+            {
+              "action": "addImport",
+              "kwargs": {
+                "file": "evals/design/task_test.go",
+                "path": "os"
+              }
+            },
+            {
+              "action": "addImport",
+              "kwargs": {
+                "file": "evals/design/task_test.go",
+                "path": "path/filepath"
+              }
+            },
+            {
+              "action": "addImport",
+              "kwargs": {
+                "file": "evals/design/task_test.go",
+                "path": "strings"
+              }
+            },
+            {
+              "action": "addImport",
+              "kwargs": {
+                "file": "evals/design/task_test.go",
+                "path": "testing"
+              }
+            },
+            {
+              "action": "setFunction",
+              "kwargs": {
+                "code": "// writeTask writes a minimal valid task into root/id and returns its dir.\nfunc writeTask(t *testing.T, root, id, yaml string) string {\n\tt.Helper()\n\tdir := filepath.Join(root, id)\n\tfor _, d := range []string{\"context\", \"hidden\"} {\n\t\tif err := os.MkdirAll(filepath.Join(dir, d), 0o755); err != nil {\n\t\t\tt.Fatal(err)\n\t\t}\n\t}\n\tfiles := map[string]string{\n\t\t\"task.yaml\":        yaml,\n\t\t\"hidden/a_test.go\": \"package p\\n\\nimport \\\"testing\\\"\\n\\nfunc TestA(t *testing.T) {}\\n\",\n\t\t\"context/ctx.go\":   \"package p\\n\",\n\t}\n\tfor name, content := range files {\n\t\tif err := os.WriteFile(filepath.Join(dir, name), []byte(content), 0o644); err != nil {\n\t\t\tt.Fatal(err)\n\t\t}\n\t}\n\treturn dir\n}",
+                "file": "evals/design/task_test.go",
+                "name": "writeTask"
+              }
+            },
+            {
+              "action": "setConst",
+              "kwargs": {
+                "code": "const validTask = \"id: ok\\npackage: p\\ntarget: [a.go]\\ncontext: [ctx.go]\\nhidden: [a_test.go]\\nbehaviour: b\\nsignatures: s\\ncode: c\\n\"",
+                "file": "evals/design/task_test.go",
+                "name": "validTask"
+              }
+            },
+            {
+              "action": "setFunction",
+              "kwargs": {
+                "code": "func TestLoadTask(t *testing.T) {\n\troot := t.TempDir()\n\tdir := writeTask(t, root, \"ok\", validTask)\n\ttask, err := LoadTask(dir)\n\tif err != nil {\n\t\tt.Fatal(err)\n\t}\n\tif task.ID != \"ok\" || task.Package != \"p\" || task.Dir != dir || len(task.Target) != 1 || task.Code != \"c\" {\n\t\tt.Fatalf(\"task = %+v\", task)\n\t}\n}",
+                "file": "evals/design/task_test.go",
+                "name": "TestLoadTask"
+              }
+            },
+            {
+              "action": "setFunction",
+              "kwargs": {
+                "code": "func TestLoadTaskRejects(t *testing.T) {\n\tcases := []struct {\n\t\tname, id, yaml, want string\n\t}{\n\t\t{\"id differs from directory\", \"ok\", strings.Replace(validTask, \"id: ok\", \"id: other\", 1), \"directory name\"},\n\t\t{\"no target\", \"ok\", strings.Replace(validTask, \"target: [a.go]\", \"target: []\", 1), \"required\"},\n\t\t{\"missing intent\", \"ok\", strings.Replace(validTask, \"code: c\\n\", \"\", 1), \"all required\"},\n\t\t{\"hidden is not a test file\", \"ok\", strings.Replace(validTask, \"hidden: [a_test.go]\", \"hidden: [ctx.go]\", 1), \"_test.go\"},\n\t\t{\"missing hidden file\", \"ok\", strings.Replace(validTask, \"a_test.go\", \"b_test.go\", 1), \"no such file\"},\n\t\t{\"target is also context\", \"ok\", strings.Replace(validTask, \"target: [a.go]\", \"target: [ctx.go]\", 1), \"also a context or hidden\"},\n\t}\n\tfor _, tc := range cases {\n\t\tt.Run(tc.name, func(t *testing.T) {\n\t\t\tdir := writeTask(t, t.TempDir(), tc.id, tc.yaml)\n\t\t\t_, err := LoadTask(dir)\n\t\t\tif err == nil || !strings.Contains(err.Error(), tc.want) {\n\t\t\t\tt.Fatalf(\"err = %v, want it to contain %q\", err, tc.want)\n\t\t\t}\n\t\t})\n\t}\n}",
+                "file": "evals/design/task_test.go",
+                "name": "TestLoadTaskRejects"
+              }
+            },
+            {
+              "action": "setFunction",
+              "kwargs": {
+                "code": "func TestLoadTasks(t *testing.T) {\n\ttasks, err := LoadTasks(\"testdata/tasks\")\n\tif err != nil {\n\t\tt.Fatal(err)\n\t}\n\tvar ids []string\n\tfor _, task := range tasks {\n\t\tids = append(ids, task.ID)\n\t}\n\tif got := strings.Join(ids, \",\"); got != \"append,read,render,since,summarize\" {\n\t\tt.Fatalf(\"tasks = %s\", got)\n\t}\n\tif _, err := LoadTasks(filepath.Join(t.TempDir(), \"none\")); err == nil {\n\t\tt.Fatal(\"a missing tasks directory must be an error\")\n\t}\n}",
+                "file": "evals/design/task_test.go",
+                "name": "TestLoadTasks"
+              }
+            },
+            {
+              "action": "addImport",
+              "kwargs": {
+                "file": "evals/design/variants.go",
+                "path": "fmt"
+              }
+            },
+            {
+              "action": "addImport",
+              "kwargs": {
+                "file": "evals/design/variants.go",
+                "path": "os"
+              }
+            },
+            {
+              "action": "addImport",
+              "kwargs": {
+                "file": "evals/design/variants.go",
+                "path": "path/filepath"
+              }
+            },
+            {
+              "action": "addImport",
+              "kwargs": {
+                "file": "evals/design/variants.go",
+                "path": "strings"
+              }
+            },
+            {
+              "action": "setType",
+              "kwargs": {
+                "code": "// Variant is how much of the answer an intent gives away.\ntype Variant string",
+                "file": "evals/design/variants.go",
+                "name": "Variant"
+              }
+            },
+            {
+              "action": "setConst",
+              "kwargs": {
+                "code": "// The three intent variants, from least to most given.\nconst (\n\tVariantBehaviour  Variant = \"behaviour\"\n\tVariantSignatures Variant = \"signatures\"\n\tVariantCode       Variant = \"code\"\n)",
+                "file": "evals/design/variants.go",
+                "name": "VariantBehaviour"
+              }
+            },
+            {
+              "action": "setFunction",
+              "kwargs": {
+                "code": "// Variants returns every variant in order.\nfunc Variants() []Variant {\n\treturn []Variant{VariantBehaviour, VariantSignatures, VariantCode}\n}",
+                "file": "evals/design/variants.go",
+                "name": "Variants"
+              }
+            },
+            {
+              "action": "setMethod",
+              "kwargs": {
+                "code": "// Intent returns the task's intent text for v.\nfunc (t Task) Intent(v Variant) (string, error) {\n\tswitch v {\n\tcase VariantBehaviour:\n\t\treturn t.Behaviour, nil\n\tcase VariantSignatures:\n\t\treturn t.Signatures, nil\n\tcase VariantCode:\n\t\treturn t.Code, nil\n\t}\n\treturn \"\", fmt.Errorf(\"unknown variant %q\", v)\n}",
+                "file": "evals/design/variants.go",
+                "name": "Intent",
+                "receiver": "Task"
+              }
+            },
+            {
+              "action": "setMethod",
+              "kwargs": {
+                "code": "// Isolated returns an error when hidden test text could reach the model: a\n// hidden file's name, or any of its \"func Test\" lines, appearing in any of the\n// task's intents.\nfunc (t Task) Isolated() error {\n\tfor _, v := range Variants() {\n\t\tintent, err := t.Intent(v)\n\t\tif err != nil {\n\t\t\treturn err\n\t\t}\n\t\tfor _, f := range t.Hidden {\n\t\t\tif strings.Contains(intent, f) {\n\t\t\t\treturn fmt.Errorf(\"task %s: the %s intent names hidden file %s\", t.ID, v, f)\n\t\t\t}\n\t\t\tdata, err := os.ReadFile(filepath.Join(t.Dir, \"hidden\", f))\n\t\t\tif err != nil {\n\t\t\t\treturn err\n\t\t\t}\n\t\t\tfor _, line := range strings.Split(string(data), \"\\n\") {\n\t\t\t\tif strings.HasPrefix(line, \"func Test\") \u0026\u0026 strings.Contains(intent, line) {\n\t\t\t\t\treturn fmt.Errorf(\"task %s: the %s intent contains the hidden test line %q\", t.ID, v, line)\n\t\t\t\t}\n\t\t\t}\n\t\t}\n\t}\n\treturn nil\n}",
+                "file": "evals/design/variants.go",
+                "name": "Isolated",
+                "receiver": "Task"
+              }
+            },
+            {
+              "action": "addImport",
+              "kwargs": {
+                "file": "evals/design/variants_test.go",
+                "path": "os"
+              }
+            },
+            {
+              "action": "addImport",
+              "kwargs": {
+                "file": "evals/design/variants_test.go",
+                "path": "path/filepath"
+              }
+            },
+            {
+              "action": "addImport",
+              "kwargs": {
+                "file": "evals/design/variants_test.go",
+                "path": "strings"
+              }
+            },
+            {
+              "action": "addImport",
+              "kwargs": {
+                "file": "evals/design/variants_test.go",
+                "path": "testing"
+              }
+            },
+            {
+              "action": "setFunction",
+              "kwargs": {
+                "code": "func TestIntentVariants(t *testing.T) {\n\ttask := Task{Behaviour: \"b\", Signatures: \"s\", Code: \"c\"}\n\tfor v, want := range map[Variant]string{VariantBehaviour: \"b\", VariantSignatures: \"s\", VariantCode: \"c\"} {\n\t\tgot, err := task.Intent(v)\n\t\tif err != nil || got != want {\n\t\t\tt.Errorf(\"Intent(%s) = %q, %v, want %q\", v, got, err, want)\n\t\t}\n\t}\n\tif _, err := task.Intent(\"nope\"); err == nil {\n\t\tt.Fatal(\"an unknown variant must be an error\")\n\t}\n\tif got := Variants(); len(got) != 3 || got[0] != VariantBehaviour || got[2] != VariantCode {\n\t\tt.Fatalf(\"Variants() = %v\", got)\n\t}\n}",
+                "file": "evals/design/variants_test.go",
+                "name": "TestIntentVariants"
+              }
+            },
+            {
+              "action": "setFunction",
+              "kwargs": {
+                "code": "func TestIsolatedRealTasks(t *testing.T) {\n\ttasks, err := LoadTasks(\"testdata/tasks\")\n\tif err != nil {\n\t\tt.Fatal(err)\n\t}\n\tfor _, task := range tasks {\n\t\tif err := task.Isolated(); err != nil {\n\t\t\tt.Errorf(\"%s: %v\", task.ID, err)\n\t\t}\n\t}\n}",
+                "file": "evals/design/variants_test.go",
+                "name": "TestIsolatedRealTasks"
+              }
+            },
+            {
+              "action": "setFunction",
+              "kwargs": {
+                "code": "func TestIsolatedCatchesLeaks(t *testing.T) {\n\troot := t.TempDir()\n\tdir := writeTask(t, root, \"ok\", validTask)\n\ttask, err := LoadTask(dir)\n\tif err != nil {\n\t\tt.Fatal(err)\n\t}\n\tif err := task.Isolated(); err != nil {\n\t\tt.Fatalf(\"a clean task: %v\", err)\n\t}\n\tnamed := task\n\tnamed.Signatures = \"see a_test.go\"\n\tif err := named.Isolated(); err == nil || !strings.Contains(err.Error(), \"a_test.go\") {\n\t\tt.Fatalf(\"a named hidden file: %v\", err)\n\t}\n\tleaked := task\n\tleaked.Behaviour = \"copy this\\nfunc TestA(t *testing.T) {}\\n\"\n\tif err := leaked.Isolated(); err == nil || !strings.Contains(err.Error(), \"func TestA\") {\n\t\tt.Fatalf(\"a leaked test line: %v\", err)\n\t}\n\tif err := os.Remove(filepath.Join(dir, \"hidden\", \"a_test.go\")); err != nil {\n\t\tt.Fatal(err)\n\t}\n\tif err := task.Isolated(); err == nil {\n\t\tt.Fatal(\"an unreadable hidden file must be an error\")\n\t}\n}",
+                "file": "evals/design/variants_test.go",
+                "name": "TestIsolatedCatchesLeaks"
+              }
+            }
+          ]
+        }
+      ],
+      "regions": [
+        {
+          "path": "evals/design/task.go",
+          "action": "addImport",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:d6a9443c14d82b7bdf19bb96637f957fd44ad9bfbe8f167c97e6f7699c8b830f",
+          "id": {
+            "file": "evals/design/task.go",
+            "path": "fmt"
+          },
+          "kwargs": {
+            "file": "evals/design/task.go",
+            "path": "fmt"
+          },
+          "kwargs_hash": "sha256:c896c3ee415ab56358394b5cd3c761169d96612f9c129735d1d9ab0fbe75364a",
+          "body": "sha256:bcbac51883cbf8064e9196b371cb880cee429866652447ad557533d817857609"
+        },
+        {
+          "path": "evals/design/task.go",
+          "action": "addImport",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:d6a9443c14d82b7bdf19bb96637f957fd44ad9bfbe8f167c97e6f7699c8b830f",
+          "id": {
+            "file": "evals/design/task.go",
+            "path": "gopkg.in/yaml.v3"
+          },
+          "kwargs": {
+            "file": "evals/design/task.go",
+            "path": "gopkg.in/yaml.v3"
+          },
+          "kwargs_hash": "sha256:12123e00d06ef5a12103ef1b4749927e608379f4729499c5bf78cf71cd8abaec",
+          "body": "sha256:a4214cbff710690b396b73d2b1ccc9aa8b55a807d07f73aa80f10af0c41e13b9"
+        },
+        {
+          "path": "evals/design/task.go",
+          "action": "addImport",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:d6a9443c14d82b7bdf19bb96637f957fd44ad9bfbe8f167c97e6f7699c8b830f",
+          "id": {
+            "file": "evals/design/task.go",
+            "path": "os"
+          },
+          "kwargs": {
+            "file": "evals/design/task.go",
+            "path": "os"
+          },
+          "kwargs_hash": "sha256:9050607a26a9ed3be9bafe99efb46ab02e9d5465839ce1224287132dc81277ad",
+          "body": "sha256:7c6e309eb2575d4aa451ec2ab83161d13e9ae03bbca3a4d2ecf30ce12adf0905"
+        },
+        {
+          "path": "evals/design/task.go",
+          "action": "addImport",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:d6a9443c14d82b7bdf19bb96637f957fd44ad9bfbe8f167c97e6f7699c8b830f",
+          "id": {
+            "file": "evals/design/task.go",
+            "path": "path/filepath"
+          },
+          "kwargs": {
+            "file": "evals/design/task.go",
+            "path": "path/filepath"
+          },
+          "kwargs_hash": "sha256:37b0ce75cd2ae5a2e543f2fd8cac9bdf7bf1709ddf57df9afdaee7f4b3fa7863",
+          "body": "sha256:a6d196b558491e646be93f56a321f339068c64c76aa9d49bb18046e7f9c777a1"
+        },
+        {
+          "path": "evals/design/task.go",
+          "action": "addImport",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:d6a9443c14d82b7bdf19bb96637f957fd44ad9bfbe8f167c97e6f7699c8b830f",
+          "id": {
+            "file": "evals/design/task.go",
+            "path": "sort"
+          },
+          "kwargs": {
+            "file": "evals/design/task.go",
+            "path": "sort"
+          },
+          "kwargs_hash": "sha256:71db451fdb9465e5bb2ff9000f1f9209b30afb34c4ab4e34c9a33728abaa1b8e",
+          "body": "sha256:f197172617ae21ef23b1855b09aafb14571020ae81bff877d63d3ff81f4bf63c"
+        },
+        {
+          "path": "evals/design/task.go",
+          "action": "addImport",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:d6a9443c14d82b7bdf19bb96637f957fd44ad9bfbe8f167c97e6f7699c8b830f",
+          "id": {
+            "file": "evals/design/task.go",
+            "path": "strings"
+          },
+          "kwargs": {
+            "file": "evals/design/task.go",
+            "path": "strings"
+          },
+          "kwargs_hash": "sha256:9ef5a33ff8ec6d249f0f3967dd152a1cc0021de2a0aa5b6290eab28cb024a15a",
+          "body": "sha256:a9af3c0bc4bf9342df9d7e89a324523fdba7941a9ca4190270e68ff3c4a25ea6"
+        },
+        {
+          "path": "evals/design/task.go",
+          "action": "setFunction",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:6589611adfb6618a7920e43f951a79901428192ea95c1084fde9f222aecd9537",
+          "id": {
+            "file": "evals/design/task.go",
+            "name": "LoadTask"
+          },
+          "kwargs": {
+            "code": "// LoadTask reads dir/task.yaml and checks it. Context files live under\n// dir/context/ and hidden test files under dir/hidden/; every one named must\n// exist, hidden files must end in _test.go, and no target file may also be a\n// context or hidden file.\nfunc LoadTask(dir string) (Task, error) {\n\tdata, err := os.ReadFile(filepath.Join(dir, \"task.yaml\"))\n\tif err != nil {\n\t\treturn Task{}, fmt.Errorf(\"read task: %w\", err)\n\t}\n\tvar t Task\n\tif err := yaml.Unmarshal(data, \u0026t); err != nil {\n\t\treturn Task{}, fmt.Errorf(\"parse %s: %w\", filepath.Join(dir, \"task.yaml\"), err)\n\t}\n\tt.Dir = dir\n\tif t.ID == \"\" || t.ID != filepath.Base(dir) {\n\t\treturn Task{}, fmt.Errorf(\"task %s: id %q must equal the directory name\", dir, t.ID)\n\t}\n\tif t.Package == \"\" || len(t.Target) == 0 || len(t.Hidden) == 0 {\n\t\treturn Task{}, fmt.Errorf(\"task %s: package, target and hidden are required\", t.ID)\n\t}\n\tif t.Behaviour == \"\" || t.Signatures == \"\" || t.Code == \"\" {\n\t\treturn Task{}, fmt.Errorf(\"task %s: behaviour, signatures and code intents are all required\", t.ID)\n\t}\n\tfor _, f := range t.Hidden {\n\t\tif !strings.HasSuffix(f, \"_test.go\") {\n\t\t\treturn Task{}, fmt.Errorf(\"task %s: hidden file %s must end in _test.go\", t.ID, f)\n\t\t}\n\t\tif _, err := os.Stat(filepath.Join(dir, \"hidden\", f)); err != nil {\n\t\t\treturn Task{}, fmt.Errorf(\"task %s: %w\", t.ID, err)\n\t\t}\n\t}\n\tfor _, f := range t.Context {\n\t\tif _, err := os.Stat(filepath.Join(dir, \"context\", f)); err != nil {\n\t\t\treturn Task{}, fmt.Errorf(\"task %s: %w\", t.ID, err)\n\t\t}\n\t}\n\tfor _, f := range t.Target {\n\t\tfor _, other := range append(append([]string{}, t.Context...), t.Hidden...) {\n\t\t\tif f == other {\n\t\t\t\treturn Task{}, fmt.Errorf(\"task %s: target %s is also a context or hidden file\", t.ID, f)\n\t\t\t}\n\t\t}\n\t}\n\treturn t, nil\n}",
+            "file": "evals/design/task.go",
+            "name": "LoadTask"
+          },
+          "kwargs_hash": "sha256:c167f9c281105d0813c5d767fdacbdf8a0d0a06a0d74cc931471e547514585f7",
+          "body": "sha256:b0ac7504c9aa74345021590bcf6d478f7a0493b1d9a53560449a3627d27f83e0"
+        },
+        {
+          "path": "evals/design/task.go",
+          "action": "setFunction",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:6589611adfb6618a7920e43f951a79901428192ea95c1084fde9f222aecd9537",
+          "id": {
+            "file": "evals/design/task.go",
+            "name": "LoadTasks"
+          },
+          "kwargs": {
+            "code": "// LoadTasks loads every subdirectory of root that holds a task.yaml, sorted by\n// task id.\nfunc LoadTasks(root string) ([]Task, error) {\n\tentries, err := os.ReadDir(root)\n\tif err != nil {\n\t\treturn nil, fmt.Errorf(\"read tasks: %w\", err)\n\t}\n\tvar tasks []Task\n\tfor _, e := range entries {\n\t\tif !e.IsDir() {\n\t\t\tcontinue\n\t\t}\n\t\tif _, err := os.Stat(filepath.Join(root, e.Name(), \"task.yaml\")); err != nil {\n\t\t\tcontinue\n\t\t}\n\t\tt, err := LoadTask(filepath.Join(root, e.Name()))\n\t\tif err != nil {\n\t\t\treturn nil, err\n\t\t}\n\t\ttasks = append(tasks, t)\n\t}\n\tsort.Slice(tasks, func(i, j int) bool { return tasks[i].ID \u003c tasks[j].ID })\n\treturn tasks, nil\n}",
+            "file": "evals/design/task.go",
+            "name": "LoadTasks"
+          },
+          "kwargs_hash": "sha256:4f259b2e97ea693e6c1ef608dbfb1b774d832e48268e12ac5484df523172c02f",
+          "body": "sha256:c9c717b32ecc35528fae5172eff3f89986a38810cfc1726b8a111c052a145539"
+        },
+        {
+          "path": "evals/design/task.go",
+          "action": "setType",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:ebb283283a745fdc09f0294b6e79bd879a830829cb964550ec6b4432fee5bb72",
+          "id": {
+            "file": "evals/design/task.go",
+            "name": "Task"
+          },
+          "kwargs": {
+            "code": "// Task is one design task: a small Go package the model must write, graded by\n// hidden tests it is never shown. Context files are copied in beside it.\ntype Task struct {\n\tID         string   `yaml:\"id\"`\n\tPackage    string   `yaml:\"package\"`\n\tTarget     []string `yaml:\"target\"`\n\tContext    []string `yaml:\"context\"`\n\tHidden     []string `yaml:\"hidden\"`\n\tBehaviour  string   `yaml:\"behaviour\"`\n\tSignatures string   `yaml:\"signatures\"`\n\tCode       string   `yaml:\"code\"`\n\n\t// Dir is the task directory it was loaded from.\n\tDir string `yaml:\"-\"`\n}",
+            "file": "evals/design/task.go",
+            "name": "Task"
+          },
+          "kwargs_hash": "sha256:1b7471347233968e8ac7a58df9695e5bc93eba04f5b38ba4268fa604956c92f4",
+          "body": "sha256:f4d3f39d2cafacc47335e918128e179c42a8c26ca2ce672bb39e30ec22b7171d"
+        },
+        {
+          "path": "evals/design/task_test.go",
+          "action": "addImport",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:d6a9443c14d82b7bdf19bb96637f957fd44ad9bfbe8f167c97e6f7699c8b830f",
+          "id": {
+            "file": "evals/design/task_test.go",
+            "path": "os"
+          },
+          "kwargs": {
+            "file": "evals/design/task_test.go",
+            "path": "os"
+          },
+          "kwargs_hash": "sha256:a5f7d900ea70138d0d6bc5930335a6cb26a64f59080ff8b9c110279b175c7bd6",
+          "body": "sha256:7c6e309eb2575d4aa451ec2ab83161d13e9ae03bbca3a4d2ecf30ce12adf0905"
+        },
+        {
+          "path": "evals/design/task_test.go",
+          "action": "addImport",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:d6a9443c14d82b7bdf19bb96637f957fd44ad9bfbe8f167c97e6f7699c8b830f",
+          "id": {
+            "file": "evals/design/task_test.go",
+            "path": "path/filepath"
+          },
+          "kwargs": {
+            "file": "evals/design/task_test.go",
+            "path": "path/filepath"
+          },
+          "kwargs_hash": "sha256:7d6efb56ca6b1eeea70dce30282656262becd41c5fdef6856cd3eec46fc84f27",
+          "body": "sha256:a6d196b558491e646be93f56a321f339068c64c76aa9d49bb18046e7f9c777a1"
+        },
+        {
+          "path": "evals/design/task_test.go",
+          "action": "addImport",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:d6a9443c14d82b7bdf19bb96637f957fd44ad9bfbe8f167c97e6f7699c8b830f",
+          "id": {
+            "file": "evals/design/task_test.go",
+            "path": "strings"
+          },
+          "kwargs": {
+            "file": "evals/design/task_test.go",
+            "path": "strings"
+          },
+          "kwargs_hash": "sha256:c6d90c359c38b3b8bf192684995dd574c13eff3e7fcfb9f6bc4a81b8071aa5c9",
+          "body": "sha256:a9af3c0bc4bf9342df9d7e89a324523fdba7941a9ca4190270e68ff3c4a25ea6"
+        },
+        {
+          "path": "evals/design/task_test.go",
+          "action": "addImport",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:d6a9443c14d82b7bdf19bb96637f957fd44ad9bfbe8f167c97e6f7699c8b830f",
+          "id": {
+            "file": "evals/design/task_test.go",
+            "path": "testing"
+          },
+          "kwargs": {
+            "file": "evals/design/task_test.go",
+            "path": "testing"
+          },
+          "kwargs_hash": "sha256:cf67251da33a66d83f5bd59f6f5e76ca1d0ffe68b3ce98aed15cc834fbb83ae4",
+          "body": "sha256:14a4a5f3bfbf9325de04706efa8c15a9446f01d2a26624ce9c66bd1d69dc212e"
+        },
+        {
+          "path": "evals/design/task_test.go",
+          "action": "setConst",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:51be1c18998d63cc558c253e211a6bd188d96cb251dad68c6ea88e03c2d5cc4c",
+          "id": {
+            "file": "evals/design/task_test.go",
+            "name": "validTask"
+          },
+          "kwargs": {
+            "code": "const validTask = \"id: ok\\npackage: p\\ntarget: [a.go]\\ncontext: [ctx.go]\\nhidden: [a_test.go]\\nbehaviour: b\\nsignatures: s\\ncode: c\\n\"",
+            "file": "evals/design/task_test.go",
+            "name": "validTask"
+          },
+          "kwargs_hash": "sha256:9d040c993c3fc2a659254718f5e81732d6299e8056fd8f232fb3ec306e99ec69",
+          "body": "sha256:ea78c3a1219f2195693c88d83e7049372118699461ab3dc93006c075d67eb3b6"
+        },
+        {
+          "path": "evals/design/task_test.go",
+          "action": "setFunction",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:6589611adfb6618a7920e43f951a79901428192ea95c1084fde9f222aecd9537",
+          "id": {
+            "file": "evals/design/task_test.go",
+            "name": "TestLoadTask"
+          },
+          "kwargs": {
+            "code": "func TestLoadTask(t *testing.T) {\n\troot := t.TempDir()\n\tdir := writeTask(t, root, \"ok\", validTask)\n\ttask, err := LoadTask(dir)\n\tif err != nil {\n\t\tt.Fatal(err)\n\t}\n\tif task.ID != \"ok\" || task.Package != \"p\" || task.Dir != dir || len(task.Target) != 1 || task.Code != \"c\" {\n\t\tt.Fatalf(\"task = %+v\", task)\n\t}\n}",
+            "file": "evals/design/task_test.go",
+            "name": "TestLoadTask"
+          },
+          "kwargs_hash": "sha256:92b2ffa51ab0f2f28fde1d638a68c36e52652ed9c677529e5e4fdb734efb723a",
+          "body": "sha256:0dd9fe06ac763f4f4ada377d8977e88074922d9faf9bdd313f42a01eed1539cc"
+        },
+        {
+          "path": "evals/design/task_test.go",
+          "action": "setFunction",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:6589611adfb6618a7920e43f951a79901428192ea95c1084fde9f222aecd9537",
+          "id": {
+            "file": "evals/design/task_test.go",
+            "name": "TestLoadTaskRejects"
+          },
+          "kwargs": {
+            "code": "func TestLoadTaskRejects(t *testing.T) {\n\tcases := []struct {\n\t\tname, id, yaml, want string\n\t}{\n\t\t{\"id differs from directory\", \"ok\", strings.Replace(validTask, \"id: ok\", \"id: other\", 1), \"directory name\"},\n\t\t{\"no target\", \"ok\", strings.Replace(validTask, \"target: [a.go]\", \"target: []\", 1), \"required\"},\n\t\t{\"missing intent\", \"ok\", strings.Replace(validTask, \"code: c\\n\", \"\", 1), \"all required\"},\n\t\t{\"hidden is not a test file\", \"ok\", strings.Replace(validTask, \"hidden: [a_test.go]\", \"hidden: [ctx.go]\", 1), \"_test.go\"},\n\t\t{\"missing hidden file\", \"ok\", strings.Replace(validTask, \"a_test.go\", \"b_test.go\", 1), \"no such file\"},\n\t\t{\"target is also context\", \"ok\", strings.Replace(validTask, \"target: [a.go]\", \"target: [ctx.go]\", 1), \"also a context or hidden\"},\n\t}\n\tfor _, tc := range cases {\n\t\tt.Run(tc.name, func(t *testing.T) {\n\t\t\tdir := writeTask(t, t.TempDir(), tc.id, tc.yaml)\n\t\t\t_, err := LoadTask(dir)\n\t\t\tif err == nil || !strings.Contains(err.Error(), tc.want) {\n\t\t\t\tt.Fatalf(\"err = %v, want it to contain %q\", err, tc.want)\n\t\t\t}\n\t\t})\n\t}\n}",
+            "file": "evals/design/task_test.go",
+            "name": "TestLoadTaskRejects"
+          },
+          "kwargs_hash": "sha256:bdb83e599dd49652f4c0a4aba96c6c7a77c17ccc3d5ee9855c6dfe62cf3b7601",
+          "body": "sha256:52a1494e9038d2a6abd7ac78551929e2567139df4278991f0bb239a667edca98"
+        },
+        {
+          "path": "evals/design/task_test.go",
+          "action": "setFunction",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:6589611adfb6618a7920e43f951a79901428192ea95c1084fde9f222aecd9537",
+          "id": {
+            "file": "evals/design/task_test.go",
+            "name": "TestLoadTasks"
+          },
+          "kwargs": {
+            "code": "func TestLoadTasks(t *testing.T) {\n\ttasks, err := LoadTasks(\"testdata/tasks\")\n\tif err != nil {\n\t\tt.Fatal(err)\n\t}\n\tvar ids []string\n\tfor _, task := range tasks {\n\t\tids = append(ids, task.ID)\n\t}\n\tif got := strings.Join(ids, \",\"); got != \"append,read,render,since,summarize\" {\n\t\tt.Fatalf(\"tasks = %s\", got)\n\t}\n\tif _, err := LoadTasks(filepath.Join(t.TempDir(), \"none\")); err == nil {\n\t\tt.Fatal(\"a missing tasks directory must be an error\")\n\t}\n}",
+            "file": "evals/design/task_test.go",
+            "name": "TestLoadTasks"
+          },
+          "kwargs_hash": "sha256:548fad2314f4aadbf9442e0885fb17186c1b37c9a2b45d68a8d711aa276653e7",
+          "body": "sha256:a7932abb841459e2145297ef558e54e774141c5528cc26d1b33094d66b1eb7c4"
+        },
+        {
+          "path": "evals/design/task_test.go",
+          "action": "setFunction",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:6589611adfb6618a7920e43f951a79901428192ea95c1084fde9f222aecd9537",
+          "id": {
+            "file": "evals/design/task_test.go",
+            "name": "writeTask"
+          },
+          "kwargs": {
+            "code": "// writeTask writes a minimal valid task into root/id and returns its dir.\nfunc writeTask(t *testing.T, root, id, yaml string) string {\n\tt.Helper()\n\tdir := filepath.Join(root, id)\n\tfor _, d := range []string{\"context\", \"hidden\"} {\n\t\tif err := os.MkdirAll(filepath.Join(dir, d), 0o755); err != nil {\n\t\t\tt.Fatal(err)\n\t\t}\n\t}\n\tfiles := map[string]string{\n\t\t\"task.yaml\":        yaml,\n\t\t\"hidden/a_test.go\": \"package p\\n\\nimport \\\"testing\\\"\\n\\nfunc TestA(t *testing.T) {}\\n\",\n\t\t\"context/ctx.go\":   \"package p\\n\",\n\t}\n\tfor name, content := range files {\n\t\tif err := os.WriteFile(filepath.Join(dir, name), []byte(content), 0o644); err != nil {\n\t\t\tt.Fatal(err)\n\t\t}\n\t}\n\treturn dir\n}",
+            "file": "evals/design/task_test.go",
+            "name": "writeTask"
+          },
+          "kwargs_hash": "sha256:4449cbdc6d27c942198c701ee303878bc4a0c6c6f7bbbb0dd9cfca74bc8f8ed0",
+          "body": "sha256:5bdf4fd743982cc83926167285231a7d91acafce7bb35a86e896117c241119bc"
+        },
+        {
+          "path": "evals/design/variants.go",
+          "action": "addImport",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:d6a9443c14d82b7bdf19bb96637f957fd44ad9bfbe8f167c97e6f7699c8b830f",
+          "id": {
+            "file": "evals/design/variants.go",
+            "path": "fmt"
+          },
+          "kwargs": {
+            "file": "evals/design/variants.go",
+            "path": "fmt"
+          },
+          "kwargs_hash": "sha256:c8a910f1ce483e70c4036fadadf2e599736e290ce13f78b23b438978233eddbf",
+          "body": "sha256:bcbac51883cbf8064e9196b371cb880cee429866652447ad557533d817857609"
+        },
+        {
+          "path": "evals/design/variants.go",
+          "action": "addImport",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:d6a9443c14d82b7bdf19bb96637f957fd44ad9bfbe8f167c97e6f7699c8b830f",
+          "id": {
+            "file": "evals/design/variants.go",
+            "path": "os"
+          },
+          "kwargs": {
+            "file": "evals/design/variants.go",
+            "path": "os"
+          },
+          "kwargs_hash": "sha256:77636674272fca93e9d51d7df2217e8c190cf1534946212f44abd2bdeb59846c",
+          "body": "sha256:7c6e309eb2575d4aa451ec2ab83161d13e9ae03bbca3a4d2ecf30ce12adf0905"
+        },
+        {
+          "path": "evals/design/variants.go",
+          "action": "addImport",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:d6a9443c14d82b7bdf19bb96637f957fd44ad9bfbe8f167c97e6f7699c8b830f",
+          "id": {
+            "file": "evals/design/variants.go",
+            "path": "path/filepath"
+          },
+          "kwargs": {
+            "file": "evals/design/variants.go",
+            "path": "path/filepath"
+          },
+          "kwargs_hash": "sha256:3459b849e9b9d1ec53d994175c4a2f3eafd1cd0616fbbad1ff5273f50c6a5e39",
+          "body": "sha256:a6d196b558491e646be93f56a321f339068c64c76aa9d49bb18046e7f9c777a1"
+        },
+        {
+          "path": "evals/design/variants.go",
+          "action": "addImport",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:d6a9443c14d82b7bdf19bb96637f957fd44ad9bfbe8f167c97e6f7699c8b830f",
+          "id": {
+            "file": "evals/design/variants.go",
+            "path": "strings"
+          },
+          "kwargs": {
+            "file": "evals/design/variants.go",
+            "path": "strings"
+          },
+          "kwargs_hash": "sha256:55894839587b51bf63585ba98730eb4396d22584d0816d9c434daf27ded1f1e9",
+          "body": "sha256:a9af3c0bc4bf9342df9d7e89a324523fdba7941a9ca4190270e68ff3c4a25ea6"
+        },
+        {
+          "path": "evals/design/variants.go",
+          "action": "setConst",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:51be1c18998d63cc558c253e211a6bd188d96cb251dad68c6ea88e03c2d5cc4c",
+          "id": {
+            "file": "evals/design/variants.go",
+            "name": "VariantBehaviour"
+          },
+          "kwargs": {
+            "code": "// The three intent variants, from least to most given.\nconst (\n\tVariantBehaviour  Variant = \"behaviour\"\n\tVariantSignatures Variant = \"signatures\"\n\tVariantCode       Variant = \"code\"\n)",
+            "file": "evals/design/variants.go",
+            "name": "VariantBehaviour"
+          },
+          "kwargs_hash": "sha256:fbcdc7b2cfc49660dcbc9c77756e82f2fcdeb7641dd80c9fcf3f9aa296bc8aac",
+          "body": "sha256:19aa0fc0a30cfce11b6067fc226b55f7380b120d4e02e28acbcae6fad928ef93"
+        },
+        {
+          "path": "evals/design/variants.go",
+          "action": "setFunction",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:6589611adfb6618a7920e43f951a79901428192ea95c1084fde9f222aecd9537",
+          "id": {
+            "file": "evals/design/variants.go",
+            "name": "Variants"
+          },
+          "kwargs": {
+            "code": "// Variants returns every variant in order.\nfunc Variants() []Variant {\n\treturn []Variant{VariantBehaviour, VariantSignatures, VariantCode}\n}",
+            "file": "evals/design/variants.go",
+            "name": "Variants"
+          },
+          "kwargs_hash": "sha256:b622486e61519b46211451b295ba03237f7908f4ae594c27486053ef828b2952",
+          "body": "sha256:398f7aa41dfedac514655ef15fb81bd4c19b4d6b370031c9cad20e0091c73043"
+        },
+        {
+          "path": "evals/design/variants.go",
+          "action": "setMethod",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:8ea07fc52bbc260836983438ef08ad02746b86a1028c8b1a51b60eeb7b83cc2b",
+          "id": {
+            "file": "evals/design/variants.go",
+            "name": "Intent",
+            "receiver": "Task"
+          },
+          "kwargs": {
+            "code": "// Intent returns the task's intent text for v.\nfunc (t Task) Intent(v Variant) (string, error) {\n\tswitch v {\n\tcase VariantBehaviour:\n\t\treturn t.Behaviour, nil\n\tcase VariantSignatures:\n\t\treturn t.Signatures, nil\n\tcase VariantCode:\n\t\treturn t.Code, nil\n\t}\n\treturn \"\", fmt.Errorf(\"unknown variant %q\", v)\n}",
+            "file": "evals/design/variants.go",
+            "name": "Intent",
+            "receiver": "Task"
+          },
+          "kwargs_hash": "sha256:575453bda6220de928f854b02ac703f8929c2aca0cddc6e8a9e813507175954c",
+          "body": "sha256:c52ad94bc5e11c72babe79ca98e273e2a87b82ea3e125e8d77c4f504efc29ee8"
+        },
+        {
+          "path": "evals/design/variants.go",
+          "action": "setMethod",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:8ea07fc52bbc260836983438ef08ad02746b86a1028c8b1a51b60eeb7b83cc2b",
+          "id": {
+            "file": "evals/design/variants.go",
+            "name": "Isolated",
+            "receiver": "Task"
+          },
+          "kwargs": {
+            "code": "// Isolated returns an error when hidden test text could reach the model: a\n// hidden file's name, or any of its \"func Test\" lines, appearing in any of the\n// task's intents.\nfunc (t Task) Isolated() error {\n\tfor _, v := range Variants() {\n\t\tintent, err := t.Intent(v)\n\t\tif err != nil {\n\t\t\treturn err\n\t\t}\n\t\tfor _, f := range t.Hidden {\n\t\t\tif strings.Contains(intent, f) {\n\t\t\t\treturn fmt.Errorf(\"task %s: the %s intent names hidden file %s\", t.ID, v, f)\n\t\t\t}\n\t\t\tdata, err := os.ReadFile(filepath.Join(t.Dir, \"hidden\", f))\n\t\t\tif err != nil {\n\t\t\t\treturn err\n\t\t\t}\n\t\t\tfor _, line := range strings.Split(string(data), \"\\n\") {\n\t\t\t\tif strings.HasPrefix(line, \"func Test\") \u0026\u0026 strings.Contains(intent, line) {\n\t\t\t\t\treturn fmt.Errorf(\"task %s: the %s intent contains the hidden test line %q\", t.ID, v, line)\n\t\t\t\t}\n\t\t\t}\n\t\t}\n\t}\n\treturn nil\n}",
+            "file": "evals/design/variants.go",
+            "name": "Isolated",
+            "receiver": "Task"
+          },
+          "kwargs_hash": "sha256:8f5d5778e09f121330da39c97dcbe52812446a122abd4427e65063c20fe1593c",
+          "body": "sha256:3176fd32823243cd30350f29833947f924017522a16056ad51f82a5f342ab9d3"
+        },
+        {
+          "path": "evals/design/variants.go",
+          "action": "setType",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:ebb283283a745fdc09f0294b6e79bd879a830829cb964550ec6b4432fee5bb72",
+          "id": {
+            "file": "evals/design/variants.go",
+            "name": "Variant"
+          },
+          "kwargs": {
+            "code": "// Variant is how much of the answer an intent gives away.\ntype Variant string",
+            "file": "evals/design/variants.go",
+            "name": "Variant"
+          },
+          "kwargs_hash": "sha256:5f14a3c4c2067eee8228f2692e362bdb37f545f749af53cee6b35a69577d0142",
+          "body": "sha256:5d4150fa997e0186305b768f67e942dce8cacba55c19188294e462bc32554d6d"
+        },
+        {
+          "path": "evals/design/variants_test.go",
+          "action": "addImport",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:d6a9443c14d82b7bdf19bb96637f957fd44ad9bfbe8f167c97e6f7699c8b830f",
+          "id": {
+            "file": "evals/design/variants_test.go",
+            "path": "os"
+          },
+          "kwargs": {
+            "file": "evals/design/variants_test.go",
+            "path": "os"
+          },
+          "kwargs_hash": "sha256:319aacf314f98447503e065a6987a342d9cbf106dbde37925f4e4a224c5af62a",
+          "body": "sha256:7c6e309eb2575d4aa451ec2ab83161d13e9ae03bbca3a4d2ecf30ce12adf0905"
+        },
+        {
+          "path": "evals/design/variants_test.go",
+          "action": "addImport",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:d6a9443c14d82b7bdf19bb96637f957fd44ad9bfbe8f167c97e6f7699c8b830f",
+          "id": {
+            "file": "evals/design/variants_test.go",
+            "path": "path/filepath"
+          },
+          "kwargs": {
+            "file": "evals/design/variants_test.go",
+            "path": "path/filepath"
+          },
+          "kwargs_hash": "sha256:86464b7d287af4f6fcfef8202c1e35147fdc21a96779ee1e1fbf863925c29016",
+          "body": "sha256:a6d196b558491e646be93f56a321f339068c64c76aa9d49bb18046e7f9c777a1"
+        },
+        {
+          "path": "evals/design/variants_test.go",
+          "action": "addImport",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:d6a9443c14d82b7bdf19bb96637f957fd44ad9bfbe8f167c97e6f7699c8b830f",
+          "id": {
+            "file": "evals/design/variants_test.go",
+            "path": "strings"
+          },
+          "kwargs": {
+            "file": "evals/design/variants_test.go",
+            "path": "strings"
+          },
+          "kwargs_hash": "sha256:98f3f39d0bcd71d1f6fc21c5309872367e9e6c86a7e0e87ee3fe9b175e82bb69",
+          "body": "sha256:a9af3c0bc4bf9342df9d7e89a324523fdba7941a9ca4190270e68ff3c4a25ea6"
+        },
+        {
+          "path": "evals/design/variants_test.go",
+          "action": "addImport",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:d6a9443c14d82b7bdf19bb96637f957fd44ad9bfbe8f167c97e6f7699c8b830f",
+          "id": {
+            "file": "evals/design/variants_test.go",
+            "path": "testing"
+          },
+          "kwargs": {
+            "file": "evals/design/variants_test.go",
+            "path": "testing"
+          },
+          "kwargs_hash": "sha256:2e951aecf6cb84aadefa770768428aebb1377f8c0061b3185d7de06274cd3374",
+          "body": "sha256:14a4a5f3bfbf9325de04706efa8c15a9446f01d2a26624ce9c66bd1d69dc212e"
+        },
+        {
+          "path": "evals/design/variants_test.go",
+          "action": "setFunction",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:6589611adfb6618a7920e43f951a79901428192ea95c1084fde9f222aecd9537",
+          "id": {
+            "file": "evals/design/variants_test.go",
+            "name": "TestIntentVariants"
+          },
+          "kwargs": {
+            "code": "func TestIntentVariants(t *testing.T) {\n\ttask := Task{Behaviour: \"b\", Signatures: \"s\", Code: \"c\"}\n\tfor v, want := range map[Variant]string{VariantBehaviour: \"b\", VariantSignatures: \"s\", VariantCode: \"c\"} {\n\t\tgot, err := task.Intent(v)\n\t\tif err != nil || got != want {\n\t\t\tt.Errorf(\"Intent(%s) = %q, %v, want %q\", v, got, err, want)\n\t\t}\n\t}\n\tif _, err := task.Intent(\"nope\"); err == nil {\n\t\tt.Fatal(\"an unknown variant must be an error\")\n\t}\n\tif got := Variants(); len(got) != 3 || got[0] != VariantBehaviour || got[2] != VariantCode {\n\t\tt.Fatalf(\"Variants() = %v\", got)\n\t}\n}",
+            "file": "evals/design/variants_test.go",
+            "name": "TestIntentVariants"
+          },
+          "kwargs_hash": "sha256:0af2c7b59314a2b86c69a64e54a8ef828c22a24712ca787bceb8815c3f6560f9",
+          "body": "sha256:975e67d988278e4d543687f966f97398fb4c02434826c3aa3a095654dfad1d64"
+        },
+        {
+          "path": "evals/design/variants_test.go",
+          "action": "setFunction",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:6589611adfb6618a7920e43f951a79901428192ea95c1084fde9f222aecd9537",
+          "id": {
+            "file": "evals/design/variants_test.go",
+            "name": "TestIsolatedCatchesLeaks"
+          },
+          "kwargs": {
+            "code": "func TestIsolatedCatchesLeaks(t *testing.T) {\n\troot := t.TempDir()\n\tdir := writeTask(t, root, \"ok\", validTask)\n\ttask, err := LoadTask(dir)\n\tif err != nil {\n\t\tt.Fatal(err)\n\t}\n\tif err := task.Isolated(); err != nil {\n\t\tt.Fatalf(\"a clean task: %v\", err)\n\t}\n\tnamed := task\n\tnamed.Signatures = \"see a_test.go\"\n\tif err := named.Isolated(); err == nil || !strings.Contains(err.Error(), \"a_test.go\") {\n\t\tt.Fatalf(\"a named hidden file: %v\", err)\n\t}\n\tleaked := task\n\tleaked.Behaviour = \"copy this\\nfunc TestA(t *testing.T) {}\\n\"\n\tif err := leaked.Isolated(); err == nil || !strings.Contains(err.Error(), \"func TestA\") {\n\t\tt.Fatalf(\"a leaked test line: %v\", err)\n\t}\n\tif err := os.Remove(filepath.Join(dir, \"hidden\", \"a_test.go\")); err != nil {\n\t\tt.Fatal(err)\n\t}\n\tif err := task.Isolated(); err == nil {\n\t\tt.Fatal(\"an unreadable hidden file must be an error\")\n\t}\n}",
+            "file": "evals/design/variants_test.go",
+            "name": "TestIsolatedCatchesLeaks"
+          },
+          "kwargs_hash": "sha256:6de4eeb83bc5597d3425e313c8ca7e81c6e612496718459c3f10a850b4f6e42f",
+          "body": "sha256:5fdfe02ea45d8afad992c8a0aad23218dc66aaad7febe6f1005d78f68bdb9c9a"
+        },
+        {
+          "path": "evals/design/variants_test.go",
+          "action": "setFunction",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:6589611adfb6618a7920e43f951a79901428192ea95c1084fde9f222aecd9537",
+          "id": {
+            "file": "evals/design/variants_test.go",
+            "name": "TestIsolatedRealTasks"
+          },
+          "kwargs": {
+            "code": "func TestIsolatedRealTasks(t *testing.T) {\n\ttasks, err := LoadTasks(\"testdata/tasks\")\n\tif err != nil {\n\t\tt.Fatal(err)\n\t}\n\tfor _, task := range tasks {\n\t\tif err := task.Isolated(); err != nil {\n\t\t\tt.Errorf(\"%s: %v\", task.ID, err)\n\t\t}\n\t}\n}",
+            "file": "evals/design/variants_test.go",
+            "name": "TestIsolatedRealTasks"
+          },
+          "kwargs_hash": "sha256:eb9d09a6ad849cf1c2044338f9c004be71402f3e8a1c14e1cef604540f22216c",
+          "body": "sha256:64cfdda106c93ae134e7865736931c847d03f7be7f91e78d891801dc7975e45c"
+        }
+      ]
+    }
+  ]
+}

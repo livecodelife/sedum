@@ -1,0 +1,479 @@
+{
+  "sedum_version": "0.11.0",
+  "packages": {
+    "go": {
+      "extensions": [
+        ".go"
+      ]
+    }
+  },
+  "records": [
+    {
+      "record_id": "prov-2026-1b97007c",
+      "gen": "sha256:53668ca0cb5e79371162faf44e46140660adad99ff2ee94d8e5c91f82882b8c8",
+      "created_at": "2026-10-16",
+      "files": [
+        {
+          "path": "internal/adopt/forpackage.go",
+          "package": "go",
+          "template": "*/{pkg}/{name}.go",
+          "captures": {
+            "name": "forpackage",
+            "pkg": "adopt"
+          }
+        },
+        {
+          "path": "internal/adopt/forpackage_builtin_test.go",
+          "package": "go",
+          "template": "*/{pkg}/{name}.go",
+          "captures": {
+            "name": "forpackage_builtin_test",
+            "pkg": "adopt"
+          }
+        },
+        {
+          "path": "internal/adopt/forpackage_test.go",
+          "package": "go",
+          "template": "*/{pkg}/{name}.go",
+          "captures": {
+            "name": "forpackage_test",
+            "pkg": "adopt"
+          }
+        }
+      ],
+      "phases": [
+        {
+          "name": "default",
+          "invocations": [
+            {
+              "action": "addImport",
+              "kwargs": {
+                "file": "internal/adopt/forpackage.go",
+                "path": "fmt"
+              }
+            },
+            {
+              "action": "addImport",
+              "kwargs": {
+                "file": "internal/adopt/forpackage.go",
+                "path": "strings"
+              }
+            },
+            {
+              "action": "addImport",
+              "kwargs": {
+                "file": "internal/adopt/forpackage.go",
+                "path": "github.com/livecodelife/sedum/internal/genpkg"
+              }
+            },
+            {
+              "action": "setFunction",
+              "kwargs": {
+                "code": "// ForPackage chooses the adopter form the package declares. A built-in adopter\n// needs no permission. A command adopter runs only when allowCommand is set.\nfunc ForPackage(pkg *genpkg.Package, allowCommand bool) (Adopter, error) {\n\tif pkg.Adopt == nil {\n\t\treturn nil, fmt.Errorf(\"package %s declares no adopter\", pkg.Name)\n\t}\n\tif name := pkg.Adopt.Builtin; name != \"\" {\n\t\tmk, ok := builtinAdopters[name]\n\t\tif !ok {\n\t\t\treturn nil, fmt.Errorf(\"package %s names the built-in adopter %q, which this sedum does not have\", pkg.Name, name)\n\t\t}\n\t\treturn mk(), nil\n\t}\n\tif len(pkg.Adopt.Command) \u003e 0 {\n\t\tline := strings.Join(pkg.Adopt.Command, \" \")\n\t\tif !allowCommand {\n\t\t\treturn nil, fmt.Errorf(\"package %s declares a command adopter (%s); rerun with --allow-command-adopters to run it\", pkg.Name, line)\n\t\t}\n\t\treturn CommandAdopter{Argv: pkg.Adopt.Command}, nil\n\t}\n\treturn NewDeclarative(pkg)\n}",
+                "file": "internal/adopt/forpackage.go",
+                "name": "ForPackage"
+              }
+            },
+            {
+              "action": "setVar",
+              "kwargs": {
+                "code": "// builtinAdopters maps the name of a built-in adopter to its constructor.\nvar builtinAdopters = map[string]func() Adopter{\"go\": func() Adopter { return GoAdopter{} }}",
+                "file": "internal/adopt/forpackage.go",
+                "name": "builtinAdopters"
+              }
+            },
+            {
+              "action": "addImport",
+              "kwargs": {
+                "file": "internal/adopt/forpackage_builtin_test.go",
+                "path": "strings"
+              }
+            },
+            {
+              "action": "addImport",
+              "kwargs": {
+                "file": "internal/adopt/forpackage_builtin_test.go",
+                "path": "testing"
+              }
+            },
+            {
+              "action": "addImport",
+              "kwargs": {
+                "file": "internal/adopt/forpackage_builtin_test.go",
+                "path": "github.com/livecodelife/sedum/internal/genpkg"
+              }
+            },
+            {
+              "action": "setFunction",
+              "kwargs": {
+                "code": "func TestForPackageBuiltinGo(t *testing.T) {\n\tpkg := \u0026genpkg.Package{Name: \"go\", Adopt: \u0026genpkg.Adopt{Builtin: \"go\"}}\n\tad, err := ForPackage(pkg, false)\n\tif err != nil {\n\t\tt.Fatal(err)\n\t}\n\tif _, ok := ad.(GoAdopter); !ok {\n\t\tt.Fatalf(\"got %T, want GoAdopter\", ad)\n\t}\n}",
+                "file": "internal/adopt/forpackage_builtin_test.go",
+                "name": "TestForPackageBuiltinGo"
+              }
+            },
+            {
+              "action": "setFunction",
+              "kwargs": {
+                "code": "func TestForPackageBuiltinUnknown(t *testing.T) {\n\tpkg := \u0026genpkg.Package{Name: \"cobol\", Adopt: \u0026genpkg.Adopt{Builtin: \"cobol\"}}\n\t_, err := ForPackage(pkg, false)\n\tif err == nil || !strings.Contains(err.Error(), \"does not have\") {\n\t\tt.Fatalf(\"err = %v, want it to mention \\\"does not have\\\"\", err)\n\t}\n}",
+                "file": "internal/adopt/forpackage_builtin_test.go",
+                "name": "TestForPackageBuiltinUnknown"
+              }
+            },
+            {
+              "action": "addImport",
+              "kwargs": {
+                "file": "internal/adopt/forpackage_test.go",
+                "path": "reflect"
+              }
+            },
+            {
+              "action": "addImport",
+              "kwargs": {
+                "file": "internal/adopt/forpackage_test.go",
+                "path": "testing"
+              }
+            },
+            {
+              "action": "addImport",
+              "kwargs": {
+                "file": "internal/adopt/forpackage_test.go",
+                "path": "github.com/livecodelife/sedum/internal/genpkg"
+              }
+            },
+            {
+              "action": "setFunction",
+              "kwargs": {
+                "code": "func TestForPackageDeclarative(t *testing.T) {\n\tpkg := \u0026genpkg.Package{\n\t\tName: \"py\",\n\t\tAdopt: \u0026genpkg.Adopt{\n\t\t\tUnitStart: `^(?P\u003ckind\u003edef) (?P\u003cname\u003e\\w+)`,\n\t\t\tUnitEnd:   \"dedent\",\n\t\t\tActions:   map[string]string{\"def\": \"setFunction\"},\n\t\t},\n\t\tActions: map[string]*genpkg.Action{\"setFunction\": {Name: \"setFunction\"}},\n\t}\n\ta, err := ForPackage(pkg, false)\n\tif err != nil {\n\t\tt.Fatal(err)\n\t}\n\tif _, ok := a.(*Declarative); !ok {\n\t\tt.Fatalf(\"got %T, want *Declarative\", a)\n\t}\n}",
+                "file": "internal/adopt/forpackage_test.go",
+                "name": "TestForPackageDeclarative"
+              }
+            },
+            {
+              "action": "setFunction",
+              "kwargs": {
+                "code": "func TestForPackageCommandNeedsPermission(t *testing.T) {\n\tpkg := \u0026genpkg.Package{Name: \"py\", Adopt: \u0026genpkg.Adopt{Command: []string{\"splitter\", \"-x\"}}}\n\t_, err := ForPackage(pkg, false)\n\twant := \"package py declares a command adopter (splitter -x); rerun with --allow-command-adopters to run it\"\n\tif err == nil || err.Error() != want {\n\t\tt.Fatalf(\"err = %v, want %q\", err, want)\n\t}\n}",
+                "file": "internal/adopt/forpackage_test.go",
+                "name": "TestForPackageCommandNeedsPermission"
+              }
+            },
+            {
+              "action": "setFunction",
+              "kwargs": {
+                "code": "func TestForPackageCommandAllowed(t *testing.T) {\n\tpkg := \u0026genpkg.Package{Name: \"py\", Adopt: \u0026genpkg.Adopt{Command: []string{\"splitter\", \"-x\"}}}\n\ta, err := ForPackage(pkg, true)\n\tif err != nil {\n\t\tt.Fatal(err)\n\t}\n\tca, ok := a.(CommandAdopter)\n\tif !ok {\n\t\tt.Fatalf(\"got %T, want CommandAdopter\", a)\n\t}\n\tif !reflect.DeepEqual(ca.Argv, pkg.Adopt.Command) {\n\t\tt.Fatalf(\"Argv = %v, want %v\", ca.Argv, pkg.Adopt.Command)\n\t}\n}",
+                "file": "internal/adopt/forpackage_test.go",
+                "name": "TestForPackageCommandAllowed"
+              }
+            },
+            {
+              "action": "setFunction",
+              "kwargs": {
+                "code": "func TestForPackageNoAdopter(t *testing.T) {\n\tpkg := \u0026genpkg.Package{Name: \"py\"}\n\t_, err := ForPackage(pkg, false)\n\twant := \"package py declares no adopter\"\n\tif err == nil || err.Error() != want {\n\t\tt.Fatalf(\"err = %v, want %q\", err, want)\n\t}\n}",
+                "file": "internal/adopt/forpackage_test.go",
+                "name": "TestForPackageNoAdopter"
+              }
+            }
+          ]
+        }
+      ],
+      "regions": [
+        {
+          "path": "internal/adopt/forpackage.go",
+          "action": "addImport",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:d6a9443c14d82b7bdf19bb96637f957fd44ad9bfbe8f167c97e6f7699c8b830f",
+          "id": {
+            "file": "internal/adopt/forpackage.go",
+            "path": "fmt"
+          },
+          "kwargs": {
+            "file": "internal/adopt/forpackage.go",
+            "path": "fmt"
+          },
+          "kwargs_hash": "sha256:86eacf2cdd4d0adb123e0fbd011683b529fa0099457de077e1c51c869965e849",
+          "body": "sha256:bcbac51883cbf8064e9196b371cb880cee429866652447ad557533d817857609"
+        },
+        {
+          "path": "internal/adopt/forpackage.go",
+          "action": "addImport",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:d6a9443c14d82b7bdf19bb96637f957fd44ad9bfbe8f167c97e6f7699c8b830f",
+          "id": {
+            "file": "internal/adopt/forpackage.go",
+            "path": "github.com/livecodelife/sedum/internal/genpkg"
+          },
+          "kwargs": {
+            "file": "internal/adopt/forpackage.go",
+            "path": "github.com/livecodelife/sedum/internal/genpkg"
+          },
+          "kwargs_hash": "sha256:3da6e786065e55c80ad0cfce9584fc1070e8364371ec85611f0721af1a371384",
+          "body": "sha256:5b4c7dbee430534527d893269527d915be58accc7a8330a8c104c2014153525d"
+        },
+        {
+          "path": "internal/adopt/forpackage.go",
+          "action": "addImport",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:d6a9443c14d82b7bdf19bb96637f957fd44ad9bfbe8f167c97e6f7699c8b830f",
+          "id": {
+            "file": "internal/adopt/forpackage.go",
+            "path": "strings"
+          },
+          "kwargs": {
+            "file": "internal/adopt/forpackage.go",
+            "path": "strings"
+          },
+          "kwargs_hash": "sha256:e47532b981cfdff965bbd15fd3de064bb5b717a4f340c6005a02fdecace4d304",
+          "body": "sha256:a9af3c0bc4bf9342df9d7e89a324523fdba7941a9ca4190270e68ff3c4a25ea6"
+        },
+        {
+          "path": "internal/adopt/forpackage.go",
+          "action": "setFunction",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:6589611adfb6618a7920e43f951a79901428192ea95c1084fde9f222aecd9537",
+          "id": {
+            "file": "internal/adopt/forpackage.go",
+            "name": "ForPackage"
+          },
+          "kwargs": {
+            "code": "// ForPackage chooses the adopter form the package declares. A built-in adopter\n// needs no permission. A command adopter runs only when allowCommand is set.\nfunc ForPackage(pkg *genpkg.Package, allowCommand bool) (Adopter, error) {\n\tif pkg.Adopt == nil {\n\t\treturn nil, fmt.Errorf(\"package %s declares no adopter\", pkg.Name)\n\t}\n\tif name := pkg.Adopt.Builtin; name != \"\" {\n\t\tmk, ok := builtinAdopters[name]\n\t\tif !ok {\n\t\t\treturn nil, fmt.Errorf(\"package %s names the built-in adopter %q, which this sedum does not have\", pkg.Name, name)\n\t\t}\n\t\treturn mk(), nil\n\t}\n\tif len(pkg.Adopt.Command) \u003e 0 {\n\t\tline := strings.Join(pkg.Adopt.Command, \" \")\n\t\tif !allowCommand {\n\t\t\treturn nil, fmt.Errorf(\"package %s declares a command adopter (%s); rerun with --allow-command-adopters to run it\", pkg.Name, line)\n\t\t}\n\t\treturn CommandAdopter{Argv: pkg.Adopt.Command}, nil\n\t}\n\treturn NewDeclarative(pkg)\n}",
+            "file": "internal/adopt/forpackage.go",
+            "name": "ForPackage"
+          },
+          "kwargs_hash": "sha256:55e148543e254abb8388b6d72ae7353818db4c9d7d7893f7cb6727d831371c54",
+          "body": "sha256:b073b22c6b49640fbaef05c70de6016ccc4f90ff1fbc984983ab976472a2e7cf"
+        },
+        {
+          "path": "internal/adopt/forpackage.go",
+          "action": "setVar",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:c7b9d9ac1655e8211b8b2ca8c49cf34b8d510d8d823d4f5eb60ec7e1018aa2eb",
+          "id": {
+            "file": "internal/adopt/forpackage.go",
+            "name": "builtinAdopters"
+          },
+          "kwargs": {
+            "code": "// builtinAdopters maps the name of a built-in adopter to its constructor.\nvar builtinAdopters = map[string]func() Adopter{\"go\": func() Adopter { return GoAdopter{} }}",
+            "file": "internal/adopt/forpackage.go",
+            "name": "builtinAdopters"
+          },
+          "kwargs_hash": "sha256:20cdbad7280a569f805758ba5a2b3a6a907aebff2912dc6418e68c8818e538e6",
+          "body": "sha256:74923371cca67f3552a3a977142d0b0159a36c2ee8cdf9d3a9d8302932294bd4"
+        },
+        {
+          "path": "internal/adopt/forpackage_builtin_test.go",
+          "action": "addImport",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:d6a9443c14d82b7bdf19bb96637f957fd44ad9bfbe8f167c97e6f7699c8b830f",
+          "id": {
+            "file": "internal/adopt/forpackage_builtin_test.go",
+            "path": "github.com/livecodelife/sedum/internal/genpkg"
+          },
+          "kwargs": {
+            "file": "internal/adopt/forpackage_builtin_test.go",
+            "path": "github.com/livecodelife/sedum/internal/genpkg"
+          },
+          "kwargs_hash": "sha256:4878c6b78d2bb36b4221aec477c2c48e22cc62565afc086a8ca7a004201ac9cd",
+          "body": "sha256:5b4c7dbee430534527d893269527d915be58accc7a8330a8c104c2014153525d"
+        },
+        {
+          "path": "internal/adopt/forpackage_builtin_test.go",
+          "action": "addImport",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:d6a9443c14d82b7bdf19bb96637f957fd44ad9bfbe8f167c97e6f7699c8b830f",
+          "id": {
+            "file": "internal/adopt/forpackage_builtin_test.go",
+            "path": "strings"
+          },
+          "kwargs": {
+            "file": "internal/adopt/forpackage_builtin_test.go",
+            "path": "strings"
+          },
+          "kwargs_hash": "sha256:f68b9f294598c9d6b11c7e5e8c19d63138a405b51f01b0c67f608aa69e70416a",
+          "body": "sha256:a9af3c0bc4bf9342df9d7e89a324523fdba7941a9ca4190270e68ff3c4a25ea6"
+        },
+        {
+          "path": "internal/adopt/forpackage_builtin_test.go",
+          "action": "addImport",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:d6a9443c14d82b7bdf19bb96637f957fd44ad9bfbe8f167c97e6f7699c8b830f",
+          "id": {
+            "file": "internal/adopt/forpackage_builtin_test.go",
+            "path": "testing"
+          },
+          "kwargs": {
+            "file": "internal/adopt/forpackage_builtin_test.go",
+            "path": "testing"
+          },
+          "kwargs_hash": "sha256:e77bbea07d9da9bb2ce96ce1fcb2a94e65348379f04a46aec5f7ae8ba6ce4303",
+          "body": "sha256:14a4a5f3bfbf9325de04706efa8c15a9446f01d2a26624ce9c66bd1d69dc212e"
+        },
+        {
+          "path": "internal/adopt/forpackage_builtin_test.go",
+          "action": "setFunction",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:6589611adfb6618a7920e43f951a79901428192ea95c1084fde9f222aecd9537",
+          "id": {
+            "file": "internal/adopt/forpackage_builtin_test.go",
+            "name": "TestForPackageBuiltinGo"
+          },
+          "kwargs": {
+            "code": "func TestForPackageBuiltinGo(t *testing.T) {\n\tpkg := \u0026genpkg.Package{Name: \"go\", Adopt: \u0026genpkg.Adopt{Builtin: \"go\"}}\n\tad, err := ForPackage(pkg, false)\n\tif err != nil {\n\t\tt.Fatal(err)\n\t}\n\tif _, ok := ad.(GoAdopter); !ok {\n\t\tt.Fatalf(\"got %T, want GoAdopter\", ad)\n\t}\n}",
+            "file": "internal/adopt/forpackage_builtin_test.go",
+            "name": "TestForPackageBuiltinGo"
+          },
+          "kwargs_hash": "sha256:5f4e9255f485c017c7d8b900d38841becdd9446708d6954c61bdd83b9e59b246",
+          "body": "sha256:8a2f1761b640e386afb778d30174a99087261baa2f5f127ba0c0b61a72a692fb"
+        },
+        {
+          "path": "internal/adopt/forpackage_builtin_test.go",
+          "action": "setFunction",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:6589611adfb6618a7920e43f951a79901428192ea95c1084fde9f222aecd9537",
+          "id": {
+            "file": "internal/adopt/forpackage_builtin_test.go",
+            "name": "TestForPackageBuiltinUnknown"
+          },
+          "kwargs": {
+            "code": "func TestForPackageBuiltinUnknown(t *testing.T) {\n\tpkg := \u0026genpkg.Package{Name: \"cobol\", Adopt: \u0026genpkg.Adopt{Builtin: \"cobol\"}}\n\t_, err := ForPackage(pkg, false)\n\tif err == nil || !strings.Contains(err.Error(), \"does not have\") {\n\t\tt.Fatalf(\"err = %v, want it to mention \\\"does not have\\\"\", err)\n\t}\n}",
+            "file": "internal/adopt/forpackage_builtin_test.go",
+            "name": "TestForPackageBuiltinUnknown"
+          },
+          "kwargs_hash": "sha256:f380c9598858b6c4526385b6dedb4f94ceda880ee421dc2273f58893b48069ef",
+          "body": "sha256:5a24c240c267319434c84a2068ca3fddc26b6d8c8e45c65246a97a3ae225c4ce"
+        },
+        {
+          "path": "internal/adopt/forpackage_test.go",
+          "action": "addImport",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:d6a9443c14d82b7bdf19bb96637f957fd44ad9bfbe8f167c97e6f7699c8b830f",
+          "id": {
+            "file": "internal/adopt/forpackage_test.go",
+            "path": "github.com/livecodelife/sedum/internal/genpkg"
+          },
+          "kwargs": {
+            "file": "internal/adopt/forpackage_test.go",
+            "path": "github.com/livecodelife/sedum/internal/genpkg"
+          },
+          "kwargs_hash": "sha256:fd7ed75f4f803ba2b815822782772a2734bede7c0eea09e61d9591120e385b0d",
+          "body": "sha256:5b4c7dbee430534527d893269527d915be58accc7a8330a8c104c2014153525d"
+        },
+        {
+          "path": "internal/adopt/forpackage_test.go",
+          "action": "addImport",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:d6a9443c14d82b7bdf19bb96637f957fd44ad9bfbe8f167c97e6f7699c8b830f",
+          "id": {
+            "file": "internal/adopt/forpackage_test.go",
+            "path": "reflect"
+          },
+          "kwargs": {
+            "file": "internal/adopt/forpackage_test.go",
+            "path": "reflect"
+          },
+          "kwargs_hash": "sha256:d1a91a2d847263f5c16ad40e6544b508e3dd0989c292b5e9fb091feabf91c745",
+          "body": "sha256:893cf368d31e1d8fe04189a0aba8627e8e69b39eafe10bea46d39a275e986fa2"
+        },
+        {
+          "path": "internal/adopt/forpackage_test.go",
+          "action": "addImport",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:d6a9443c14d82b7bdf19bb96637f957fd44ad9bfbe8f167c97e6f7699c8b830f",
+          "id": {
+            "file": "internal/adopt/forpackage_test.go",
+            "path": "testing"
+          },
+          "kwargs": {
+            "file": "internal/adopt/forpackage_test.go",
+            "path": "testing"
+          },
+          "kwargs_hash": "sha256:daa76f9a2123c7a9cf747704a3ded634482ff718edc6bd83f380ad9abdca75f5",
+          "body": "sha256:14a4a5f3bfbf9325de04706efa8c15a9446f01d2a26624ce9c66bd1d69dc212e"
+        },
+        {
+          "path": "internal/adopt/forpackage_test.go",
+          "action": "setFunction",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:6589611adfb6618a7920e43f951a79901428192ea95c1084fde9f222aecd9537",
+          "id": {
+            "file": "internal/adopt/forpackage_test.go",
+            "name": "TestForPackageCommandAllowed"
+          },
+          "kwargs": {
+            "code": "func TestForPackageCommandAllowed(t *testing.T) {\n\tpkg := \u0026genpkg.Package{Name: \"py\", Adopt: \u0026genpkg.Adopt{Command: []string{\"splitter\", \"-x\"}}}\n\ta, err := ForPackage(pkg, true)\n\tif err != nil {\n\t\tt.Fatal(err)\n\t}\n\tca, ok := a.(CommandAdopter)\n\tif !ok {\n\t\tt.Fatalf(\"got %T, want CommandAdopter\", a)\n\t}\n\tif !reflect.DeepEqual(ca.Argv, pkg.Adopt.Command) {\n\t\tt.Fatalf(\"Argv = %v, want %v\", ca.Argv, pkg.Adopt.Command)\n\t}\n}",
+            "file": "internal/adopt/forpackage_test.go",
+            "name": "TestForPackageCommandAllowed"
+          },
+          "kwargs_hash": "sha256:0a97c72e524993f248a2f12c29fe6f58f45c9c694750d2f5c33a36e1e8bee408",
+          "body": "sha256:509e058210bb11fcaccb0289c9cba1b112a73ec7ba987546fcaab2cd1214730d"
+        },
+        {
+          "path": "internal/adopt/forpackage_test.go",
+          "action": "setFunction",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:6589611adfb6618a7920e43f951a79901428192ea95c1084fde9f222aecd9537",
+          "id": {
+            "file": "internal/adopt/forpackage_test.go",
+            "name": "TestForPackageCommandNeedsPermission"
+          },
+          "kwargs": {
+            "code": "func TestForPackageCommandNeedsPermission(t *testing.T) {\n\tpkg := \u0026genpkg.Package{Name: \"py\", Adopt: \u0026genpkg.Adopt{Command: []string{\"splitter\", \"-x\"}}}\n\t_, err := ForPackage(pkg, false)\n\twant := \"package py declares a command adopter (splitter -x); rerun with --allow-command-adopters to run it\"\n\tif err == nil || err.Error() != want {\n\t\tt.Fatalf(\"err = %v, want %q\", err, want)\n\t}\n}",
+            "file": "internal/adopt/forpackage_test.go",
+            "name": "TestForPackageCommandNeedsPermission"
+          },
+          "kwargs_hash": "sha256:efd192ba8f1121315a10898986ddeb9ac694244c3be039f3f58181b56b25a132",
+          "body": "sha256:574d66b69cf5d978f7d7ad75d194f74a8d24e5e421bfb491d793d8ecfcd3127f"
+        },
+        {
+          "path": "internal/adopt/forpackage_test.go",
+          "action": "setFunction",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:6589611adfb6618a7920e43f951a79901428192ea95c1084fde9f222aecd9537",
+          "id": {
+            "file": "internal/adopt/forpackage_test.go",
+            "name": "TestForPackageDeclarative"
+          },
+          "kwargs": {
+            "code": "func TestForPackageDeclarative(t *testing.T) {\n\tpkg := \u0026genpkg.Package{\n\t\tName: \"py\",\n\t\tAdopt: \u0026genpkg.Adopt{\n\t\t\tUnitStart: `^(?P\u003ckind\u003edef) (?P\u003cname\u003e\\w+)`,\n\t\t\tUnitEnd:   \"dedent\",\n\t\t\tActions:   map[string]string{\"def\": \"setFunction\"},\n\t\t},\n\t\tActions: map[string]*genpkg.Action{\"setFunction\": {Name: \"setFunction\"}},\n\t}\n\ta, err := ForPackage(pkg, false)\n\tif err != nil {\n\t\tt.Fatal(err)\n\t}\n\tif _, ok := a.(*Declarative); !ok {\n\t\tt.Fatalf(\"got %T, want *Declarative\", a)\n\t}\n}",
+            "file": "internal/adopt/forpackage_test.go",
+            "name": "TestForPackageDeclarative"
+          },
+          "kwargs_hash": "sha256:641241ce29bc4cb3daae208c8ec4427a7ae061126e3d513545876ca8bbc3e9af",
+          "body": "sha256:a0fec31288d1a85f505d8e6d254aea2ff5de51beec8536ae62c09553ae6499e8"
+        },
+        {
+          "path": "internal/adopt/forpackage_test.go",
+          "action": "setFunction",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:6589611adfb6618a7920e43f951a79901428192ea95c1084fde9f222aecd9537",
+          "id": {
+            "file": "internal/adopt/forpackage_test.go",
+            "name": "TestForPackageNoAdopter"
+          },
+          "kwargs": {
+            "code": "func TestForPackageNoAdopter(t *testing.T) {\n\tpkg := \u0026genpkg.Package{Name: \"py\"}\n\t_, err := ForPackage(pkg, false)\n\twant := \"package py declares no adopter\"\n\tif err == nil || err.Error() != want {\n\t\tt.Fatalf(\"err = %v, want %q\", err, want)\n\t}\n}",
+            "file": "internal/adopt/forpackage_test.go",
+            "name": "TestForPackageNoAdopter"
+          },
+          "kwargs_hash": "sha256:dc30caa5308e29bc8a73f4575400b53f82ef969066455ea03dcd6d004392002f",
+          "body": "sha256:f71c6e2ad0b0f02233f5328bfb6b4ac4588fbffa44134f2615963ce2f63f49f3"
+        }
+      ]
+    }
+  ]
+}
