@@ -1,0 +1,196 @@
+id: prov-2026-78be21c1
+version: 3
+content_hash: sha256:967d042710d964dda2ac79ba80eba655bcaa7e00a92405fac45be9170b4d8a41
+parent_hash: sha256:1bfcb061f7ca3f1f72c323efc7c2c6a75faf810b56f16f838886a10d67326c8e
+reason: Refresh spec hashes after the v2 marker migration rewrote the spec files
+author: calebcowen@gmail.com
+created_at: "2026-10-30T17:48:45Z"
+spec_hashes:
+  - sha256:5649f5c2a6123e1de393095606ee35ebf2d6a046de1d99fdfb357f806b6fc9d2
+content:
+  id: prov-2026-78be21c1
+  title: 'growlog: the summary'
+  type: imprint
+  created_at: "2026-10-16"
+  author: calebcowen@gmail.com
+  intent: |-
+    Summarizing the grow log (prov-2026-7a13f569): per-model and total stats, with a Filter by time, record and model. Retries are the answers a model had refused (Entry.Rejected); Repairs are verification send-backs; both are in the stats so Haiku runs can be compared over time.
+
+    New file internal/growlog/summary.go (package growlog); standard library only. TRANSCRIBE, do not design: write exactly the code below. Imports (sort, time): one addImport each. Declarations: one invocation per declaration (type -> setType, const -> setConst, func -> setFunction, method -> setMethod with the receiver type name), code = the whole declaration including its doc comment, exactly as written, tabs for indentation, no changes of any kind.
+
+    // Filter selects which entries Summarize counts. Zero fields match everything.
+    type Filter struct {
+    	Since  time.Time
+    	Record string
+    	Model  string
+    }
+
+    // match reports whether e passes the filter. An entry whose ts does not parse
+    // fails a non-zero Since.
+    func (f Filter) match(e Entry) bool {
+    	if f.Record != "" && e.Record != f.Record {
+    		return false
+    	}
+    	if f.Model != "" && e.Model != f.Model {
+    		return false
+    	}
+    	if !f.Since.IsZero() {
+    		ts, err := time.Parse(time.RFC3339, e.TS)
+    		if err != nil || ts.Before(f.Since) {
+    			return false
+    		}
+    	}
+    	return true
+    }
+
+    // ModelStats is the totals for one model. Retries are the answers the model
+    // had refused (Entry.Rejected); Repairs are verification send-backs.
+    type ModelStats struct {
+    	Model            string `json:"model"`
+    	Grows            int    `json:"grows"`
+    	Failed           int    `json:"failed"`
+    	Calls            int    `json:"calls"`
+    	Retries          int    `json:"retries"`
+    	Repairs          int    `json:"repairs"`
+    	Completeness     int    `json:"completeness"`
+    	PromptTokens     int    `json:"prompt_tokens"`
+    	CompletionTokens int    `json:"completion_tokens"`
+    	Invocations      int    `json:"invocations"`
+    	Literal          int    `json:"literal"`
+    }
+
+    // LiteralShare is the fraction of invocations that carried model-written code,
+    // or 0 when there were none.
+    func (m ModelStats) LiteralShare() float64 {
+    	if m.Invocations == 0 {
+    		return 0
+    	}
+    	return float64(m.Literal) / float64(m.Invocations)
+    }
+
+    // FailureRate is the fraction of grows that failed, or 0 when there were none.
+    func (m ModelStats) FailureRate() float64 {
+    	if m.Grows == 0 {
+    		return 0
+    	}
+    	return float64(m.Failed) / float64(m.Grows)
+    }
+
+    // Summary is Summarize's result: per-model stats sorted by model name, and the
+    // total over all of them.
+    type Summary struct {
+    	Entries   int          `json:"entries"`
+    	Malformed int          `json:"malformed"`
+    	Models    []ModelStats `json:"models"`
+    	Total     ModelStats   `json:"total"`
+    }
+
+    // add counts e into m. A skip line is not a grow.
+    func (m *ModelStats) add(e Entry) {
+    	if e.Mode != "skip" {
+    		m.Grows++
+    		if e.Outcome == "failed" {
+    			m.Failed++
+    		}
+    	}
+    	m.Calls += e.Calls
+    	m.Retries += e.Rejected
+    	m.Repairs += e.Repairs
+    	m.Completeness += e.Completeness
+    	m.PromptTokens += e.PromptTokens
+    	m.CompletionTokens += e.CompletionTokens
+    	m.Invocations += e.Invocations
+    	m.Literal += e.Literal
+    }
+
+    // Summarize totals the entries that pass f, per model and overall.
+    func Summarize(entries []Entry, f Filter) Summary {
+    	by := map[string]*ModelStats{}
+    	var s Summary
+    	for _, e := range entries {
+    		if !f.match(e) {
+    			continue
+    		}
+    		s.Entries++
+    		m := by[e.Model]
+    		if m == nil {
+    			m = &ModelStats{Model: e.Model}
+    			by[e.Model] = m
+    		}
+    		m.add(e)
+    		s.Total.add(e)
+    	}
+    	for _, m := range by {
+    		s.Models = append(s.Models, *m)
+    	}
+    	sort.Slice(s.Models, func(i, j int) bool { return s.Models[i].Model < s.Models[j].Model })
+    	if s.Models == nil {
+    		s.Models = []ModelStats{}
+    	}
+    	return s
+    }
+
+    Tests: the NEW file internal/growlog/summary_test.go (the imprint's spec; it exists as a one-line placeholder). Transcribe exactly this test file; imports (testing, time): one addImport each; each function -> setFunction with its name. Use the fixture text exactly (tabs, ASCII quotes).
+
+    func summaryEntries() []Entry {
+    	return []Entry{
+    		{TS: "2026-10-01T00:00:00Z", Record: "r1", Mode: "select", Model: "haiku", Outcome: "ok", Calls: 2, Rejected: 1, Repairs: 1, PromptTokens: 100, CompletionTokens: 20, Invocations: 4, Literal: 3},
+    		{TS: "2026-10-02T00:00:00Z", Record: "r2", Mode: "select", Model: "haiku", Outcome: "failed", Calls: 3, Rejected: 3, PromptTokens: 50, CompletionTokens: 5, Invocations: 0},
+    		{TS: "2026-10-03T00:00:00Z", Record: "r1", Mode: "select", Model: "stub", Outcome: "ok", Calls: 1, Invocations: 2},
+    		{TS: "2026-10-04T00:00:00Z", Record: "r3", Mode: "skip", Model: "", Outcome: "ok"},
+    	}
+    }
+
+    func TestSummarizePerModel(t *testing.T) {
+    	s := Summarize(summaryEntries(), Filter{})
+    	if s.Entries != 4 || len(s.Models) != 3 {
+    		t.Fatalf("entries = %d, models = %d, want 4 and 3", s.Entries, len(s.Models))
+    	}
+    	if s.Models[0].Model != "" || s.Models[1].Model != "haiku" || s.Models[2].Model != "stub" {
+    		t.Fatalf("models not sorted by name: %+v", s.Models)
+    	}
+    	h := s.Models[1]
+    	if h.Grows != 2 || h.Failed != 1 || h.Calls != 5 || h.Retries != 4 || h.Repairs != 1 || h.PromptTokens != 150 || h.CompletionTokens != 25 || h.Invocations != 4 || h.Literal != 3 {
+    		t.Fatalf("haiku = %+v", h)
+    	}
+    	if h.FailureRate() != 0.5 || h.LiteralShare() != 0.75 {
+    		t.Fatalf("rates = %v, %v", h.FailureRate(), h.LiteralShare())
+    	}
+    	if s.Models[0].Grows != 0 {
+    		t.Fatalf("a skip line is not a grow: %+v", s.Models[0])
+    	}
+    	if s.Total.Grows != 3 || s.Total.Calls != 6 || s.Total.Retries != 4 {
+    		t.Fatalf("total = %+v", s.Total)
+    	}
+    }
+
+    func TestSummarizeFilters(t *testing.T) {
+    	since := time.Date(2026, 10, 2, 12, 0, 0, 0, time.UTC)
+    	if s := Summarize(summaryEntries(), Filter{Since: since}); s.Entries != 2 {
+    		t.Fatalf("since: entries = %d, want 2", s.Entries)
+    	}
+    	if s := Summarize(summaryEntries(), Filter{Model: "haiku"}); s.Entries != 2 || s.Total.Calls != 5 {
+    		t.Fatalf("model: %+v", s)
+    	}
+    	if s := Summarize(summaryEntries(), Filter{Record: "r1"}); s.Entries != 2 {
+    		t.Fatalf("record: entries = %d, want 2", s.Entries)
+    	}
+    	bad := []Entry{{TS: "yesterday", Model: "m", Outcome: "ok"}}
+    	if s := Summarize(bad, Filter{Since: since}); s.Entries != 0 {
+    		t.Fatalf("an unparsable ts must fail Since: %+v", s)
+    	}
+    }
+
+    func TestSummarizeEmpty(t *testing.T) {
+    	s := Summarize(nil, Filter{})
+    	if s.Models == nil || len(s.Models) != 0 || s.Entries != 0 {
+    		t.Fatalf("empty summary = %+v", s)
+    	}
+    }
+  affected_scope:
+    - internal/growlog/summary.go
+    - internal/growlog/summary_test.go
+  implements: prov-2026-7a13f569
+  implements_version: 1
+  associated_specs:
+    - path: internal/growlog/summary_test.go
