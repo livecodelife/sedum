@@ -1,7 +1,7 @@
 id: prov-2026-b5c21813
 title: grow --repair feeds project verification failures back to the model
 type: blueprint
-status: open
+status: implemented
 version: 6
 reason: Refresh spec hashes after the v2 marker migration rewrote the spec files
 created_at: "2026-10-16"
@@ -84,7 +84,7 @@ affected_scope:
   - internal/selection/verifyerror_test.go
 forbidden_scope: []
 related: []
-sealed_at_sha: ""
+sealed_at_sha: 15f298c2f46e1f1901217cb82e2ea3b5da427d86
 associated_specs:
   - path: internal/verify/verify_test.go
     run_command: go test ./internal/verify -count=1
