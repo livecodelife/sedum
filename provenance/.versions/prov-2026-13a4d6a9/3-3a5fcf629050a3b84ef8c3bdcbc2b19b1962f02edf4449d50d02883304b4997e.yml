@@ -1,0 +1,107 @@
+id: prov-2026-13a4d6a9
+version: 3
+content_hash: sha256:3a5fcf629050a3b84ef8c3bdcbc2b19b1962f02edf4449d50d02883304b4997e
+parent_hash: sha256:f788ed34753ba9e055c74ff3950affdc0f77806436c9f5b28ec89b7858a8f1f6
+reason: Refresh spec hashes after the v2 marker migration rewrote the spec files
+author: calebcowen@gmail.com
+created_at: "2026-10-30T17:39:55Z"
+spec_hashes:
+  - sha256:f310678b516a694bacfe7ba3b2e81bebb58e8b6c1aaf2efbb5c6db1632c60da1
+content:
+  id: prov-2026-13a4d6a9
+  title: 'growlog: the summary renderers'
+  type: imprint
+  created_at: "2026-10-16"
+  author: calebcowen@gmail.com
+  intent: |-
+    Rendering a grow log Summary (prov-2026-7a13f569) as a table and as JSON. The test helper summaryEntries is defined in summary_test.go (same package), written by the previous imprint.
+
+    New file internal/growlog/render.go (package growlog); standard library only. TRANSCRIBE, do not design: write exactly the code below. Imports (bytes, encoding/json, fmt, strings, text/tabwriter): one addImport each. Declarations: one invocation per declaration (type -> setType, const -> setConst, func -> setFunction, method -> setMethod with the receiver type name), code = the whole declaration including its doc comment, exactly as written, tabs for indentation, no changes of any kind.
+
+    // JSON renders the summary as indented JSON with a trailing newline.
+    func (s Summary) JSON() ([]byte, error) {
+    	b, err := json.MarshalIndent(s, "", "  ")
+    	if err != nil {
+    		return nil, err
+    	}
+    	return append(b, '\n'), nil
+    }
+
+    // Text renders the summary as a table: one row per model and a total row. A
+    // run with no model shows as (none).
+    func (s Summary) Text() string {
+    	var b strings.Builder
+    	fmt.Fprintf(&b, "grow log: %d line(s), %d malformed\n", s.Entries, s.Malformed)
+    	var buf bytes.Buffer
+    	w := tabwriter.NewWriter(&buf, 0, 8, 2, ' ', 0)
+    	fmt.Fprintln(w, "model\tgrows\tfailed\tcalls\tretries\trepairs\ttokens in/out\tliteral")
+    	row := func(name string, m ModelStats) {
+    		if name == "" {
+    			name = "(none)"
+    		}
+    		fmt.Fprintf(w, "%s\t%d\t%d\t%d\t%d\t%d\t%d/%d\t%.0f%%\n", name, m.Grows, m.Failed, m.Calls, m.Retries, m.Repairs, m.PromptTokens, m.CompletionTokens, m.LiteralShare()*100)
+    	}
+    	for _, m := range s.Models {
+    		row(m.Model, m)
+    	}
+    	row("total", s.Total)
+    	w.Flush()
+    	b.Write(buf.Bytes())
+    	return b.String()
+    }
+
+    Tests: the NEW file internal/growlog/render_test.go (the imprint's spec; it exists as a one-line placeholder). Transcribe exactly this test file; imports (strings, testing): one addImport each; each function -> setFunction with its name. Use the fixture text exactly (tabs, ASCII quotes).
+
+    func TestSummaryText(t *testing.T) {
+    	s := Summarize(summaryEntries(), Filter{})
+    	s.Malformed = 1
+    	text := s.Text()
+    	lines := strings.Split(strings.TrimSuffix(text, "\n"), "\n")
+    	if lines[0] != "grow log: 4 line(s), 1 malformed" {
+    		t.Fatalf("first line = %q", lines[0])
+    	}
+    	if len(lines) != 6 {
+    		t.Fatalf("got %d lines, want 6:\n%s", len(lines), text)
+    	}
+    	want := map[string][]string{
+    		"haiku": {"2", "1", "5", "4", "1", "150/25", "75%"},
+    		"stub":  {"1", "0", "1", "0", "0", "0/0", "0%"},
+    		"total": {"3", "1", "6", "4", "1", "150/25", "50%"},
+    	}
+    	for _, l := range lines[2:] {
+    		f := strings.Fields(l)
+    		if w, ok := want[f[0]]; ok {
+    			if strings.Join(f[1:], " ") != strings.Join(w, " ") {
+    				t.Errorf("row %s = %v, want %v", f[0], f[1:], w)
+    			}
+    			delete(want, f[0])
+    		}
+    	}
+    	if len(want) != 0 {
+    		t.Errorf("rows missing: %v\n%s", want, text)
+    	}
+    	if !strings.Contains(text, "(none)") {
+    		t.Errorf("a run with no model must show as (none):\n%s", text)
+    	}
+    }
+
+    func TestSummaryJSON(t *testing.T) {
+    	b, err := Summarize(nil, Filter{}).JSON()
+    	if err != nil {
+    		t.Fatal(err)
+    	}
+    	s := string(b)
+    	if !strings.HasSuffix(s, "\n") || !strings.Contains(s, `"models": []`) {
+    		t.Fatalf("JSON = %q", s)
+    	}
+    	if strings.Contains(s, "timestamp") {
+    		t.Fatalf("a summary carries no timestamp: %q", s)
+    	}
+    }
+  affected_scope:
+    - internal/growlog/render.go
+    - internal/growlog/render_test.go
+  implements: prov-2026-7a13f569
+  implements_version: 1
+  associated_specs:
+    - path: internal/growlog/render_test.go
