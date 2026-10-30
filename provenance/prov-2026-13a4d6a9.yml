@@ -1,7 +1,7 @@
 id: prov-2026-13a4d6a9
 title: 'growlog: the summary renderers'
 type: imprint
-status: open
+status: implemented
 version: 3
 reason: Refresh spec hashes after the v2 marker migration rewrote the spec files
 created_at: "2026-10-16"
@@ -99,7 +99,7 @@ forbidden_scope: []
 implements: prov-2026-7a13f569
 implements_version: 1
 related: []
-sealed_at_sha: ""
+sealed_at_sha: 5d056b5f208cb37c07ae2074cf6cbe949c58e5e4
 associated_specs:
   - path: internal/growlog/render_test.go
     run_command: go test ./internal/growlog -run 'TestSummaryText|TestSummaryJSON' -count=1
