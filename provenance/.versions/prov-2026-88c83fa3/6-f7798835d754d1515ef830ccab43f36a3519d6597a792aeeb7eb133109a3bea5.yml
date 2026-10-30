@@ -1,0 +1,25 @@
+id: prov-2026-88c83fa3
+version: 6
+content_hash: sha256:f7798835d754d1515ef830ccab43f36a3519d6597a792aeeb7eb133109a3bea5
+parent_hash: sha256:aac63d97efe6ab03072ecc66159db329b208a6e4b370d49300076fa97d41a1b1
+reason: Refresh spec hashes after the v2 marker migration rewrote the spec files
+author: calebcowen@gmail.com
+created_at: "2026-10-30T17:53:21Z"
+spec_hashes:
+  - sha256:b74b7376ebce76aa15bc2695e317b2e7fb03a51c883413cb1ba5ce8b9b00de4a
+content:
+  id: prov-2026-88c83fa3
+  title: 'adopt: more declarative adopter tests'
+  type: imprint
+  created_at: "2026-10-16"
+  author: calebcowen@gmail.com
+  intent: |-
+    Implements prov-2026-95d9ae7e: further tests for the declarative adopter in internal/adopt/declarative.go (NewDeclarative(pkg *genpkg.Package) (*Declarative, error); (*Declarative).Split(path string, src []byte) ([]Span, error); behaviour as in prov-2026-856f85eb). New file internal/adopt/declarative_more_test.go, package adopt, no non-test code. Each test is its OWN setFunction invocation and builds its genpkg.Package literal inline (Adopt{UnitStart: `^(?P<kind>def|class) (?P<name>\w+)`, Actions: {"def": "setFunction", "class": "setType"}, ...} and Actions setFunction and setType, each declaring kwargs file, name and code). Tests: TestDeclarativeDedentEnd; TestDeclarativeRegexpEndWithMatch; TestDeclarativeRegexpEndWithoutMatchRunsToEOF; TestDeclarativeAttachAbove (an `@dec` line directly above joins the unit through attach_above, a blank line between does not); TestDeclarativeUnknownKindStaysResidual; TestDeclarativeKwargsAreOnlyTheDeclaredOnes (an action declaring only name and code gets no file); TestNewDeclarativeRejectsCommandAndMissingAdopt.
+    Fixture rules that matter: every Adopt literal sets UnitEnd explicitly (`"dedent"` unless the test is about another mode; an empty UnitEnd is a regexp that matches every line, which ends a unit at its first line) and gives the named groups kind and name in UnitStart; the python-style sources indent a unit's body with four spaces. TestNewDeclarativeRejectsEmptyUnitEnd (a Package with Adopt{UnitStart: `^(?P<kind>def) (?P<name>\w+)`, Actions: {"def": "setFunction"}} and no UnitEnd: NewDeclarative returns an error containing "unit_end is required") is one more test, written as its own setFunction. TestNewDeclarativeRejectsCommandAndMissingAdopt uses exactly two cases: &genpkg.Package{Name: "x", Adopt: &genpkg.Adopt{Command: []string{"splitter"}}} and &genpkg.Package{Name: "x"}; both must return an error.
+  affected_scope:
+    - internal/adopt/declarative_more_test.go
+    - internal/adopt/declarative_more_test.go
+  implements: prov-2026-95d9ae7e
+  implements_version: 2
+  associated_specs:
+    - path: internal/adopt/declarative_more_test.go
