@@ -1,7 +1,7 @@
 id: prov-2026-7a9b82ae
 title: Phase 7 names the missing file template when an anchor is absent
 type: imprint
-status: open
+status: implemented
 version: 4
 reason: Refresh spec hashes after the v2 marker migration rewrote the spec files
 created_at: "2026-10-16"
@@ -16,7 +16,7 @@ forbidden_scope: []
 implements: prov-2026-8394826c
 implements_version: 1
 related: []
-sealed_at_sha: ""
+sealed_at_sha: d9e2a544452641f083b3bd1d4582ae8f252d9008
 associated_specs:
   - path: internal/inject/notemplate_test.go
     run_command: go test ./internal/inject -count=1
