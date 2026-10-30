@@ -1,7 +1,7 @@
 id: prov-2026-3baa6504
 title: 'go: internal/cli/evidence.go, newEvidenceCommand and runEvidence'
 type: imprint
-status: open
+status: implemented
 version: 3
 reason: refresh the spec hash after the superseded test was removed
 created_at: "2026-10-27"
@@ -77,7 +77,7 @@ forbidden_scope: []
 implements: prov-2026-8c8032f1
 implements_version: 3
 related: []
-sealed_at_sha: ""
+sealed_at_sha: cecd5a1ad8c446a907c872937221029d851a33d3
 associated_specs:
   - path: internal/cli/evidence_cmd_test.go
     run_command: go test ./$(dirname {{path}})
