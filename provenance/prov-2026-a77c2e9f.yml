@@ -1,9 +1,9 @@
 id: prov-2026-a77c2e9f
 title: 'adopt: the sedum adopt command'
 type: imprint
-status: implemented
-version: 2
-reason: the one hand-written line registering the command
+status: open
+version: 3
+reason: Refresh spec hashes after the v2 marker migration rewrote the spec files
 created_at: "2026-10-16"
 author: calebcowen@gmail.com
 intent: |-
@@ -52,7 +52,7 @@ forbidden_scope: []
 implements: prov-2026-95d9ae7e
 implements_version: 2
 related: []
-sealed_at_sha: 99c490d2aa6e4041aadef38b8d03f14b8f9c27f1
+sealed_at_sha: ""
 associated_specs:
   - path: internal/cli/adopt_test.go
     run_command: go test ./internal/cli -run 'TestAdoptCommand' -count=1
