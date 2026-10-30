@@ -174,18 +174,6 @@ func TestEvidenceReportsNoRegionsForARecordWithoutMarkers(t *testing.T) {
 	}
 }
 
-func TestEvidenceFailsWhenARegionHasNoRecordFile(t *testing.T) {
-	tree := newEvTree(t, evMarker(evOther, "sha256:aa", "sha256:01"))
-	tree.record(evRecord, "implemented", 3)
-
-	out, err := tree.run()
-
-	wantExit(t, err, 2, evOther)
-	if out != "" {
-		t.Errorf("a report was printed before the error: %q", out)
-	}
-}
-
 func TestEvidenceIgnoresTheRegionsAndTheReportOfADeprecatedRecord(t *testing.T) {
 	tree := newEvTree(t, evMarker(evOther, "sha256:aa", "sha256:01"))
 	tree.record(evRecord, "implemented", 3)

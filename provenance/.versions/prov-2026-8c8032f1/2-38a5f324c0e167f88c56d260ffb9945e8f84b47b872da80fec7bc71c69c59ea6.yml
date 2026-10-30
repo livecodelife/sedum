@@ -1,0 +1,81 @@
+id: prov-2026-8c8032f1
+version: 2
+content_hash: sha256:38a5f324c0e167f88c56d260ffb9945e8f84b47b872da80fec7bc71c69c59ea6
+parent_hash: sha256:e7e55bf59f14c519d6783a54eb53deae01efb3c4bffd3913ba2bc3c2d9cf2446
+reason: sedum evidence skips regions of a record with no record file instead of failing
+author: calebcowen@gmail.com
+created_at: "2026-10-30T20:01:44Z"
+spec_hashes:
+  - sha256:99eae61090a2851b95e003e1609638759f0eb99b8241b44c89eb9c2a1122f342
+  - sha256:b2c0060f7e71d549deb20ed4bc23a9c10455907e41b3b525a2a595b9f72ab5b3
+  - sha256:34e8ce940e44d7b1d1d8d85e93104521b75e4aa7e69fc07e140d3b9f328c4926
+  - sha256:c48db9254b8a41b44a39937691111fc34b2a72ea19e9008f4533ee3bd40639c1
+content:
+  id: prov-2026-8c8032f1
+  title: sedum evidence reports and refreshes the freshness of each record's code
+  type: blueprint
+  created_at: "2026-10-27"
+  author: calebcowen@gmail.com
+  intent: The code of each record should be checked for freshness against the evidence kept for it, by a command that reports the verdicts and appends new evidence on request, with no model and no network.
+  constraints:
+    - sedum evidence is registered on the root command
+    - 'sedum evidence reports, for each record, one verdict about its code: fresh, stale, none, unknown or no regions'
+    - sedum evidence keeps each record's code freshness evidence in a file of its own under the output directory
+    - The evidence directory is not ignored by the project's .gitignore, although the rest of the .sedum directory is, so that evidence files can be committed
+    - A record's verdict is judged from the latest evidence entry for the record's current version and the code hash of its regions now
+    - The verdict is fresh when that entry's code hash equals the current code hash
+    - The verdict is stale when that entry's code hash differs from the current code hash
+    - The verdict is none when no entry exists for the record's current version, so an entry made for an earlier version is not evidence for the current one
+    - The verdict is unknown when an owned region of the record has no gen hash or no pkg hash
+    - The verdict is no regions when the record has no owned region, because there is nothing to track
+    - When more than one verdict could apply, no regions wins over unknown, unknown over none, and none over fresh or stale
+    - The code hash of a record is the provenance library's evidence code hash of its owned regions (HASHING.md section 7)
+    - Regions are read from the markers under the output directory the way sedum regions reads them
+    - A marker naming an alias is counted under the surviving record
+    - The version of a record is read from its record file in the records directory
+    - A deprecated record is not reported, and its regions are ignored
+    - A record file that cannot be decoded is an error that names the record
+    - Regions that name a record with no record file are skipped, not an error
+    - A skipped record has no line in the report
+    - A skipped record has no entry appended by --refresh
+    - In text mode one line for each skipped record is printed before the report
+    - The line for a skipped record starts with the word skipped
+    - The word skipped is followed by the record id as the marker gives it
+    - The line for a skipped record names the files that hold its regions
+    - The lines for skipped records are in ascending order of the record id
+    - The files in a line are in ascending order
+    - Each file is named once in a line
+    - The line for a skipped record is written to standard output
+    - A usage or read error prints no line for a skipped record
+    - With --json no line names a skipped record
+    - Skipped regions do not change the exit code
+    - With --record no line names a record other than the selected one
+    - A record named with --record that has no record file is an error with exit code 2
+    - A deprecated record named with --record is an error with exit code 2
+    - Without --refresh sedum evidence only reads
+    - Without --refresh sedum evidence writes nothing
+    - sedum evidence calls no model and uses no network
+    - --refresh appends one entry to the evidence file of each selected record whose verdict is stale or none and whose code hash is known
+    - --refresh appends nothing for a record whose verdict is fresh, unknown or no regions
+    - --refresh writes no file other than the evidence files it appends to
+    - After --refresh the report shows the verdicts the records have once the entries are appended
+    - Each evidence entry says which record version it covers, which code hash it saw, and when and by what it was written
+    - 'Evidence files are append-only: an existing entry is never rewritten, removed or reordered'
+    - With no --record the report has one line per record
+    - --record narrows the report to one record
+    - With --json the report is printed as a JSON document
+    - The process exit code is 0 when no selected record is stale or unknown, 1 when one is, and 2 for a usage or read error
+    - Nothing is appended and the report is not printed when a usage or read error is found
+    - The .gitignore negation line for the evidence directory is a hand edit of .gitignore made with this command, outside any generator
+  affected_scope:
+    - internal/cli/evidence.go
+    - internal/cli/root.go
+    - internal/cli/evidence_*_test.go
+    - internal/evidence/**
+    - .gitignore
+    - conformance/formats/**
+  associated_specs:
+    - path: internal/cli/evidence_cmd_test.go
+    - path: internal/evidence/hash_test.go
+    - path: internal/evidence/store_test.go
+    - path: internal/evidence/report_test.go
