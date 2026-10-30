@@ -1,9 +1,9 @@
 id: prov-2026-8542d7f7
 title: 'adopt: more orchestrator tests'
 type: imprint
-status: implemented
-version: 2
-reason: tests grown into the placeholder spec file
+status: open
+version: 3
+reason: Refresh spec hashes after the v2 marker migration rewrote the spec files
 created_at: "2026-10-16"
 author: calebcowen@gmail.com
 intent: 'Implements prov-2026-95d9ae7e: further tests for the adopt orchestrator, internal/adopt/run.go (Run(cfg Config) (*Report, error); Config{Root, Generators, Records string; Paths []string; Tests, AllowCommand, DryRun bool; RecordingPath string}; Report{Files []FileReport; Totals Totals; Recording string}; Totals{Files, Adopted, Skipped, Rejected, Units int; SkippedByReason map[Reason]int}; FileReport{Path, Package, Record string; Status FileStatus; Reason Reason; Detail string; Units int}; ReasonOtherResidual, ReasonHeader, ReasonAlreadyAdopted; as in prov-2026-520ee992). New file internal/adopt/run_more_test.go, package adopt, tests only. It reuses the helper `newRunFixture(t *testing.T, files map[string]string) Config` from run_test.go (writes the py generators tree with a declarative adopter, a records directory with one imprint authorizing "*.py", and the given files under a project root, returning a Config whose Paths is []string{"."}); do not redefine it. Each test is its OWN setFunction invocation. TestRunDryRunTouchesNothing (same input with DryRun: file bytes unchanged, recording written, FileReport Detail "dry run"); TestRunSkipsResidualFiles (b.py = "import os\n\ndef f():\n    return 1\n" is skipped with ReasonOtherResidual; c.py = "# licence\n\ndef f():\n    return 1\n" is skipped with ReasonHeader; both unchanged on disk; Totals.SkippedByReason has one of each); TestRunTwiceSkipsAdopted (run, then run again: second report has Adopted 0 and the file skipped with ReasonAlreadyAdopted).'
@@ -15,7 +15,7 @@ forbidden_scope: []
 implements: prov-2026-95d9ae7e
 implements_version: 2
 related: []
-sealed_at_sha: 558a011c37bdd1a36588ea78190027559926a03c
+sealed_at_sha: ""
 associated_specs:
   - path: internal/adopt/run_more_test.go
     run_command: go test ./internal/adopt -run 'TestRunDryRun|TestRunSkips|TestRunTwice' -count=1
