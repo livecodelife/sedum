@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.11.0
+
+- **Slim release archive.** Each platform now has a second archive, `sedum_<version>_<os>_<arch>_slim.tar.gz`, without the bundled model (the full archive is about 1.7 GB). `install.sh --no-model` (or `SEDUM_NO_MODEL=1`) installs it; the default stays the full archive, an unknown argument fails naming it before anything is downloaded, and a failure names the tag and archive. `checksums.txt` covers every archive.
+- `sedum grow` with no `--model` or `--local-model` and no bundled model (a slim install) now says so and names the command that installs the full archive.
+- A route folder in a record's `affected_scope` (`[id]`, `[...slug]`, `[[...sign-in]]`) now names a file, so `sedum grow --check` reads its regions instead of reporting nothing. Any other bracket is still a character class.
+
 ## 0.10.1
 
 - `sedum check` recognises the REVISE001 refusal of provenance 3.0.0, which reports "is implemented: run 'provenance revise'" under that rule id instead of STATE001, so a pure regeneration or marker migration of an implemented record is waived again. The STATE001 form of earlier provenance is still recognised.
