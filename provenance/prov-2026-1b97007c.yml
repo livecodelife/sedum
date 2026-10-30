@@ -1,9 +1,9 @@
 id: prov-2026-1b97007c
 title: 'adopt: choosing the adopter form for a package'
 type: imprint
-status: implemented
-version: 4
-reason: 'stage 2: the builtin adopter form'
+status: open
+version: 5
+reason: Refresh spec hashes after the v2 marker migration rewrote the spec files
 created_at: "2026-10-16"
 author: calebcowen@gmail.com
 intent: |-
@@ -29,7 +29,7 @@ forbidden_scope: []
 implements: prov-2026-95d9ae7e
 implements_version: 2
 related: []
-sealed_at_sha: c9bb0ae153814907d9b78bd7a3d04705f17d9a78
+sealed_at_sha: ""
 associated_specs:
   - path: internal/adopt/forpackage_test.go
     run_command: go test ./internal/adopt -run 'ForPackage' -count=1
