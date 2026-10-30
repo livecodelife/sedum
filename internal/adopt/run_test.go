@@ -1,29 +1,29 @@
 package adopt
 
 // sedum:anchor:imports
-// sedum:addImport {"tier":"owned","record":"prov-2026-520ee992","gen":"sha256:abce6ad3af5346e3865652129852e6d56fe2af3bcf443cff1e4e15ca97b66586","pkg":"sha256:d6a9443c14d82b7bdf19bb96637f957fd44ad9bfbe8f167c97e6f7699c8b830f","kwargs":{"file":"internal/adopt/run_test.go","path":"os"}}
+// sedum:addImport {"v":2,"tier":"owned","record":"prov-2026-520ee992","gen":"sha256:abce6ad3af5346e3865652129852e6d56fe2af3bcf443cff1e4e15ca97b66586","pkg":"sha256:d6a9443c14d82b7bdf19bb96637f957fd44ad9bfbe8f167c97e6f7699c8b830f","id":{"file":"internal/adopt/run_test.go","path":"os"},"kwargs":"sha256:ea6c0fc6c1de82545cc84254ad3bac24bf98728496cf80f2bcb1fa876ed8e86a","body":"sha256:7c6e309eb2575d4aa451ec2ab83161d13e9ae03bbca3a4d2ecf30ce12adf0905"}
 import "os"
 
 // /sedum:addImport
-// sedum:addImport {"tier":"owned","record":"prov-2026-520ee992","gen":"sha256:abce6ad3af5346e3865652129852e6d56fe2af3bcf443cff1e4e15ca97b66586","pkg":"sha256:d6a9443c14d82b7bdf19bb96637f957fd44ad9bfbe8f167c97e6f7699c8b830f","kwargs":{"file":"internal/adopt/run_test.go","path":"path/filepath"}}
+// sedum:addImport {"v":2,"tier":"owned","record":"prov-2026-520ee992","gen":"sha256:abce6ad3af5346e3865652129852e6d56fe2af3bcf443cff1e4e15ca97b66586","pkg":"sha256:d6a9443c14d82b7bdf19bb96637f957fd44ad9bfbe8f167c97e6f7699c8b830f","id":{"file":"internal/adopt/run_test.go","path":"path/filepath"},"kwargs":"sha256:337dc19833fae26f2d75f010ce2c403c67184bb38bb14e3aca558600cdee08fe","body":"sha256:a6d196b558491e646be93f56a321f339068c64c76aa9d49bb18046e7f9c777a1"}
 import "path/filepath"
 
 // /sedum:addImport
-// sedum:addImport {"tier":"owned","record":"prov-2026-520ee992","gen":"sha256:abce6ad3af5346e3865652129852e6d56fe2af3bcf443cff1e4e15ca97b66586","pkg":"sha256:d6a9443c14d82b7bdf19bb96637f957fd44ad9bfbe8f167c97e6f7699c8b830f","kwargs":{"file":"internal/adopt/run_test.go","path":"strings"}}
+// sedum:addImport {"v":2,"tier":"owned","record":"prov-2026-520ee992","gen":"sha256:abce6ad3af5346e3865652129852e6d56fe2af3bcf443cff1e4e15ca97b66586","pkg":"sha256:d6a9443c14d82b7bdf19bb96637f957fd44ad9bfbe8f167c97e6f7699c8b830f","id":{"file":"internal/adopt/run_test.go","path":"strings"},"kwargs":"sha256:ff8be3df73e0993fd9ab63faa0b4301f04faf2c2c6f3f816bd4a8cc80fc4f530","body":"sha256:a9af3c0bc4bf9342df9d7e89a324523fdba7941a9ca4190270e68ff3c4a25ea6"}
 import "strings"
 
 // /sedum:addImport
-// sedum:addImport {"tier":"owned","record":"prov-2026-520ee992","gen":"sha256:abce6ad3af5346e3865652129852e6d56fe2af3bcf443cff1e4e15ca97b66586","pkg":"sha256:d6a9443c14d82b7bdf19bb96637f957fd44ad9bfbe8f167c97e6f7699c8b830f","kwargs":{"file":"internal/adopt/run_test.go","path":"testing"}}
+// sedum:addImport {"v":2,"tier":"owned","record":"prov-2026-520ee992","gen":"sha256:abce6ad3af5346e3865652129852e6d56fe2af3bcf443cff1e4e15ca97b66586","pkg":"sha256:d6a9443c14d82b7bdf19bb96637f957fd44ad9bfbe8f167c97e6f7699c8b830f","id":{"file":"internal/adopt/run_test.go","path":"testing"},"kwargs":"sha256:14317bd18548753433b07d236422dedefc2b33512ae0beda7ab19a64830cef63","body":"sha256:14a4a5f3bfbf9325de04706efa8c15a9446f01d2a26624ce9c66bd1d69dc212e"}
 import "testing"
 
 // /sedum:addImport
-// sedum:addImport {"tier":"owned","record":"prov-2026-520ee992","gen":"sha256:abce6ad3af5346e3865652129852e6d56fe2af3bcf443cff1e4e15ca97b66586","pkg":"sha256:d6a9443c14d82b7bdf19bb96637f957fd44ad9bfbe8f167c97e6f7699c8b830f","kwargs":{"file":"internal/adopt/run_test.go","path":"github.com/livecodelife/sedum/internal/genpkg"}}
+// sedum:addImport {"v":2,"tier":"owned","record":"prov-2026-520ee992","gen":"sha256:abce6ad3af5346e3865652129852e6d56fe2af3bcf443cff1e4e15ca97b66586","pkg":"sha256:d6a9443c14d82b7bdf19bb96637f957fd44ad9bfbe8f167c97e6f7699c8b830f","id":{"file":"internal/adopt/run_test.go","path":"github.com/livecodelife/sedum/internal/genpkg"},"kwargs":"sha256:a3f58f0cca1d44b40489811ebf94bc54dd562c7e462c797916b7332ff38d6954","body":"sha256:5b4c7dbee430534527d893269527d915be58accc7a8330a8c104c2014153525d"}
 import "github.com/livecodelife/sedum/internal/genpkg"
 
 // /sedum:addImport
 
 // sedum:anchor:decls
-// sedum:setFunction {"tier":"owned","record":"prov-2026-520ee992","gen":"sha256:abce6ad3af5346e3865652129852e6d56fe2af3bcf443cff1e4e15ca97b66586","pkg":"sha256:6589611adfb6618a7920e43f951a79901428192ea95c1084fde9f222aecd9537","kwargs":{"code":"// newRunFixture writes a generator tree, a records directory, and the given\n// project files under a temporary directory, and returns a Config for Run.\nfunc newRunFixture(t *testing.T, files map[string]string) (cfg Config) {\n\tt.Helper()\n\tbase := t.TempDir()\n\twrite := func(rel, body string) {\n\t\tp := filepath.Join(base, rel)\n\t\tif err := os.MkdirAll(filepath.Dir(p), 0o755); err != nil {\n\t\t\tt.Fatal(err)\n\t\t}\n\t\tif err := os.WriteFile(p, []byte(body), 0o644); err != nil {\n\t\t\tt.Fatal(err)\n\t\t}\n\t}\n\twrite(\"gen/py/sedum.yaml\", `name: py\nextensions: [\".py\"]\ncomment_prefix: \"#\"\nadopt:\n  unit_start: '^(?P<kind>def) (?P<name>\\w+)'\n  unit_end: dedent\n  actions:\n    def: setThing\n`)\n\twrite(\"gen/py/files/{name}.py\", \"# sedum:anchor:decls\\n\")\n\twrite(\"gen/py/actions/actions.yaml\", `actions:\n  setThing:\n    kwargs:\n      file: { type: string, required: true }\n      name: { type: string, required: true }\n      code: { type: string, required: true }\n    injects_into: \"{{file}}\"\n    anchor: decls\n`)\n\twrite(\"gen/py/actions/setThing.py\", \"{{code}}\\n\")\n\twrite(\"prov/imp.yml\", `id: prov-2026-aaaaaaaa\ntype: imprint\nstatus: open\nintent: adopt py files\ncreated_at: \"2026-10-16\"\naffected_scope: [\"*.py\"]\n`)\n\tif err := os.MkdirAll(filepath.Join(base, \"proj\"), 0o755); err != nil {\n\t\tt.Fatal(err)\n\t}\n\tfor name, body := range files {\n\t\twrite(filepath.Join(\"proj\", name), body)\n\t}\n\treturn Config{\n\t\tRoot:       filepath.Join(base, \"proj\"),\n\t\tGenerators: filepath.Join(base, \"gen\"),\n\t\tRecords:    filepath.Join(base, \"prov\"),\n\t\tPaths:      []string{\".\"},\n\t}\n}","file":"internal/adopt/run_test.go","name":"newRunFixture"}}
+// sedum:setFunction {"v":2,"tier":"owned","record":"prov-2026-520ee992","gen":"sha256:abce6ad3af5346e3865652129852e6d56fe2af3bcf443cff1e4e15ca97b66586","pkg":"sha256:6589611adfb6618a7920e43f951a79901428192ea95c1084fde9f222aecd9537","id":{"file":"internal/adopt/run_test.go","name":"newRunFixture"},"kwargs":"sha256:35278cf89b9e739f7ff6beda321663db62c20566aaabd7d2e387f1a8d41f8358","body":"sha256:83376a6bcb023d5f6d73cd73ea8ecc745c2ee0da6c4c4fdf40ed9f646510a439"}
 // newRunFixture writes a generator tree, a records directory, and the given
 // project files under a temporary directory, and returns a Config for Run.
 func newRunFixture(t *testing.T, files map[string]string) (cfg Config) {
@@ -80,7 +80,7 @@ affected_scope: ["*.py"]
 }
 
 // /sedum:setFunction
-// sedum:setFunction {"tier":"owned","record":"prov-2026-520ee992","gen":"sha256:abce6ad3af5346e3865652129852e6d56fe2af3bcf443cff1e4e15ca97b66586","pkg":"sha256:6589611adfb6618a7920e43f951a79901428192ea95c1084fde9f222aecd9537","kwargs":{"code":"// TestRunAdopts checks that Run adopts a two-unit Python file, rewrites it\n// with the replayed unit, and writes the recording.\nfunc TestRunAdopts(t *testing.T) {\n\tconst orig = \"def f():\\n    return 1\\n\\ndef g():\\n    return 2\\n\"\n\tcfg := newRunFixture(t, map[string]string{\"a.py\": orig})\n\trep, err := Run(cfg)\n\tif err != nil {\n\t\tt.Fatalf(\"Run: %v\", err)\n\t}\n\tif rep.Totals.Adopted != 1 || rep.Totals.Units != 2 {\n\t\tt.Fatalf(\"totals = %+v, want 1 adopted and 2 units\", rep.Totals)\n\t}\n\tgot, err := os.ReadFile(filepath.Join(cfg.Root, \"a.py\"))\n\tif err != nil {\n\t\tt.Fatal(err)\n\t}\n\tif !strings.Contains(string(got), \"# sedum:setThing\") {\n\t\tt.Fatalf(\"file not rewritten:\\n%s\", got)\n\t}\n\tif err := Verify(genpkg.Comment{Prefix: \"#\"}, orig, string(got)); err != nil {\n\t\tt.Fatalf(\"Verify: %v\", err)\n\t}\n\tif _, err := os.Stat(filepath.Join(cfg.Root, \".sedum\", \"adopt\", \"adopt.json\")); err != nil {\n\t\tt.Fatalf(\"recording missing: %v\", err)\n\t}\n}","file":"internal/adopt/run_test.go","name":"TestRunAdopts"}}
+// sedum:setFunction {"v":2,"tier":"owned","record":"prov-2026-520ee992","gen":"sha256:abce6ad3af5346e3865652129852e6d56fe2af3bcf443cff1e4e15ca97b66586","pkg":"sha256:6589611adfb6618a7920e43f951a79901428192ea95c1084fde9f222aecd9537","id":{"file":"internal/adopt/run_test.go","name":"TestRunAdopts"},"kwargs":"sha256:4ac2bfb5958f2f83331e328bad69d775eef2db782047968d302a766f004c497c","body":"sha256:39e319eea5529f284ccf357fa39c9f5ff686d1d7d8958081a51366ffdad563ac"}
 // TestRunAdopts checks that Run adopts a two-unit Python file, rewrites it
 // with the replayed unit, and writes the recording.
 func TestRunAdopts(t *testing.T) {
