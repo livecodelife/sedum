@@ -1,7 +1,7 @@
 id: prov-2026-856f85eb
 title: 'adopt: the declarative adopter'
 type: imprint
-status: open
+status: implemented
 version: 9
 reason: Refresh spec hashes after the v2 marker migration rewrote the spec files
 created_at: "2026-10-16"
@@ -26,7 +26,7 @@ forbidden_scope: []
 implements: prov-2026-95d9ae7e
 implements_version: 2
 related: []
-sealed_at_sha: ""
+sealed_at_sha: fd1f8c56c9ddccf581c9e9536dc5da4862d2d07f
 associated_specs:
   - path: internal/adopt/declarative_test.go
     run_command: go test ./internal/adopt -run 'Declarative|ForPackage' -count=1
