@@ -1,7 +1,7 @@
 id: prov-2026-8c8032f1
 title: sedum evidence reports and refreshes the freshness of each record's code
 type: blueprint
-status: open
+status: implemented
 version: 3
 reason: refresh the spec hash after the superseded test was removed
 created_at: "2026-10-27"
@@ -66,7 +66,7 @@ affected_scope:
   - conformance/formats/**
 forbidden_scope: []
 related: []
-sealed_at_sha: ""
+sealed_at_sha: b02ba325fd3f1ac7fb5af2346df3716bfcaf4c22
 associated_specs:
   - path: internal/cli/evidence_cmd_test.go
   - path: internal/evidence/hash_test.go
