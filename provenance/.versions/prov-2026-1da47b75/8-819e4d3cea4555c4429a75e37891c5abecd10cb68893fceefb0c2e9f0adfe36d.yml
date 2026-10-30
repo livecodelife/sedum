@@ -1,0 +1,100 @@
+id: prov-2026-1da47b75
+version: 8
+content_hash: sha256:819e4d3cea4555c4429a75e37891c5abecd10cb68893fceefb0c2e9f0adfe36d
+parent_hash: sha256:39345e2ed80d2ca6f92eae001150741044b29fe7f02c4bcae17ad612bc386122
+reason: Refresh spec hashes after the v2 marker migration rewrote the spec files
+author: calebcowen@gmail.com
+created_at: "2026-10-30T17:40:42Z"
+spec_hashes:
+  - sha256:a8ec72b1a6b56fad5f752bba943bf2d8fdbe042559ca043cfc6972f29c923c8f
+  - sha256:dc6c9517de5277e3737da53028d0aa0d16b938b2ac579c90e8d5000adf78e8ad
+  - sha256:83e818ed5aacb524ad81636fcba85b63154c21eba503aa2f8d7d7443baf40f97
+content:
+  id: prov-2026-1da47b75
+  title: sedum generators install vendors a package with a go.mod boundary
+  type: blueprint
+  created_at: "2026-10-16"
+  author: calebcowen@gmail.com
+  intent: |
+    provisio-mgr (#provisio, 2026-10-16), from prov-cli's cold-start walkthrough (F4). A user who copies a generator package into their own module gets templates that `go test ./...` and `go build ./...` try to compile (the template files are named *.go and contain {{...}}). Sedum's own repo avoids this with generators/go.mod, a module boundary the toolchain skips; nothing tells a user to do the same and nothing helps them.
+
+    ## Behaviour
+    1. `sedum generators install <pkg>... [--dir generators] [--from <dir>] [--force]`. Copies each named package into `<dir>/<pkg>/` and writes `<dir>/go.mod` (`module generators`, `go 1.21`, with a comment saying why) unless a go.mod already exists there, which is never overwritten. The built-in package is `go`, carried in the binary. Any other package name is copied from `<from>/<pkg>/` and `--from` is required for it.
+    2. It prints its plan first, one line per file (`create`, `identical`, `differs`) plus the go.mod line, then acts. Dry run is `--dry-run`: print and write nothing.
+    3. A file that already exists and differs is never overwritten silently: without `--force` the command refuses before writing anything and names the first differing files; with `--force` it overwrites the differing files only. It never deletes anything, and files in the target that the source does not have are left alone. A package name containing a path separator or `..` is refused, and nothing is written outside `<dir>`.
+    4. `sedum validate` (and `grow`, which loads the same way) warns when the generators directory contains .go files anywhere below it and has no go.mod directly in it: `<dir> holds Go template files but has no go.mod, so go build/test ./... will try to compile them; run `sedum generators install` or add a go.mod with `module generators``. New genpkg warning rule `generators_go_mod_missing`; it is a warning, so `--strict` turns it into an error as for any warning.
+
+    ## How the built-in package is carried
+    The generators directory is its own Go module (that boundary is the point), so the root module cannot go:embed it, and go:embed refuses some of its file names (the literal `*` directories under files/). The binary carries the package as internal/builtin/packages/go.zip, a deterministic zip that hack/sync-builtin.sh regenerates from generators/go (provisio-mgr: the copy is never hand-maintained). The embed var is declared by hand in internal/builtin/embed.go. A test fails when the archive's contents differ from generators/go, and its message tells you to run the script.
+
+    ## Not in scope
+    A package registry or network fetch, uninstall/update commands, installing anything but packages and go.mod, and changing how packages are loaded.
+
+    ## Generate first
+    internal/builtin (embed accessor and drift test), internal/cli/generators.go (plan, apply, safety checks) and internal/genpkg/gomod.go (the warning), with their tests, are grown with sedum-haiku via the go package. Handwritten: the one-line registration in root.go, the call in genpkg/load.go, the rule constant in diag.go, the go:embed var (gofmt cannot keep a directive directly above a var once a region marker sits above it), hack/sync-builtin.sh (a script, exempt like build files) and the archive it produces, a go.mod for testdata/generators, README and PRD.
+  constraints:
+    - 'The root-level Go template is package main: a template can only bind captures from the path, so a root file in another package is not adoptable'
+  affected_scope:
+    - internal/builtin/**
+    - hack/sync-builtin.sh
+    - internal/cli/generators.go
+    - internal/cli/generators_test.go
+    - internal/cli/root.go
+    - internal/genpkg/gomod.go
+    - internal/genpkg/gomod_test.go
+    - internal/genpkg/load.go
+    - internal/genpkg/diag.go
+    - README.md
+    - PRD.md
+    - .sedum/context.md
+    - conformance/formats/**
+    - evals/lifecycle/**
+    - internal/cli/**
+    - internal/inject/**
+    - internal/pipeline/**
+    - internal/recording/**
+    - provenance/prov-2026-010fd5b2.yml
+    - provenance/prov-2026-5176a0b7.yml
+    - provenance/prov-2026-59535684.yml
+    - provenance/prov-2026-5d9b8590.yml
+    - provenance/prov-2026-6fc3d13d.yml
+    - provenance/prov-2026-71ebd3d9.yml
+    - provenance/prov-2026-8394826c.yml
+    - provenance/prov-2026-8602b702.yml
+    - provenance/prov-2026-86a21f53.yml
+    - provenance/prov-2026-8c1efcd2.yml
+    - provenance/prov-2026-91c54941.yml
+    - provenance/prov-2026-9621daed.yml
+    - provenance/prov-2026-aa4b736d.yml
+    - provenance/prov-2026-b241b29f.yml
+    - provenance/prov-2026-b5465dfa.yml
+    - provenance/prov-2026-c637c262.yml
+    - provenance/prov-2026-cc73cf61.yml
+    - provenance/prov-2026-d2f1bdf2.yml
+    - provenance/prov-2026-e4bab53b.yml
+    - .gitignore
+    - internal/selection/**
+    - internal/verify/**
+    - provenance/prov-2026-59535684.yml
+    - provenance/prov-2026-5d9b8590.yml
+    - provenance/prov-2026-684148c6.yml
+    - provenance/prov-2026-6ab86198.yml
+    - provenance/prov-2026-6fc3d13d.yml
+    - provenance/prov-2026-751790c4.yml
+    - provenance/prov-2026-8394826c.yml
+    - provenance/prov-2026-8602b702.yml
+    - provenance/prov-2026-86a21f53.yml
+    - provenance/prov-2026-91c54941.yml
+    - provenance/prov-2026-9621daed.yml
+    - provenance/prov-2026-aa4b736d.yml
+    - provenance/prov-2026-aabeac10.yml
+    - provenance/prov-2026-b5465dfa.yml
+    - provenance/prov-2026-b5c21813.yml
+    - provenance/prov-2026-cc73cf61.yml
+    - provenance/prov-2026-d2f1bdf2.yml
+    - provenance/prov-2026-e4bab53b.yml
+    - generators/go/
+  associated_specs:
+    - path: internal/builtin/builtin_test.go
+    - path: internal/genpkg/gomod_test.go
+    - path: internal/cli/generators_test.go
