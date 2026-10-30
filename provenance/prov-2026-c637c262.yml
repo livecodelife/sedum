@@ -1,7 +1,7 @@
 id: prov-2026-c637c262
 title: Replay can restamp gen and reconcile a complete recording
 type: blueprint
-status: open
+status: implemented
 version: 11
 reason: Refresh spec hashes after the v2 marker migration rewrote the spec files
 created_at: "2026-10-16"
@@ -43,7 +43,7 @@ affected_scope:
   - internal/cli/record_v2_test.go
 forbidden_scope: []
 related: []
-sealed_at_sha: ""
+sealed_at_sha: c850e4494391eccc8b55899f0a8a74173fe205eb
 associated_specs:
   - path: internal/pipeline/restamp_test.go
     run_command: go test ./internal/pipeline -count=1 -run 'Restamp|Reconcile'
