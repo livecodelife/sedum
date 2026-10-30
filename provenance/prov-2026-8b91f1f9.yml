@@ -1,9 +1,9 @@
 id: prov-2026-8b91f1f9
 title: 'eval design: results'
 type: imprint
-status: implemented
-version: 2
-reason: tests grown into the placeholder spec file
+status: open
+version: 3
+reason: Refresh spec hashes after the v2 marker migration rewrote the spec files
 created_at: "2026-10-16"
 author: calebcowen@gmail.com
 intent: |-
@@ -286,7 +286,7 @@ forbidden_scope: []
 implements: prov-2026-d694c4c4
 implements_version: 1
 related: []
-sealed_at_sha: 135c64eba86ffd74a111e1af1dcb432e62165585
+sealed_at_sha: ""
 associated_specs:
   - path: evals/design/result_test.go
     run_command: go test ./evals/design -run 'TestAggregate|TestReportTotalsJSONAndTable|TestTaskHash' -count=1
