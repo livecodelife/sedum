@@ -2,8 +2,8 @@ id: prov-2026-8c8032f1
 title: sedum evidence reports and refreshes the freshness of each record's code
 type: blueprint
 status: implemented
-version: 1
-reason: ""
+version: 3
+reason: refresh the spec hash after the superseded test was removed
 created_at: "2026-10-27"
 author: calebcowen@gmail.com
 intent: The code of each record should be checked for freshness against the evidence kept for it, by a command that reports the verdicts and appends new evidence on request, with no model and no network.
@@ -25,10 +25,23 @@ constraints:
   - The version of a record is read from its record file in the records directory
   - A deprecated record is not reported, and its regions are ignored
   - A record file that cannot be decoded is an error that names the record
-  - A record that has regions in the output directory but no record file is an error
-  - That error names the record
-  - Such a record is never reported with a verdict
-  - A record named with --record that is not reported or does not exist is an error
+  - Regions that name a record with no record file are skipped, not an error
+  - A skipped record has no line in the report
+  - A skipped record has no entry appended by --refresh
+  - In text mode one line for each skipped record is printed before the report
+  - The line for a skipped record starts with the word skipped
+  - The word skipped is followed by the record id as the marker gives it
+  - The line for a skipped record names the files that hold its regions
+  - The lines for skipped records are in ascending order of the record id
+  - The files in a line are in ascending order
+  - Each file is named once in a line
+  - The line for a skipped record is written to standard output
+  - A usage or read error prints no line for a skipped record
+  - With --json no line names a skipped record
+  - Skipped regions do not change the exit code
+  - With --record no line names a record other than the selected one
+  - A record named with --record that has no record file is an error with exit code 2
+  - A deprecated record named with --record is an error with exit code 2
   - Without --refresh sedum evidence only reads
   - Without --refresh sedum evidence writes nothing
   - sedum evidence calls no model and uses no network
@@ -53,7 +66,7 @@ affected_scope:
   - conformance/formats/**
 forbidden_scope: []
 related: []
-sealed_at_sha: 1a61f10e04a34d990ad6e1c008190f7a46c00903
+sealed_at_sha: b02ba325fd3f1ac7fb5af2346df3716bfcaf4c22
 associated_specs:
   - path: internal/cli/evidence_cmd_test.go
   - path: internal/evidence/hash_test.go

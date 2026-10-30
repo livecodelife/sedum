@@ -1,0 +1,88 @@
+id: prov-2026-3baa6504
+version: 3
+content_hash: sha256:054f27b45423b0972c418c5770b5a4db5be1aeafb0255b166c857d899ea7d5da
+parent_hash: sha256:be7b1c51465ea19403b8ecb8babdb674fcab88a84a39d058a67521b13d7142eb
+reason: refresh the spec hash after the superseded test was removed
+author: calebcowen@gmail.com
+created_at: "2026-10-30T20:03:22Z"
+spec_hashes:
+  - sha256:1f5531a471fb0a19327c91a16eb63bf295eb918e426ae2166a6ecee534d2052b
+  - sha256:8728719fdaee9b16a56b2c25325ba1da1e2ffb32004276add4d74d37795528c3
+content:
+  id: prov-2026-3baa6504
+  title: 'go: internal/cli/evidence.go, newEvidenceCommand and runEvidence'
+  type: imprint
+  created_at: "2026-10-27"
+  author: calebcowen@gmail.com
+  intent: The newEvidenceCommand function builds the evidence command and the runEvidence function reads the regions and records, judges each record, refreshes on request, writes the report and returns the exit code.
+  constraints:
+    - ExitError is defined in internal/cli/exit.go, package cli, and is a struct with the int field Code and the string field Message, built here as a value and returned as an error
+    - This file returns an ExitError with Code 2 for every usage error and every read error, with Code 1 and an empty Message when the report has a stale or unknown record, and nil on success
+    - newEvidenceCommand is an unexported function that takes no argument and returns a pointer to cobra.Command, with Use evidence and no positional argument
+    - It has the string flags --record, --output (default defaultOutput, defined in package cli), --generators and --records, and the bool flags --refresh and --json
+    - --record names one record by id or alias
+    - --generators has no default and is not marked as required to cobra
+    - --records has no default and is not marked as required to cobra
+    - Its run function calls runEvidence with the command's output writer and an EvidenceConfig built from the flags
+    - EvidenceConfig is an exported struct with the string fields Generators, Output, Records and Record and the bool fields Refresh and JSON
+    - The command's flag error function turns a flag cobra does not recognize or cannot parse into an ExitError with Code 2 whose Message is the error's text
+    - runEvidence is an unexported function that receives an io.Writer and an EvidenceConfig and returns an error
+    - runEvidence returns an ExitError with Code 2 and the Message sedum evidence needs --generators when Generators is empty
+    - runEvidence returns an ExitError with Code 2 and the Message sedum evidence needs --records when Records is empty and Generators is not
+    - When Generators and Records are both empty the --generators message is the one returned
+    - It calls pipeline.Regions, which receives a pipeline.RegionsConfig holding Generators, Output and Records and returns a pointer to pipeline.RegionsReport and an error
+    - An error from pipeline.Regions gives an ExitError with Code 2 whose Message is the error's text
+    - Each entry of the RegionsReport's Regions has the strings Record, Gen, Pkg and Tier, and it turns each into an evidence.Region with Gen, Pkg and Tier
+    - Each entry of the RegionsReport's Regions also has a string File
+    - File is read only for the lines for skipped regions
+    - File is not copied into evidence.Region
+    - File is used as given, with no path cleaning or joining
+    - It calls record.Load, which receives the records directory (string) and a record.Options and returns a pointer to record.Set, a slice of warning strings and an error
+    - An error from record.Load gives an ExitError with Code 2 whose Message is the error's text, and the warnings it returns are ignored
+    - It reports only the records of the Set's Records, which are sorted by id and leave out deprecated records
+    - With a Record in the config it reports only the record in Records whose ID or one of whose Aliases equals it, and gives an ExitError with Code 2 and the Message no record named followed by the name when none does, including when the name is a deprecated record
+    - It reads each reported record's file, at the records directory joined with the record's Source, and decodes it with librecord.Decode, which receives a byte slice and returns a pointer to librecord.Record and an error, and takes the record's version from its Version field
+    - A record file that cannot be read or decoded gives an ExitError with Code 2 whose Message starts with the record id
+    - A region whose Record is not the ID of any record in the Set's Known, which holds every record read from the directory including deprecated ones, and which the Record flag did not leave out, is skipped
+    - A region of a record the Record flag left out is ignored
+    - A skipped region is not an error
+    - A skipped region is not judged
+    - No report entry exists for the record of a skipped region
+    - No evidence entry is appended for the record of a skipped region
+    - In text mode runEvidence writes one line to the io.Writer it receives for each record that has skipped regions
+    - Each of those lines ends with a newline
+    - Those lines are written in ascending byte order of the record id
+    - Those lines are written before the lines for appended entries
+    - Those lines are written before the report
+    - Those lines are written whether or not the report has any record
+    - A line is the word skipped, a space, the record id, a colon, a space, the words regions in, a space, the file list, a comma, a space and the words no record file
+    - The file list holds the File string of each skipped region of that record
+    - A file shared by several skipped regions appears once in the file list
+    - The files in the file list are in ascending byte order
+    - The files in the file list are separated by a comma and a space
+    - With JSON runEvidence writes no line for skipped regions
+    - Skipped regions do not decide the exit code
+    - A Record flag that names a record with no record file gives the no record named error before any line for skipped regions is written
+    - 'A region whose Record is the ID of a deprecated record is ignored: it is neither reported nor an error'
+    - It calls evidence.Read, which receives the output directory and a record id (strings) and returns a slice of evidence.Entry and an error, and evidence.Judge, which receives a record id, a version (int), a slice of evidence.Region and a slice of evidence.Entry and returns an evidence.Result
+    - An error from evidence.Read gives an ExitError with Code 2 whose Message is the error's text
+    - Without Refresh it writes nothing to the output directory
+    - With Refresh it appends, after every record has been read and judged, one entry for each result whose Verdict is evidence.Stale or evidence.None and whose CodeHash is not empty
+    - It builds the entry with the record id, the version, the result's CodeHash, evidence.Timestamp of the current time, which receives a time.Time and returns a string, and evidence.Runner, and appends it with evidence.Append, which receives the output directory and an evidence.Entry and returns an error
+    - An error from evidence.Append gives an ExitError with Code 2 whose Message is the error's text
+    - In text mode, before the report, it prints one line for each appended entry made of the word appended, a space, the record id, a space, the word version, a space, the version, a space and the code hash
+    - After a refresh it judges the refreshed records again from their evidence files, so the report shows the verdicts after the refresh
+    - With JSON it writes the report with evidence.WriteJSON and otherwise with evidence.WriteText, both of which receive an io.Writer and a slice of evidence.Result and return an error
+    - It returns an ExitError with Code 1 and an empty Message when evidence.Failing, which receives a slice of evidence.Result and returns a bool, is true for the reported results, after the report is written
+    - It returns nil when evidence.Failing is false, including when a record has the verdict none or no regions
+    - newEvidenceCommand is added to the list of commands the root command registers, in internal/cli/root.go, by a hand-written line next to the other commands, and that change adds no import
+    - Every ExitError this file returns is a value built with its Code and Message fields, never a pointer
+    - The functions live in internal/cli/evidence.go, package cli, and this file's imports are fmt, io, os, path/filepath, sort, strings and time from the standard library, github.com/spf13/cobra, the sedum packages internal/evidence, internal/pipeline and internal/record, and the provenance library's record package at github.com/livecodelife/provenance/record imported under the name librecord, all as values
+  affected_scope:
+    - internal/cli/evidence.go
+    - internal/cli/evidence_*_test.go
+  implements: prov-2026-8c8032f1
+  implements_version: 2
+  associated_specs:
+    - path: internal/cli/evidence_cmd_test.go
+    - path: internal/cli/evidence_orphans_test.go
