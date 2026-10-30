@@ -1,0 +1,24 @@
+id: prov-2026-7a9b82ae
+version: 4
+content_hash: sha256:790ca3977783f66cb1c78cab2e4fdce33c4b231e6fc3d4742fa232d74749887f
+parent_hash: sha256:aaee9199c38edf4dc23525e89ab6ab6f316b9e770a29bf52781e054d1fd055ff
+reason: Refresh spec hashes after the v2 marker migration rewrote the spec files
+author: calebcowen@gmail.com
+created_at: "2026-10-30T17:48:59Z"
+spec_hashes:
+  - sha256:9ebf648c90d272ffa2dc0b89e6f2e8b4ca26d72a7e314d20b0aecfbc8f743f57
+content:
+  id: prov-2026-7a9b82ae
+  title: Phase 7 names the missing file template when an anchor is absent
+  type: imprint
+  created_at: "2026-10-16"
+  author: calebcowen@gmail.com
+  intent: |
+    Implements prov-2026-8394826c, behaviour 1. When Phase 7 cannot place an action because the file lacks the anchor, and the action's package has no file template (nor a _default one) that matches the path, the error explains it. New file internal/inject/notemplate.go holds `explainUnmatched(inv Invocation, cause error) error`: it builds a filetmpl set from inv.Package.FileTemplates and matches inv.Path; a match, or a package `_default<ext>` template, returns the same message inject.go produces today. No match returns: `action <name> cannot be injected into <path>: no file template in package <pkg> matches this path, so the file was created empty and has none of the markers a template plants (<cause>); <pkg>'s file templates are: <patterns joined by ", ">`. A package with no file templates says `<pkg> ships no file templates`. The call site in applyOne uses it (hand-written one-line change; inject.go is not region-owned). Tests in internal/inject/notemplate_test.go cover: the exact error text for a root-level path against the go-shaped patterns {pkg}/{name}.go and cmd/{bin}/{name}.go, a path that does match a template keeps today's message, a _default package keeps today's message, and a package with no templates. Grown via sedum-haiku (setFunction explainUnmatched, tests).
+  affected_scope:
+    - internal/inject/notemplate.go
+    - internal/inject/notemplate_test.go
+  implements: prov-2026-8394826c
+  implements_version: 1
+  associated_specs:
+    - path: internal/inject/notemplate_test.go
