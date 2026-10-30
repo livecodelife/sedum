@@ -65,6 +65,11 @@ jobs:
       - name: Install the provenance CLI
         run: go install github.com/livecodelife/provenance/cmd/provenance@0eca9872c67a92396400a7eb4d8c25a243b26b1e
 
+      # The commit check runs through `sedum check`, which adds sedum's waivers for
+      # regeneration and marker migration commits. Pinned to the v0.11.0 commit.
+      - name: Install sedum
+        run: go install github.com/livecodelife/sedum/cmd/sedum@00ae003d624f89c611b3387a33a828a9c86d0c4a
+
       - name: Lint records
         run: provenance lint --enforcement strict
 
@@ -76,7 +81,7 @@ jobs:
 
       - name: Check the commits in this pull request
         if: github.event_name == 'pull_request'
-        run: provenance check --range "origin/${{ github.base_ref }}..HEAD"
+        run: sedum check --range "origin/${{ github.base_ref }}..HEAD"
 
   packaging:
     name: Packaging
