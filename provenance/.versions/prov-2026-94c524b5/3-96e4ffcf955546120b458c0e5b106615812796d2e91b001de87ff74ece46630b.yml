@@ -1,0 +1,91 @@
+id: prov-2026-94c524b5
+version: 3
+content_hash: sha256:96e4ffcf955546120b458c0e5b106615812796d2e91b001de87ff74ece46630b
+parent_hash: sha256:e608198848f4e6405fc19c0817f946ba14a24e1b9713dad44dc45306227eb4bd
+reason: Refresh spec hashes after the v2 marker migration rewrote the spec files
+author: calebcowen@gmail.com
+created_at: "2026-10-30T17:54:16Z"
+spec_hashes:
+  - sha256:96ed109395b512cb1d46b5524a9a1b07090f071361cecdab0ed6737b7b56fe21
+content:
+  id: prov-2026-94c524b5
+  title: 'go: internal/cli/orphans_test.go, tests for the orphan summary'
+  type: imprint
+  created_at: "2026-10-16"
+  author: calebcowen@gmail.com
+  intent: |-
+    The tests of internal/cli/orphans_test.go (go package, package cli): the orphan summary groups by fate, the full list keeps a line per region, and no orphans prints nothing. The file already exists holding only its package clause.
+
+    Imports, each its own addImport, exactly: bytes, strings, testing, github.com/livecodelife/sedum/internal/pipeline.
+
+    Declarations, in this order, each exactly one set* call whose code kwarg is the code below verbatim (gofmt-formatted, comments kept). Do not alter, reorder or add anything.
+
+      - setFunction name orphanResult, code exactly:
+          // orphanResult is a run with five removable orphans in three directories, one
+          // pruned orphan, and one orphan in a file no current record authorizes.
+          func orphanResult() *pipeline.Result {
+          	removable := func(file, record string) pipeline.Orphan {
+          		return pipeline.Orphan{Path: file, Action: "setFunction", Record: record, Authorized: true}
+          	}
+          	return &pipeline.Result{Orphans: []pipeline.Orphan{
+          		removable("vendor/a/x.go", "prov-2026-aaaaaaaa"),
+          		removable("vendor/a/x.go", "prov-2026-aaaaaaaa"),
+          		removable("vendor/a/y.go", "prov-2026-bbbbbbbb"),
+          		removable("vendor/b/z.go", "prov-2026-aaaaaaaa"),
+          		removable("lib/w.go", "prov-2026-cccccccc"),
+          		{Path: "lib/p.go", Action: "setFunction", Record: "prov-2026-dddddddd", Authorized: true, Pruned: true},
+          		{Path: "docs/q.go", Action: "setFunction", Record: "prov-2026-eeeeeeee"},
+          	}}
+          }
+
+      - setFunction name renderOrphans, code exactly:
+          func renderOrphans(result *pipeline.Result, list bool) string {
+          	var out bytes.Buffer
+          	printOrphans(&out, result, list)
+          	return out.String()
+          }
+
+      - setFunction name TestOrphanSummaryGroupsByFate, code exactly:
+          func TestOrphanSummaryGroupsByFate(t *testing.T) {
+          	want := "\n" + strings.Join([]string{
+          		"pruned 1 orphan region(s) in 1 file(s) from 1 gone or deprecated record(s); top directories: lib (1)",
+          		"5 orphan region(s) in 4 file(s) from 3 gone or deprecated record(s); --prune-orphans removes them; top directories: vendor/a (3), lib (1), vendor/b (1)",
+          		"1 orphan region(s) in 1 file(s) from 1 gone or deprecated record(s); left alone, no current record authorizes the file; top directories: docs (1)",
+          		"--orphans lists every region",
+          	}, "\n") + "\n"
+          	if got := renderOrphans(orphanResult(), false); got != want {
+          		t.Errorf("summary differs\n got: %q\nwant: %q", got, want)
+          	}
+          }
+
+      - setFunction name TestOrphanListKeepsALinePerRegion, code exactly:
+          func TestOrphanListKeepsALinePerRegion(t *testing.T) {
+          	got := renderOrphans(orphanResult(), true)
+          	lines := strings.Split(strings.TrimSpace(got), "\n")
+          	if len(lines) != 7 {
+          		t.Fatalf("got %d lines, want one per orphan (7):\n%s", len(lines), got)
+          	}
+          	if !strings.HasPrefix(lines[0], "orphan        vendor/a/x.go  setFunction (record prov-2026-aaaaaaaa is gone or deprecated; --prune-orphans removes it)") {
+          		t.Errorf("first line = %q", lines[0])
+          	}
+          	if strings.Contains(got, "--orphans lists") {
+          		t.Errorf("the full list must not carry the summary hint:\n%s", got)
+          	}
+          }
+
+      - setFunction name TestOrphanNoneIsSilent, code exactly:
+          func TestOrphanNoneIsSilent(t *testing.T) {
+          	for _, list := range []bool{false, true} {
+          		if got := renderOrphans(&pipeline.Result{}, list); got != "" {
+          			t.Errorf("list=%v printed %q with no orphans", list, got)
+          		}
+          	}
+          }
+  affected_scope:
+    - internal/cli/orphans_test.go
+  implements: prov-2026-3f83335f
+  implements_version: 2
+  associated_specs:
+    - path: internal/cli/orphans_test.go
+  tags:
+    - orphans
