@@ -5,6 +5,8 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"sort"
+	"strings"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -111,12 +113,17 @@ func runEvidence(out io.Writer, cfg EvidenceConfig) error {
 		selected[rec.ID] = true
 	}
 	byRecord := map[string][]evidence.Region{}
+	skipped := map[string]map[string]bool{}
 	for _, r := range regions.Regions {
 		if cfg.Record != "" && !selected[r.Record] {
 			continue
 		}
 		if !known[r.Record] {
-			return ExitError{Code: 2, Message: fmt.Sprintf("%s has regions under %s and no record file in %s", r.Record, cfg.Output, cfg.Records)}
+			if skipped[r.Record] == nil {
+				skipped[r.Record] = map[string]bool{}
+			}
+			skipped[r.Record][r.File] = true
+			continue
 		}
 		byRecord[r.Record] = append(byRecord[r.Record], evidence.Region{Gen: r.Gen, Pkg: r.Pkg, Tier: r.Tier})
 	}
@@ -166,6 +173,9 @@ func runEvidence(out io.Writer, cfg EvidenceConfig) error {
 	}
 
 	if !cfg.JSON {
+		for _, line := range skippedLines(skipped) {
+			fmt.Fprintln(out, line)
+		}
 		for _, line := range appended {
 			fmt.Fprintln(out, line)
 		}
@@ -182,4 +192,24 @@ func runEvidence(out io.Writer, cfg EvidenceConfig) error {
 		return ExitError{Code: 1}
 	}
 	return nil
+}
+
+// skippedLines is one line for each record that has regions and no record
+// file, in record id order, naming the files that hold them in path order.
+func skippedLines(skipped map[string]map[string]bool) []string {
+	ids := make([]string, 0, len(skipped))
+	for id := range skipped {
+		ids = append(ids, id)
+	}
+	sort.Strings(ids)
+	lines := make([]string, 0, len(ids))
+	for _, id := range ids {
+		files := make([]string, 0, len(skipped[id]))
+		for file := range skipped[id] {
+			files = append(files, file)
+		}
+		sort.Strings(files)
+		lines = append(lines, fmt.Sprintf("skipped %s: regions in %s, no record file", id, strings.Join(files, ", ")))
+	}
+	return lines
 }

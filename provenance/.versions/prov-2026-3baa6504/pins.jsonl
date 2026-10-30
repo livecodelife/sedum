@@ -1,0 +1,2 @@
+{"at":"2026-10-30T20:01:45Z","parent":"prov-2026-8c8032f1","from":1,"to":2,"reason":"the imprint states the skipping of regions of a record with no record file that the blueprint states","author":"calebcowen@gmail.com"}
+{"at":"2026-10-30T20:03:38Z","parent":"prov-2026-8c8032f1","from":2,"to":3,"reason":"pin the blueprint version after the spec refresh","author":"calebcowen@gmail.com"}
