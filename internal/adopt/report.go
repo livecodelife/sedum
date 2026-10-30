@@ -1,49 +1,49 @@
 package adopt
 
 // sedum:anchor:imports
-// sedum:addImport {"tier":"owned","record":"prov-2026-9ac6951e","gen":"sha256:f3bd9f66cf02c71043301cb6b6a6dc79e6a4fc1e4c33cf181069eaa26197a65b","pkg":"sha256:d6a9443c14d82b7bdf19bb96637f957fd44ad9bfbe8f167c97e6f7699c8b830f","kwargs":{"file":"internal/adopt/report.go","path":"encoding/json"}}
+// sedum:addImport {"v":2,"tier":"owned","record":"prov-2026-9ac6951e","gen":"sha256:f3bd9f66cf02c71043301cb6b6a6dc79e6a4fc1e4c33cf181069eaa26197a65b","pkg":"sha256:d6a9443c14d82b7bdf19bb96637f957fd44ad9bfbe8f167c97e6f7699c8b830f","id":{"file":"internal/adopt/report.go","path":"encoding/json"},"kwargs":"sha256:443b3226d4abd0e59ca177d9a2cf8ca2e50ffbb002c92650639d586c6b8b4923","body":"sha256:872d7c3e9dee608e79a7f8ef57930d24b5e30f2a57d891a52549179ace45946a"}
 import "encoding/json"
 
 // /sedum:addImport
-// sedum:addImport {"tier":"owned","record":"prov-2026-9ac6951e","gen":"sha256:f3bd9f66cf02c71043301cb6b6a6dc79e6a4fc1e4c33cf181069eaa26197a65b","pkg":"sha256:d6a9443c14d82b7bdf19bb96637f957fd44ad9bfbe8f167c97e6f7699c8b830f","kwargs":{"file":"internal/adopt/report.go","path":"fmt"}}
+// sedum:addImport {"v":2,"tier":"owned","record":"prov-2026-9ac6951e","gen":"sha256:f3bd9f66cf02c71043301cb6b6a6dc79e6a4fc1e4c33cf181069eaa26197a65b","pkg":"sha256:d6a9443c14d82b7bdf19bb96637f957fd44ad9bfbe8f167c97e6f7699c8b830f","id":{"file":"internal/adopt/report.go","path":"fmt"},"kwargs":"sha256:63d954c40b6324b4bab71201ae7f2ba84971372534c13f8a2f74659d980eaca5","body":"sha256:bcbac51883cbf8064e9196b371cb880cee429866652447ad557533d817857609"}
 import "fmt"
 
 // /sedum:addImport
-// sedum:addImport {"tier":"owned","record":"prov-2026-9ac6951e","gen":"sha256:f3bd9f66cf02c71043301cb6b6a6dc79e6a4fc1e4c33cf181069eaa26197a65b","pkg":"sha256:d6a9443c14d82b7bdf19bb96637f957fd44ad9bfbe8f167c97e6f7699c8b830f","kwargs":{"file":"internal/adopt/report.go","path":"sort"}}
+// sedum:addImport {"v":2,"tier":"owned","record":"prov-2026-9ac6951e","gen":"sha256:f3bd9f66cf02c71043301cb6b6a6dc79e6a4fc1e4c33cf181069eaa26197a65b","pkg":"sha256:d6a9443c14d82b7bdf19bb96637f957fd44ad9bfbe8f167c97e6f7699c8b830f","id":{"file":"internal/adopt/report.go","path":"sort"},"kwargs":"sha256:4a6bf0378c0fb6520aee2b49a5d6080aa4d46bf64f7c7f3ef71e73ef03bceca9","body":"sha256:f197172617ae21ef23b1855b09aafb14571020ae81bff877d63d3ff81f4bf63c"}
 import "sort"
 
 // /sedum:addImport
-// sedum:addImport {"tier":"owned","record":"prov-2026-9ac6951e","gen":"sha256:f3bd9f66cf02c71043301cb6b6a6dc79e6a4fc1e4c33cf181069eaa26197a65b","pkg":"sha256:d6a9443c14d82b7bdf19bb96637f957fd44ad9bfbe8f167c97e6f7699c8b830f","kwargs":{"file":"internal/adopt/report.go","path":"strings"}}
+// sedum:addImport {"v":2,"tier":"owned","record":"prov-2026-9ac6951e","gen":"sha256:f3bd9f66cf02c71043301cb6b6a6dc79e6a4fc1e4c33cf181069eaa26197a65b","pkg":"sha256:d6a9443c14d82b7bdf19bb96637f957fd44ad9bfbe8f167c97e6f7699c8b830f","id":{"file":"internal/adopt/report.go","path":"strings"},"kwargs":"sha256:594280b9690d0729eda26ce8484c769f568242a6dc27740a725d8e2587d56b58","body":"sha256:a9af3c0bc4bf9342df9d7e89a324523fdba7941a9ca4190270e68ff3c4a25ea6"}
 import "strings"
 
 // /sedum:addImport
-// sedum:addImport {"tier":"owned","record":"prov-2026-9ac6951e","gen":"sha256:f3bd9f66cf02c71043301cb6b6a6dc79e6a4fc1e4c33cf181069eaa26197a65b","pkg":"sha256:d6a9443c14d82b7bdf19bb96637f957fd44ad9bfbe8f167c97e6f7699c8b830f","kwargs":{"file":"internal/adopt/report.go","path":"github.com/livecodelife/sedum/internal/genpkg"}}
+// sedum:addImport {"v":2,"tier":"owned","record":"prov-2026-9ac6951e","gen":"sha256:f3bd9f66cf02c71043301cb6b6a6dc79e6a4fc1e4c33cf181069eaa26197a65b","pkg":"sha256:d6a9443c14d82b7bdf19bb96637f957fd44ad9bfbe8f167c97e6f7699c8b830f","id":{"file":"internal/adopt/report.go","path":"github.com/livecodelife/sedum/internal/genpkg"},"kwargs":"sha256:78305e1cd8833df41c4994cfeb4d9c6ebca191b03fcad13c62e340800dae3885","body":"sha256:5b4c7dbee430534527d893269527d915be58accc7a8330a8c104c2014153525d"}
 import "github.com/livecodelife/sedum/internal/genpkg"
 
 // /sedum:addImport
 
 // sedum:anchor:decls
-// sedum:setConst {"tier":"owned","record":"prov-2026-9ac6951e","gen":"sha256:f3bd9f66cf02c71043301cb6b6a6dc79e6a4fc1e4c33cf181069eaa26197a65b","pkg":"sha256:51be1c18998d63cc558c253e211a6bd188d96cb251dad68c6ea88e03c2d5cc4c","kwargs":{"code":"// StatusAdopted marks a file that was brought under Sedum.\nconst StatusAdopted FileStatus = \"adopted\"","file":"internal/adopt/report.go","name":"StatusAdopted"}}
+// sedum:setConst {"v":2,"tier":"owned","record":"prov-2026-9ac6951e","gen":"sha256:f3bd9f66cf02c71043301cb6b6a6dc79e6a4fc1e4c33cf181069eaa26197a65b","pkg":"sha256:51be1c18998d63cc558c253e211a6bd188d96cb251dad68c6ea88e03c2d5cc4c","id":{"file":"internal/adopt/report.go","name":"StatusAdopted"},"kwargs":"sha256:6c1d8d25f0759bbcf5ff73c071d22b8bb7e70779e88ac2ea3a1b8281fabb5a34","body":"sha256:4d7b29e41a78069dde7ef03d379289b86247833541095e7d081655ce3db73c3e"}
 // StatusAdopted marks a file that was brought under Sedum.
 const StatusAdopted FileStatus = "adopted"
 
 // /sedum:setConst
-// sedum:setConst {"tier":"owned","record":"prov-2026-9ac6951e","gen":"sha256:f3bd9f66cf02c71043301cb6b6a6dc79e6a4fc1e4c33cf181069eaa26197a65b","pkg":"sha256:51be1c18998d63cc558c253e211a6bd188d96cb251dad68c6ea88e03c2d5cc4c","kwargs":{"code":"// StatusSkipped marks a file that was left alone and not adopted.\nconst StatusSkipped FileStatus = \"skipped\"","file":"internal/adopt/report.go","name":"StatusSkipped"}}
+// sedum:setConst {"v":2,"tier":"owned","record":"prov-2026-9ac6951e","gen":"sha256:f3bd9f66cf02c71043301cb6b6a6dc79e6a4fc1e4c33cf181069eaa26197a65b","pkg":"sha256:51be1c18998d63cc558c253e211a6bd188d96cb251dad68c6ea88e03c2d5cc4c","id":{"file":"internal/adopt/report.go","name":"StatusSkipped"},"kwargs":"sha256:3f9c677b284a3b1e5b847e70d899f918077b32a83727e014a541fca511ad78dc","body":"sha256:8630b40f2a5d012bd76e4f8fd20b3a9ab426a9f820a414fcbb70113f0a932e13"}
 // StatusSkipped marks a file that was left alone and not adopted.
 const StatusSkipped FileStatus = "skipped"
 
 // /sedum:setConst
-// sedum:setConst {"tier":"owned","record":"prov-2026-9ac6951e","gen":"sha256:f3bd9f66cf02c71043301cb6b6a6dc79e6a4fc1e4c33cf181069eaa26197a65b","pkg":"sha256:51be1c18998d63cc558c253e211a6bd188d96cb251dad68c6ea88e03c2d5cc4c","kwargs":{"code":"// StatusRejected marks a file whose adoption was refused.\nconst StatusRejected FileStatus = \"rejected\"","file":"internal/adopt/report.go","name":"StatusRejected"}}
+// sedum:setConst {"v":2,"tier":"owned","record":"prov-2026-9ac6951e","gen":"sha256:f3bd9f66cf02c71043301cb6b6a6dc79e6a4fc1e4c33cf181069eaa26197a65b","pkg":"sha256:51be1c18998d63cc558c253e211a6bd188d96cb251dad68c6ea88e03c2d5cc4c","id":{"file":"internal/adopt/report.go","name":"StatusRejected"},"kwargs":"sha256:8e66b07ee0cc137321c3df03fa9809a1876863e1c4e5067c390ba9d079fa3a54","body":"sha256:08155869ec1e558d53275e5eec8366be0258edca97175b71713c08d28222aade"}
 // StatusRejected marks a file whose adoption was refused.
 const StatusRejected FileStatus = "rejected"
 
 // /sedum:setConst
-// sedum:setType {"tier":"owned","record":"prov-2026-9ac6951e","gen":"sha256:f3bd9f66cf02c71043301cb6b6a6dc79e6a4fc1e4c33cf181069eaa26197a65b","pkg":"sha256:ebb283283a745fdc09f0294b6e79bd879a830829cb964550ec6b4432fee5bb72","kwargs":{"code":"// FileStatus is the outcome recorded for one file in the adoption report.\ntype FileStatus string","file":"internal/adopt/report.go","name":"FileStatus"}}
+// sedum:setType {"v":2,"tier":"owned","record":"prov-2026-9ac6951e","gen":"sha256:f3bd9f66cf02c71043301cb6b6a6dc79e6a4fc1e4c33cf181069eaa26197a65b","pkg":"sha256:ebb283283a745fdc09f0294b6e79bd879a830829cb964550ec6b4432fee5bb72","id":{"file":"internal/adopt/report.go","name":"FileStatus"},"kwargs":"sha256:35e7ebf6bd144af85909d1025120c606ccf95626c882b71772daef2e3049a20c","body":"sha256:801f52ab8c3e2eacc089c6300661f716d5c953934c5de4e424700c9322b7ada1"}
 // FileStatus is the outcome recorded for one file in the adoption report.
 type FileStatus string
 
 // /sedum:setType
-// sedum:setType {"tier":"owned","record":"prov-2026-9ac6951e","gen":"sha256:f3bd9f66cf02c71043301cb6b6a6dc79e6a4fc1e4c33cf181069eaa26197a65b","pkg":"sha256:ebb283283a745fdc09f0294b6e79bd879a830829cb964550ec6b4432fee5bb72","kwargs":{"code":"// ResidualInfo describes one non-blank residual span of a file.\ntype ResidualInfo struct {\n\tStartLine int    `json:\"start_line\"`\n\tEndLine   int    `json:\"end_line\"`\n\tFirstLine string `json:\"first_line\"`\n\tReason    Reason `json:\"reason\"`\n}","file":"internal/adopt/report.go","name":"ResidualInfo"}}
+// sedum:setType {"v":2,"tier":"owned","record":"prov-2026-9ac6951e","gen":"sha256:f3bd9f66cf02c71043301cb6b6a6dc79e6a4fc1e4c33cf181069eaa26197a65b","pkg":"sha256:ebb283283a745fdc09f0294b6e79bd879a830829cb964550ec6b4432fee5bb72","id":{"file":"internal/adopt/report.go","name":"ResidualInfo"},"kwargs":"sha256:0fdd95421b1f5d8981219d27b2fe71576e232b31cbc199b51671277aedf31b7a","body":"sha256:84f44dfc82173658057a75eab6786fbab29fba1365cc29a0c9698c3f4414e602"}
 // ResidualInfo describes one non-blank residual span of a file.
 type ResidualInfo struct {
 	StartLine int    `json:"start_line"`
@@ -53,7 +53,7 @@ type ResidualInfo struct {
 }
 
 // /sedum:setType
-// sedum:setType {"tier":"owned","record":"prov-2026-9ac6951e","gen":"sha256:f3bd9f66cf02c71043301cb6b6a6dc79e6a4fc1e4c33cf181069eaa26197a65b","pkg":"sha256:ebb283283a745fdc09f0294b6e79bd879a830829cb964550ec6b4432fee5bb72","kwargs":{"code":"// FileReport is the adoption outcome of one file.\ntype FileReport struct {\n\tPath      string         `json:\"path\"`\n\tPackage   string         `json:\"package,omitempty\"`\n\tRecord    string         `json:\"record,omitempty\"`\n\tStatus    FileStatus     `json:\"status\"`\n\tReason    Reason         `json:\"reason,omitempty\"`\n\tDetail    string         `json:\"detail,omitempty\"`\n\tUnits     int            `json:\"units\"`\n\tResiduals []ResidualInfo `json:\"residuals,omitempty\"`\n}","file":"internal/adopt/report.go","name":"FileReport"}}
+// sedum:setType {"v":2,"tier":"owned","record":"prov-2026-9ac6951e","gen":"sha256:f3bd9f66cf02c71043301cb6b6a6dc79e6a4fc1e4c33cf181069eaa26197a65b","pkg":"sha256:ebb283283a745fdc09f0294b6e79bd879a830829cb964550ec6b4432fee5bb72","id":{"file":"internal/adopt/report.go","name":"FileReport"},"kwargs":"sha256:a898e6a7da3a2564cf2638638a742b4ef74217105057fc143440ae3a2e3aae0d","body":"sha256:bc857bcd1db9b0bc25803ec59e03ce8c814141e7ea94d06f1da5379dafee9c22"}
 // FileReport is the adoption outcome of one file.
 type FileReport struct {
 	Path      string         `json:"path"`
@@ -67,7 +67,7 @@ type FileReport struct {
 }
 
 // /sedum:setType
-// sedum:setType {"tier":"owned","record":"prov-2026-9ac6951e","gen":"sha256:f3bd9f66cf02c71043301cb6b6a6dc79e6a4fc1e4c33cf181069eaa26197a65b","pkg":"sha256:ebb283283a745fdc09f0294b6e79bd879a830829cb964550ec6b4432fee5bb72","kwargs":{"code":"// Totals sums the file outcomes of a report.\ntype Totals struct {\n\tFiles           int            `json:\"files\"`\n\tAdopted         int            `json:\"adopted\"`\n\tSkipped         int            `json:\"skipped\"`\n\tRejected        int            `json:\"rejected\"`\n\tUnits           int            `json:\"units\"`\n\tSkippedByReason map[Reason]int `json:\"skipped_by_reason\"`\n}","file":"internal/adopt/report.go","name":"Totals"}}
+// sedum:setType {"v":2,"tier":"owned","record":"prov-2026-9ac6951e","gen":"sha256:f3bd9f66cf02c71043301cb6b6a6dc79e6a4fc1e4c33cf181069eaa26197a65b","pkg":"sha256:ebb283283a745fdc09f0294b6e79bd879a830829cb964550ec6b4432fee5bb72","id":{"file":"internal/adopt/report.go","name":"Totals"},"kwargs":"sha256:2536a94afc2c077c4a2474e4e7cb87767b411235a5dfdcd6127f032cd772953c","body":"sha256:de681f7905d7126fbf159aa751c0e302f2a08ec9d28a3a0238fa47fbb5790f47"}
 // Totals sums the file outcomes of a report.
 type Totals struct {
 	Files           int            `json:"files"`
@@ -79,7 +79,7 @@ type Totals struct {
 }
 
 // /sedum:setType
-// sedum:setType {"tier":"owned","record":"prov-2026-9ac6951e","gen":"sha256:f3bd9f66cf02c71043301cb6b6a6dc79e6a4fc1e4c33cf181069eaa26197a65b","pkg":"sha256:ebb283283a745fdc09f0294b6e79bd879a830829cb964550ec6b4432fee5bb72","kwargs":{"code":"// Report is the adoption report for one run of sedum adopt.\ntype Report struct {\n\tFiles     []FileReport `json:\"files\"`\n\tTotals    Totals       `json:\"totals\"`\n\tRecording string       `json:\"recording,omitempty\"`\n}","file":"internal/adopt/report.go","name":"Report"}}
+// sedum:setType {"v":2,"tier":"owned","record":"prov-2026-9ac6951e","gen":"sha256:f3bd9f66cf02c71043301cb6b6a6dc79e6a4fc1e4c33cf181069eaa26197a65b","pkg":"sha256:ebb283283a745fdc09f0294b6e79bd879a830829cb964550ec6b4432fee5bb72","id":{"file":"internal/adopt/report.go","name":"Report"},"kwargs":"sha256:6dfc01522c31fd87be5791f4532de0a7a45b0892e0a9c75d46dcebdeb3295e08","body":"sha256:77858c86b81830a34d979e1a40dc8dfc9e0d0c0dbb846439eb15ee6d6d46e4ea"}
 // Report is the adoption report for one run of sedum adopt.
 type Report struct {
 	Files     []FileReport `json:"files"`
@@ -88,14 +88,14 @@ type Report struct {
 }
 
 // /sedum:setType
-// sedum:setFunction {"tier":"owned","record":"prov-2026-9ac6951e","gen":"sha256:f3bd9f66cf02c71043301cb6b6a6dc79e6a4fc1e4c33cf181069eaa26197a65b","pkg":"sha256:6589611adfb6618a7920e43f951a79901428192ea95c1084fde9f222aecd9537","kwargs":{"code":"// NewReport returns an empty report ready for Add.\nfunc NewReport() *Report {\n\treturn &Report{Files: []FileReport{}, Totals: Totals{SkippedByReason: map[Reason]int{}}}\n}","file":"internal/adopt/report.go","name":"NewReport"}}
+// sedum:setFunction {"v":2,"tier":"owned","record":"prov-2026-9ac6951e","gen":"sha256:f3bd9f66cf02c71043301cb6b6a6dc79e6a4fc1e4c33cf181069eaa26197a65b","pkg":"sha256:6589611adfb6618a7920e43f951a79901428192ea95c1084fde9f222aecd9537","id":{"file":"internal/adopt/report.go","name":"NewReport"},"kwargs":"sha256:148fcac3996fced71978cd9220b90e60b6ed208b85fb299d1b264ea1f9f43736","body":"sha256:6c4f9c12caaa871863280cd137278b2ee635b4cfb77a540bba0c4ee4ea8b54bb"}
 // NewReport returns an empty report ready for Add.
 func NewReport() *Report {
 	return &Report{Files: []FileReport{}, Totals: Totals{SkippedByReason: map[Reason]int{}}}
 }
 
 // /sedum:setFunction
-// sedum:setMethod {"tier":"owned","record":"prov-2026-9ac6951e","gen":"sha256:f3bd9f66cf02c71043301cb6b6a6dc79e6a4fc1e4c33cf181069eaa26197a65b","pkg":"sha256:8ea07fc52bbc260836983438ef08ad02746b86a1028c8b1a51b60eeb7b83cc2b","kwargs":{"code":"// Add records one file's outcome and updates the totals.\nfunc (r *Report) Add(f FileReport) {\n\tr.Files = append(r.Files, f)\n\tr.Totals.Files++\n\tr.Totals.Units += f.Units\n\tswitch f.Status {\n\tcase StatusAdopted:\n\t\tr.Totals.Adopted++\n\tcase StatusSkipped:\n\t\tr.Totals.Skipped++\n\tcase StatusRejected:\n\t\tr.Totals.Rejected++\n\t}\n\tif (f.Status == StatusSkipped || f.Status == StatusRejected) && f.Reason != \"\" {\n\t\tr.Totals.SkippedByReason[f.Reason]++\n\t}\n}","file":"internal/adopt/report.go","name":"Add","receiver":"Report"}}
+// sedum:setMethod {"v":2,"tier":"owned","record":"prov-2026-9ac6951e","gen":"sha256:f3bd9f66cf02c71043301cb6b6a6dc79e6a4fc1e4c33cf181069eaa26197a65b","pkg":"sha256:8ea07fc52bbc260836983438ef08ad02746b86a1028c8b1a51b60eeb7b83cc2b","id":{"file":"internal/adopt/report.go","name":"Add","receiver":"Report"},"kwargs":"sha256:0369c42840362ef1d3c31b04c68d62dc8a961edb932817a8542993675504c9db","body":"sha256:028c537b6536d03b90263c85950a08d5dc4d66670818634a1e72470461b82211"}
 // Add records one file's outcome and updates the totals.
 func (r *Report) Add(f FileReport) {
 	r.Files = append(r.Files, f)
@@ -115,7 +115,7 @@ func (r *Report) Add(f FileReport) {
 }
 
 // /sedum:setMethod
-// sedum:setMethod {"tier":"owned","record":"prov-2026-9ac6951e","gen":"sha256:f3bd9f66cf02c71043301cb6b6a6dc79e6a4fc1e4c33cf181069eaa26197a65b","pkg":"sha256:8ea07fc52bbc260836983438ef08ad02746b86a1028c8b1a51b60eeb7b83cc2b","kwargs":{"code":"// JSON returns the report as indented JSON with a trailing newline.\nfunc (r *Report) JSON() ([]byte, error) {\n\tb, err := json.MarshalIndent(r, \"\", \"  \")\n\tif err != nil {\n\t\treturn nil, fmt.Errorf(\"marshal report: %w\", err)\n\t}\n\treturn append(b, '\\n'), nil\n}","file":"internal/adopt/report.go","name":"JSON","receiver":"Report"}}
+// sedum:setMethod {"v":2,"tier":"owned","record":"prov-2026-9ac6951e","gen":"sha256:f3bd9f66cf02c71043301cb6b6a6dc79e6a4fc1e4c33cf181069eaa26197a65b","pkg":"sha256:8ea07fc52bbc260836983438ef08ad02746b86a1028c8b1a51b60eeb7b83cc2b","id":{"file":"internal/adopt/report.go","name":"JSON","receiver":"Report"},"kwargs":"sha256:74e0f63367b166b67c5be0de7f49451f2578dc801085ca87c3b34a722dacd2ee","body":"sha256:33e7c833ccd65939c04e45d4151f9c242d36f76bf6dcb3a987ba549b04d27d5a"}
 // JSON returns the report as indented JSON with a trailing newline.
 func (r *Report) JSON() ([]byte, error) {
 	b, err := json.MarshalIndent(r, "", "  ")
@@ -126,7 +126,7 @@ func (r *Report) JSON() ([]byte, error) {
 }
 
 // /sedum:setMethod
-// sedum:setFunction {"tier":"owned","record":"prov-2026-9ac6951e","gen":"sha256:f3bd9f66cf02c71043301cb6b6a6dc79e6a4fc1e4c33cf181069eaa26197a65b","pkg":"sha256:6589611adfb6618a7920e43f951a79901428192ea95c1084fde9f222aecd9537","kwargs":{"code":"// ResidualsOf reports the non-blank residual spans of a file, classifying each\n// as a header, a floating comment, or other residual text.\nfunc ResidualsOf(src []byte, spans []Span, comment genpkg.Comment) []ResidualInfo {\n\tvar out []ResidualInfo\n\tline := 1\n\tfirst := true\n\tunitSeen := false\n\tfor _, s := range spans {\n\t\tisFirst := first && s.Kind != KindHeader\n\t\tif s.Kind != KindHeader {\n\t\t\tfirst = false\n\t\t}\n\t\tif s.Kind == KindUnit {\n\t\t\tunitSeen = true\n\t\t}\n\t\tif s.Kind == KindResidual && !ResidualIsBlank(s) {\n\t\t\tlines := strings.Split(s.Text, \"\\n\")\n\t\t\tstart, end := -1, -1\n\t\t\tallComment := comment.Prefix != \"\"\n\t\t\tfor i, l := range lines {\n\t\t\t\tif strings.TrimSpace(l) == \"\" {\n\t\t\t\t\tcontinue\n\t\t\t\t}\n\t\t\t\tif start < 0 {\n\t\t\t\t\tstart = i\n\t\t\t\t}\n\t\t\t\tend = i\n\t\t\t\tif !strings.HasPrefix(strings.TrimLeft(l, \" \\t\"), comment.Prefix) {\n\t\t\t\t\tallComment = false\n\t\t\t\t}\n\t\t\t}\n\t\t\treason := ReasonOtherResidual\n\t\t\tif allComment && isFirst && !unitSeen {\n\t\t\t\treason = ReasonHeader\n\t\t\t} else if allComment {\n\t\t\t\treason = ReasonFloatingComment\n\t\t\t}\n\t\t\tout = append(out, ResidualInfo{\n\t\t\t\tStartLine: line + start,\n\t\t\t\tEndLine:   line + end,\n\t\t\t\tFirstLine: strings.TrimSpace(lines[start]),\n\t\t\t\tReason:    reason,\n\t\t\t})\n\t\t}\n\t\tline += strings.Count(s.Text, \"\\n\")\n\t}\n\treturn out\n}","file":"internal/adopt/report.go","name":"ResidualsOf"}}
+// sedum:setFunction {"v":2,"tier":"owned","record":"prov-2026-9ac6951e","gen":"sha256:f3bd9f66cf02c71043301cb6b6a6dc79e6a4fc1e4c33cf181069eaa26197a65b","pkg":"sha256:6589611adfb6618a7920e43f951a79901428192ea95c1084fde9f222aecd9537","id":{"file":"internal/adopt/report.go","name":"ResidualsOf"},"kwargs":"sha256:e7613acd41d19060714bb40c2e88821874f58da59660d76b87523781b1fc0538","body":"sha256:e8a6cab75ab0ee986901c20f1c1d78aa929ade72bf1c66a3cb6746e91a2c90a2"}
 // ResidualsOf reports the non-blank residual spans of a file, classifying each
 // as a header, a floating comment, or other residual text.
 func ResidualsOf(src []byte, spans []Span, comment genpkg.Comment) []ResidualInfo {
@@ -177,7 +177,7 @@ func ResidualsOf(src []byte, spans []Span, comment genpkg.Comment) []ResidualInf
 }
 
 // /sedum:setFunction
-// sedum:setMethod {"tier":"owned","record":"prov-2026-9ac6951e","gen":"sha256:f3bd9f66cf02c71043301cb6b6a6dc79e6a4fc1e4c33cf181069eaa26197a65b","pkg":"sha256:8ea07fc52bbc260836983438ef08ad02746b86a1028c8b1a51b60eeb7b83cc2b","kwargs":{"code":"// Text returns a plain-text summary of the report.\nfunc (r *Report) Text() string {\n\tvar b strings.Builder\n\tfmt.Fprintf(&b, \"adopt: %d file(s): %d adopted, %d skipped, %d rejected, %d unit(s)\\n\", r.Totals.Files, r.Totals.Adopted, r.Totals.Skipped, r.Totals.Rejected, r.Totals.Units)\n\tif r.Totals.Skipped+r.Totals.Rejected > 0 {\n\t\tb.WriteString(\"skipped by reason:\\n\")\n\t\tvar reasons []string\n\t\tfor k := range r.Totals.SkippedByReason {\n\t\t\treasons = append(reasons, string(k))\n\t\t}\n\t\tsort.Strings(reasons)\n\t\tfor _, k := range reasons {\n\t\t\tfmt.Fprintf(&b, \"  %s: %d\\n\", k, r.Totals.SkippedByReason[Reason(k)])\n\t\t}\n\t\tfor _, k := range reasons {\n\t\t\tfmt.Fprintf(&b, \"%s:\\n\", k)\n\t\t\tfor _, f := range r.Files {\n\t\t\t\tif (f.Status != StatusSkipped && f.Status != StatusRejected) || string(f.Reason) != k {\n\t\t\t\t\tcontinue\n\t\t\t\t}\n\t\t\t\tif len(f.Residuals) == 0 {\n\t\t\t\t\tfmt.Fprintf(&b, \"  %s\\n\", f.Path)\n\t\t\t\t}\n\t\t\t\tif len(f.Residuals) == 1 {\n\t\t\t\t\tres := f.Residuals[0]\n\t\t\t\t\tfmt.Fprintf(&b, \"  %s (lines %d-%d: %s)\\n\", f.Path, res.StartLine, res.EndLine, res.FirstLine)\n\t\t\t\t}\n\t\t\t\tif len(f.Residuals) > 1 {\n\t\t\t\t\tfor _, res := range f.Residuals {\n\t\t\t\t\t\tfmt.Fprintf(&b, \"  %s lines %d-%d: %s\\n\", f.Path, res.StartLine, res.EndLine, res.FirstLine)\n\t\t\t\t\t}\n\t\t\t\t}\n\t\t\t}\n\t\t}\n\t}\n\tvar order []string\n\tbyRecord := map[string][]string{}\n\tfor _, f := range r.Files {\n\t\tif f.Status != StatusAdopted || f.Record == \"\" {\n\t\t\tcontinue\n\t\t}\n\t\tif _, ok := byRecord[f.Record]; !ok {\n\t\t\torder = append(order, f.Record)\n\t\t}\n\t\tbyRecord[f.Record] = append(byRecord[f.Record], f.Path)\n\t}\n\tif len(order) > 0 {\n\t\tb.WriteString(\"list the adopted files in their imprints so grow --check sees them:\\n\")\n\t\tfor _, id := range order {\n\t\t\tfmt.Fprintf(&b, \"  provenance edit %s\", id)\n\t\t\tfor _, p := range byRecord[id] {\n\t\t\t\tfmt.Fprintf(&b, \" --add-scope %s\", p)\n\t\t\t}\n\t\t\tb.WriteString(\"\\n\")\n\t\t}\n\t}\n\tif r.Recording != \"\" {\n\t\tfmt.Fprintf(&b, \"recording: %s\\n\", r.Recording)\n\t}\n\treturn b.String()\n}","file":"internal/adopt/report.go","name":"Text","receiver":"Report"}}
+// sedum:setMethod {"v":2,"tier":"owned","record":"prov-2026-9ac6951e","gen":"sha256:f3bd9f66cf02c71043301cb6b6a6dc79e6a4fc1e4c33cf181069eaa26197a65b","pkg":"sha256:8ea07fc52bbc260836983438ef08ad02746b86a1028c8b1a51b60eeb7b83cc2b","id":{"file":"internal/adopt/report.go","name":"Text","receiver":"Report"},"kwargs":"sha256:b9410f9e5f809e2c942b77b8f3f99b4172dbe0b86ac077494544c165ef5ee873","body":"sha256:258d9158638510c81f6966ffa20dfb4c699f45b5730fd2e4763be69c3a9c53bd"}
 // Text returns a plain-text summary of the report.
 func (r *Report) Text() string {
 	var b strings.Builder

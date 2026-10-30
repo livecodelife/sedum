@@ -1,0 +1,734 @@
+{
+  "sedum_version": "0.11.0",
+  "packages": {
+    "go": {
+      "extensions": [
+        ".go"
+      ]
+    }
+  },
+  "records": [
+    {
+      "record_id": "prov-2026-8b91f1f9",
+      "gen": "sha256:12e888fde70a07acdfaa513cd82e9f69ed9081c8aab93d33b064dfa10f760e54",
+      "created_at": "2026-10-16",
+      "files": [
+        {
+          "path": "evals/design/result.go",
+          "package": "go",
+          "template": "*/{pkg}/{name}.go",
+          "captures": {
+            "name": "result",
+            "pkg": "design"
+          }
+        },
+        {
+          "path": "evals/design/result_test.go",
+          "package": "go",
+          "template": "*/{pkg}/{name}.go",
+          "captures": {
+            "name": "result_test",
+            "pkg": "design"
+          }
+        }
+      ],
+      "phases": [
+        {
+          "name": "default",
+          "invocations": [
+            {
+              "action": "addImport",
+              "kwargs": {
+                "file": "evals/design/result.go",
+                "path": "bytes"
+              }
+            },
+            {
+              "action": "addImport",
+              "kwargs": {
+                "file": "evals/design/result.go",
+                "path": "crypto/sha256"
+              }
+            },
+            {
+              "action": "addImport",
+              "kwargs": {
+                "file": "evals/design/result.go",
+                "path": "encoding/hex"
+              }
+            },
+            {
+              "action": "addImport",
+              "kwargs": {
+                "file": "evals/design/result.go",
+                "path": "encoding/json"
+              }
+            },
+            {
+              "action": "addImport",
+              "kwargs": {
+                "file": "evals/design/result.go",
+                "path": "fmt"
+              }
+            },
+            {
+              "action": "addImport",
+              "kwargs": {
+                "file": "evals/design/result.go",
+                "path": "os"
+              }
+            },
+            {
+              "action": "addImport",
+              "kwargs": {
+                "file": "evals/design/result.go",
+                "path": "path/filepath"
+              }
+            },
+            {
+              "action": "addImport",
+              "kwargs": {
+                "file": "evals/design/result.go",
+                "path": "sort"
+              }
+            },
+            {
+              "action": "addImport",
+              "kwargs": {
+                "file": "evals/design/result.go",
+                "path": "strings"
+              }
+            },
+            {
+              "action": "addImport",
+              "kwargs": {
+                "file": "evals/design/result.go",
+                "path": "text/tabwriter"
+              }
+            },
+            {
+              "action": "setType",
+              "kwargs": {
+                "code": "// Sample is one grow of one task with one intent variant.\ntype Sample struct {\n\tTask             string  `json:\"task\"`\n\tVariant          Variant `json:\"variant\"`\n\tN                int     `json:\"n\"`\n\tCompiled         bool    `json:\"compiled\"`\n\tPassed           bool    `json:\"passed\"`\n\tCalls            int     `json:\"calls\"`\n\tRejected         int     `json:\"rejected\"`\n\tRepairs          int     `json:\"repairs\"`\n\tPromptTokens     int     `json:\"prompt_tokens\"`\n\tCompletionTokens int     `json:\"completion_tokens\"`\n\tMS               int64   `json:\"ms\"`\n\tError            string  `json:\"error,omitempty\"`\n}",
+                "file": "evals/design/result.go",
+                "name": "Sample"
+              }
+            },
+            {
+              "action": "setType",
+              "kwargs": {
+                "code": "// Cell is the totals of the samples of one task and variant.\ntype Cell struct {\n\tTask             string  `json:\"task\"`\n\tVariant          Variant `json:\"variant\"`\n\tSamples          int     `json:\"samples\"`\n\tCompiled         int     `json:\"compiled\"`\n\tPassed           int     `json:\"passed\"`\n\tCalls            int     `json:\"calls\"`\n\tRejected         int     `json:\"rejected\"`\n\tRepairs          int     `json:\"repairs\"`\n\tPromptTokens     int     `json:\"prompt_tokens\"`\n\tCompletionTokens int     `json:\"completion_tokens\"`\n}",
+                "file": "evals/design/result.go",
+                "name": "Cell"
+              }
+            },
+            {
+              "action": "setMethod",
+              "kwargs": {
+                "code": "func (c *Cell) add(s Sample) {\n\tc.Samples++\n\tif s.Compiled {\n\t\tc.Compiled++\n\t}\n\tif s.Passed {\n\t\tc.Passed++\n\t}\n\tc.Calls += s.Calls\n\tc.Rejected += s.Rejected\n\tc.Repairs += s.Repairs\n\tc.PromptTokens += s.PromptTokens\n\tc.CompletionTokens += s.CompletionTokens\n}",
+                "file": "evals/design/result.go",
+                "name": "add",
+                "receiver": "Cell"
+              }
+            },
+            {
+              "action": "setMethod",
+              "kwargs": {
+                "code": "// Tokens is the cell's prompt and completion tokens together.\nfunc (c Cell) Tokens() int { return c.PromptTokens + c.CompletionTokens }",
+                "file": "evals/design/result.go",
+                "name": "Tokens",
+                "receiver": "Cell"
+              }
+            },
+            {
+              "action": "setFunction",
+              "kwargs": {
+                "code": "// Aggregate totals samples per task and variant, sorted by task and then by\n// variant order.\nfunc Aggregate(samples []Sample) []Cell {\n\tby := map[string]*Cell{}\n\tfor _, s := range samples {\n\t\tkey := s.Task + \"\\x00\" + string(s.Variant)\n\t\tc := by[key]\n\t\tif c == nil {\n\t\t\tc = \u0026Cell{Task: s.Task, Variant: s.Variant}\n\t\t\tby[key] = c\n\t\t}\n\t\tc.add(s)\n\t}\n\torder := map[Variant]int{}\n\tfor i, v := range Variants() {\n\t\torder[v] = i\n\t}\n\tcells := make([]Cell, 0, len(by))\n\tfor _, c := range by {\n\t\tcells = append(cells, *c)\n\t}\n\tsort.Slice(cells, func(i, j int) bool {\n\t\tif cells[i].Task != cells[j].Task {\n\t\t\treturn cells[i].Task \u003c cells[j].Task\n\t\t}\n\t\treturn order[cells[i].Variant] \u003c order[cells[j].Variant]\n\t})\n\treturn cells\n}",
+                "file": "evals/design/result.go",
+                "name": "Aggregate"
+              }
+            },
+            {
+              "action": "setFunction",
+              "kwargs": {
+                "code": "// TaskHash fingerprints a task: its task.yaml and every context and hidden\n// file, so a result says which version of the task it was drawn against.\nfunc TaskHash(t Task) (string, error) {\n\tsum := sha256.New()\n\tpaths := []string{filepath.Join(t.Dir, \"task.yaml\")}\n\tfor _, f := range t.Context {\n\t\tpaths = append(paths, filepath.Join(t.Dir, \"context\", f))\n\t}\n\tfor _, f := range t.Hidden {\n\t\tpaths = append(paths, filepath.Join(t.Dir, \"hidden\", f))\n\t}\n\tfor _, p := range paths {\n\t\tdata, err := os.ReadFile(p)\n\t\tif err != nil {\n\t\t\treturn \"\", err\n\t\t}\n\t\tfmt.Fprintf(sum, \"%s\\x00%d\\x00\", filepath.Base(p), len(data))\n\t\tsum.Write(data)\n\t}\n\treturn hex.EncodeToString(sum.Sum(nil))[:12], nil\n}",
+                "file": "evals/design/result.go",
+                "name": "TaskHash"
+              }
+            },
+            {
+              "action": "setType",
+              "kwargs": {
+                "code": "// Report is a whole run: where it was drawn and every sample.\ntype Report struct {\n\tVersion    int               `json:\"version\"`\n\tCommit     string            `json:\"commit\"`\n\tSedum      string            `json:\"sedum\"`\n\tModel      string            `json:\"model\"`\n\tK          int               `json:\"k\"`\n\tTaskHashes map[string]string `json:\"task_hashes\"`\n\tSamples    []Sample          `json:\"samples\"`\n\tCells      []Cell            `json:\"cells\"`\n\tTotals     Cell              `json:\"totals\"`\n}",
+                "file": "evals/design/result.go",
+                "name": "Report"
+              }
+            },
+            {
+              "action": "setFunction",
+              "kwargs": {
+                "code": "// NewReport builds the report for samples, computing the cells and the totals.\nfunc NewReport(commit, sedum, model string, k int, hashes map[string]string, samples []Sample) Report {\n\tr := Report{Version: 1, Commit: commit, Sedum: sedum, Model: model, K: k, TaskHashes: hashes, Samples: samples, Cells: Aggregate(samples)}\n\tfor _, s := range samples {\n\t\tr.Totals.add(s)\n\t}\n\treturn r\n}",
+                "file": "evals/design/result.go",
+                "name": "NewReport"
+              }
+            },
+            {
+              "action": "setMethod",
+              "kwargs": {
+                "code": "// JSON renders the report as indented JSON with a trailing newline.\nfunc (r Report) JSON() ([]byte, error) {\n\tb, err := json.MarshalIndent(r, \"\", \"  \")\n\tif err != nil {\n\t\treturn nil, err\n\t}\n\treturn append(b, '\\n'), nil\n}",
+                "file": "evals/design/result.go",
+                "name": "JSON",
+                "receiver": "Report"
+              }
+            },
+            {
+              "action": "setMethod",
+              "kwargs": {
+                "code": "// Table renders the report: passes per task for each variant, then per-variant\n// totals with retries, repairs and tokens. A rate over a handful of samples is\n// a direction, not a number, and the header says so.\nfunc (r Report) Table() string {\n\tvar b strings.Builder\n\tfmt.Fprintf(\u0026b, \"design eval: model %s, K=%d samples per cell (a rate over so few samples is a direction, not a number)\\n\\n\", r.Model, r.K)\n\ttasks := map[string]bool{}\n\tfor _, c := range r.Cells {\n\t\ttasks[c.Task] = true\n\t}\n\tnames := make([]string, 0, len(tasks))\n\tfor t := range tasks {\n\t\tnames = append(names, t)\n\t}\n\tsort.Strings(names)\n\tcell := func(task string, v Variant) Cell {\n\t\tfor _, c := range r.Cells {\n\t\t\tif c.Task == task \u0026\u0026 c.Variant == v {\n\t\t\t\treturn c\n\t\t\t}\n\t\t}\n\t\treturn Cell{}\n\t}\n\tvar buf bytes.Buffer\n\tw := tabwriter.NewWriter(\u0026buf, 0, 8, 2, ' ', 0)\n\tfmt.Fprintf(w, \"passed\\t%s\\n\", strings.Join(names, \"\\t\"))\n\tfor _, v := range Variants() {\n\t\trow := []string{string(v)}\n\t\tfor _, n := range names {\n\t\t\tc := cell(n, v)\n\t\t\trow = append(row, fmt.Sprintf(\"%d/%d\", c.Passed, c.Samples))\n\t\t}\n\t\tfmt.Fprintln(w, strings.Join(row, \"\\t\"))\n\t}\n\tw.Flush()\n\tb.Write(buf.Bytes())\n\tb.WriteString(\"\\n\")\n\tbuf.Reset()\n\tw = tabwriter.NewWriter(\u0026buf, 0, 8, 2, ' ', 0)\n\tfmt.Fprintln(w, \"variant\\tsamples\\tcompiled\\tpassed\\tretries\\trepairs\\ttokens\")\n\tfor _, v := range Variants() {\n\t\tvar t Cell\n\t\tfor _, c := range r.Cells {\n\t\t\tif c.Variant == v {\n\t\t\t\tt.Samples += c.Samples\n\t\t\t\tt.Compiled += c.Compiled\n\t\t\t\tt.Passed += c.Passed\n\t\t\t\tt.Rejected += c.Rejected\n\t\t\t\tt.Repairs += c.Repairs\n\t\t\t\tt.PromptTokens += c.PromptTokens\n\t\t\t\tt.CompletionTokens += c.CompletionTokens\n\t\t\t}\n\t\t}\n\t\tfmt.Fprintf(w, \"%s\\t%d\\t%d\\t%d\\t%d\\t%d\\t%d\\n\", v, t.Samples, t.Compiled, t.Passed, t.Rejected, t.Repairs, t.Tokens())\n\t}\n\tfmt.Fprintf(w, \"total\\t%d\\t%d\\t%d\\t%d\\t%d\\t%d\\n\", r.Totals.Samples, r.Totals.Compiled, r.Totals.Passed, r.Totals.Rejected, r.Totals.Repairs, r.Totals.Tokens())\n\tw.Flush()\n\tb.Write(buf.Bytes())\n\treturn b.String()\n}",
+                "file": "evals/design/result.go",
+                "name": "Table",
+                "receiver": "Report"
+              }
+            },
+            {
+              "action": "addImport",
+              "kwargs": {
+                "file": "evals/design/result_test.go",
+                "path": "encoding/json"
+              }
+            },
+            {
+              "action": "addImport",
+              "kwargs": {
+                "file": "evals/design/result_test.go",
+                "path": "strings"
+              }
+            },
+            {
+              "action": "addImport",
+              "kwargs": {
+                "file": "evals/design/result_test.go",
+                "path": "testing"
+              }
+            },
+            {
+              "action": "setFunction",
+              "kwargs": {
+                "code": "func testSamples() []Sample {\n\treturn []Sample{\n\t\t{Task: \"b\", Variant: VariantCode, N: 1, Compiled: true, Passed: true, Calls: 1, PromptTokens: 100, CompletionTokens: 10},\n\t\t{Task: \"a\", Variant: VariantCode, N: 1, Compiled: true, Passed: false, Calls: 2, Rejected: 1, Repairs: 1, PromptTokens: 200, CompletionTokens: 20},\n\t\t{Task: \"a\", Variant: VariantBehaviour, N: 1, Compiled: false, Calls: 3, Rejected: 3, PromptTokens: 50, CompletionTokens: 5},\n\t\t{Task: \"a\", Variant: VariantBehaviour, N: 2, Compiled: true, Passed: true, Calls: 1, PromptTokens: 50, CompletionTokens: 5},\n\t}\n}",
+                "file": "evals/design/result_test.go",
+                "name": "testSamples"
+              }
+            },
+            {
+              "action": "setFunction",
+              "kwargs": {
+                "code": "func TestAggregate(t *testing.T) {\n\tcells := Aggregate(testSamples())\n\tif len(cells) != 3 {\n\t\tt.Fatalf(\"got %d cells, want 3: %+v\", len(cells), cells)\n\t}\n\tif cells[0].Task != \"a\" || cells[0].Variant != VariantBehaviour || cells[1].Variant != VariantCode || cells[2].Task != \"b\" {\n\t\tt.Fatalf(\"cells out of order: %+v\", cells)\n\t}\n\tc := cells[0]\n\tif c.Samples != 2 || c.Compiled != 1 || c.Passed != 1 || c.Calls != 4 || c.Rejected != 3 || c.Tokens() != 110 {\n\t\tt.Fatalf(\"cell = %+v\", c)\n\t}\n}",
+                "file": "evals/design/result_test.go",
+                "name": "TestAggregate"
+              }
+            },
+            {
+              "action": "setFunction",
+              "kwargs": {
+                "code": "func TestReportTotalsJSONAndTable(t *testing.T) {\n\tr := NewReport(\"abc1234\", \"sedum\", \"claude-haiku-5-5\", 2, map[string]string{\"a\": \"h1\"}, testSamples())\n\tif r.Totals.Samples != 4 || r.Totals.Passed != 2 || r.Totals.Rejected != 4 || r.Totals.Repairs != 1 || r.Totals.Tokens() != 440 {\n\t\tt.Fatalf(\"totals = %+v\", r.Totals)\n\t}\n\tdata, err := r.JSON()\n\tif err != nil {\n\t\tt.Fatal(err)\n\t}\n\tif !strings.HasSuffix(string(data), \"\\n\") {\n\t\tt.Fatal(\"JSON must end with a newline\")\n\t}\n\tvar back Report\n\tif err := json.Unmarshal(data, \u0026back); err != nil {\n\t\tt.Fatal(err)\n\t}\n\tif back.Commit != \"abc1234\" || back.K != 2 || len(back.Samples) != 4 || back.Totals.Samples != 4 {\n\t\tt.Fatalf(\"round trip = %+v\", back)\n\t}\n\ttable := r.Table()\n\tfor _, want := range []string{\"claude-haiku-5-5\", \"K=2\", \"direction, not a number\", \"behaviour\", \"signatures\", \"code\", \"1/2\", \"total\"} {\n\t\tif !strings.Contains(table, want) {\n\t\t\tt.Errorf(\"table lacks %q:\\n%s\", want, table)\n\t\t}\n\t}\n}",
+                "file": "evals/design/result_test.go",
+                "name": "TestReportTotalsJSONAndTable"
+              }
+            },
+            {
+              "action": "setFunction",
+              "kwargs": {
+                "code": "func TestTaskHash(t *testing.T) {\n\troot := t.TempDir()\n\ttask, err := LoadTask(writeTask(t, root, \"ok\", validTask))\n\tif err != nil {\n\t\tt.Fatal(err)\n\t}\n\th1, err := TaskHash(task)\n\tif err != nil {\n\t\tt.Fatal(err)\n\t}\n\th2, _ := TaskHash(task)\n\tif h1 != h2 || len(h1) != 12 {\n\t\tt.Fatalf(\"hash = %q then %q\", h1, h2)\n\t}\n\twriteTask(t, root, \"ok\", strings.Replace(validTask, \"code: c\", \"code: d\", 1))\n\tchanged, err := LoadTask(task.Dir)\n\tif err != nil {\n\t\tt.Fatal(err)\n\t}\n\tif h3, _ := TaskHash(changed); h3 == h1 {\n\t\tt.Fatal(\"a changed task must change its hash\")\n\t}\n}",
+                "file": "evals/design/result_test.go",
+                "name": "TestTaskHash"
+              }
+            }
+          ]
+        }
+      ],
+      "regions": [
+        {
+          "path": "evals/design/result.go",
+          "action": "addImport",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:d6a9443c14d82b7bdf19bb96637f957fd44ad9bfbe8f167c97e6f7699c8b830f",
+          "id": {
+            "file": "evals/design/result.go",
+            "path": "bytes"
+          },
+          "kwargs": {
+            "file": "evals/design/result.go",
+            "path": "bytes"
+          },
+          "kwargs_hash": "sha256:dbe8aae6c86da6d6f60e1080070cac44e59a06f9d5e723d242b3925398124179",
+          "body": "sha256:468731f6dd513df0a66690d4649dc9e7244c96de227d8e6ead98cc5e9747c57a"
+        },
+        {
+          "path": "evals/design/result.go",
+          "action": "addImport",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:d6a9443c14d82b7bdf19bb96637f957fd44ad9bfbe8f167c97e6f7699c8b830f",
+          "id": {
+            "file": "evals/design/result.go",
+            "path": "crypto/sha256"
+          },
+          "kwargs": {
+            "file": "evals/design/result.go",
+            "path": "crypto/sha256"
+          },
+          "kwargs_hash": "sha256:8222b4dd063ad6969431a272b0ba3f27f781ce8f034cfeabc70be653875f7822",
+          "body": "sha256:449ec1ed24bf227b1713290d01a3cedc4fc91ebc26ceac7be6fe2ad3eedd60a1"
+        },
+        {
+          "path": "evals/design/result.go",
+          "action": "addImport",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:d6a9443c14d82b7bdf19bb96637f957fd44ad9bfbe8f167c97e6f7699c8b830f",
+          "id": {
+            "file": "evals/design/result.go",
+            "path": "encoding/hex"
+          },
+          "kwargs": {
+            "file": "evals/design/result.go",
+            "path": "encoding/hex"
+          },
+          "kwargs_hash": "sha256:463d3ed80b43024b641ca1a3f0637e2e1770672373c4205f4741a754a1e62a04",
+          "body": "sha256:5b4bad0c96848696f832da102bacefeeafa1eec6d331d5241ac31b3f4b803432"
+        },
+        {
+          "path": "evals/design/result.go",
+          "action": "addImport",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:d6a9443c14d82b7bdf19bb96637f957fd44ad9bfbe8f167c97e6f7699c8b830f",
+          "id": {
+            "file": "evals/design/result.go",
+            "path": "encoding/json"
+          },
+          "kwargs": {
+            "file": "evals/design/result.go",
+            "path": "encoding/json"
+          },
+          "kwargs_hash": "sha256:e65b7b1d0ca23636c6c5b6e6fa68294c3ad4d7fa8c5407578f688734d361361b",
+          "body": "sha256:872d7c3e9dee608e79a7f8ef57930d24b5e30f2a57d891a52549179ace45946a"
+        },
+        {
+          "path": "evals/design/result.go",
+          "action": "addImport",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:d6a9443c14d82b7bdf19bb96637f957fd44ad9bfbe8f167c97e6f7699c8b830f",
+          "id": {
+            "file": "evals/design/result.go",
+            "path": "fmt"
+          },
+          "kwargs": {
+            "file": "evals/design/result.go",
+            "path": "fmt"
+          },
+          "kwargs_hash": "sha256:6b1565d67dc3ed99e7b2150f25f8696193caba9cc6d67f483e60bf05d2b0d7b0",
+          "body": "sha256:bcbac51883cbf8064e9196b371cb880cee429866652447ad557533d817857609"
+        },
+        {
+          "path": "evals/design/result.go",
+          "action": "addImport",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:d6a9443c14d82b7bdf19bb96637f957fd44ad9bfbe8f167c97e6f7699c8b830f",
+          "id": {
+            "file": "evals/design/result.go",
+            "path": "os"
+          },
+          "kwargs": {
+            "file": "evals/design/result.go",
+            "path": "os"
+          },
+          "kwargs_hash": "sha256:4ec8d0f52ab1f375ab73693d9e42f97638a75192c1056dff2f2e3251c22e075e",
+          "body": "sha256:7c6e309eb2575d4aa451ec2ab83161d13e9ae03bbca3a4d2ecf30ce12adf0905"
+        },
+        {
+          "path": "evals/design/result.go",
+          "action": "addImport",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:d6a9443c14d82b7bdf19bb96637f957fd44ad9bfbe8f167c97e6f7699c8b830f",
+          "id": {
+            "file": "evals/design/result.go",
+            "path": "path/filepath"
+          },
+          "kwargs": {
+            "file": "evals/design/result.go",
+            "path": "path/filepath"
+          },
+          "kwargs_hash": "sha256:98fe2b754cb05aa5d290490942226177fa173aea2025d4a4cf5687b845febeeb",
+          "body": "sha256:a6d196b558491e646be93f56a321f339068c64c76aa9d49bb18046e7f9c777a1"
+        },
+        {
+          "path": "evals/design/result.go",
+          "action": "addImport",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:d6a9443c14d82b7bdf19bb96637f957fd44ad9bfbe8f167c97e6f7699c8b830f",
+          "id": {
+            "file": "evals/design/result.go",
+            "path": "sort"
+          },
+          "kwargs": {
+            "file": "evals/design/result.go",
+            "path": "sort"
+          },
+          "kwargs_hash": "sha256:a37914b104492699385a50304879be3485b6d46c2fba070944f78b38753fc863",
+          "body": "sha256:f197172617ae21ef23b1855b09aafb14571020ae81bff877d63d3ff81f4bf63c"
+        },
+        {
+          "path": "evals/design/result.go",
+          "action": "addImport",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:d6a9443c14d82b7bdf19bb96637f957fd44ad9bfbe8f167c97e6f7699c8b830f",
+          "id": {
+            "file": "evals/design/result.go",
+            "path": "strings"
+          },
+          "kwargs": {
+            "file": "evals/design/result.go",
+            "path": "strings"
+          },
+          "kwargs_hash": "sha256:b45ee974de508f74c9276ec4cb4e117c5514063a74943d9e5e6b706c3d653f4a",
+          "body": "sha256:a9af3c0bc4bf9342df9d7e89a324523fdba7941a9ca4190270e68ff3c4a25ea6"
+        },
+        {
+          "path": "evals/design/result.go",
+          "action": "addImport",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:d6a9443c14d82b7bdf19bb96637f957fd44ad9bfbe8f167c97e6f7699c8b830f",
+          "id": {
+            "file": "evals/design/result.go",
+            "path": "text/tabwriter"
+          },
+          "kwargs": {
+            "file": "evals/design/result.go",
+            "path": "text/tabwriter"
+          },
+          "kwargs_hash": "sha256:8e9bfbcdd59e54dadb578236b37fe1267fb9e1eb4bd7feb8c97ba0ff111620e4",
+          "body": "sha256:11be499c9f9e23f4957f08722e9ed4af814f9d2de02b151a195600cda7fe6b92"
+        },
+        {
+          "path": "evals/design/result.go",
+          "action": "setFunction",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:6589611adfb6618a7920e43f951a79901428192ea95c1084fde9f222aecd9537",
+          "id": {
+            "file": "evals/design/result.go",
+            "name": "Aggregate"
+          },
+          "kwargs": {
+            "code": "// Aggregate totals samples per task and variant, sorted by task and then by\n// variant order.\nfunc Aggregate(samples []Sample) []Cell {\n\tby := map[string]*Cell{}\n\tfor _, s := range samples {\n\t\tkey := s.Task + \"\\x00\" + string(s.Variant)\n\t\tc := by[key]\n\t\tif c == nil {\n\t\t\tc = \u0026Cell{Task: s.Task, Variant: s.Variant}\n\t\t\tby[key] = c\n\t\t}\n\t\tc.add(s)\n\t}\n\torder := map[Variant]int{}\n\tfor i, v := range Variants() {\n\t\torder[v] = i\n\t}\n\tcells := make([]Cell, 0, len(by))\n\tfor _, c := range by {\n\t\tcells = append(cells, *c)\n\t}\n\tsort.Slice(cells, func(i, j int) bool {\n\t\tif cells[i].Task != cells[j].Task {\n\t\t\treturn cells[i].Task \u003c cells[j].Task\n\t\t}\n\t\treturn order[cells[i].Variant] \u003c order[cells[j].Variant]\n\t})\n\treturn cells\n}",
+            "file": "evals/design/result.go",
+            "name": "Aggregate"
+          },
+          "kwargs_hash": "sha256:dd27b7a1c7f148e5973818d1720436f6b78469a5d00960bf6f173263f7cebfe6",
+          "body": "sha256:4da3b0afee6af31cf765937b908fa238cb653ef3af43b039117da56bf3fd93c5"
+        },
+        {
+          "path": "evals/design/result.go",
+          "action": "setFunction",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:6589611adfb6618a7920e43f951a79901428192ea95c1084fde9f222aecd9537",
+          "id": {
+            "file": "evals/design/result.go",
+            "name": "NewReport"
+          },
+          "kwargs": {
+            "code": "// NewReport builds the report for samples, computing the cells and the totals.\nfunc NewReport(commit, sedum, model string, k int, hashes map[string]string, samples []Sample) Report {\n\tr := Report{Version: 1, Commit: commit, Sedum: sedum, Model: model, K: k, TaskHashes: hashes, Samples: samples, Cells: Aggregate(samples)}\n\tfor _, s := range samples {\n\t\tr.Totals.add(s)\n\t}\n\treturn r\n}",
+            "file": "evals/design/result.go",
+            "name": "NewReport"
+          },
+          "kwargs_hash": "sha256:60c47d353d887114eca1740efa6d3bd907a01102296aaf4fa9ed7d5e3ed2f09d",
+          "body": "sha256:329097d0bfa48320dd3fa83797aca13362d0f22eb7a87ee0906393f7c86906fa"
+        },
+        {
+          "path": "evals/design/result.go",
+          "action": "setFunction",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:6589611adfb6618a7920e43f951a79901428192ea95c1084fde9f222aecd9537",
+          "id": {
+            "file": "evals/design/result.go",
+            "name": "TaskHash"
+          },
+          "kwargs": {
+            "code": "// TaskHash fingerprints a task: its task.yaml and every context and hidden\n// file, so a result says which version of the task it was drawn against.\nfunc TaskHash(t Task) (string, error) {\n\tsum := sha256.New()\n\tpaths := []string{filepath.Join(t.Dir, \"task.yaml\")}\n\tfor _, f := range t.Context {\n\t\tpaths = append(paths, filepath.Join(t.Dir, \"context\", f))\n\t}\n\tfor _, f := range t.Hidden {\n\t\tpaths = append(paths, filepath.Join(t.Dir, \"hidden\", f))\n\t}\n\tfor _, p := range paths {\n\t\tdata, err := os.ReadFile(p)\n\t\tif err != nil {\n\t\t\treturn \"\", err\n\t\t}\n\t\tfmt.Fprintf(sum, \"%s\\x00%d\\x00\", filepath.Base(p), len(data))\n\t\tsum.Write(data)\n\t}\n\treturn hex.EncodeToString(sum.Sum(nil))[:12], nil\n}",
+            "file": "evals/design/result.go",
+            "name": "TaskHash"
+          },
+          "kwargs_hash": "sha256:60320f2deb7479f30e8cacc7e42752b05f9e4475f58af55e584181225a430b28",
+          "body": "sha256:e67597b749709dc35bf9accfd529f9e7f6a6371e79faae2f38fb85ad29a6a368"
+        },
+        {
+          "path": "evals/design/result.go",
+          "action": "setMethod",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:8ea07fc52bbc260836983438ef08ad02746b86a1028c8b1a51b60eeb7b83cc2b",
+          "id": {
+            "file": "evals/design/result.go",
+            "name": "JSON",
+            "receiver": "Report"
+          },
+          "kwargs": {
+            "code": "// JSON renders the report as indented JSON with a trailing newline.\nfunc (r Report) JSON() ([]byte, error) {\n\tb, err := json.MarshalIndent(r, \"\", \"  \")\n\tif err != nil {\n\t\treturn nil, err\n\t}\n\treturn append(b, '\\n'), nil\n}",
+            "file": "evals/design/result.go",
+            "name": "JSON",
+            "receiver": "Report"
+          },
+          "kwargs_hash": "sha256:2cd13118cd8e5ab4290ce61ee89f2a8c3a64eed12a6884b4eabff4053296c8ac",
+          "body": "sha256:64ebc2c79362338542dd4b4106e7400460371889823c9c71a4993bc664a2b35e"
+        },
+        {
+          "path": "evals/design/result.go",
+          "action": "setMethod",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:8ea07fc52bbc260836983438ef08ad02746b86a1028c8b1a51b60eeb7b83cc2b",
+          "id": {
+            "file": "evals/design/result.go",
+            "name": "Table",
+            "receiver": "Report"
+          },
+          "kwargs": {
+            "code": "// Table renders the report: passes per task for each variant, then per-variant\n// totals with retries, repairs and tokens. A rate over a handful of samples is\n// a direction, not a number, and the header says so.\nfunc (r Report) Table() string {\n\tvar b strings.Builder\n\tfmt.Fprintf(\u0026b, \"design eval: model %s, K=%d samples per cell (a rate over so few samples is a direction, not a number)\\n\\n\", r.Model, r.K)\n\ttasks := map[string]bool{}\n\tfor _, c := range r.Cells {\n\t\ttasks[c.Task] = true\n\t}\n\tnames := make([]string, 0, len(tasks))\n\tfor t := range tasks {\n\t\tnames = append(names, t)\n\t}\n\tsort.Strings(names)\n\tcell := func(task string, v Variant) Cell {\n\t\tfor _, c := range r.Cells {\n\t\t\tif c.Task == task \u0026\u0026 c.Variant == v {\n\t\t\t\treturn c\n\t\t\t}\n\t\t}\n\t\treturn Cell{}\n\t}\n\tvar buf bytes.Buffer\n\tw := tabwriter.NewWriter(\u0026buf, 0, 8, 2, ' ', 0)\n\tfmt.Fprintf(w, \"passed\\t%s\\n\", strings.Join(names, \"\\t\"))\n\tfor _, v := range Variants() {\n\t\trow := []string{string(v)}\n\t\tfor _, n := range names {\n\t\t\tc := cell(n, v)\n\t\t\trow = append(row, fmt.Sprintf(\"%d/%d\", c.Passed, c.Samples))\n\t\t}\n\t\tfmt.Fprintln(w, strings.Join(row, \"\\t\"))\n\t}\n\tw.Flush()\n\tb.Write(buf.Bytes())\n\tb.WriteString(\"\\n\")\n\tbuf.Reset()\n\tw = tabwriter.NewWriter(\u0026buf, 0, 8, 2, ' ', 0)\n\tfmt.Fprintln(w, \"variant\\tsamples\\tcompiled\\tpassed\\tretries\\trepairs\\ttokens\")\n\tfor _, v := range Variants() {\n\t\tvar t Cell\n\t\tfor _, c := range r.Cells {\n\t\t\tif c.Variant == v {\n\t\t\t\tt.Samples += c.Samples\n\t\t\t\tt.Compiled += c.Compiled\n\t\t\t\tt.Passed += c.Passed\n\t\t\t\tt.Rejected += c.Rejected\n\t\t\t\tt.Repairs += c.Repairs\n\t\t\t\tt.PromptTokens += c.PromptTokens\n\t\t\t\tt.CompletionTokens += c.CompletionTokens\n\t\t\t}\n\t\t}\n\t\tfmt.Fprintf(w, \"%s\\t%d\\t%d\\t%d\\t%d\\t%d\\t%d\\n\", v, t.Samples, t.Compiled, t.Passed, t.Rejected, t.Repairs, t.Tokens())\n\t}\n\tfmt.Fprintf(w, \"total\\t%d\\t%d\\t%d\\t%d\\t%d\\t%d\\n\", r.Totals.Samples, r.Totals.Compiled, r.Totals.Passed, r.Totals.Rejected, r.Totals.Repairs, r.Totals.Tokens())\n\tw.Flush()\n\tb.Write(buf.Bytes())\n\treturn b.String()\n}",
+            "file": "evals/design/result.go",
+            "name": "Table",
+            "receiver": "Report"
+          },
+          "kwargs_hash": "sha256:ce0af95cea6d508d35a317dd404bcb8486ba4cae008824497c8ec9918e4bbeb7",
+          "body": "sha256:9be063ade7979a223b91ff66b0dc75a62cadf0fb9dda8be5ef030d6b04a6feaf"
+        },
+        {
+          "path": "evals/design/result.go",
+          "action": "setMethod",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:8ea07fc52bbc260836983438ef08ad02746b86a1028c8b1a51b60eeb7b83cc2b",
+          "id": {
+            "file": "evals/design/result.go",
+            "name": "Tokens",
+            "receiver": "Cell"
+          },
+          "kwargs": {
+            "code": "// Tokens is the cell's prompt and completion tokens together.\nfunc (c Cell) Tokens() int { return c.PromptTokens + c.CompletionTokens }",
+            "file": "evals/design/result.go",
+            "name": "Tokens",
+            "receiver": "Cell"
+          },
+          "kwargs_hash": "sha256:9901baeaa5b50e298766f7e8a7a33e0e44c7a8676056f22145f78ec8f3bfc556",
+          "body": "sha256:52c1f8f7df3278e6b53336cc7f99db17f1ce378f1b5e47ad93bd5e4417ae9e09"
+        },
+        {
+          "path": "evals/design/result.go",
+          "action": "setMethod",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:8ea07fc52bbc260836983438ef08ad02746b86a1028c8b1a51b60eeb7b83cc2b",
+          "id": {
+            "file": "evals/design/result.go",
+            "name": "add",
+            "receiver": "Cell"
+          },
+          "kwargs": {
+            "code": "func (c *Cell) add(s Sample) {\n\tc.Samples++\n\tif s.Compiled {\n\t\tc.Compiled++\n\t}\n\tif s.Passed {\n\t\tc.Passed++\n\t}\n\tc.Calls += s.Calls\n\tc.Rejected += s.Rejected\n\tc.Repairs += s.Repairs\n\tc.PromptTokens += s.PromptTokens\n\tc.CompletionTokens += s.CompletionTokens\n}",
+            "file": "evals/design/result.go",
+            "name": "add",
+            "receiver": "Cell"
+          },
+          "kwargs_hash": "sha256:8a20c703a683f9a66a526149012d647ad4ed3f68655dc7c59c5d9f36c9b732a4",
+          "body": "sha256:555d84998a8a381c937e5be2c6ad5c9ba175e18a13c94c42f00d5c8f1750514e"
+        },
+        {
+          "path": "evals/design/result.go",
+          "action": "setType",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:ebb283283a745fdc09f0294b6e79bd879a830829cb964550ec6b4432fee5bb72",
+          "id": {
+            "file": "evals/design/result.go",
+            "name": "Cell"
+          },
+          "kwargs": {
+            "code": "// Cell is the totals of the samples of one task and variant.\ntype Cell struct {\n\tTask             string  `json:\"task\"`\n\tVariant          Variant `json:\"variant\"`\n\tSamples          int     `json:\"samples\"`\n\tCompiled         int     `json:\"compiled\"`\n\tPassed           int     `json:\"passed\"`\n\tCalls            int     `json:\"calls\"`\n\tRejected         int     `json:\"rejected\"`\n\tRepairs          int     `json:\"repairs\"`\n\tPromptTokens     int     `json:\"prompt_tokens\"`\n\tCompletionTokens int     `json:\"completion_tokens\"`\n}",
+            "file": "evals/design/result.go",
+            "name": "Cell"
+          },
+          "kwargs_hash": "sha256:4a25bacd471b8ae56fe91a3566c63ade18fc7f6920db5d5d872a078b9350b1a2",
+          "body": "sha256:e21bd79c7ea66afdcac4dbf351ff6ae481d692f58e41920936912a825708c336"
+        },
+        {
+          "path": "evals/design/result.go",
+          "action": "setType",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:ebb283283a745fdc09f0294b6e79bd879a830829cb964550ec6b4432fee5bb72",
+          "id": {
+            "file": "evals/design/result.go",
+            "name": "Report"
+          },
+          "kwargs": {
+            "code": "// Report is a whole run: where it was drawn and every sample.\ntype Report struct {\n\tVersion    int               `json:\"version\"`\n\tCommit     string            `json:\"commit\"`\n\tSedum      string            `json:\"sedum\"`\n\tModel      string            `json:\"model\"`\n\tK          int               `json:\"k\"`\n\tTaskHashes map[string]string `json:\"task_hashes\"`\n\tSamples    []Sample          `json:\"samples\"`\n\tCells      []Cell            `json:\"cells\"`\n\tTotals     Cell              `json:\"totals\"`\n}",
+            "file": "evals/design/result.go",
+            "name": "Report"
+          },
+          "kwargs_hash": "sha256:a833f0810e1f1a0d5a19e9500637a3443102c0902c23beea1bd592d7a71b7cff",
+          "body": "sha256:68298a0c99ae47c8fdcf8935d2e9b80ace616cbd6a3af73bce5353af643e4b77"
+        },
+        {
+          "path": "evals/design/result.go",
+          "action": "setType",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:ebb283283a745fdc09f0294b6e79bd879a830829cb964550ec6b4432fee5bb72",
+          "id": {
+            "file": "evals/design/result.go",
+            "name": "Sample"
+          },
+          "kwargs": {
+            "code": "// Sample is one grow of one task with one intent variant.\ntype Sample struct {\n\tTask             string  `json:\"task\"`\n\tVariant          Variant `json:\"variant\"`\n\tN                int     `json:\"n\"`\n\tCompiled         bool    `json:\"compiled\"`\n\tPassed           bool    `json:\"passed\"`\n\tCalls            int     `json:\"calls\"`\n\tRejected         int     `json:\"rejected\"`\n\tRepairs          int     `json:\"repairs\"`\n\tPromptTokens     int     `json:\"prompt_tokens\"`\n\tCompletionTokens int     `json:\"completion_tokens\"`\n\tMS               int64   `json:\"ms\"`\n\tError            string  `json:\"error,omitempty\"`\n}",
+            "file": "evals/design/result.go",
+            "name": "Sample"
+          },
+          "kwargs_hash": "sha256:f12333ece03fe25c37fcef2fad229dccd56d82327e871ac27e9a90fd3b93f1de",
+          "body": "sha256:3d78d49dcb5876f0c94acfc24d45b13a27c2a0f27bc4d5bdf0dd912cfd8f94ff"
+        },
+        {
+          "path": "evals/design/result_test.go",
+          "action": "addImport",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:d6a9443c14d82b7bdf19bb96637f957fd44ad9bfbe8f167c97e6f7699c8b830f",
+          "id": {
+            "file": "evals/design/result_test.go",
+            "path": "encoding/json"
+          },
+          "kwargs": {
+            "file": "evals/design/result_test.go",
+            "path": "encoding/json"
+          },
+          "kwargs_hash": "sha256:d912b68dd0f0058ebe7c9e566ba0f6013fcca82d80452f37c62370cb7aa17c03",
+          "body": "sha256:872d7c3e9dee608e79a7f8ef57930d24b5e30f2a57d891a52549179ace45946a"
+        },
+        {
+          "path": "evals/design/result_test.go",
+          "action": "addImport",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:d6a9443c14d82b7bdf19bb96637f957fd44ad9bfbe8f167c97e6f7699c8b830f",
+          "id": {
+            "file": "evals/design/result_test.go",
+            "path": "strings"
+          },
+          "kwargs": {
+            "file": "evals/design/result_test.go",
+            "path": "strings"
+          },
+          "kwargs_hash": "sha256:2c29be2bd4168ae22e86b0532ce7863239cfe8210c1bf802f3cc43bd21d557e9",
+          "body": "sha256:a9af3c0bc4bf9342df9d7e89a324523fdba7941a9ca4190270e68ff3c4a25ea6"
+        },
+        {
+          "path": "evals/design/result_test.go",
+          "action": "addImport",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:d6a9443c14d82b7bdf19bb96637f957fd44ad9bfbe8f167c97e6f7699c8b830f",
+          "id": {
+            "file": "evals/design/result_test.go",
+            "path": "testing"
+          },
+          "kwargs": {
+            "file": "evals/design/result_test.go",
+            "path": "testing"
+          },
+          "kwargs_hash": "sha256:484142e46872e9b232382277275387d5b07c47b174de0e41a2b55fda4efa3f71",
+          "body": "sha256:14a4a5f3bfbf9325de04706efa8c15a9446f01d2a26624ce9c66bd1d69dc212e"
+        },
+        {
+          "path": "evals/design/result_test.go",
+          "action": "setFunction",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:6589611adfb6618a7920e43f951a79901428192ea95c1084fde9f222aecd9537",
+          "id": {
+            "file": "evals/design/result_test.go",
+            "name": "TestAggregate"
+          },
+          "kwargs": {
+            "code": "func TestAggregate(t *testing.T) {\n\tcells := Aggregate(testSamples())\n\tif len(cells) != 3 {\n\t\tt.Fatalf(\"got %d cells, want 3: %+v\", len(cells), cells)\n\t}\n\tif cells[0].Task != \"a\" || cells[0].Variant != VariantBehaviour || cells[1].Variant != VariantCode || cells[2].Task != \"b\" {\n\t\tt.Fatalf(\"cells out of order: %+v\", cells)\n\t}\n\tc := cells[0]\n\tif c.Samples != 2 || c.Compiled != 1 || c.Passed != 1 || c.Calls != 4 || c.Rejected != 3 || c.Tokens() != 110 {\n\t\tt.Fatalf(\"cell = %+v\", c)\n\t}\n}",
+            "file": "evals/design/result_test.go",
+            "name": "TestAggregate"
+          },
+          "kwargs_hash": "sha256:5bb1875c62052bc7ffcb07bd0b6191172093a522f139c68a79be4a0c774505e1",
+          "body": "sha256:3848b061b8b27f5efa9602e914585a5c737e6a3fa684e6891f8f8f4d3894cc11"
+        },
+        {
+          "path": "evals/design/result_test.go",
+          "action": "setFunction",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:6589611adfb6618a7920e43f951a79901428192ea95c1084fde9f222aecd9537",
+          "id": {
+            "file": "evals/design/result_test.go",
+            "name": "TestReportTotalsJSONAndTable"
+          },
+          "kwargs": {
+            "code": "func TestReportTotalsJSONAndTable(t *testing.T) {\n\tr := NewReport(\"abc1234\", \"sedum\", \"claude-haiku-5-5\", 2, map[string]string{\"a\": \"h1\"}, testSamples())\n\tif r.Totals.Samples != 4 || r.Totals.Passed != 2 || r.Totals.Rejected != 4 || r.Totals.Repairs != 1 || r.Totals.Tokens() != 440 {\n\t\tt.Fatalf(\"totals = %+v\", r.Totals)\n\t}\n\tdata, err := r.JSON()\n\tif err != nil {\n\t\tt.Fatal(err)\n\t}\n\tif !strings.HasSuffix(string(data), \"\\n\") {\n\t\tt.Fatal(\"JSON must end with a newline\")\n\t}\n\tvar back Report\n\tif err := json.Unmarshal(data, \u0026back); err != nil {\n\t\tt.Fatal(err)\n\t}\n\tif back.Commit != \"abc1234\" || back.K != 2 || len(back.Samples) != 4 || back.Totals.Samples != 4 {\n\t\tt.Fatalf(\"round trip = %+v\", back)\n\t}\n\ttable := r.Table()\n\tfor _, want := range []string{\"claude-haiku-5-5\", \"K=2\", \"direction, not a number\", \"behaviour\", \"signatures\", \"code\", \"1/2\", \"total\"} {\n\t\tif !strings.Contains(table, want) {\n\t\t\tt.Errorf(\"table lacks %q:\\n%s\", want, table)\n\t\t}\n\t}\n}",
+            "file": "evals/design/result_test.go",
+            "name": "TestReportTotalsJSONAndTable"
+          },
+          "kwargs_hash": "sha256:ed613a812892adbb75ade1e31094bdd7946075765a41db9c38fd02d4d6e57156",
+          "body": "sha256:6e9690210c3ae5f8f04febb5e772adfc2a102c11893334dfdc432e272b3235f5"
+        },
+        {
+          "path": "evals/design/result_test.go",
+          "action": "setFunction",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:6589611adfb6618a7920e43f951a79901428192ea95c1084fde9f222aecd9537",
+          "id": {
+            "file": "evals/design/result_test.go",
+            "name": "TestTaskHash"
+          },
+          "kwargs": {
+            "code": "func TestTaskHash(t *testing.T) {\n\troot := t.TempDir()\n\ttask, err := LoadTask(writeTask(t, root, \"ok\", validTask))\n\tif err != nil {\n\t\tt.Fatal(err)\n\t}\n\th1, err := TaskHash(task)\n\tif err != nil {\n\t\tt.Fatal(err)\n\t}\n\th2, _ := TaskHash(task)\n\tif h1 != h2 || len(h1) != 12 {\n\t\tt.Fatalf(\"hash = %q then %q\", h1, h2)\n\t}\n\twriteTask(t, root, \"ok\", strings.Replace(validTask, \"code: c\", \"code: d\", 1))\n\tchanged, err := LoadTask(task.Dir)\n\tif err != nil {\n\t\tt.Fatal(err)\n\t}\n\tif h3, _ := TaskHash(changed); h3 == h1 {\n\t\tt.Fatal(\"a changed task must change its hash\")\n\t}\n}",
+            "file": "evals/design/result_test.go",
+            "name": "TestTaskHash"
+          },
+          "kwargs_hash": "sha256:dcc2a2f04ca76aa87700d83454251b8ab8e2e53f7aa04ceb99483184af954ef8",
+          "body": "sha256:21988fa88192ca0c98c933b29ae13fdfbc21e55db5d5bbe1b7a745476dd40452"
+        },
+        {
+          "path": "evals/design/result_test.go",
+          "action": "setFunction",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:6589611adfb6618a7920e43f951a79901428192ea95c1084fde9f222aecd9537",
+          "id": {
+            "file": "evals/design/result_test.go",
+            "name": "testSamples"
+          },
+          "kwargs": {
+            "code": "func testSamples() []Sample {\n\treturn []Sample{\n\t\t{Task: \"b\", Variant: VariantCode, N: 1, Compiled: true, Passed: true, Calls: 1, PromptTokens: 100, CompletionTokens: 10},\n\t\t{Task: \"a\", Variant: VariantCode, N: 1, Compiled: true, Passed: false, Calls: 2, Rejected: 1, Repairs: 1, PromptTokens: 200, CompletionTokens: 20},\n\t\t{Task: \"a\", Variant: VariantBehaviour, N: 1, Compiled: false, Calls: 3, Rejected: 3, PromptTokens: 50, CompletionTokens: 5},\n\t\t{Task: \"a\", Variant: VariantBehaviour, N: 2, Compiled: true, Passed: true, Calls: 1, PromptTokens: 50, CompletionTokens: 5},\n\t}\n}",
+            "file": "evals/design/result_test.go",
+            "name": "testSamples"
+          },
+          "kwargs_hash": "sha256:411ac32803165f079404a5e0d8cd977ae788b97c80d822237d1b887c1775085d",
+          "body": "sha256:98b732646c2d5253fe8ed92979d8816979cf42c81c4b07bff9097a47744c1cd4"
+        }
+      ]
+    }
+  ]
+}

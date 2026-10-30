@@ -2,8 +2,8 @@ id: prov-2026-aabeac10
 title: 'go: internal/verify/verify.go, project verification in a scratch tree'
 type: imprint
 status: implemented
-version: 2
-reason: Spec file edited under prov-2026-b5c21813; refresh its hash
+version: 3
+reason: Refresh spec hashes after the v2 marker migration rewrote the spec files
 created_at: "2026-10-16"
 author: calebcowen@gmail.com
 intent: |
@@ -241,7 +241,7 @@ forbidden_scope: []
 implements: prov-2026-b5c21813
 implements_version: 1
 related: []
-sealed_at_sha: e3bbbad0fe2f32f570c84de5b0b6a9b24766cdd9
+sealed_at_sha: 57049a8145c9ff36e26c9240eac5202dd355a207
 associated_specs:
   - path: internal/verify/verify_test.go
     run_command: go test ./internal/verify -count=1

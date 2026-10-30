@@ -1,0 +1,1143 @@
+{
+  "sedum_version": "0.11.0",
+  "packages": {
+    "go": {
+      "extensions": [
+        ".go"
+      ]
+    }
+  },
+  "records": [
+    {
+      "record_id": "prov-2026-6edbd718",
+      "gen": "sha256:fe5f8ef6698e14a5acdfb5f1e3db7faa0a869ea16b3292dc2c11d3ed3591000e",
+      "created_at": "2026-10-16",
+      "files": [
+        {
+          "path": "internal/cli/growlogwire.go",
+          "package": "go",
+          "template": "*/{pkg}/{name}.go",
+          "captures": {
+            "name": "growlogwire",
+            "pkg": "cli"
+          }
+        },
+        {
+          "path": "internal/cli/growlogwire_failure_test.go",
+          "package": "go",
+          "template": "*/{pkg}/{name}.go",
+          "captures": {
+            "name": "growlogwire_failure_test",
+            "pkg": "cli"
+          }
+        },
+        {
+          "path": "internal/cli/growlogwire_test.go",
+          "package": "go",
+          "template": "*/{pkg}/{name}.go",
+          "captures": {
+            "name": "growlogwire_test",
+            "pkg": "cli"
+          }
+        }
+      ],
+      "phases": [
+        {
+          "name": "default",
+          "invocations": [
+            {
+              "action": "addImport",
+              "kwargs": {
+                "file": "internal/cli/growlogwire.go",
+                "path": "errors"
+              }
+            },
+            {
+              "action": "addImport",
+              "kwargs": {
+                "file": "internal/cli/growlogwire.go",
+                "path": "fmt"
+              }
+            },
+            {
+              "action": "addImport",
+              "kwargs": {
+                "file": "internal/cli/growlogwire.go",
+                "path": "io"
+              }
+            },
+            {
+              "action": "addImport",
+              "kwargs": {
+                "file": "internal/cli/growlogwire.go",
+                "path": "os"
+              }
+            },
+            {
+              "action": "addImport",
+              "kwargs": {
+                "file": "internal/cli/growlogwire.go",
+                "path": "path/filepath"
+              }
+            },
+            {
+              "action": "addImport",
+              "kwargs": {
+                "file": "internal/cli/growlogwire.go",
+                "path": "time"
+              }
+            },
+            {
+              "action": "addImport",
+              "kwargs": {
+                "file": "internal/cli/growlogwire.go",
+                "path": "github.com/livecodelife/sedum/internal/genpkg"
+              }
+            },
+            {
+              "action": "addImport",
+              "kwargs": {
+                "file": "internal/cli/growlogwire.go",
+                "path": "github.com/livecodelife/sedum/internal/growlog"
+              }
+            },
+            {
+              "action": "addImport",
+              "kwargs": {
+                "file": "internal/cli/growlogwire.go",
+                "path": "github.com/livecodelife/sedum/internal/pipeline"
+              }
+            },
+            {
+              "action": "addImport",
+              "kwargs": {
+                "file": "internal/cli/growlogwire.go",
+                "path": "github.com/livecodelife/sedum/internal/recording"
+              }
+            },
+            {
+              "action": "addImport",
+              "kwargs": {
+                "file": "internal/cli/growlogwire.go",
+                "path": "github.com/livecodelife/sedum/internal/selection"
+              }
+            },
+            {
+              "action": "setConst",
+              "kwargs": {
+                "code": "// defaultGrowLogPath is where sedum grow appends its persistent grow log.\nconst defaultGrowLogPath = \".sedum/grow.jsonl\"",
+                "file": "internal/cli/growlogwire.go",
+                "name": "defaultGrowLogPath"
+              }
+            },
+            {
+              "action": "setFunction",
+              "kwargs": {
+                "code": "// growLogSettings reads the grow log's switches from the environment:\n// SEDUM_GROW_LOG names the file, or is \"off\" to write no log, and\n// SEDUM_GROW_LOG_SKIPS=1 also logs records skipped as current.\nfunc growLogSettings(getenv func(string) string) (path string, on, skips bool) {\n\tpath = getenv(\"SEDUM_GROW_LOG\")\n\tif path == \"off\" {\n\t\treturn \"\", false, false\n\t}\n\tif path == \"\" {\n\t\tpath = defaultGrowLogPath\n\t}\n\treturn path, true, getenv(\"SEDUM_GROW_LOG_SKIPS\") == \"1\"\n}",
+                "file": "internal/cli/growlogwire.go",
+                "name": "growLogSettings"
+              }
+            },
+            {
+              "action": "setFunction",
+              "kwargs": {
+                "code": "// growLogModel names the model a grow used, as the log records it.\nfunc growLogModel(cfg GrowConfig) string {\n\tswitch {\n\tcase cfg.LocalModel != \"\":\n\t\treturn \"local:\" + filepath.Base(cfg.LocalModel)\n\tcase cfg.Model != \"\":\n\t\treturn cfg.Model\n\t}\n\treturn \"bundled\"\n}",
+                "file": "internal/cli/growlogwire.go",
+                "name": "growLogModel"
+              }
+            },
+            {
+              "action": "setFunction",
+              "kwargs": {
+                "code": "// growLogMode maps a pipeline mode to the log's mode names.\nfunc growLogMode(m pipeline.Mode) string {\n\tswitch m {\n\tcase pipeline.ModeSkip:\n\t\treturn \"skip\"\n\tcase pipeline.ModeRerender:\n\t\treturn \"rerender\"\n\t}\n\treturn \"select\"\n}",
+                "file": "internal/cli/growlogwire.go",
+                "name": "growLogMode"
+              }
+            },
+            {
+              "action": "setFunction",
+              "kwargs": {
+                "code": "// literalInvocation reports whether inv carries model-written code: a\n// non-empty kwarg that the action's package declares as type literal.\nfunc literalInvocation(set *genpkg.Set, inv recording.Invocation) bool {\n\tif set == nil {\n\t\treturn false\n\t}\n\tfor _, p := range set.Packages {\n\t\ta, ok := p.Actions[inv.Action]\n\t\tif !ok {\n\t\t\tcontinue\n\t\t}\n\t\tfor name, k := range a.Kwargs {\n\t\t\tif v, ok := inv.Kwargs[name]; ok \u0026\u0026 k.Type == \"literal\" \u0026\u0026 v != nil \u0026\u0026 v != \"\" {\n\t\t\t\treturn true\n\t\t\t}\n\t\t}\n\t\treturn false\n\t}\n\treturn false\n}",
+                "file": "internal/cli/growlogwire.go",
+                "name": "literalInvocation"
+              }
+            },
+            {
+              "action": "setFunction",
+              "kwargs": {
+                "code": "// growLogEntries builds one entry per record a finished grow handled. A record\n// skipped as current gets an entry only when skips is set. ms is the wall time\n// of the whole run, which every entry of the run shares.\nfunc growLogEntries(res *pipeline.Result, model string, at time.Time, elapsed time.Duration, skips bool) []growlog.Entry {\n\tif res == nil {\n\t\treturn nil\n\t}\n\tselections := map[string]pipeline.Selection{}\n\tfor _, s := range res.Selections {\n\t\tselections[s.RecordID] = s\n\t}\n\ttype tally struct {\n\t\tregions growlog.Regions\n\t\tfiles   map[string]bool\n\t}\n\ttallies := map[string]*tally{}\n\tfor _, in := range res.Injections {\n\t\tt := tallies[in.Record]\n\t\tif t == nil {\n\t\t\tt = \u0026tally{files: map[string]bool{}}\n\t\t\ttallies[in.Record] = t\n\t\t}\n\t\tswitch {\n\t\tcase in.Pruned:\n\t\t\tt.regions.Pruned++\n\t\tcase in.Replaced:\n\t\t\tt.regions.Replaced++\n\t\tcase in.Skipped, in.Unselected, in.Held:\n\t\t\tt.regions.Unchanged++\n\t\tdefault:\n\t\t\tt.regions.Injected++\n\t\t}\n\t\tt.files[in.Path] = true\n\t}\n\tvar out []growlog.Entry\n\tfor _, c := range res.Classifications {\n\t\tif c.Mode == pipeline.ModeNone || (c.Mode == pipeline.ModeSkip \u0026\u0026 !skips) {\n\t\t\tcontinue\n\t\t}\n\t\te := growlog.Entry{\n\t\t\tTS:      at.UTC().Format(time.RFC3339),\n\t\t\tSedum:   recording.Version,\n\t\t\tRecord:  c.RecordID,\n\t\t\tMode:    growLogMode(c.Mode),\n\t\t\tMS:      elapsed.Milliseconds(),\n\t\t\tOutcome: \"ok\",\n\t\t}\n\t\tif s, ok := selections[c.RecordID]; ok {\n\t\t\te.Calls, e.Rejected, e.Completeness, e.Repairs = s.Calls, s.Rejected, s.Completeness, s.Repairs\n\t\t\te.PromptTokens, e.CompletionTokens = s.PromptTokens, s.CompletionTokens\n\t\t\tfor _, inv := range s.Invocations {\n\t\t\t\te.Invocations++\n\t\t\t\tif literalInvocation(res.Packages, inv) {\n\t\t\t\t\te.Literal++\n\t\t\t\t} else {\n\t\t\t\t\te.Declarative++\n\t\t\t\t}\n\t\t\t}\n\t\t}\n\t\tif e.Calls \u003e 0 {\n\t\t\te.Model = model\n\t\t}\n\t\tif t := tallies[c.RecordID]; t != nil {\n\t\t\te.Regions, e.Files = t.regions, len(t.files)\n\t\t}\n\t\tout = append(out, e)\n\t}\n\treturn out\n}",
+                "file": "internal/cli/growlogwire.go",
+                "name": "growLogEntries"
+              }
+            },
+            {
+              "action": "setFunction",
+              "kwargs": {
+                "code": "// growLogFailure builds the entry for a grow that returned err. When the error\n// is a selection.Rejection it names the record and carries what the refused\n// calls cost.\nfunc growLogFailure(err error, model string, at time.Time, elapsed time.Duration) growlog.Entry {\n\te := growlog.Entry{\n\t\tTS:      at.UTC().Format(time.RFC3339),\n\t\tSedum:   recording.Version,\n\t\tMode:    \"select\",\n\t\tMS:      elapsed.Milliseconds(),\n\t\tOutcome: \"failed\",\n\t\tError:   err.Error(),\n\t}\n\tvar rej *selection.Rejection\n\tif errors.As(err, \u0026rej) {\n\t\te.Record, e.Calls, e.Rejected, e.Completeness = rej.RecordID, rej.Calls, rej.Rejected, rej.Completeness\n\t\te.PromptTokens, e.CompletionTokens = rej.PromptTokens, rej.CompletionTokens\n\t}\n\tvar ver *selection.VerifyError\n\tif errors.As(err, \u0026ver) {\n\t\te.Record, e.Calls, e.Rejected, e.Completeness, e.Repairs = ver.RecordID, ver.Calls, ver.Rejected, ver.Completeness, ver.Repairs\n\t\te.PromptTokens, e.CompletionTokens = ver.PromptTokens, ver.CompletionTokens\n\t}\n\tif e.Calls \u003e 0 {\n\t\te.Model = model\n\t}\n\treturn e\n}",
+                "file": "internal/cli/growlogwire.go",
+                "name": "growLogFailure"
+              }
+            },
+            {
+              "action": "setFunction",
+              "kwargs": {
+                "code": "// writeGrowLog appends the entries of a finished grow to the grow log. It\n// writes nothing for a run that changes nothing (--dry-run, --check, --stamp,\n// --stop-after) or when SEDUM_GROW_LOG is off, and a log that cannot be\n// written is a warning on errOut, never a failed grow.\nfunc writeGrowLog(errOut io.Writer, cfg GrowConfig, res *pipeline.Result, runErr error, started time.Time) {\n\tpath, on, skips := growLogSettings(os.Getenv)\n\tif !on || cfg.DryRun || cfg.Check || cfg.Stamp || cfg.StopAfter != \"\" {\n\t\treturn\n\t}\n\telapsed := time.Since(started)\n\tmodel := growLogModel(cfg)\n\tentries := growLogEntries(res, model, started, elapsed, skips)\n\tif runErr != nil {\n\t\tentries = []growlog.Entry{growLogFailure(runErr, model, started, elapsed)}\n\t}\n\tfor _, e := range entries {\n\t\tif err := growlog.Append(path, e); err != nil {\n\t\t\tfmt.Fprintf(errOut, \"warning: %v\\n\", err)\n\t\t\treturn\n\t\t}\n\t}\n}",
+                "file": "internal/cli/growlogwire.go",
+                "name": "writeGrowLog"
+              }
+            },
+            {
+              "action": "addImport",
+              "kwargs": {
+                "file": "internal/cli/growlogwire_failure_test.go",
+                "path": "fmt"
+              }
+            },
+            {
+              "action": "addImport",
+              "kwargs": {
+                "file": "internal/cli/growlogwire_failure_test.go",
+                "path": "testing"
+              }
+            },
+            {
+              "action": "addImport",
+              "kwargs": {
+                "file": "internal/cli/growlogwire_failure_test.go",
+                "path": "time"
+              }
+            },
+            {
+              "action": "addImport",
+              "kwargs": {
+                "file": "internal/cli/growlogwire_failure_test.go",
+                "path": "github.com/livecodelife/sedum/internal/selection"
+              }
+            },
+            {
+              "action": "setFunction",
+              "kwargs": {
+                "code": "func TestGrowLogFailureKeepsTheCostOfAFailedVerification(t *testing.T) {\n\tver := \u0026selection.VerifyError{RecordID: \"r7\", Repairs: 3, Calls: 4, Rejected: 1, Completeness: 2, PromptTokens: 900, CompletionTokens: 120, Failure: \"tsc\"}\n\te := growLogFailure(fmt.Errorf(\"grow: %w\", ver), \"m\", time.Now(), time.Second)\n\tif e.Outcome != \"failed\" || e.Record != \"r7\" || e.Model != \"m\" || e.Calls != 4 || e.Rejected != 1 || e.Completeness != 2 || e.Repairs != 3 {\n\t\tt.Fatalf(\"entry = %+v\", e)\n\t}\n\tif e.PromptTokens != 900 || e.CompletionTokens != 120 {\n\t\tt.Fatalf(\"tokens = %d/%d\", e.PromptTokens, e.CompletionTokens)\n\t}\n}",
+                "file": "internal/cli/growlogwire_failure_test.go",
+                "name": "TestGrowLogFailureKeepsTheCostOfAFailedVerification"
+              }
+            },
+            {
+              "action": "addImport",
+              "kwargs": {
+                "file": "internal/cli/growlogwire_test.go",
+                "path": "bytes"
+              }
+            },
+            {
+              "action": "addImport",
+              "kwargs": {
+                "file": "internal/cli/growlogwire_test.go",
+                "path": "errors"
+              }
+            },
+            {
+              "action": "addImport",
+              "kwargs": {
+                "file": "internal/cli/growlogwire_test.go",
+                "path": "fmt"
+              }
+            },
+            {
+              "action": "addImport",
+              "kwargs": {
+                "file": "internal/cli/growlogwire_test.go",
+                "path": "os"
+              }
+            },
+            {
+              "action": "addImport",
+              "kwargs": {
+                "file": "internal/cli/growlogwire_test.go",
+                "path": "path/filepath"
+              }
+            },
+            {
+              "action": "addImport",
+              "kwargs": {
+                "file": "internal/cli/growlogwire_test.go",
+                "path": "strings"
+              }
+            },
+            {
+              "action": "addImport",
+              "kwargs": {
+                "file": "internal/cli/growlogwire_test.go",
+                "path": "testing"
+              }
+            },
+            {
+              "action": "addImport",
+              "kwargs": {
+                "file": "internal/cli/growlogwire_test.go",
+                "path": "time"
+              }
+            },
+            {
+              "action": "addImport",
+              "kwargs": {
+                "file": "internal/cli/growlogwire_test.go",
+                "path": "github.com/livecodelife/sedum/internal/genpkg"
+              }
+            },
+            {
+              "action": "addImport",
+              "kwargs": {
+                "file": "internal/cli/growlogwire_test.go",
+                "path": "github.com/livecodelife/sedum/internal/inject"
+              }
+            },
+            {
+              "action": "addImport",
+              "kwargs": {
+                "file": "internal/cli/growlogwire_test.go",
+                "path": "github.com/livecodelife/sedum/internal/pipeline"
+              }
+            },
+            {
+              "action": "addImport",
+              "kwargs": {
+                "file": "internal/cli/growlogwire_test.go",
+                "path": "github.com/livecodelife/sedum/internal/recording"
+              }
+            },
+            {
+              "action": "addImport",
+              "kwargs": {
+                "file": "internal/cli/growlogwire_test.go",
+                "path": "github.com/livecodelife/sedum/internal/selection"
+              }
+            },
+            {
+              "action": "setFunction",
+              "kwargs": {
+                "code": "func growLogResult() *pipeline.Result {\n\treturn \u0026pipeline.Result{\n\t\tPackages: \u0026genpkg.Set{Packages: []*genpkg.Package{{\n\t\t\tName: \"go\",\n\t\t\tActions: map[string]*genpkg.Action{\n\t\t\t\t\"setFunction\": {Kwargs: map[string]genpkg.Kwarg{\"code\": {Type: \"literal\"}}},\n\t\t\t\t\"addImport\":   {Kwargs: map[string]genpkg.Kwarg{\"path\": {Type: \"string\"}}},\n\t\t\t},\n\t\t}}},\n\t\tClassifications: []pipeline.Classification{\n\t\t\t{RecordID: \"r1\", Mode: pipeline.ModeSelect},\n\t\t\t{RecordID: \"r2\", Mode: pipeline.ModeSkip},\n\t\t},\n\t\tSelections: []pipeline.Selection{{\n\t\t\tRecordID: \"r1\", Calls: 2, Rejected: 1, Completeness: 1, Repairs: 1, PromptTokens: 100, CompletionTokens: 20,\n\t\t\tInvocations: []recording.Invocation{\n\t\t\t\t{Action: \"setFunction\", Kwargs: map[string]any{\"code\": \"func F() {}\"}},\n\t\t\t\t{Action: \"addImport\", Kwargs: map[string]any{\"path\": \"fmt\"}},\n\t\t\t},\n\t\t}},\n\t\tInjections: []inject.Result{\n\t\t\t{Path: \"a.go\", Record: \"r1\"},\n\t\t\t{Path: \"a.go\", Record: \"r1\", Replaced: true},\n\t\t\t{Path: \"b.go\", Record: \"r1\", Pruned: true},\n\t\t},\n\t}\n}",
+                "file": "internal/cli/growlogwire_test.go",
+                "name": "growLogResult"
+              }
+            },
+            {
+              "action": "setFunction",
+              "kwargs": {
+                "code": "func TestGrowLogEntries(t *testing.T) {\n\tat := time.Date(2026, 10, 16, 12, 0, 0, 0, time.UTC)\n\tentries := growLogEntries(growLogResult(), \"m\", at, 1500*time.Millisecond, false)\n\tif len(entries) != 1 {\n\t\tt.Fatalf(\"got %d entries, want 1 (the skipped record is left out): %+v\", len(entries), entries)\n\t}\n\te := entries[0]\n\tif e.Record != \"r1\" || e.Mode != \"select\" || e.Model != \"m\" || e.Outcome != \"ok\" || e.TS != \"2026-10-16T12:00:00Z\" || e.MS != 1500 || e.Sedum != recording.Version {\n\t\tt.Fatalf(\"entry = %+v\", e)\n\t}\n\tif e.Calls != 2 || e.Rejected != 1 || e.Completeness != 1 || e.Repairs != 1 || e.PromptTokens != 100 || e.CompletionTokens != 20 {\n\t\tt.Fatalf(\"cost = %+v\", e)\n\t}\n\tif e.Invocations != 2 || e.Literal != 1 || e.Declarative != 1 {\n\t\tt.Fatalf(\"invocations = %+v\", e)\n\t}\n\tif e.Regions.Injected != 1 || e.Regions.Replaced != 1 || e.Regions.Pruned != 1 || e.Regions.Unchanged != 0 || e.Files != 2 {\n\t\tt.Fatalf(\"regions = %+v, files = %d\", e.Regions, e.Files)\n\t}\n}",
+                "file": "internal/cli/growlogwire_test.go",
+                "name": "TestGrowLogEntries"
+              }
+            },
+            {
+              "action": "setFunction",
+              "kwargs": {
+                "code": "func TestGrowLogEntriesSkips(t *testing.T) {\n\tentries := growLogEntries(growLogResult(), \"m\", time.Now(), 0, true)\n\tif len(entries) != 2 {\n\t\tt.Fatalf(\"got %d entries, want 2\", len(entries))\n\t}\n\tif s := entries[1]; s.Record != \"r2\" || s.Mode != \"skip\" || s.Model != \"\" || s.Calls != 0 {\n\t\tt.Fatalf(\"skip entry = %+v\", s)\n\t}\n\tif growLogEntries(nil, \"m\", time.Now(), 0, true) != nil {\n\t\tt.Fatal(\"a nil result has no entries\")\n\t}\n}",
+                "file": "internal/cli/growlogwire_test.go",
+                "name": "TestGrowLogEntriesSkips"
+              }
+            },
+            {
+              "action": "setFunction",
+              "kwargs": {
+                "code": "func TestGrowLogFailure(t *testing.T) {\n\trej := \u0026selection.Rejection{RecordID: \"r9\", Calls: 3, Rejected: 3, PromptTokens: 10, CompletionTokens: 2}\n\te := growLogFailure(fmt.Errorf(\"wrap: %w\", rej), \"m\", time.Now(), time.Second)\n\tif e.Outcome != \"failed\" || e.Record != \"r9\" || e.Calls != 3 || e.Rejected != 3 || e.Model != \"m\" || !strings.HasPrefix(e.Error, \"wrap:\") {\n\t\tt.Fatalf(\"rejection entry = %+v\", e)\n\t}\n\te = growLogFailure(errors.New(\"no endpoint\"), \"m\", time.Now(), 0)\n\tif e.Record != \"\" || e.Model != \"\" || e.Outcome != \"failed\" || e.Error != \"no endpoint\" {\n\t\tt.Fatalf(\"plain failure entry = %+v\", e)\n\t}\n}",
+                "file": "internal/cli/growlogwire_test.go",
+                "name": "TestGrowLogFailure"
+              }
+            },
+            {
+              "action": "setFunction",
+              "kwargs": {
+                "code": "func TestGrowLogModel(t *testing.T) {\n\tcases := []struct {\n\t\tcfg  GrowConfig\n\t\twant string\n\t}{\n\t\t{GrowConfig{Model: \"claude-haiku-5-5\"}, \"claude-haiku-5-5\"},\n\t\t{GrowConfig{LocalModel: \"/models/tiny.gguf\"}, \"local:tiny.gguf\"},\n\t\t{GrowConfig{}, \"bundled\"},\n\t}\n\tfor _, tc := range cases {\n\t\tif got := growLogModel(tc.cfg); got != tc.want {\n\t\t\tt.Errorf(\"growLogModel(%+v) = %q, want %q\", tc.cfg, got, tc.want)\n\t\t}\n\t}\n}",
+                "file": "internal/cli/growlogwire_test.go",
+                "name": "TestGrowLogModel"
+              }
+            },
+            {
+              "action": "setFunction",
+              "kwargs": {
+                "code": "func TestGrowLogSettings(t *testing.T) {\n\tenv := func(m map[string]string) func(string) string { return func(k string) string { return m[k] } }\n\tpath, on, skips := growLogSettings(env(nil))\n\tif path != defaultGrowLogPath || !on || skips {\n\t\tt.Fatalf(\"defaults = %q %v %v\", path, on, skips)\n\t}\n\tpath, on, skips = growLogSettings(env(map[string]string{\"SEDUM_GROW_LOG\": \"x/log.jsonl\", \"SEDUM_GROW_LOG_SKIPS\": \"1\"}))\n\tif path != \"x/log.jsonl\" || !on || !skips {\n\t\tt.Fatalf(\"custom = %q %v %v\", path, on, skips)\n\t}\n\tif _, on, _ = growLogSettings(env(map[string]string{\"SEDUM_GROW_LOG\": \"off\"})); on {\n\t\tt.Fatal(\"off must turn the log off\")\n\t}\n}",
+                "file": "internal/cli/growlogwire_test.go",
+                "name": "TestGrowLogSettings"
+              }
+            },
+            {
+              "action": "setFunction",
+              "kwargs": {
+                "code": "func TestWriteGrowLog(t *testing.T) {\n\tdir := t.TempDir()\n\tpath := filepath.Join(dir, \"grow.jsonl\")\n\tt.Setenv(\"SEDUM_GROW_LOG\", path)\n\tt.Setenv(\"SEDUM_GROW_LOG_SKIPS\", \"\")\n\tlines := func() int {\n\t\tdata, err := os.ReadFile(path)\n\t\tif err != nil {\n\t\t\treturn 0\n\t\t}\n\t\treturn strings.Count(string(data), \"\\n\")\n\t}\n\tvar errOut bytes.Buffer\n\tbase := GrowConfig{Model: \"m\"}\n\twriteGrowLog(\u0026errOut, base, growLogResult(), nil, time.Now())\n\tif lines() != 1 {\n\t\tt.Fatalf(\"a normal grow wrote %d lines, want 1\", lines())\n\t}\n\tfor name, cfg := range map[string]GrowConfig{\n\t\t\"dry run\":    {Model: \"m\", DryRun: true},\n\t\t\"check\":      {Model: \"m\", Check: true},\n\t\t\"stamp\":      {Model: \"m\", Stamp: true},\n\t\t\"stop after\": {Model: \"m\", StopAfter: \"files\"},\n\t} {\n\t\twriteGrowLog(\u0026errOut, cfg, growLogResult(), nil, time.Now())\n\t\tif lines() != 1 {\n\t\t\tt.Fatalf(\"%s must not append, file has %d lines\", name, lines())\n\t\t}\n\t}\n\twriteGrowLog(\u0026errOut, base, nil, errors.New(\"boom\"), time.Now())\n\tif lines() != 2 {\n\t\tt.Fatalf(\"a failed grow wrote %d lines, want 2\", lines())\n\t}\n\tt.Setenv(\"SEDUM_GROW_LOG\", \"off\")\n\twriteGrowLog(\u0026errOut, base, growLogResult(), nil, time.Now())\n\tif lines() != 2 || errOut.Len() != 0 {\n\t\tt.Fatalf(\"off must append nothing: %d lines, warning %q\", lines(), errOut.String())\n\t}\n\tblocked := filepath.Join(dir, \"file\")\n\tif err := os.WriteFile(blocked, nil, 0o644); err != nil {\n\t\tt.Fatal(err)\n\t}\n\tt.Setenv(\"SEDUM_GROW_LOG\", filepath.Join(blocked, \"x\", \"grow.jsonl\"))\n\twriteGrowLog(\u0026errOut, base, growLogResult(), nil, time.Now())\n\tif !strings.HasPrefix(errOut.String(), \"warning: \") {\n\t\tt.Fatalf(\"an unwritable log must warn, got %q\", errOut.String())\n\t}\n}",
+                "file": "internal/cli/growlogwire_test.go",
+                "name": "TestWriteGrowLog"
+              }
+            }
+          ]
+        }
+      ],
+      "regions": [
+        {
+          "path": "internal/cli/growlogwire.go",
+          "action": "addImport",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:d6a9443c14d82b7bdf19bb96637f957fd44ad9bfbe8f167c97e6f7699c8b830f",
+          "id": {
+            "file": "internal/cli/growlogwire.go",
+            "path": "errors"
+          },
+          "kwargs": {
+            "file": "internal/cli/growlogwire.go",
+            "path": "errors"
+          },
+          "kwargs_hash": "sha256:65bf9d728cbc61e58f6896ca4048383b90817fb58e4df8f652dd5b877dea9ed2",
+          "body": "sha256:2b718237ba0a56467c8fd494cc131e942ef410e6228c03b644d70476c71862dc"
+        },
+        {
+          "path": "internal/cli/growlogwire.go",
+          "action": "addImport",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:d6a9443c14d82b7bdf19bb96637f957fd44ad9bfbe8f167c97e6f7699c8b830f",
+          "id": {
+            "file": "internal/cli/growlogwire.go",
+            "path": "fmt"
+          },
+          "kwargs": {
+            "file": "internal/cli/growlogwire.go",
+            "path": "fmt"
+          },
+          "kwargs_hash": "sha256:0367c3474258d4440fae6cfa64562b1ddb9d7b786d574359657eb6ba44c8ff06",
+          "body": "sha256:bcbac51883cbf8064e9196b371cb880cee429866652447ad557533d817857609"
+        },
+        {
+          "path": "internal/cli/growlogwire.go",
+          "action": "addImport",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:d6a9443c14d82b7bdf19bb96637f957fd44ad9bfbe8f167c97e6f7699c8b830f",
+          "id": {
+            "file": "internal/cli/growlogwire.go",
+            "path": "github.com/livecodelife/sedum/internal/genpkg"
+          },
+          "kwargs": {
+            "file": "internal/cli/growlogwire.go",
+            "path": "github.com/livecodelife/sedum/internal/genpkg"
+          },
+          "kwargs_hash": "sha256:bf18944ef9b8256672e231627b11cf0d312bd41577b3b7de5986284c1737ea46",
+          "body": "sha256:5b4c7dbee430534527d893269527d915be58accc7a8330a8c104c2014153525d"
+        },
+        {
+          "path": "internal/cli/growlogwire.go",
+          "action": "addImport",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:d6a9443c14d82b7bdf19bb96637f957fd44ad9bfbe8f167c97e6f7699c8b830f",
+          "id": {
+            "file": "internal/cli/growlogwire.go",
+            "path": "github.com/livecodelife/sedum/internal/growlog"
+          },
+          "kwargs": {
+            "file": "internal/cli/growlogwire.go",
+            "path": "github.com/livecodelife/sedum/internal/growlog"
+          },
+          "kwargs_hash": "sha256:f691654bf13c17f6c823d34dec27a3359faa22d19a6e21c429d7bd38883c729d",
+          "body": "sha256:b7968f24df7d76473f917ee9527158f424f930250a91e5407a0140aa4c56c91f"
+        },
+        {
+          "path": "internal/cli/growlogwire.go",
+          "action": "addImport",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:d6a9443c14d82b7bdf19bb96637f957fd44ad9bfbe8f167c97e6f7699c8b830f",
+          "id": {
+            "file": "internal/cli/growlogwire.go",
+            "path": "github.com/livecodelife/sedum/internal/pipeline"
+          },
+          "kwargs": {
+            "file": "internal/cli/growlogwire.go",
+            "path": "github.com/livecodelife/sedum/internal/pipeline"
+          },
+          "kwargs_hash": "sha256:b94a4a8fc48185b8d16d13b84f7d0cc589d082a8fba3e80d3ed0b588ad47e654",
+          "body": "sha256:4dfadc322ca3e8f8dc06b68db404b84dcb9cf1254d835d4ed3eedc1206db5fe8"
+        },
+        {
+          "path": "internal/cli/growlogwire.go",
+          "action": "addImport",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:d6a9443c14d82b7bdf19bb96637f957fd44ad9bfbe8f167c97e6f7699c8b830f",
+          "id": {
+            "file": "internal/cli/growlogwire.go",
+            "path": "github.com/livecodelife/sedum/internal/recording"
+          },
+          "kwargs": {
+            "file": "internal/cli/growlogwire.go",
+            "path": "github.com/livecodelife/sedum/internal/recording"
+          },
+          "kwargs_hash": "sha256:027d2cdca526c4b32f422f0aa581a3701f6784700e9cb0dcf5022f330f515e44",
+          "body": "sha256:77eda6b9872215a21291b42d59b9ec4b021705be869f51a3d61adc6dcb120e03"
+        },
+        {
+          "path": "internal/cli/growlogwire.go",
+          "action": "addImport",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:d6a9443c14d82b7bdf19bb96637f957fd44ad9bfbe8f167c97e6f7699c8b830f",
+          "id": {
+            "file": "internal/cli/growlogwire.go",
+            "path": "github.com/livecodelife/sedum/internal/selection"
+          },
+          "kwargs": {
+            "file": "internal/cli/growlogwire.go",
+            "path": "github.com/livecodelife/sedum/internal/selection"
+          },
+          "kwargs_hash": "sha256:327361fe62d08a0deeec60de2fbcd6c59fb7aef9edfc2138b0e7e66cd113ce1a",
+          "body": "sha256:2f130b07ae47e7f9e9e5926057408fb954954176e88beaf96984f1a3b7ef3316"
+        },
+        {
+          "path": "internal/cli/growlogwire.go",
+          "action": "addImport",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:d6a9443c14d82b7bdf19bb96637f957fd44ad9bfbe8f167c97e6f7699c8b830f",
+          "id": {
+            "file": "internal/cli/growlogwire.go",
+            "path": "io"
+          },
+          "kwargs": {
+            "file": "internal/cli/growlogwire.go",
+            "path": "io"
+          },
+          "kwargs_hash": "sha256:0f5fb7cb5471cfc70aaa21fcd6c29b92108ae9c2d51b81087f3fdd3fc86544fa",
+          "body": "sha256:ef8e8abf4ef5ee40a19dc85b49bf09c5df1fe32abfe834e0ab4c2175baf80ddf"
+        },
+        {
+          "path": "internal/cli/growlogwire.go",
+          "action": "addImport",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:d6a9443c14d82b7bdf19bb96637f957fd44ad9bfbe8f167c97e6f7699c8b830f",
+          "id": {
+            "file": "internal/cli/growlogwire.go",
+            "path": "os"
+          },
+          "kwargs": {
+            "file": "internal/cli/growlogwire.go",
+            "path": "os"
+          },
+          "kwargs_hash": "sha256:d70a923bed1e008f67aa330d24f2310fb70e254714e26ec91ba9e53be754fb9c",
+          "body": "sha256:7c6e309eb2575d4aa451ec2ab83161d13e9ae03bbca3a4d2ecf30ce12adf0905"
+        },
+        {
+          "path": "internal/cli/growlogwire.go",
+          "action": "addImport",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:d6a9443c14d82b7bdf19bb96637f957fd44ad9bfbe8f167c97e6f7699c8b830f",
+          "id": {
+            "file": "internal/cli/growlogwire.go",
+            "path": "path/filepath"
+          },
+          "kwargs": {
+            "file": "internal/cli/growlogwire.go",
+            "path": "path/filepath"
+          },
+          "kwargs_hash": "sha256:2c71060a7aec8266cb2631d99e84f4602a0b011ff80f44ab6da622c86ff66665",
+          "body": "sha256:a6d196b558491e646be93f56a321f339068c64c76aa9d49bb18046e7f9c777a1"
+        },
+        {
+          "path": "internal/cli/growlogwire.go",
+          "action": "addImport",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:d6a9443c14d82b7bdf19bb96637f957fd44ad9bfbe8f167c97e6f7699c8b830f",
+          "id": {
+            "file": "internal/cli/growlogwire.go",
+            "path": "time"
+          },
+          "kwargs": {
+            "file": "internal/cli/growlogwire.go",
+            "path": "time"
+          },
+          "kwargs_hash": "sha256:6e6a3569a38436b5e64497d0c1918d46044a08f51d91404cc9c1a8f0cf59a82b",
+          "body": "sha256:e99128ebf4e36998f40b33adf2eef57f4d6c315f1a4d1bdd3b7fc09a0d7bc82d"
+        },
+        {
+          "path": "internal/cli/growlogwire.go",
+          "action": "setConst",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:51be1c18998d63cc558c253e211a6bd188d96cb251dad68c6ea88e03c2d5cc4c",
+          "id": {
+            "file": "internal/cli/growlogwire.go",
+            "name": "defaultGrowLogPath"
+          },
+          "kwargs": {
+            "code": "// defaultGrowLogPath is where sedum grow appends its persistent grow log.\nconst defaultGrowLogPath = \".sedum/grow.jsonl\"",
+            "file": "internal/cli/growlogwire.go",
+            "name": "defaultGrowLogPath"
+          },
+          "kwargs_hash": "sha256:15d1b0fc30cb79f05371c702f53ccbe5a291600f44fe3cf14dc79da0006690df",
+          "body": "sha256:347f02d06d470b72fde44abb64c2efb7b272f674548f530a19870b0fc97999c8"
+        },
+        {
+          "path": "internal/cli/growlogwire.go",
+          "action": "setFunction",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:6589611adfb6618a7920e43f951a79901428192ea95c1084fde9f222aecd9537",
+          "id": {
+            "file": "internal/cli/growlogwire.go",
+            "name": "growLogEntries"
+          },
+          "kwargs": {
+            "code": "// growLogEntries builds one entry per record a finished grow handled. A record\n// skipped as current gets an entry only when skips is set. ms is the wall time\n// of the whole run, which every entry of the run shares.\nfunc growLogEntries(res *pipeline.Result, model string, at time.Time, elapsed time.Duration, skips bool) []growlog.Entry {\n\tif res == nil {\n\t\treturn nil\n\t}\n\tselections := map[string]pipeline.Selection{}\n\tfor _, s := range res.Selections {\n\t\tselections[s.RecordID] = s\n\t}\n\ttype tally struct {\n\t\tregions growlog.Regions\n\t\tfiles   map[string]bool\n\t}\n\ttallies := map[string]*tally{}\n\tfor _, in := range res.Injections {\n\t\tt := tallies[in.Record]\n\t\tif t == nil {\n\t\t\tt = \u0026tally{files: map[string]bool{}}\n\t\t\ttallies[in.Record] = t\n\t\t}\n\t\tswitch {\n\t\tcase in.Pruned:\n\t\t\tt.regions.Pruned++\n\t\tcase in.Replaced:\n\t\t\tt.regions.Replaced++\n\t\tcase in.Skipped, in.Unselected, in.Held:\n\t\t\tt.regions.Unchanged++\n\t\tdefault:\n\t\t\tt.regions.Injected++\n\t\t}\n\t\tt.files[in.Path] = true\n\t}\n\tvar out []growlog.Entry\n\tfor _, c := range res.Classifications {\n\t\tif c.Mode == pipeline.ModeNone || (c.Mode == pipeline.ModeSkip \u0026\u0026 !skips) {\n\t\t\tcontinue\n\t\t}\n\t\te := growlog.Entry{\n\t\t\tTS:      at.UTC().Format(time.RFC3339),\n\t\t\tSedum:   recording.Version,\n\t\t\tRecord:  c.RecordID,\n\t\t\tMode:    growLogMode(c.Mode),\n\t\t\tMS:      elapsed.Milliseconds(),\n\t\t\tOutcome: \"ok\",\n\t\t}\n\t\tif s, ok := selections[c.RecordID]; ok {\n\t\t\te.Calls, e.Rejected, e.Completeness, e.Repairs = s.Calls, s.Rejected, s.Completeness, s.Repairs\n\t\t\te.PromptTokens, e.CompletionTokens = s.PromptTokens, s.CompletionTokens\n\t\t\tfor _, inv := range s.Invocations {\n\t\t\t\te.Invocations++\n\t\t\t\tif literalInvocation(res.Packages, inv) {\n\t\t\t\t\te.Literal++\n\t\t\t\t} else {\n\t\t\t\t\te.Declarative++\n\t\t\t\t}\n\t\t\t}\n\t\t}\n\t\tif e.Calls \u003e 0 {\n\t\t\te.Model = model\n\t\t}\n\t\tif t := tallies[c.RecordID]; t != nil {\n\t\t\te.Regions, e.Files = t.regions, len(t.files)\n\t\t}\n\t\tout = append(out, e)\n\t}\n\treturn out\n}",
+            "file": "internal/cli/growlogwire.go",
+            "name": "growLogEntries"
+          },
+          "kwargs_hash": "sha256:2864877c516bde24074644024fbd414c80837d94f5f8b1137a493a325ae7ee4b",
+          "body": "sha256:d7f80434c9a611aa29c2f9ed6fe7a5ec1efc805c585bc14fe06aab1d7638a1bf"
+        },
+        {
+          "path": "internal/cli/growlogwire.go",
+          "action": "setFunction",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:6589611adfb6618a7920e43f951a79901428192ea95c1084fde9f222aecd9537",
+          "id": {
+            "file": "internal/cli/growlogwire.go",
+            "name": "growLogFailure"
+          },
+          "kwargs": {
+            "code": "// growLogFailure builds the entry for a grow that returned err. When the error\n// is a selection.Rejection it names the record and carries what the refused\n// calls cost.\nfunc growLogFailure(err error, model string, at time.Time, elapsed time.Duration) growlog.Entry {\n\te := growlog.Entry{\n\t\tTS:      at.UTC().Format(time.RFC3339),\n\t\tSedum:   recording.Version,\n\t\tMode:    \"select\",\n\t\tMS:      elapsed.Milliseconds(),\n\t\tOutcome: \"failed\",\n\t\tError:   err.Error(),\n\t}\n\tvar rej *selection.Rejection\n\tif errors.As(err, \u0026rej) {\n\t\te.Record, e.Calls, e.Rejected, e.Completeness = rej.RecordID, rej.Calls, rej.Rejected, rej.Completeness\n\t\te.PromptTokens, e.CompletionTokens = rej.PromptTokens, rej.CompletionTokens\n\t}\n\tvar ver *selection.VerifyError\n\tif errors.As(err, \u0026ver) {\n\t\te.Record, e.Calls, e.Rejected, e.Completeness, e.Repairs = ver.RecordID, ver.Calls, ver.Rejected, ver.Completeness, ver.Repairs\n\t\te.PromptTokens, e.CompletionTokens = ver.PromptTokens, ver.CompletionTokens\n\t}\n\tif e.Calls \u003e 0 {\n\t\te.Model = model\n\t}\n\treturn e\n}",
+            "file": "internal/cli/growlogwire.go",
+            "name": "growLogFailure"
+          },
+          "kwargs_hash": "sha256:ab4b841c0434e0b0130e82631f5552f0f19db575a6500c07e21b59cad8de28d3",
+          "body": "sha256:f205b246a144ca288edd1b7a17ed322521ec1771c662567241c617bd0026e79a"
+        },
+        {
+          "path": "internal/cli/growlogwire.go",
+          "action": "setFunction",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:6589611adfb6618a7920e43f951a79901428192ea95c1084fde9f222aecd9537",
+          "id": {
+            "file": "internal/cli/growlogwire.go",
+            "name": "growLogMode"
+          },
+          "kwargs": {
+            "code": "// growLogMode maps a pipeline mode to the log's mode names.\nfunc growLogMode(m pipeline.Mode) string {\n\tswitch m {\n\tcase pipeline.ModeSkip:\n\t\treturn \"skip\"\n\tcase pipeline.ModeRerender:\n\t\treturn \"rerender\"\n\t}\n\treturn \"select\"\n}",
+            "file": "internal/cli/growlogwire.go",
+            "name": "growLogMode"
+          },
+          "kwargs_hash": "sha256:6a54d22c3d9f9baada4257b28c585bd6199d5ac935886b76b3ce77d003826589",
+          "body": "sha256:8f9f48e4728c2ab6b22e939155643a1cb28bc0666d2104fe34b34ec67424f950"
+        },
+        {
+          "path": "internal/cli/growlogwire.go",
+          "action": "setFunction",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:6589611adfb6618a7920e43f951a79901428192ea95c1084fde9f222aecd9537",
+          "id": {
+            "file": "internal/cli/growlogwire.go",
+            "name": "growLogModel"
+          },
+          "kwargs": {
+            "code": "// growLogModel names the model a grow used, as the log records it.\nfunc growLogModel(cfg GrowConfig) string {\n\tswitch {\n\tcase cfg.LocalModel != \"\":\n\t\treturn \"local:\" + filepath.Base(cfg.LocalModel)\n\tcase cfg.Model != \"\":\n\t\treturn cfg.Model\n\t}\n\treturn \"bundled\"\n}",
+            "file": "internal/cli/growlogwire.go",
+            "name": "growLogModel"
+          },
+          "kwargs_hash": "sha256:3111d1fdc439a1cdf846f24e95a40a6b1fb88ae432b237a4474c9cd2b38a9a08",
+          "body": "sha256:fb4647f7bae879749723fe082941fab331972fe9df2e478070115f3c942dc759"
+        },
+        {
+          "path": "internal/cli/growlogwire.go",
+          "action": "setFunction",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:6589611adfb6618a7920e43f951a79901428192ea95c1084fde9f222aecd9537",
+          "id": {
+            "file": "internal/cli/growlogwire.go",
+            "name": "growLogSettings"
+          },
+          "kwargs": {
+            "code": "// growLogSettings reads the grow log's switches from the environment:\n// SEDUM_GROW_LOG names the file, or is \"off\" to write no log, and\n// SEDUM_GROW_LOG_SKIPS=1 also logs records skipped as current.\nfunc growLogSettings(getenv func(string) string) (path string, on, skips bool) {\n\tpath = getenv(\"SEDUM_GROW_LOG\")\n\tif path == \"off\" {\n\t\treturn \"\", false, false\n\t}\n\tif path == \"\" {\n\t\tpath = defaultGrowLogPath\n\t}\n\treturn path, true, getenv(\"SEDUM_GROW_LOG_SKIPS\") == \"1\"\n}",
+            "file": "internal/cli/growlogwire.go",
+            "name": "growLogSettings"
+          },
+          "kwargs_hash": "sha256:2047031636c5bc8ec8621d8c9fa74b285669f3f66a8c664deee69c6bfe958dbc",
+          "body": "sha256:db517a57f570041625b496a5bf2687a40185a8be00c0a7657d30f5c2925ed417"
+        },
+        {
+          "path": "internal/cli/growlogwire.go",
+          "action": "setFunction",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:6589611adfb6618a7920e43f951a79901428192ea95c1084fde9f222aecd9537",
+          "id": {
+            "file": "internal/cli/growlogwire.go",
+            "name": "literalInvocation"
+          },
+          "kwargs": {
+            "code": "// literalInvocation reports whether inv carries model-written code: a\n// non-empty kwarg that the action's package declares as type literal.\nfunc literalInvocation(set *genpkg.Set, inv recording.Invocation) bool {\n\tif set == nil {\n\t\treturn false\n\t}\n\tfor _, p := range set.Packages {\n\t\ta, ok := p.Actions[inv.Action]\n\t\tif !ok {\n\t\t\tcontinue\n\t\t}\n\t\tfor name, k := range a.Kwargs {\n\t\t\tif v, ok := inv.Kwargs[name]; ok \u0026\u0026 k.Type == \"literal\" \u0026\u0026 v != nil \u0026\u0026 v != \"\" {\n\t\t\t\treturn true\n\t\t\t}\n\t\t}\n\t\treturn false\n\t}\n\treturn false\n}",
+            "file": "internal/cli/growlogwire.go",
+            "name": "literalInvocation"
+          },
+          "kwargs_hash": "sha256:7cff381472280a891cbc9d3346ad3b2fb659f986b4c063fb30507dbc75fa77a3",
+          "body": "sha256:6641162db7b957e9d476d578ed1ab84453dc610d2e3aa5d2fefa05c9bc726875"
+        },
+        {
+          "path": "internal/cli/growlogwire.go",
+          "action": "setFunction",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:6589611adfb6618a7920e43f951a79901428192ea95c1084fde9f222aecd9537",
+          "id": {
+            "file": "internal/cli/growlogwire.go",
+            "name": "writeGrowLog"
+          },
+          "kwargs": {
+            "code": "// writeGrowLog appends the entries of a finished grow to the grow log. It\n// writes nothing for a run that changes nothing (--dry-run, --check, --stamp,\n// --stop-after) or when SEDUM_GROW_LOG is off, and a log that cannot be\n// written is a warning on errOut, never a failed grow.\nfunc writeGrowLog(errOut io.Writer, cfg GrowConfig, res *pipeline.Result, runErr error, started time.Time) {\n\tpath, on, skips := growLogSettings(os.Getenv)\n\tif !on || cfg.DryRun || cfg.Check || cfg.Stamp || cfg.StopAfter != \"\" {\n\t\treturn\n\t}\n\telapsed := time.Since(started)\n\tmodel := growLogModel(cfg)\n\tentries := growLogEntries(res, model, started, elapsed, skips)\n\tif runErr != nil {\n\t\tentries = []growlog.Entry{growLogFailure(runErr, model, started, elapsed)}\n\t}\n\tfor _, e := range entries {\n\t\tif err := growlog.Append(path, e); err != nil {\n\t\t\tfmt.Fprintf(errOut, \"warning: %v\\n\", err)\n\t\t\treturn\n\t\t}\n\t}\n}",
+            "file": "internal/cli/growlogwire.go",
+            "name": "writeGrowLog"
+          },
+          "kwargs_hash": "sha256:762ad4ba39f05a602c9457d14a815731bcccf93d01c0f103f144d76bf7ff2247",
+          "body": "sha256:bc2b53d29e250c921c2f7c9b50705d16963e39b08ca27605d327f0f204bbce75"
+        },
+        {
+          "path": "internal/cli/growlogwire_failure_test.go",
+          "action": "addImport",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:d6a9443c14d82b7bdf19bb96637f957fd44ad9bfbe8f167c97e6f7699c8b830f",
+          "id": {
+            "file": "internal/cli/growlogwire_failure_test.go",
+            "path": "fmt"
+          },
+          "kwargs": {
+            "file": "internal/cli/growlogwire_failure_test.go",
+            "path": "fmt"
+          },
+          "kwargs_hash": "sha256:93cd10c5e498407113a35cf1a350f5dae38c7e330a4c890a47118a4e457011e3",
+          "body": "sha256:bcbac51883cbf8064e9196b371cb880cee429866652447ad557533d817857609"
+        },
+        {
+          "path": "internal/cli/growlogwire_failure_test.go",
+          "action": "addImport",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:d6a9443c14d82b7bdf19bb96637f957fd44ad9bfbe8f167c97e6f7699c8b830f",
+          "id": {
+            "file": "internal/cli/growlogwire_failure_test.go",
+            "path": "github.com/livecodelife/sedum/internal/selection"
+          },
+          "kwargs": {
+            "file": "internal/cli/growlogwire_failure_test.go",
+            "path": "github.com/livecodelife/sedum/internal/selection"
+          },
+          "kwargs_hash": "sha256:dea9a0ad28f27442340100daacf1a19b9ecac592c8585fc491f2ddf8f15636c7",
+          "body": "sha256:2f130b07ae47e7f9e9e5926057408fb954954176e88beaf96984f1a3b7ef3316"
+        },
+        {
+          "path": "internal/cli/growlogwire_failure_test.go",
+          "action": "addImport",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:d6a9443c14d82b7bdf19bb96637f957fd44ad9bfbe8f167c97e6f7699c8b830f",
+          "id": {
+            "file": "internal/cli/growlogwire_failure_test.go",
+            "path": "testing"
+          },
+          "kwargs": {
+            "file": "internal/cli/growlogwire_failure_test.go",
+            "path": "testing"
+          },
+          "kwargs_hash": "sha256:e4e52e48afec29bffc9a853c335be834cb1af793a8ce6ca0038d350b87accf4a",
+          "body": "sha256:14a4a5f3bfbf9325de04706efa8c15a9446f01d2a26624ce9c66bd1d69dc212e"
+        },
+        {
+          "path": "internal/cli/growlogwire_failure_test.go",
+          "action": "addImport",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:d6a9443c14d82b7bdf19bb96637f957fd44ad9bfbe8f167c97e6f7699c8b830f",
+          "id": {
+            "file": "internal/cli/growlogwire_failure_test.go",
+            "path": "time"
+          },
+          "kwargs": {
+            "file": "internal/cli/growlogwire_failure_test.go",
+            "path": "time"
+          },
+          "kwargs_hash": "sha256:cdb4ecbe18618664ed36e60731337340f4be0d51f0d2f5099fc73c77cec3b209",
+          "body": "sha256:e99128ebf4e36998f40b33adf2eef57f4d6c315f1a4d1bdd3b7fc09a0d7bc82d"
+        },
+        {
+          "path": "internal/cli/growlogwire_failure_test.go",
+          "action": "setFunction",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:6589611adfb6618a7920e43f951a79901428192ea95c1084fde9f222aecd9537",
+          "id": {
+            "file": "internal/cli/growlogwire_failure_test.go",
+            "name": "TestGrowLogFailureKeepsTheCostOfAFailedVerification"
+          },
+          "kwargs": {
+            "code": "func TestGrowLogFailureKeepsTheCostOfAFailedVerification(t *testing.T) {\n\tver := \u0026selection.VerifyError{RecordID: \"r7\", Repairs: 3, Calls: 4, Rejected: 1, Completeness: 2, PromptTokens: 900, CompletionTokens: 120, Failure: \"tsc\"}\n\te := growLogFailure(fmt.Errorf(\"grow: %w\", ver), \"m\", time.Now(), time.Second)\n\tif e.Outcome != \"failed\" || e.Record != \"r7\" || e.Model != \"m\" || e.Calls != 4 || e.Rejected != 1 || e.Completeness != 2 || e.Repairs != 3 {\n\t\tt.Fatalf(\"entry = %+v\", e)\n\t}\n\tif e.PromptTokens != 900 || e.CompletionTokens != 120 {\n\t\tt.Fatalf(\"tokens = %d/%d\", e.PromptTokens, e.CompletionTokens)\n\t}\n}",
+            "file": "internal/cli/growlogwire_failure_test.go",
+            "name": "TestGrowLogFailureKeepsTheCostOfAFailedVerification"
+          },
+          "kwargs_hash": "sha256:7d11a351372b9596625ebd7c85d33d64fff04574a119471353ed80c2925eac31",
+          "body": "sha256:23ab4ba7fc8943145723e028bd212ce830231ede7948cad347a8852ed7613ca0"
+        },
+        {
+          "path": "internal/cli/growlogwire_test.go",
+          "action": "addImport",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:d6a9443c14d82b7bdf19bb96637f957fd44ad9bfbe8f167c97e6f7699c8b830f",
+          "id": {
+            "file": "internal/cli/growlogwire_test.go",
+            "path": "bytes"
+          },
+          "kwargs": {
+            "file": "internal/cli/growlogwire_test.go",
+            "path": "bytes"
+          },
+          "kwargs_hash": "sha256:1365abbf8a823fe60261d1ba990854519b148d196268dc00a0699f75b0c6ac54",
+          "body": "sha256:468731f6dd513df0a66690d4649dc9e7244c96de227d8e6ead98cc5e9747c57a"
+        },
+        {
+          "path": "internal/cli/growlogwire_test.go",
+          "action": "addImport",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:d6a9443c14d82b7bdf19bb96637f957fd44ad9bfbe8f167c97e6f7699c8b830f",
+          "id": {
+            "file": "internal/cli/growlogwire_test.go",
+            "path": "errors"
+          },
+          "kwargs": {
+            "file": "internal/cli/growlogwire_test.go",
+            "path": "errors"
+          },
+          "kwargs_hash": "sha256:408ea95918df0888b24f79302a5c492c6182deaf9881eb389b5d05287bdd67f4",
+          "body": "sha256:2b718237ba0a56467c8fd494cc131e942ef410e6228c03b644d70476c71862dc"
+        },
+        {
+          "path": "internal/cli/growlogwire_test.go",
+          "action": "addImport",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:d6a9443c14d82b7bdf19bb96637f957fd44ad9bfbe8f167c97e6f7699c8b830f",
+          "id": {
+            "file": "internal/cli/growlogwire_test.go",
+            "path": "fmt"
+          },
+          "kwargs": {
+            "file": "internal/cli/growlogwire_test.go",
+            "path": "fmt"
+          },
+          "kwargs_hash": "sha256:34a4e979ae09d815632c4d7c8363cdff2005c7574c17b8627e5081303bee9cc9",
+          "body": "sha256:bcbac51883cbf8064e9196b371cb880cee429866652447ad557533d817857609"
+        },
+        {
+          "path": "internal/cli/growlogwire_test.go",
+          "action": "addImport",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:d6a9443c14d82b7bdf19bb96637f957fd44ad9bfbe8f167c97e6f7699c8b830f",
+          "id": {
+            "file": "internal/cli/growlogwire_test.go",
+            "path": "github.com/livecodelife/sedum/internal/genpkg"
+          },
+          "kwargs": {
+            "file": "internal/cli/growlogwire_test.go",
+            "path": "github.com/livecodelife/sedum/internal/genpkg"
+          },
+          "kwargs_hash": "sha256:3b277a520c6e523631ef2087d5579cfa46fa0d4fbc985eb5c926bfeb2a6e28f0",
+          "body": "sha256:5b4c7dbee430534527d893269527d915be58accc7a8330a8c104c2014153525d"
+        },
+        {
+          "path": "internal/cli/growlogwire_test.go",
+          "action": "addImport",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:d6a9443c14d82b7bdf19bb96637f957fd44ad9bfbe8f167c97e6f7699c8b830f",
+          "id": {
+            "file": "internal/cli/growlogwire_test.go",
+            "path": "github.com/livecodelife/sedum/internal/inject"
+          },
+          "kwargs": {
+            "file": "internal/cli/growlogwire_test.go",
+            "path": "github.com/livecodelife/sedum/internal/inject"
+          },
+          "kwargs_hash": "sha256:4cbb0ffa9f2bd5f41e2fe68c319a725fd93e163608ca17fe884de5f8108614eb",
+          "body": "sha256:c32cfeba25229dcfd3a66390c7c5b1c1c3cb162181c8360a4df0ff1bdfad701f"
+        },
+        {
+          "path": "internal/cli/growlogwire_test.go",
+          "action": "addImport",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:d6a9443c14d82b7bdf19bb96637f957fd44ad9bfbe8f167c97e6f7699c8b830f",
+          "id": {
+            "file": "internal/cli/growlogwire_test.go",
+            "path": "github.com/livecodelife/sedum/internal/pipeline"
+          },
+          "kwargs": {
+            "file": "internal/cli/growlogwire_test.go",
+            "path": "github.com/livecodelife/sedum/internal/pipeline"
+          },
+          "kwargs_hash": "sha256:efaa6450ec08bd21334d5690397e6add2d52e21cb21af149be13a61b5e4c8da6",
+          "body": "sha256:4dfadc322ca3e8f8dc06b68db404b84dcb9cf1254d835d4ed3eedc1206db5fe8"
+        },
+        {
+          "path": "internal/cli/growlogwire_test.go",
+          "action": "addImport",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:d6a9443c14d82b7bdf19bb96637f957fd44ad9bfbe8f167c97e6f7699c8b830f",
+          "id": {
+            "file": "internal/cli/growlogwire_test.go",
+            "path": "github.com/livecodelife/sedum/internal/recording"
+          },
+          "kwargs": {
+            "file": "internal/cli/growlogwire_test.go",
+            "path": "github.com/livecodelife/sedum/internal/recording"
+          },
+          "kwargs_hash": "sha256:1c096fe7a281a14c52b869f8dbb63b593d03e6b80194e91745b586468f42d28c",
+          "body": "sha256:77eda6b9872215a21291b42d59b9ec4b021705be869f51a3d61adc6dcb120e03"
+        },
+        {
+          "path": "internal/cli/growlogwire_test.go",
+          "action": "addImport",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:d6a9443c14d82b7bdf19bb96637f957fd44ad9bfbe8f167c97e6f7699c8b830f",
+          "id": {
+            "file": "internal/cli/growlogwire_test.go",
+            "path": "github.com/livecodelife/sedum/internal/selection"
+          },
+          "kwargs": {
+            "file": "internal/cli/growlogwire_test.go",
+            "path": "github.com/livecodelife/sedum/internal/selection"
+          },
+          "kwargs_hash": "sha256:ea859c4e1698383d57c196f54101e2593043f86aaf1412b6ed9e803ee4514646",
+          "body": "sha256:2f130b07ae47e7f9e9e5926057408fb954954176e88beaf96984f1a3b7ef3316"
+        },
+        {
+          "path": "internal/cli/growlogwire_test.go",
+          "action": "addImport",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:d6a9443c14d82b7bdf19bb96637f957fd44ad9bfbe8f167c97e6f7699c8b830f",
+          "id": {
+            "file": "internal/cli/growlogwire_test.go",
+            "path": "os"
+          },
+          "kwargs": {
+            "file": "internal/cli/growlogwire_test.go",
+            "path": "os"
+          },
+          "kwargs_hash": "sha256:50aebfccaf67b4fba81b1af588e02c261fbdfead0f614c80112b2726e7d89e90",
+          "body": "sha256:7c6e309eb2575d4aa451ec2ab83161d13e9ae03bbca3a4d2ecf30ce12adf0905"
+        },
+        {
+          "path": "internal/cli/growlogwire_test.go",
+          "action": "addImport",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:d6a9443c14d82b7bdf19bb96637f957fd44ad9bfbe8f167c97e6f7699c8b830f",
+          "id": {
+            "file": "internal/cli/growlogwire_test.go",
+            "path": "path/filepath"
+          },
+          "kwargs": {
+            "file": "internal/cli/growlogwire_test.go",
+            "path": "path/filepath"
+          },
+          "kwargs_hash": "sha256:c8725c7273385b3da9846cf3371d6943ff1ca6556137837bfba9f05a4c5e26bc",
+          "body": "sha256:a6d196b558491e646be93f56a321f339068c64c76aa9d49bb18046e7f9c777a1"
+        },
+        {
+          "path": "internal/cli/growlogwire_test.go",
+          "action": "addImport",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:d6a9443c14d82b7bdf19bb96637f957fd44ad9bfbe8f167c97e6f7699c8b830f",
+          "id": {
+            "file": "internal/cli/growlogwire_test.go",
+            "path": "strings"
+          },
+          "kwargs": {
+            "file": "internal/cli/growlogwire_test.go",
+            "path": "strings"
+          },
+          "kwargs_hash": "sha256:e3c42c58e21cd34295ba6ea622dea2dc3490b48d374c845f64a687b4057a0a1f",
+          "body": "sha256:a9af3c0bc4bf9342df9d7e89a324523fdba7941a9ca4190270e68ff3c4a25ea6"
+        },
+        {
+          "path": "internal/cli/growlogwire_test.go",
+          "action": "addImport",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:d6a9443c14d82b7bdf19bb96637f957fd44ad9bfbe8f167c97e6f7699c8b830f",
+          "id": {
+            "file": "internal/cli/growlogwire_test.go",
+            "path": "testing"
+          },
+          "kwargs": {
+            "file": "internal/cli/growlogwire_test.go",
+            "path": "testing"
+          },
+          "kwargs_hash": "sha256:702dc383225a9f82adce359266b54da3a343d74ef47788a133f2eff459f97101",
+          "body": "sha256:14a4a5f3bfbf9325de04706efa8c15a9446f01d2a26624ce9c66bd1d69dc212e"
+        },
+        {
+          "path": "internal/cli/growlogwire_test.go",
+          "action": "addImport",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:d6a9443c14d82b7bdf19bb96637f957fd44ad9bfbe8f167c97e6f7699c8b830f",
+          "id": {
+            "file": "internal/cli/growlogwire_test.go",
+            "path": "time"
+          },
+          "kwargs": {
+            "file": "internal/cli/growlogwire_test.go",
+            "path": "time"
+          },
+          "kwargs_hash": "sha256:87cc4e943c17da6afa42db0fdc3b67b2d89abaad34fa97f62ed1213cacbc7a4b",
+          "body": "sha256:e99128ebf4e36998f40b33adf2eef57f4d6c315f1a4d1bdd3b7fc09a0d7bc82d"
+        },
+        {
+          "path": "internal/cli/growlogwire_test.go",
+          "action": "setFunction",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:6589611adfb6618a7920e43f951a79901428192ea95c1084fde9f222aecd9537",
+          "id": {
+            "file": "internal/cli/growlogwire_test.go",
+            "name": "TestGrowLogEntries"
+          },
+          "kwargs": {
+            "code": "func TestGrowLogEntries(t *testing.T) {\n\tat := time.Date(2026, 10, 16, 12, 0, 0, 0, time.UTC)\n\tentries := growLogEntries(growLogResult(), \"m\", at, 1500*time.Millisecond, false)\n\tif len(entries) != 1 {\n\t\tt.Fatalf(\"got %d entries, want 1 (the skipped record is left out): %+v\", len(entries), entries)\n\t}\n\te := entries[0]\n\tif e.Record != \"r1\" || e.Mode != \"select\" || e.Model != \"m\" || e.Outcome != \"ok\" || e.TS != \"2026-10-16T12:00:00Z\" || e.MS != 1500 || e.Sedum != recording.Version {\n\t\tt.Fatalf(\"entry = %+v\", e)\n\t}\n\tif e.Calls != 2 || e.Rejected != 1 || e.Completeness != 1 || e.Repairs != 1 || e.PromptTokens != 100 || e.CompletionTokens != 20 {\n\t\tt.Fatalf(\"cost = %+v\", e)\n\t}\n\tif e.Invocations != 2 || e.Literal != 1 || e.Declarative != 1 {\n\t\tt.Fatalf(\"invocations = %+v\", e)\n\t}\n\tif e.Regions.Injected != 1 || e.Regions.Replaced != 1 || e.Regions.Pruned != 1 || e.Regions.Unchanged != 0 || e.Files != 2 {\n\t\tt.Fatalf(\"regions = %+v, files = %d\", e.Regions, e.Files)\n\t}\n}",
+            "file": "internal/cli/growlogwire_test.go",
+            "name": "TestGrowLogEntries"
+          },
+          "kwargs_hash": "sha256:cd49b974935632489a2f0149c256668d984e55871836d5b60241af01d848f1cb",
+          "body": "sha256:e1cd51dc6259d86213818e11493de9c6a8ef2009823c4b6c41fd088383b2a237"
+        },
+        {
+          "path": "internal/cli/growlogwire_test.go",
+          "action": "setFunction",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:6589611adfb6618a7920e43f951a79901428192ea95c1084fde9f222aecd9537",
+          "id": {
+            "file": "internal/cli/growlogwire_test.go",
+            "name": "TestGrowLogEntriesSkips"
+          },
+          "kwargs": {
+            "code": "func TestGrowLogEntriesSkips(t *testing.T) {\n\tentries := growLogEntries(growLogResult(), \"m\", time.Now(), 0, true)\n\tif len(entries) != 2 {\n\t\tt.Fatalf(\"got %d entries, want 2\", len(entries))\n\t}\n\tif s := entries[1]; s.Record != \"r2\" || s.Mode != \"skip\" || s.Model != \"\" || s.Calls != 0 {\n\t\tt.Fatalf(\"skip entry = %+v\", s)\n\t}\n\tif growLogEntries(nil, \"m\", time.Now(), 0, true) != nil {\n\t\tt.Fatal(\"a nil result has no entries\")\n\t}\n}",
+            "file": "internal/cli/growlogwire_test.go",
+            "name": "TestGrowLogEntriesSkips"
+          },
+          "kwargs_hash": "sha256:43e04a73f915154b9b7ee4e4fe76a09c12a4329ad8a5a526c475b0b97b00eb08",
+          "body": "sha256:8c254a4afff96f85badc5cb6b7bd478c273afc056a81a6428984855afccd592e"
+        },
+        {
+          "path": "internal/cli/growlogwire_test.go",
+          "action": "setFunction",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:6589611adfb6618a7920e43f951a79901428192ea95c1084fde9f222aecd9537",
+          "id": {
+            "file": "internal/cli/growlogwire_test.go",
+            "name": "TestGrowLogFailure"
+          },
+          "kwargs": {
+            "code": "func TestGrowLogFailure(t *testing.T) {\n\trej := \u0026selection.Rejection{RecordID: \"r9\", Calls: 3, Rejected: 3, PromptTokens: 10, CompletionTokens: 2}\n\te := growLogFailure(fmt.Errorf(\"wrap: %w\", rej), \"m\", time.Now(), time.Second)\n\tif e.Outcome != \"failed\" || e.Record != \"r9\" || e.Calls != 3 || e.Rejected != 3 || e.Model != \"m\" || !strings.HasPrefix(e.Error, \"wrap:\") {\n\t\tt.Fatalf(\"rejection entry = %+v\", e)\n\t}\n\te = growLogFailure(errors.New(\"no endpoint\"), \"m\", time.Now(), 0)\n\tif e.Record != \"\" || e.Model != \"\" || e.Outcome != \"failed\" || e.Error != \"no endpoint\" {\n\t\tt.Fatalf(\"plain failure entry = %+v\", e)\n\t}\n}",
+            "file": "internal/cli/growlogwire_test.go",
+            "name": "TestGrowLogFailure"
+          },
+          "kwargs_hash": "sha256:d95db4cd5b425aeefd4241cfcfe235796c7b682090cf232fdaa1a93758bc2976",
+          "body": "sha256:e6a2e46462cf6d870572aaf6ba4990cb63ff570c85659b8de5a642b380f10f4d"
+        },
+        {
+          "path": "internal/cli/growlogwire_test.go",
+          "action": "setFunction",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:6589611adfb6618a7920e43f951a79901428192ea95c1084fde9f222aecd9537",
+          "id": {
+            "file": "internal/cli/growlogwire_test.go",
+            "name": "TestGrowLogModel"
+          },
+          "kwargs": {
+            "code": "func TestGrowLogModel(t *testing.T) {\n\tcases := []struct {\n\t\tcfg  GrowConfig\n\t\twant string\n\t}{\n\t\t{GrowConfig{Model: \"claude-haiku-5-5\"}, \"claude-haiku-5-5\"},\n\t\t{GrowConfig{LocalModel: \"/models/tiny.gguf\"}, \"local:tiny.gguf\"},\n\t\t{GrowConfig{}, \"bundled\"},\n\t}\n\tfor _, tc := range cases {\n\t\tif got := growLogModel(tc.cfg); got != tc.want {\n\t\t\tt.Errorf(\"growLogModel(%+v) = %q, want %q\", tc.cfg, got, tc.want)\n\t\t}\n\t}\n}",
+            "file": "internal/cli/growlogwire_test.go",
+            "name": "TestGrowLogModel"
+          },
+          "kwargs_hash": "sha256:78e1d9d3c830cb8b9de9f58477ac0584ae3b8d156022fe5891eb9223d6b90be7",
+          "body": "sha256:727d95094035b492c687de1c01a599b858b1b303454ffac8a69f403df9db6226"
+        },
+        {
+          "path": "internal/cli/growlogwire_test.go",
+          "action": "setFunction",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:6589611adfb6618a7920e43f951a79901428192ea95c1084fde9f222aecd9537",
+          "id": {
+            "file": "internal/cli/growlogwire_test.go",
+            "name": "TestGrowLogSettings"
+          },
+          "kwargs": {
+            "code": "func TestGrowLogSettings(t *testing.T) {\n\tenv := func(m map[string]string) func(string) string { return func(k string) string { return m[k] } }\n\tpath, on, skips := growLogSettings(env(nil))\n\tif path != defaultGrowLogPath || !on || skips {\n\t\tt.Fatalf(\"defaults = %q %v %v\", path, on, skips)\n\t}\n\tpath, on, skips = growLogSettings(env(map[string]string{\"SEDUM_GROW_LOG\": \"x/log.jsonl\", \"SEDUM_GROW_LOG_SKIPS\": \"1\"}))\n\tif path != \"x/log.jsonl\" || !on || !skips {\n\t\tt.Fatalf(\"custom = %q %v %v\", path, on, skips)\n\t}\n\tif _, on, _ = growLogSettings(env(map[string]string{\"SEDUM_GROW_LOG\": \"off\"})); on {\n\t\tt.Fatal(\"off must turn the log off\")\n\t}\n}",
+            "file": "internal/cli/growlogwire_test.go",
+            "name": "TestGrowLogSettings"
+          },
+          "kwargs_hash": "sha256:18369e644140b79da4cc942e0286326004959dabb6a5edfc9ee22cec294b02f5",
+          "body": "sha256:641fbf10cb409ff70563e57f62804ab93e084218b2ec4b2a8e486343a8b150cf"
+        },
+        {
+          "path": "internal/cli/growlogwire_test.go",
+          "action": "setFunction",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:6589611adfb6618a7920e43f951a79901428192ea95c1084fde9f222aecd9537",
+          "id": {
+            "file": "internal/cli/growlogwire_test.go",
+            "name": "TestWriteGrowLog"
+          },
+          "kwargs": {
+            "code": "func TestWriteGrowLog(t *testing.T) {\n\tdir := t.TempDir()\n\tpath := filepath.Join(dir, \"grow.jsonl\")\n\tt.Setenv(\"SEDUM_GROW_LOG\", path)\n\tt.Setenv(\"SEDUM_GROW_LOG_SKIPS\", \"\")\n\tlines := func() int {\n\t\tdata, err := os.ReadFile(path)\n\t\tif err != nil {\n\t\t\treturn 0\n\t\t}\n\t\treturn strings.Count(string(data), \"\\n\")\n\t}\n\tvar errOut bytes.Buffer\n\tbase := GrowConfig{Model: \"m\"}\n\twriteGrowLog(\u0026errOut, base, growLogResult(), nil, time.Now())\n\tif lines() != 1 {\n\t\tt.Fatalf(\"a normal grow wrote %d lines, want 1\", lines())\n\t}\n\tfor name, cfg := range map[string]GrowConfig{\n\t\t\"dry run\":    {Model: \"m\", DryRun: true},\n\t\t\"check\":      {Model: \"m\", Check: true},\n\t\t\"stamp\":      {Model: \"m\", Stamp: true},\n\t\t\"stop after\": {Model: \"m\", StopAfter: \"files\"},\n\t} {\n\t\twriteGrowLog(\u0026errOut, cfg, growLogResult(), nil, time.Now())\n\t\tif lines() != 1 {\n\t\t\tt.Fatalf(\"%s must not append, file has %d lines\", name, lines())\n\t\t}\n\t}\n\twriteGrowLog(\u0026errOut, base, nil, errors.New(\"boom\"), time.Now())\n\tif lines() != 2 {\n\t\tt.Fatalf(\"a failed grow wrote %d lines, want 2\", lines())\n\t}\n\tt.Setenv(\"SEDUM_GROW_LOG\", \"off\")\n\twriteGrowLog(\u0026errOut, base, growLogResult(), nil, time.Now())\n\tif lines() != 2 || errOut.Len() != 0 {\n\t\tt.Fatalf(\"off must append nothing: %d lines, warning %q\", lines(), errOut.String())\n\t}\n\tblocked := filepath.Join(dir, \"file\")\n\tif err := os.WriteFile(blocked, nil, 0o644); err != nil {\n\t\tt.Fatal(err)\n\t}\n\tt.Setenv(\"SEDUM_GROW_LOG\", filepath.Join(blocked, \"x\", \"grow.jsonl\"))\n\twriteGrowLog(\u0026errOut, base, growLogResult(), nil, time.Now())\n\tif !strings.HasPrefix(errOut.String(), \"warning: \") {\n\t\tt.Fatalf(\"an unwritable log must warn, got %q\", errOut.String())\n\t}\n}",
+            "file": "internal/cli/growlogwire_test.go",
+            "name": "TestWriteGrowLog"
+          },
+          "kwargs_hash": "sha256:eea284dc8e5efded98849313bfd0b642261c8c8de2f7a04c53ee8c527812a3e5",
+          "body": "sha256:3c1be96515d1cc02c8a5993a43da826636a2f1cff9d925bdc1662d0629182126"
+        },
+        {
+          "path": "internal/cli/growlogwire_test.go",
+          "action": "setFunction",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:6589611adfb6618a7920e43f951a79901428192ea95c1084fde9f222aecd9537",
+          "id": {
+            "file": "internal/cli/growlogwire_test.go",
+            "name": "growLogResult"
+          },
+          "kwargs": {
+            "code": "func growLogResult() *pipeline.Result {\n\treturn \u0026pipeline.Result{\n\t\tPackages: \u0026genpkg.Set{Packages: []*genpkg.Package{{\n\t\t\tName: \"go\",\n\t\t\tActions: map[string]*genpkg.Action{\n\t\t\t\t\"setFunction\": {Kwargs: map[string]genpkg.Kwarg{\"code\": {Type: \"literal\"}}},\n\t\t\t\t\"addImport\":   {Kwargs: map[string]genpkg.Kwarg{\"path\": {Type: \"string\"}}},\n\t\t\t},\n\t\t}}},\n\t\tClassifications: []pipeline.Classification{\n\t\t\t{RecordID: \"r1\", Mode: pipeline.ModeSelect},\n\t\t\t{RecordID: \"r2\", Mode: pipeline.ModeSkip},\n\t\t},\n\t\tSelections: []pipeline.Selection{{\n\t\t\tRecordID: \"r1\", Calls: 2, Rejected: 1, Completeness: 1, Repairs: 1, PromptTokens: 100, CompletionTokens: 20,\n\t\t\tInvocations: []recording.Invocation{\n\t\t\t\t{Action: \"setFunction\", Kwargs: map[string]any{\"code\": \"func F() {}\"}},\n\t\t\t\t{Action: \"addImport\", Kwargs: map[string]any{\"path\": \"fmt\"}},\n\t\t\t},\n\t\t}},\n\t\tInjections: []inject.Result{\n\t\t\t{Path: \"a.go\", Record: \"r1\"},\n\t\t\t{Path: \"a.go\", Record: \"r1\", Replaced: true},\n\t\t\t{Path: \"b.go\", Record: \"r1\", Pruned: true},\n\t\t},\n\t}\n}",
+            "file": "internal/cli/growlogwire_test.go",
+            "name": "growLogResult"
+          },
+          "kwargs_hash": "sha256:f9254934f7e64f4766c726c34766dc6537930941afa903516d8236bb7945b1eb",
+          "body": "sha256:5c8bd401b6fbd2ddc529e184cd9c4ef475ce2fb9d21922fd1bf6b5fa6f702c42"
+        }
+      ]
+    }
+  ]
+}

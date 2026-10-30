@@ -1,0 +1,848 @@
+{
+  "sedum_version": "0.11.0",
+  "packages": {
+    "go": {
+      "extensions": [
+        ".go"
+      ]
+    }
+  },
+  "records": [
+    {
+      "record_id": "prov-2026-3e5a05dc",
+      "gen": "sha256:601088eb1aa16c655a8a3610e01f220fcceaa8b83b311c76b4ac9a810345d516",
+      "created_at": "2026-10-16",
+      "files": [
+        {
+          "path": "internal/cli/generators.go",
+          "package": "go",
+          "template": "*/{pkg}/{name}.go",
+          "captures": {
+            "name": "generators",
+            "pkg": "cli"
+          }
+        },
+        {
+          "path": "internal/cli/generators_test.go",
+          "package": "go",
+          "template": "*/{pkg}/{name}.go",
+          "captures": {
+            "name": "generators_test",
+            "pkg": "cli"
+          }
+        }
+      ],
+      "phases": [
+        {
+          "name": "default",
+          "invocations": [
+            {
+              "action": "addImport",
+              "kwargs": {
+                "file": "internal/cli/generators.go",
+                "path": "bytes"
+              }
+            },
+            {
+              "action": "addImport",
+              "kwargs": {
+                "file": "internal/cli/generators.go",
+                "path": "fmt"
+              }
+            },
+            {
+              "action": "addImport",
+              "kwargs": {
+                "file": "internal/cli/generators.go",
+                "path": "io"
+              }
+            },
+            {
+              "action": "addImport",
+              "kwargs": {
+                "file": "internal/cli/generators.go",
+                "path": "os"
+              }
+            },
+            {
+              "action": "addImport",
+              "kwargs": {
+                "file": "internal/cli/generators.go",
+                "path": "path/filepath"
+              }
+            },
+            {
+              "action": "addImport",
+              "kwargs": {
+                "file": "internal/cli/generators.go",
+                "path": "sort"
+              }
+            },
+            {
+              "action": "addImport",
+              "kwargs": {
+                "file": "internal/cli/generators.go",
+                "path": "strings"
+              }
+            },
+            {
+              "action": "addImport",
+              "kwargs": {
+                "file": "internal/cli/generators.go",
+                "path": "github.com/spf13/cobra"
+              }
+            },
+            {
+              "action": "addImport",
+              "kwargs": {
+                "file": "internal/cli/generators.go",
+                "path": "github.com/livecodelife/sedum/internal/builtin"
+              }
+            },
+            {
+              "action": "setType",
+              "kwargs": {
+                "code": "type installOptions struct {\n\tDir    string\n\tFrom   string\n\tForce  bool\n\tDryRun bool\n}",
+                "file": "internal/cli/generators.go",
+                "name": "installOptions"
+              }
+            },
+            {
+              "action": "setType",
+              "kwargs": {
+                "code": "type installEntry struct {\n\tPath   string\n\tStatus string\n\tData   []byte\n}",
+                "file": "internal/cli/generators.go",
+                "name": "installEntry"
+              }
+            },
+            {
+              "action": "setFunction",
+              "kwargs": {
+                "code": "func newGeneratorsCommand() *cobra.Command {\n\tcmd := \u0026cobra.Command{\n\t\tUse:   \"generators\",\n\t\tShort: \"Manage generator packages\",\n\t}\n\tvar opts installOptions\n\tinstall := \u0026cobra.Command{\n\t\tUse:   \"install \u003cpkg\u003e...\",\n\t\tShort: \"Install generator packages into a directory\",\n\t\tArgs:  cobra.MinimumNArgs(1),\n\t\tRunE: func(cmd *cobra.Command, args []string) error {\n\t\t\treturn applyInstall(cmd.OutOrStdout(), args, opts)\n\t\t},\n\t}\n\tinstall.Flags().StringVar(\u0026opts.Dir, \"dir\", \"generators\", \"directory to install into\")\n\tinstall.Flags().StringVar(\u0026opts.From, \"from\", \"\", \"copy the package from this directory\")\n\tinstall.Flags().BoolVar(\u0026opts.Force, \"force\", false, \"overwrite files that differ\")\n\tinstall.Flags().BoolVar(\u0026opts.DryRun, \"dry-run\", false, \"print the plan without writing\")\n\tcmd.AddCommand(install)\n\treturn cmd\n}",
+                "file": "internal/cli/generators.go",
+                "name": "newGeneratorsCommand"
+              }
+            },
+            {
+              "action": "setFunction",
+              "kwargs": {
+                "code": "func planInstall(names []string, opts installOptions) ([]installEntry, error) {\n\tvar entries []installEntry\n\tfor _, name := range names {\n\t\tif name == \"\" || name == \".\" || name == \"..\" || strings.ContainsAny(name, \"/\\\\\") || strings.ContainsRune(name, 0) {\n\t\t\treturn nil, fmt.Errorf(\"invalid package name %q\", name)\n\t\t}\n\t\tfiles, err := loadPackageFiles(name, opts)\n\t\tif err != nil {\n\t\t\treturn nil, err\n\t\t}\n\t\trels := make([]string, 0, len(files))\n\t\tfor rel := range files {\n\t\t\trels = append(rels, rel)\n\t\t}\n\t\tsort.Strings(rels)\n\t\tfor _, rel := range rels {\n\t\t\tif !filepath.IsLocal(rel) {\n\t\t\t\treturn nil, fmt.Errorf(\"package %q: refusing file path %q\", name, rel)\n\t\t\t}\n\t\t\tpath := filepath.Join(opts.Dir, name, rel)\n\t\t\tstatus := \"create\"\n\t\t\texisting, err := os.ReadFile(path)\n\t\t\tswitch {\n\t\t\tcase err == nil \u0026\u0026 bytes.Equal(existing, files[rel]):\n\t\t\t\tstatus = \"identical\"\n\t\t\tcase err == nil:\n\t\t\t\tstatus = \"differs\"\n\t\t\tcase !os.IsNotExist(err):\n\t\t\t\treturn nil, err\n\t\t\t}\n\t\t\tentries = append(entries, installEntry{Path: path, Status: status, Data: files[rel]})\n\t\t}\n\t}\n\treturn entries, nil\n}",
+                "file": "internal/cli/generators.go",
+                "name": "planInstall"
+              }
+            },
+            {
+              "action": "setFunction",
+              "kwargs": {
+                "code": "func loadPackageFiles(name string, opts installOptions) (map[string][]byte, error) {\n\tfiles := map[string][]byte{}\n\tif opts.From == \"\" {\n\t\tbuiltinFiles, err := builtin.Files(name)\n\t\tif err != nil {\n\t\t\treturn nil, fmt.Errorf(\"%w (use --from \u003cdir\u003e for a package that is not built in)\", err)\n\t\t}\n\t\tfor rel, data := range builtinFiles {\n\t\t\tfiles[filepath.FromSlash(rel)] = data\n\t\t}\n\t\treturn files, nil\n\t}\n\troot := filepath.Join(opts.From, name)\n\tinfo, err := os.Stat(root)\n\tif err != nil {\n\t\treturn nil, fmt.Errorf(\"package %q: %w\", name, err)\n\t}\n\tif !info.IsDir() {\n\t\treturn nil, fmt.Errorf(\"package %q: %s is not a directory\", name, root)\n\t}\n\terr = filepath.Walk(root, func(p string, fi os.FileInfo, walkErr error) error {\n\t\tif walkErr != nil {\n\t\t\treturn walkErr\n\t\t}\n\t\tif !fi.Mode().IsRegular() {\n\t\t\treturn nil\n\t\t}\n\t\trel, err := filepath.Rel(root, p)\n\t\tif err != nil {\n\t\t\treturn err\n\t\t}\n\t\tdata, err := os.ReadFile(p)\n\t\tif err != nil {\n\t\t\treturn err\n\t\t}\n\t\tfiles[rel] = data\n\t\treturn nil\n\t})\n\tif err != nil {\n\t\treturn nil, err\n\t}\n\treturn files, nil\n}",
+                "file": "internal/cli/generators.go",
+                "name": "loadPackageFiles"
+              }
+            },
+            {
+              "action": "setFunction",
+              "kwargs": {
+                "code": "func applyInstall(out io.Writer, names []string, opts installOptions) error {\n\tentries, err := planInstall(names, opts)\n\tif err != nil {\n\t\treturn err\n\t}\n\tfor _, e := range entries {\n\t\tfmt.Fprintf(out, \"%s %s\\n\", e.Status, e.Path)\n\t}\n\tgoMod := filepath.Join(opts.Dir, \"go.mod\")\n\tgoModExists := false\n\tif _, err := os.Stat(goMod); err == nil {\n\t\tgoModExists = true\n\t}\n\tif goModExists {\n\t\tfmt.Fprintf(out, \"exists %s (left as it is)\\n\", goMod)\n\t} else {\n\t\tfmt.Fprintf(out, \"create %s\\n\", goMod)\n\t}\n\tif opts.DryRun {\n\t\tfmt.Fprintln(out, \"dry run: nothing written\")\n\t\treturn nil\n\t}\n\tvar differs []string\n\tfor _, e := range entries {\n\t\tif e.Status == \"differs\" {\n\t\t\tdiffers = append(differs, e.Path)\n\t\t}\n\t}\n\tif len(differs) \u003e 0 \u0026\u0026 !opts.Force {\n\t\tshown := differs\n\t\tif len(shown) \u003e 5 {\n\t\t\tshown = shown[:5]\n\t\t}\n\t\treturn fmt.Errorf(\"%d file(s) differ from the package, e.g. %s; rerun with --force to overwrite them\", len(differs), strings.Join(shown, \", \"))\n\t}\n\twritten, identical, overwritten := 0, 0, 0\n\tfor _, e := range entries {\n\t\tif e.Status == \"identical\" {\n\t\t\tidentical++\n\t\t\tcontinue\n\t\t}\n\t\tif e.Status == \"differs\" {\n\t\t\toverwritten++\n\t\t}\n\t\tif err := os.MkdirAll(filepath.Dir(e.Path), 0o755); err != nil {\n\t\t\treturn err\n\t\t}\n\t\tif err := os.WriteFile(e.Path, e.Data, 0o644); err != nil {\n\t\t\treturn err\n\t\t}\n\t\twritten++\n\t}\n\tif !goModExists {\n\t\tif err := os.MkdirAll(opts.Dir, 0o755); err != nil {\n\t\t\treturn err\n\t\t}\n\t\tcontent := \"// Generator packages hold templates, not Go code. This module boundary keeps\\n// the enclosing module's ./... from compiling them.\\nmodule generators\\n\\ngo 1.21\\n\"\n\t\tif err := os.WriteFile(goMod, []byte(content), 0o644); err != nil {\n\t\t\treturn err\n\t\t}\n\t}\n\tfmt.Fprintf(out, \"installed %d file(s) into %s (%d identical, %d overwritten)\\n\", written, opts.Dir, identical, overwritten)\n\treturn nil\n}",
+                "file": "internal/cli/generators.go",
+                "name": "applyInstall"
+              }
+            },
+            {
+              "action": "addImport",
+              "kwargs": {
+                "file": "internal/cli/generators_test.go",
+                "path": "os"
+              }
+            },
+            {
+              "action": "addImport",
+              "kwargs": {
+                "file": "internal/cli/generators_test.go",
+                "path": "path/filepath"
+              }
+            },
+            {
+              "action": "addImport",
+              "kwargs": {
+                "file": "internal/cli/generators_test.go",
+                "path": "reflect"
+              }
+            },
+            {
+              "action": "addImport",
+              "kwargs": {
+                "file": "internal/cli/generators_test.go",
+                "path": "strings"
+              }
+            },
+            {
+              "action": "addImport",
+              "kwargs": {
+                "file": "internal/cli/generators_test.go",
+                "path": "testing"
+              }
+            },
+            {
+              "action": "addImport",
+              "kwargs": {
+                "file": "internal/cli/generators_test.go",
+                "path": "github.com/livecodelife/sedum/internal/genpkg"
+              }
+            },
+            {
+              "action": "setFunction",
+              "kwargs": {
+                "code": "func snapshotTree(t *testing.T, root string) map[string]string {\n\tt.Helper()\n\tout := map[string]string{}\n\terr := filepath.Walk(root, func(p string, info os.FileInfo, err error) error {\n\t\tif err != nil {\n\t\t\treturn err\n\t\t}\n\t\tif info.IsDir() {\n\t\t\treturn nil\n\t\t}\n\t\tdata, err := os.ReadFile(p)\n\t\tif err != nil {\n\t\t\treturn err\n\t\t}\n\t\trel, err := filepath.Rel(root, p)\n\t\tif err != nil {\n\t\t\treturn err\n\t\t}\n\t\tout[rel] = string(data)\n\t\treturn nil\n\t})\n\tif err != nil {\n\t\tt.Fatal(err)\n\t}\n\treturn out\n}",
+                "file": "internal/cli/generators_test.go",
+                "name": "snapshotTree"
+              }
+            },
+            {
+              "action": "setFunction",
+              "kwargs": {
+                "code": "func TestGeneratorsInstallBuiltin(t *testing.T) {\n\tgen := filepath.Join(t.TempDir(), \"generators\")\n\tif out, err := exec(t, \"generators\", \"install\", \"go\", \"--dir\", gen); err != nil {\n\t\tt.Fatalf(\"install: %v\\n%s\", err, out)\n\t}\n\tfor _, p := range []string{filepath.Join(gen, \"go\", \"sedum.yaml\"), filepath.Join(gen, \"go.mod\")} {\n\t\tif _, err := os.Stat(p); err != nil {\n\t\t\tt.Errorf(\"missing %s: %v\", p, err)\n\t\t}\n\t}\n\tif _, _, err := genpkg.Load(gen, genpkg.Options{}); err != nil {\n\t\tt.Fatalf(\"load installed set: %v\", err)\n\t}\n}",
+                "file": "internal/cli/generators_test.go",
+                "name": "TestGeneratorsInstallBuiltin"
+              }
+            },
+            {
+              "action": "setFunction",
+              "kwargs": {
+                "code": "func TestGeneratorsInstallTwiceIsIdentical(t *testing.T) {\n\tgen := filepath.Join(t.TempDir(), \"generators\")\n\tif out, err := exec(t, \"generators\", \"install\", \"go\", \"--dir\", gen); err != nil {\n\t\tt.Fatalf(\"first install: %v\\n%s\", err, out)\n\t}\n\tbefore := snapshotTree(t, gen)\n\tout, err := exec(t, \"generators\", \"install\", \"go\", \"--dir\", gen)\n\tif err != nil {\n\t\tt.Fatalf(\"second install: %v\\n%s\", err, out)\n\t}\n\tif strings.Contains(out, \"create \") {\n\t\tt.Errorf(\"second install created files:\\n%s\", out)\n\t}\n\tif !reflect.DeepEqual(before, snapshotTree(t, gen)) {\n\t\tt.Error(\"second install changed the tree\")\n\t}\n}",
+                "file": "internal/cli/generators_test.go",
+                "name": "TestGeneratorsInstallTwiceIsIdentical"
+              }
+            },
+            {
+              "action": "setFunction",
+              "kwargs": {
+                "code": "func TestGeneratorsInstallRefusesDifferingFile(t *testing.T) {\n\tgen := filepath.Join(t.TempDir(), \"generators\")\n\ttarget := filepath.Join(gen, \"go\", \"sedum.yaml\")\n\tif err := os.MkdirAll(filepath.Dir(target), 0o755); err != nil {\n\t\tt.Fatal(err)\n\t}\n\tif err := os.WriteFile(target, []byte(\"changed\\n\"), 0o644); err != nil {\n\t\tt.Fatal(err)\n\t}\n\tbefore := snapshotTree(t, gen)\n\tif _, err := exec(t, \"generators\", \"install\", \"go\", \"--dir\", gen); err == nil {\n\t\tt.Fatal(\"expected refusal\")\n\t}\n\tif !reflect.DeepEqual(before, snapshotTree(t, gen)) {\n\t\tt.Error(\"refused install still wrote files\")\n\t}\n\tif _, err := os.Stat(filepath.Join(gen, \"go.mod\")); err == nil {\n\t\tt.Error(\"go.mod was created despite refusal\")\n\t}\n}",
+                "file": "internal/cli/generators_test.go",
+                "name": "TestGeneratorsInstallRefusesDifferingFile"
+              }
+            },
+            {
+              "action": "setFunction",
+              "kwargs": {
+                "code": "func TestGeneratorsInstallForceOverwritesOnlyDifferingFiles(t *testing.T) {\n\tgen := filepath.Join(t.TempDir(), \"generators\")\n\tif out, err := exec(t, \"generators\", \"install\", \"go\", \"--dir\", gen); err != nil {\n\t\tt.Fatalf(\"first install: %v\\n%s\", err, out)\n\t}\n\ttarget := filepath.Join(gen, \"go\", \"sedum.yaml\")\n\textra := filepath.Join(gen, \"go\", \"extra.txt\")\n\tif err := os.WriteFile(target, []byte(\"changed\\n\"), 0o644); err != nil {\n\t\tt.Fatal(err)\n\t}\n\tif err := os.WriteFile(extra, []byte(\"keep\"), 0o644); err != nil {\n\t\tt.Fatal(err)\n\t}\n\tif out, err := exec(t, \"generators\", \"install\", \"go\", \"--dir\", gen, \"--force\"); err != nil {\n\t\tt.Fatalf(\"force install: %v\\n%s\", err, out)\n\t}\n\tif data, _ := os.ReadFile(extra); string(data) != \"keep\" {\n\t\tt.Error(\"extra file was touched\")\n\t}\n}",
+                "file": "internal/cli/generators_test.go",
+                "name": "TestGeneratorsInstallForceOverwritesOnlyDifferingFiles"
+              }
+            },
+            {
+              "action": "setFunction",
+              "kwargs": {
+                "code": "func TestGeneratorsInstallKeepsExistingGoMod(t *testing.T) {\n\tgen := filepath.Join(t.TempDir(), \"generators\")\n\tif err := os.MkdirAll(gen, 0o755); err != nil {\n\t\tt.Fatal(err)\n\t}\n\tgoMod := filepath.Join(gen, \"go.mod\")\n\tif err := os.WriteFile(goMod, []byte(\"module custom\\n\"), 0o644); err != nil {\n\t\tt.Fatal(err)\n\t}\n\tif out, err := exec(t, \"generators\", \"install\", \"go\", \"--dir\", gen); err != nil {\n\t\tt.Fatalf(\"install: %v\\n%s\", err, out)\n\t}\n\tif data, _ := os.ReadFile(goMod); string(data) != \"module custom\\n\" {\n\t\tt.Error(\"existing go.mod was overwritten\")\n\t}\n}",
+                "file": "internal/cli/generators_test.go",
+                "name": "TestGeneratorsInstallKeepsExistingGoMod"
+              }
+            },
+            {
+              "action": "setFunction",
+              "kwargs": {
+                "code": "func TestGeneratorsRejectsEscape(t *testing.T) {\n\tparent := t.TempDir()\n\twork := filepath.Join(parent, \"work\")\n\tif err := os.MkdirAll(work, 0o755); err != nil {\n\t\tt.Fatal(err)\n\t}\n\tif err := os.WriteFile(filepath.Join(parent, \"canary\"), []byte(\"c\"), 0o644); err != nil {\n\t\tt.Fatal(err)\n\t}\n\tbefore := snapshotTree(t, parent)\n\tfor _, name := range []string{\"../evil\", \"a/b\", \"..\", \".\", \"\"} {\n\t\tif _, err := exec(t, \"generators\", \"install\", name, \"--dir\", filepath.Join(work, \"generators\")); err == nil {\n\t\t\tt.Errorf(\"name %q was accepted\", name)\n\t\t}\n\t}\n\tif !reflect.DeepEqual(before, snapshotTree(t, parent)) {\n\t\tt.Error(\"escape attempt changed the parent tree\")\n\t}\n}",
+                "file": "internal/cli/generators_test.go",
+                "name": "TestGeneratorsRejectsEscape"
+              }
+            },
+            {
+              "action": "setFunction",
+              "kwargs": {
+                "code": "func TestGeneratorsDryRunWritesNothing(t *testing.T) {\n\tgen := filepath.Join(t.TempDir(), \"generators\")\n\tif err := os.MkdirAll(gen, 0o755); err != nil {\n\t\tt.Fatal(err)\n\t}\n\tbefore := snapshotTree(t, gen)\n\tout, err := exec(t, \"generators\", \"install\", \"go\", \"--dir\", gen, \"--dry-run\")\n\tif err != nil {\n\t\tt.Fatalf(\"dry run: %v\\n%s\", err, out)\n\t}\n\tif !strings.Contains(out, \"create \") || !strings.Contains(out, \"dry run: nothing written\") {\n\t\tt.Errorf(\"plan not printed:\\n%s\", out)\n\t}\n\tif !reflect.DeepEqual(before, snapshotTree(t, gen)) {\n\t\tt.Error(\"dry run changed the tree\")\n\t}\n}",
+                "file": "internal/cli/generators_test.go",
+                "name": "TestGeneratorsDryRunWritesNothing"
+              }
+            },
+            {
+              "action": "setFunction",
+              "kwargs": {
+                "code": "func TestGeneratorsUnknownBuiltinHintsFrom(t *testing.T) {\n\tgen := filepath.Join(t.TempDir(), \"generators\")\n\tout, err := exec(t, \"generators\", \"install\", \"nosuchpkg\", \"--dir\", gen)\n\tif err == nil {\n\t\tt.Fatalf(\"expected error, got:\\n%s\", out)\n\t}\n\tif !strings.Contains(err.Error()+out, \"--from\") {\n\t\tt.Errorf(\"error lacks --from hint: %v\", err)\n\t}\n}",
+                "file": "internal/cli/generators_test.go",
+                "name": "TestGeneratorsUnknownBuiltinHintsFrom"
+              }
+            },
+            {
+              "action": "setFunction",
+              "kwargs": {
+                "code": "func TestGeneratorsInstallFromDirectory(t *testing.T) {\n\tsrc := t.TempDir()\n\tnested := filepath.Join(src, \"mypkg\", \"templates\", \"deep\")\n\tif err := os.MkdirAll(nested, 0o755); err != nil {\n\t\tt.Fatal(err)\n\t}\n\tif err := os.WriteFile(filepath.Join(src, \"mypkg\", \"sedum.yaml\"), []byte(\"name: mypkg\\n\"), 0o644); err != nil {\n\t\tt.Fatal(err)\n\t}\n\tif err := os.WriteFile(filepath.Join(nested, \"t.tmpl\"), []byte(\"x\"), 0o644); err != nil {\n\t\tt.Fatal(err)\n\t}\n\tgen := filepath.Join(t.TempDir(), \"generators\")\n\tif out, err := exec(t, \"generators\", \"install\", \"mypkg\", \"--dir\", gen, \"--from\", src); err != nil {\n\t\tt.Fatalf(\"install: %v\\n%s\", err, out)\n\t}\n\tif _, err := os.Stat(filepath.Join(gen, \"mypkg\", \"templates\", \"deep\", \"t.tmpl\")); err != nil {\n\t\tt.Errorf(\"nested file not copied: %v\", err)\n\t}\n}",
+                "file": "internal/cli/generators_test.go",
+                "name": "TestGeneratorsInstallFromDirectory"
+              }
+            },
+            {
+              "action": "setFunction",
+              "kwargs": {
+                "code": "func TestGeneratorsInstallFromMissingPackage(t *testing.T) {\n\tsrc := t.TempDir()\n\tgen := filepath.Join(t.TempDir(), \"generators\")\n\tif _, err := exec(t, \"generators\", \"install\", \"absent\", \"--dir\", gen, \"--from\", src); err == nil {\n\t\tt.Fatal(\"expected error for missing package directory\")\n\t}\n}",
+                "file": "internal/cli/generators_test.go",
+                "name": "TestGeneratorsInstallFromMissingPackage"
+              }
+            }
+          ]
+        }
+      ],
+      "regions": [
+        {
+          "path": "internal/cli/generators.go",
+          "action": "addImport",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:d6a9443c14d82b7bdf19bb96637f957fd44ad9bfbe8f167c97e6f7699c8b830f",
+          "id": {
+            "file": "internal/cli/generators.go",
+            "path": "bytes"
+          },
+          "kwargs": {
+            "file": "internal/cli/generators.go",
+            "path": "bytes"
+          },
+          "kwargs_hash": "sha256:b011d2cb2608837a49922727541b40611df7dfde1cc7da2dc89b6fd616e4d481",
+          "body": "sha256:468731f6dd513df0a66690d4649dc9e7244c96de227d8e6ead98cc5e9747c57a"
+        },
+        {
+          "path": "internal/cli/generators.go",
+          "action": "addImport",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:d6a9443c14d82b7bdf19bb96637f957fd44ad9bfbe8f167c97e6f7699c8b830f",
+          "id": {
+            "file": "internal/cli/generators.go",
+            "path": "fmt"
+          },
+          "kwargs": {
+            "file": "internal/cli/generators.go",
+            "path": "fmt"
+          },
+          "kwargs_hash": "sha256:8560124f1d0e91b784cdb449b43499460b7f2d342a9c0b37de143e64df72df32",
+          "body": "sha256:bcbac51883cbf8064e9196b371cb880cee429866652447ad557533d817857609"
+        },
+        {
+          "path": "internal/cli/generators.go",
+          "action": "addImport",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:d6a9443c14d82b7bdf19bb96637f957fd44ad9bfbe8f167c97e6f7699c8b830f",
+          "id": {
+            "file": "internal/cli/generators.go",
+            "path": "github.com/livecodelife/sedum/internal/builtin"
+          },
+          "kwargs": {
+            "file": "internal/cli/generators.go",
+            "path": "github.com/livecodelife/sedum/internal/builtin"
+          },
+          "kwargs_hash": "sha256:76d5eee8769985494e3cafb2056a516022a5d7d53037a0901ab81699377e8b5d",
+          "body": "sha256:6e36590b2473dfc24ad94588701f9426f0c9d366a187c1c8cc3308480cf25ba4"
+        },
+        {
+          "path": "internal/cli/generators.go",
+          "action": "addImport",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:d6a9443c14d82b7bdf19bb96637f957fd44ad9bfbe8f167c97e6f7699c8b830f",
+          "id": {
+            "file": "internal/cli/generators.go",
+            "path": "github.com/spf13/cobra"
+          },
+          "kwargs": {
+            "file": "internal/cli/generators.go",
+            "path": "github.com/spf13/cobra"
+          },
+          "kwargs_hash": "sha256:d3dd2b8d0c3d930aa8c02047ffd30d5b604ba79510239f5b8705146395038e22",
+          "body": "sha256:f361c02d0f8e1999cf3fb715393e16310eeec9debd5aaa13936af7617e2b46aa"
+        },
+        {
+          "path": "internal/cli/generators.go",
+          "action": "addImport",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:d6a9443c14d82b7bdf19bb96637f957fd44ad9bfbe8f167c97e6f7699c8b830f",
+          "id": {
+            "file": "internal/cli/generators.go",
+            "path": "io"
+          },
+          "kwargs": {
+            "file": "internal/cli/generators.go",
+            "path": "io"
+          },
+          "kwargs_hash": "sha256:20d22caf290c28e5df45246ced1e118a22bc5f49b9e7240dc732823a9f5fa419",
+          "body": "sha256:ef8e8abf4ef5ee40a19dc85b49bf09c5df1fe32abfe834e0ab4c2175baf80ddf"
+        },
+        {
+          "path": "internal/cli/generators.go",
+          "action": "addImport",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:d6a9443c14d82b7bdf19bb96637f957fd44ad9bfbe8f167c97e6f7699c8b830f",
+          "id": {
+            "file": "internal/cli/generators.go",
+            "path": "os"
+          },
+          "kwargs": {
+            "file": "internal/cli/generators.go",
+            "path": "os"
+          },
+          "kwargs_hash": "sha256:fc8e7fe3cd891d6807428b6296901da7400d701b0e2b07bf7d189425414bf873",
+          "body": "sha256:7c6e309eb2575d4aa451ec2ab83161d13e9ae03bbca3a4d2ecf30ce12adf0905"
+        },
+        {
+          "path": "internal/cli/generators.go",
+          "action": "addImport",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:d6a9443c14d82b7bdf19bb96637f957fd44ad9bfbe8f167c97e6f7699c8b830f",
+          "id": {
+            "file": "internal/cli/generators.go",
+            "path": "path/filepath"
+          },
+          "kwargs": {
+            "file": "internal/cli/generators.go",
+            "path": "path/filepath"
+          },
+          "kwargs_hash": "sha256:2878a3f88e893ed3d5e9636625a85c056e86c52b87ef004957c6b32b6fddeb53",
+          "body": "sha256:a6d196b558491e646be93f56a321f339068c64c76aa9d49bb18046e7f9c777a1"
+        },
+        {
+          "path": "internal/cli/generators.go",
+          "action": "addImport",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:d6a9443c14d82b7bdf19bb96637f957fd44ad9bfbe8f167c97e6f7699c8b830f",
+          "id": {
+            "file": "internal/cli/generators.go",
+            "path": "sort"
+          },
+          "kwargs": {
+            "file": "internal/cli/generators.go",
+            "path": "sort"
+          },
+          "kwargs_hash": "sha256:690951e2d5835b45d30208e907edc97ec49ab70f35006401b186c1f026d3ef0f",
+          "body": "sha256:f197172617ae21ef23b1855b09aafb14571020ae81bff877d63d3ff81f4bf63c"
+        },
+        {
+          "path": "internal/cli/generators.go",
+          "action": "addImport",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:d6a9443c14d82b7bdf19bb96637f957fd44ad9bfbe8f167c97e6f7699c8b830f",
+          "id": {
+            "file": "internal/cli/generators.go",
+            "path": "strings"
+          },
+          "kwargs": {
+            "file": "internal/cli/generators.go",
+            "path": "strings"
+          },
+          "kwargs_hash": "sha256:8ad5ddbb3e17fa05b0980ef22a2499963c9754fd38267f1761a1d3abfc1a90c8",
+          "body": "sha256:a9af3c0bc4bf9342df9d7e89a324523fdba7941a9ca4190270e68ff3c4a25ea6"
+        },
+        {
+          "path": "internal/cli/generators.go",
+          "action": "setFunction",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:6589611adfb6618a7920e43f951a79901428192ea95c1084fde9f222aecd9537",
+          "id": {
+            "file": "internal/cli/generators.go",
+            "name": "applyInstall"
+          },
+          "kwargs": {
+            "code": "func applyInstall(out io.Writer, names []string, opts installOptions) error {\n\tentries, err := planInstall(names, opts)\n\tif err != nil {\n\t\treturn err\n\t}\n\tfor _, e := range entries {\n\t\tfmt.Fprintf(out, \"%s %s\\n\", e.Status, e.Path)\n\t}\n\tgoMod := filepath.Join(opts.Dir, \"go.mod\")\n\tgoModExists := false\n\tif _, err := os.Stat(goMod); err == nil {\n\t\tgoModExists = true\n\t}\n\tif goModExists {\n\t\tfmt.Fprintf(out, \"exists %s (left as it is)\\n\", goMod)\n\t} else {\n\t\tfmt.Fprintf(out, \"create %s\\n\", goMod)\n\t}\n\tif opts.DryRun {\n\t\tfmt.Fprintln(out, \"dry run: nothing written\")\n\t\treturn nil\n\t}\n\tvar differs []string\n\tfor _, e := range entries {\n\t\tif e.Status == \"differs\" {\n\t\t\tdiffers = append(differs, e.Path)\n\t\t}\n\t}\n\tif len(differs) \u003e 0 \u0026\u0026 !opts.Force {\n\t\tshown := differs\n\t\tif len(shown) \u003e 5 {\n\t\t\tshown = shown[:5]\n\t\t}\n\t\treturn fmt.Errorf(\"%d file(s) differ from the package, e.g. %s; rerun with --force to overwrite them\", len(differs), strings.Join(shown, \", \"))\n\t}\n\twritten, identical, overwritten := 0, 0, 0\n\tfor _, e := range entries {\n\t\tif e.Status == \"identical\" {\n\t\t\tidentical++\n\t\t\tcontinue\n\t\t}\n\t\tif e.Status == \"differs\" {\n\t\t\toverwritten++\n\t\t}\n\t\tif err := os.MkdirAll(filepath.Dir(e.Path), 0o755); err != nil {\n\t\t\treturn err\n\t\t}\n\t\tif err := os.WriteFile(e.Path, e.Data, 0o644); err != nil {\n\t\t\treturn err\n\t\t}\n\t\twritten++\n\t}\n\tif !goModExists {\n\t\tif err := os.MkdirAll(opts.Dir, 0o755); err != nil {\n\t\t\treturn err\n\t\t}\n\t\tcontent := \"// Generator packages hold templates, not Go code. This module boundary keeps\\n// the enclosing module's ./... from compiling them.\\nmodule generators\\n\\ngo 1.21\\n\"\n\t\tif err := os.WriteFile(goMod, []byte(content), 0o644); err != nil {\n\t\t\treturn err\n\t\t}\n\t}\n\tfmt.Fprintf(out, \"installed %d file(s) into %s (%d identical, %d overwritten)\\n\", written, opts.Dir, identical, overwritten)\n\treturn nil\n}",
+            "file": "internal/cli/generators.go",
+            "name": "applyInstall"
+          },
+          "kwargs_hash": "sha256:4314dc8da096d64bcde3efb84fb54d1c2b24d414bab02d9cc2b16f951fe4e8e9",
+          "body": "sha256:3c466272e79b86b35a8fa6a3a0ddd7c54fb89c900608104f7e8152189201dfe9"
+        },
+        {
+          "path": "internal/cli/generators.go",
+          "action": "setFunction",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:6589611adfb6618a7920e43f951a79901428192ea95c1084fde9f222aecd9537",
+          "id": {
+            "file": "internal/cli/generators.go",
+            "name": "loadPackageFiles"
+          },
+          "kwargs": {
+            "code": "func loadPackageFiles(name string, opts installOptions) (map[string][]byte, error) {\n\tfiles := map[string][]byte{}\n\tif opts.From == \"\" {\n\t\tbuiltinFiles, err := builtin.Files(name)\n\t\tif err != nil {\n\t\t\treturn nil, fmt.Errorf(\"%w (use --from \u003cdir\u003e for a package that is not built in)\", err)\n\t\t}\n\t\tfor rel, data := range builtinFiles {\n\t\t\tfiles[filepath.FromSlash(rel)] = data\n\t\t}\n\t\treturn files, nil\n\t}\n\troot := filepath.Join(opts.From, name)\n\tinfo, err := os.Stat(root)\n\tif err != nil {\n\t\treturn nil, fmt.Errorf(\"package %q: %w\", name, err)\n\t}\n\tif !info.IsDir() {\n\t\treturn nil, fmt.Errorf(\"package %q: %s is not a directory\", name, root)\n\t}\n\terr = filepath.Walk(root, func(p string, fi os.FileInfo, walkErr error) error {\n\t\tif walkErr != nil {\n\t\t\treturn walkErr\n\t\t}\n\t\tif !fi.Mode().IsRegular() {\n\t\t\treturn nil\n\t\t}\n\t\trel, err := filepath.Rel(root, p)\n\t\tif err != nil {\n\t\t\treturn err\n\t\t}\n\t\tdata, err := os.ReadFile(p)\n\t\tif err != nil {\n\t\t\treturn err\n\t\t}\n\t\tfiles[rel] = data\n\t\treturn nil\n\t})\n\tif err != nil {\n\t\treturn nil, err\n\t}\n\treturn files, nil\n}",
+            "file": "internal/cli/generators.go",
+            "name": "loadPackageFiles"
+          },
+          "kwargs_hash": "sha256:8f62022e186d0cd2f0289421963e5b99c9c013d87f541037b770f3e872a773b2",
+          "body": "sha256:1f26451d34ff7d283b0800b07392826b0bde2b699daa7825e6fd748f01474d05"
+        },
+        {
+          "path": "internal/cli/generators.go",
+          "action": "setFunction",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:6589611adfb6618a7920e43f951a79901428192ea95c1084fde9f222aecd9537",
+          "id": {
+            "file": "internal/cli/generators.go",
+            "name": "newGeneratorsCommand"
+          },
+          "kwargs": {
+            "code": "func newGeneratorsCommand() *cobra.Command {\n\tcmd := \u0026cobra.Command{\n\t\tUse:   \"generators\",\n\t\tShort: \"Manage generator packages\",\n\t}\n\tvar opts installOptions\n\tinstall := \u0026cobra.Command{\n\t\tUse:   \"install \u003cpkg\u003e...\",\n\t\tShort: \"Install generator packages into a directory\",\n\t\tArgs:  cobra.MinimumNArgs(1),\n\t\tRunE: func(cmd *cobra.Command, args []string) error {\n\t\t\treturn applyInstall(cmd.OutOrStdout(), args, opts)\n\t\t},\n\t}\n\tinstall.Flags().StringVar(\u0026opts.Dir, \"dir\", \"generators\", \"directory to install into\")\n\tinstall.Flags().StringVar(\u0026opts.From, \"from\", \"\", \"copy the package from this directory\")\n\tinstall.Flags().BoolVar(\u0026opts.Force, \"force\", false, \"overwrite files that differ\")\n\tinstall.Flags().BoolVar(\u0026opts.DryRun, \"dry-run\", false, \"print the plan without writing\")\n\tcmd.AddCommand(install)\n\treturn cmd\n}",
+            "file": "internal/cli/generators.go",
+            "name": "newGeneratorsCommand"
+          },
+          "kwargs_hash": "sha256:7f90886033a3d7f90bda80dea83c9f3740dd429789cef2ee12b3b51dcac4e887",
+          "body": "sha256:51716ba90bf43d94f1fa2190b78e2c89bbdf5223968b7f80613fdc3cef85f27b"
+        },
+        {
+          "path": "internal/cli/generators.go",
+          "action": "setFunction",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:6589611adfb6618a7920e43f951a79901428192ea95c1084fde9f222aecd9537",
+          "id": {
+            "file": "internal/cli/generators.go",
+            "name": "planInstall"
+          },
+          "kwargs": {
+            "code": "func planInstall(names []string, opts installOptions) ([]installEntry, error) {\n\tvar entries []installEntry\n\tfor _, name := range names {\n\t\tif name == \"\" || name == \".\" || name == \"..\" || strings.ContainsAny(name, \"/\\\\\") || strings.ContainsRune(name, 0) {\n\t\t\treturn nil, fmt.Errorf(\"invalid package name %q\", name)\n\t\t}\n\t\tfiles, err := loadPackageFiles(name, opts)\n\t\tif err != nil {\n\t\t\treturn nil, err\n\t\t}\n\t\trels := make([]string, 0, len(files))\n\t\tfor rel := range files {\n\t\t\trels = append(rels, rel)\n\t\t}\n\t\tsort.Strings(rels)\n\t\tfor _, rel := range rels {\n\t\t\tif !filepath.IsLocal(rel) {\n\t\t\t\treturn nil, fmt.Errorf(\"package %q: refusing file path %q\", name, rel)\n\t\t\t}\n\t\t\tpath := filepath.Join(opts.Dir, name, rel)\n\t\t\tstatus := \"create\"\n\t\t\texisting, err := os.ReadFile(path)\n\t\t\tswitch {\n\t\t\tcase err == nil \u0026\u0026 bytes.Equal(existing, files[rel]):\n\t\t\t\tstatus = \"identical\"\n\t\t\tcase err == nil:\n\t\t\t\tstatus = \"differs\"\n\t\t\tcase !os.IsNotExist(err):\n\t\t\t\treturn nil, err\n\t\t\t}\n\t\t\tentries = append(entries, installEntry{Path: path, Status: status, Data: files[rel]})\n\t\t}\n\t}\n\treturn entries, nil\n}",
+            "file": "internal/cli/generators.go",
+            "name": "planInstall"
+          },
+          "kwargs_hash": "sha256:7b51579c9a7e3ca7391703d6d518e41c74b77861e04f979fb96310aad46ece69",
+          "body": "sha256:7c7ee6411c9f362b028fa566bb65c78a85d3af1b1ba490577a43ef20d799524d"
+        },
+        {
+          "path": "internal/cli/generators.go",
+          "action": "setType",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:ebb283283a745fdc09f0294b6e79bd879a830829cb964550ec6b4432fee5bb72",
+          "id": {
+            "file": "internal/cli/generators.go",
+            "name": "installEntry"
+          },
+          "kwargs": {
+            "code": "type installEntry struct {\n\tPath   string\n\tStatus string\n\tData   []byte\n}",
+            "file": "internal/cli/generators.go",
+            "name": "installEntry"
+          },
+          "kwargs_hash": "sha256:92c07a57aeaa5197091e8e6ef60d7e8d1d103519e2abcd48c4b748dd6054d3c9",
+          "body": "sha256:64352de4fc33b4676830955617ec8b1f16e3ce79fea324451307988a44adc86d"
+        },
+        {
+          "path": "internal/cli/generators.go",
+          "action": "setType",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:ebb283283a745fdc09f0294b6e79bd879a830829cb964550ec6b4432fee5bb72",
+          "id": {
+            "file": "internal/cli/generators.go",
+            "name": "installOptions"
+          },
+          "kwargs": {
+            "code": "type installOptions struct {\n\tDir    string\n\tFrom   string\n\tForce  bool\n\tDryRun bool\n}",
+            "file": "internal/cli/generators.go",
+            "name": "installOptions"
+          },
+          "kwargs_hash": "sha256:ca18254588414c336ff76b3a11428af71095fd9604d7fa1875551d9395d5c7ff",
+          "body": "sha256:3776b0067c56ef5f43f95a943e1b86f4a92a2fef3219d5e4ee35bca707d48c61"
+        },
+        {
+          "path": "internal/cli/generators_test.go",
+          "action": "addImport",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:d6a9443c14d82b7bdf19bb96637f957fd44ad9bfbe8f167c97e6f7699c8b830f",
+          "id": {
+            "file": "internal/cli/generators_test.go",
+            "path": "github.com/livecodelife/sedum/internal/genpkg"
+          },
+          "kwargs": {
+            "file": "internal/cli/generators_test.go",
+            "path": "github.com/livecodelife/sedum/internal/genpkg"
+          },
+          "kwargs_hash": "sha256:a22cb7cd19ce26d82c070124991700301a6ce9c594148fad4b4a8114a82ad530",
+          "body": "sha256:5b4c7dbee430534527d893269527d915be58accc7a8330a8c104c2014153525d"
+        },
+        {
+          "path": "internal/cli/generators_test.go",
+          "action": "addImport",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:d6a9443c14d82b7bdf19bb96637f957fd44ad9bfbe8f167c97e6f7699c8b830f",
+          "id": {
+            "file": "internal/cli/generators_test.go",
+            "path": "os"
+          },
+          "kwargs": {
+            "file": "internal/cli/generators_test.go",
+            "path": "os"
+          },
+          "kwargs_hash": "sha256:a6908c64920cfb4dafcd6204026778564bf49436dea6d83ef3c40542398f5694",
+          "body": "sha256:7c6e309eb2575d4aa451ec2ab83161d13e9ae03bbca3a4d2ecf30ce12adf0905"
+        },
+        {
+          "path": "internal/cli/generators_test.go",
+          "action": "addImport",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:d6a9443c14d82b7bdf19bb96637f957fd44ad9bfbe8f167c97e6f7699c8b830f",
+          "id": {
+            "file": "internal/cli/generators_test.go",
+            "path": "path/filepath"
+          },
+          "kwargs": {
+            "file": "internal/cli/generators_test.go",
+            "path": "path/filepath"
+          },
+          "kwargs_hash": "sha256:583c842c8dd20b286a5fb65686caee1c919389a9931b2ce3ad710159dbe2fe9b",
+          "body": "sha256:a6d196b558491e646be93f56a321f339068c64c76aa9d49bb18046e7f9c777a1"
+        },
+        {
+          "path": "internal/cli/generators_test.go",
+          "action": "addImport",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:d6a9443c14d82b7bdf19bb96637f957fd44ad9bfbe8f167c97e6f7699c8b830f",
+          "id": {
+            "file": "internal/cli/generators_test.go",
+            "path": "reflect"
+          },
+          "kwargs": {
+            "file": "internal/cli/generators_test.go",
+            "path": "reflect"
+          },
+          "kwargs_hash": "sha256:e5b8e59b0d50a80ad6f97fc501eef84c5820f105a4d8ddcf7a1d9137151358b0",
+          "body": "sha256:893cf368d31e1d8fe04189a0aba8627e8e69b39eafe10bea46d39a275e986fa2"
+        },
+        {
+          "path": "internal/cli/generators_test.go",
+          "action": "addImport",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:d6a9443c14d82b7bdf19bb96637f957fd44ad9bfbe8f167c97e6f7699c8b830f",
+          "id": {
+            "file": "internal/cli/generators_test.go",
+            "path": "strings"
+          },
+          "kwargs": {
+            "file": "internal/cli/generators_test.go",
+            "path": "strings"
+          },
+          "kwargs_hash": "sha256:fa9a866a442c9cb8f90cc4aef4a858bb99ba8401ce4b83e0ad972935f2c9dc9f",
+          "body": "sha256:a9af3c0bc4bf9342df9d7e89a324523fdba7941a9ca4190270e68ff3c4a25ea6"
+        },
+        {
+          "path": "internal/cli/generators_test.go",
+          "action": "addImport",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:d6a9443c14d82b7bdf19bb96637f957fd44ad9bfbe8f167c97e6f7699c8b830f",
+          "id": {
+            "file": "internal/cli/generators_test.go",
+            "path": "testing"
+          },
+          "kwargs": {
+            "file": "internal/cli/generators_test.go",
+            "path": "testing"
+          },
+          "kwargs_hash": "sha256:6309aff393b38e3a0842d9e77b5628d9b661e8cc1fc03aedaf6b71b91266cecc",
+          "body": "sha256:14a4a5f3bfbf9325de04706efa8c15a9446f01d2a26624ce9c66bd1d69dc212e"
+        },
+        {
+          "path": "internal/cli/generators_test.go",
+          "action": "setFunction",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:6589611adfb6618a7920e43f951a79901428192ea95c1084fde9f222aecd9537",
+          "id": {
+            "file": "internal/cli/generators_test.go",
+            "name": "TestGeneratorsDryRunWritesNothing"
+          },
+          "kwargs": {
+            "code": "func TestGeneratorsDryRunWritesNothing(t *testing.T) {\n\tgen := filepath.Join(t.TempDir(), \"generators\")\n\tif err := os.MkdirAll(gen, 0o755); err != nil {\n\t\tt.Fatal(err)\n\t}\n\tbefore := snapshotTree(t, gen)\n\tout, err := exec(t, \"generators\", \"install\", \"go\", \"--dir\", gen, \"--dry-run\")\n\tif err != nil {\n\t\tt.Fatalf(\"dry run: %v\\n%s\", err, out)\n\t}\n\tif !strings.Contains(out, \"create \") || !strings.Contains(out, \"dry run: nothing written\") {\n\t\tt.Errorf(\"plan not printed:\\n%s\", out)\n\t}\n\tif !reflect.DeepEqual(before, snapshotTree(t, gen)) {\n\t\tt.Error(\"dry run changed the tree\")\n\t}\n}",
+            "file": "internal/cli/generators_test.go",
+            "name": "TestGeneratorsDryRunWritesNothing"
+          },
+          "kwargs_hash": "sha256:3181b6d5110772461d0b7ac920dc4458939ca6318d6f84e8ba5f3bb6455590a2",
+          "body": "sha256:9288d8d1071545870bad8d56da33ff4f66acc19d6be8b420454705721bcdd33c"
+        },
+        {
+          "path": "internal/cli/generators_test.go",
+          "action": "setFunction",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:6589611adfb6618a7920e43f951a79901428192ea95c1084fde9f222aecd9537",
+          "id": {
+            "file": "internal/cli/generators_test.go",
+            "name": "TestGeneratorsInstallBuiltin"
+          },
+          "kwargs": {
+            "code": "func TestGeneratorsInstallBuiltin(t *testing.T) {\n\tgen := filepath.Join(t.TempDir(), \"generators\")\n\tif out, err := exec(t, \"generators\", \"install\", \"go\", \"--dir\", gen); err != nil {\n\t\tt.Fatalf(\"install: %v\\n%s\", err, out)\n\t}\n\tfor _, p := range []string{filepath.Join(gen, \"go\", \"sedum.yaml\"), filepath.Join(gen, \"go.mod\")} {\n\t\tif _, err := os.Stat(p); err != nil {\n\t\t\tt.Errorf(\"missing %s: %v\", p, err)\n\t\t}\n\t}\n\tif _, _, err := genpkg.Load(gen, genpkg.Options{}); err != nil {\n\t\tt.Fatalf(\"load installed set: %v\", err)\n\t}\n}",
+            "file": "internal/cli/generators_test.go",
+            "name": "TestGeneratorsInstallBuiltin"
+          },
+          "kwargs_hash": "sha256:1d978f4f6c2b41a61685f543437ba567c34a4732a7a2b9744575b2ec4d2cb2fc",
+          "body": "sha256:9b786f41d19bc9771b8fcaf15b212b2a53304352284c27ad5bb869b4ee7f7d9b"
+        },
+        {
+          "path": "internal/cli/generators_test.go",
+          "action": "setFunction",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:6589611adfb6618a7920e43f951a79901428192ea95c1084fde9f222aecd9537",
+          "id": {
+            "file": "internal/cli/generators_test.go",
+            "name": "TestGeneratorsInstallForceOverwritesOnlyDifferingFiles"
+          },
+          "kwargs": {
+            "code": "func TestGeneratorsInstallForceOverwritesOnlyDifferingFiles(t *testing.T) {\n\tgen := filepath.Join(t.TempDir(), \"generators\")\n\tif out, err := exec(t, \"generators\", \"install\", \"go\", \"--dir\", gen); err != nil {\n\t\tt.Fatalf(\"first install: %v\\n%s\", err, out)\n\t}\n\ttarget := filepath.Join(gen, \"go\", \"sedum.yaml\")\n\textra := filepath.Join(gen, \"go\", \"extra.txt\")\n\tif err := os.WriteFile(target, []byte(\"changed\\n\"), 0o644); err != nil {\n\t\tt.Fatal(err)\n\t}\n\tif err := os.WriteFile(extra, []byte(\"keep\"), 0o644); err != nil {\n\t\tt.Fatal(err)\n\t}\n\tif out, err := exec(t, \"generators\", \"install\", \"go\", \"--dir\", gen, \"--force\"); err != nil {\n\t\tt.Fatalf(\"force install: %v\\n%s\", err, out)\n\t}\n\tif data, _ := os.ReadFile(extra); string(data) != \"keep\" {\n\t\tt.Error(\"extra file was touched\")\n\t}\n}",
+            "file": "internal/cli/generators_test.go",
+            "name": "TestGeneratorsInstallForceOverwritesOnlyDifferingFiles"
+          },
+          "kwargs_hash": "sha256:37b7221d48bcb96481985f70719dedcbbb3c607fba74e59e754b0fc57f93b15f",
+          "body": "sha256:3544f1cb90f1115e4d015743c893ce6d396cfd7689002ce0315004a58c9f8554"
+        },
+        {
+          "path": "internal/cli/generators_test.go",
+          "action": "setFunction",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:6589611adfb6618a7920e43f951a79901428192ea95c1084fde9f222aecd9537",
+          "id": {
+            "file": "internal/cli/generators_test.go",
+            "name": "TestGeneratorsInstallFromDirectory"
+          },
+          "kwargs": {
+            "code": "func TestGeneratorsInstallFromDirectory(t *testing.T) {\n\tsrc := t.TempDir()\n\tnested := filepath.Join(src, \"mypkg\", \"templates\", \"deep\")\n\tif err := os.MkdirAll(nested, 0o755); err != nil {\n\t\tt.Fatal(err)\n\t}\n\tif err := os.WriteFile(filepath.Join(src, \"mypkg\", \"sedum.yaml\"), []byte(\"name: mypkg\\n\"), 0o644); err != nil {\n\t\tt.Fatal(err)\n\t}\n\tif err := os.WriteFile(filepath.Join(nested, \"t.tmpl\"), []byte(\"x\"), 0o644); err != nil {\n\t\tt.Fatal(err)\n\t}\n\tgen := filepath.Join(t.TempDir(), \"generators\")\n\tif out, err := exec(t, \"generators\", \"install\", \"mypkg\", \"--dir\", gen, \"--from\", src); err != nil {\n\t\tt.Fatalf(\"install: %v\\n%s\", err, out)\n\t}\n\tif _, err := os.Stat(filepath.Join(gen, \"mypkg\", \"templates\", \"deep\", \"t.tmpl\")); err != nil {\n\t\tt.Errorf(\"nested file not copied: %v\", err)\n\t}\n}",
+            "file": "internal/cli/generators_test.go",
+            "name": "TestGeneratorsInstallFromDirectory"
+          },
+          "kwargs_hash": "sha256:6468b53452be42b01023c9c97261bb04d73c52fa7efe1f4cf817143eef536f40",
+          "body": "sha256:2ff9f0215ac50fa0aa6f0f66d2f8faef0b4cdbfc1a9729fb76806ca9bb234095"
+        },
+        {
+          "path": "internal/cli/generators_test.go",
+          "action": "setFunction",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:6589611adfb6618a7920e43f951a79901428192ea95c1084fde9f222aecd9537",
+          "id": {
+            "file": "internal/cli/generators_test.go",
+            "name": "TestGeneratorsInstallFromMissingPackage"
+          },
+          "kwargs": {
+            "code": "func TestGeneratorsInstallFromMissingPackage(t *testing.T) {\n\tsrc := t.TempDir()\n\tgen := filepath.Join(t.TempDir(), \"generators\")\n\tif _, err := exec(t, \"generators\", \"install\", \"absent\", \"--dir\", gen, \"--from\", src); err == nil {\n\t\tt.Fatal(\"expected error for missing package directory\")\n\t}\n}",
+            "file": "internal/cli/generators_test.go",
+            "name": "TestGeneratorsInstallFromMissingPackage"
+          },
+          "kwargs_hash": "sha256:2cc4b34e4e243d02d8a9136ffbd942c6218f510a88ebdcedf8365f1ce1cb100e",
+          "body": "sha256:69f62e3124524f625b5f0dece674edd1d23c949fc07af76e2137d49a28d86fce"
+        },
+        {
+          "path": "internal/cli/generators_test.go",
+          "action": "setFunction",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:6589611adfb6618a7920e43f951a79901428192ea95c1084fde9f222aecd9537",
+          "id": {
+            "file": "internal/cli/generators_test.go",
+            "name": "TestGeneratorsInstallKeepsExistingGoMod"
+          },
+          "kwargs": {
+            "code": "func TestGeneratorsInstallKeepsExistingGoMod(t *testing.T) {\n\tgen := filepath.Join(t.TempDir(), \"generators\")\n\tif err := os.MkdirAll(gen, 0o755); err != nil {\n\t\tt.Fatal(err)\n\t}\n\tgoMod := filepath.Join(gen, \"go.mod\")\n\tif err := os.WriteFile(goMod, []byte(\"module custom\\n\"), 0o644); err != nil {\n\t\tt.Fatal(err)\n\t}\n\tif out, err := exec(t, \"generators\", \"install\", \"go\", \"--dir\", gen); err != nil {\n\t\tt.Fatalf(\"install: %v\\n%s\", err, out)\n\t}\n\tif data, _ := os.ReadFile(goMod); string(data) != \"module custom\\n\" {\n\t\tt.Error(\"existing go.mod was overwritten\")\n\t}\n}",
+            "file": "internal/cli/generators_test.go",
+            "name": "TestGeneratorsInstallKeepsExistingGoMod"
+          },
+          "kwargs_hash": "sha256:d2980fe58fbd54b43174a6de2823a99d130e859ea5cdb8e32547a1e107233b94",
+          "body": "sha256:cb6d6d93284dbcbf8d82c0cbe87033675b3e7653a8ef8dd09bcff57a9f3cbe2e"
+        },
+        {
+          "path": "internal/cli/generators_test.go",
+          "action": "setFunction",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:6589611adfb6618a7920e43f951a79901428192ea95c1084fde9f222aecd9537",
+          "id": {
+            "file": "internal/cli/generators_test.go",
+            "name": "TestGeneratorsInstallRefusesDifferingFile"
+          },
+          "kwargs": {
+            "code": "func TestGeneratorsInstallRefusesDifferingFile(t *testing.T) {\n\tgen := filepath.Join(t.TempDir(), \"generators\")\n\ttarget := filepath.Join(gen, \"go\", \"sedum.yaml\")\n\tif err := os.MkdirAll(filepath.Dir(target), 0o755); err != nil {\n\t\tt.Fatal(err)\n\t}\n\tif err := os.WriteFile(target, []byte(\"changed\\n\"), 0o644); err != nil {\n\t\tt.Fatal(err)\n\t}\n\tbefore := snapshotTree(t, gen)\n\tif _, err := exec(t, \"generators\", \"install\", \"go\", \"--dir\", gen); err == nil {\n\t\tt.Fatal(\"expected refusal\")\n\t}\n\tif !reflect.DeepEqual(before, snapshotTree(t, gen)) {\n\t\tt.Error(\"refused install still wrote files\")\n\t}\n\tif _, err := os.Stat(filepath.Join(gen, \"go.mod\")); err == nil {\n\t\tt.Error(\"go.mod was created despite refusal\")\n\t}\n}",
+            "file": "internal/cli/generators_test.go",
+            "name": "TestGeneratorsInstallRefusesDifferingFile"
+          },
+          "kwargs_hash": "sha256:e7f9e2ebf41944dfd00d6b4da21cb4e69992911626f91a32c34c3064dd91c2f3",
+          "body": "sha256:f002068d2e4fe1df1cbd167fe32495dafcf8785462d652f8cd753b1ed9f04eae"
+        },
+        {
+          "path": "internal/cli/generators_test.go",
+          "action": "setFunction",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:6589611adfb6618a7920e43f951a79901428192ea95c1084fde9f222aecd9537",
+          "id": {
+            "file": "internal/cli/generators_test.go",
+            "name": "TestGeneratorsInstallTwiceIsIdentical"
+          },
+          "kwargs": {
+            "code": "func TestGeneratorsInstallTwiceIsIdentical(t *testing.T) {\n\tgen := filepath.Join(t.TempDir(), \"generators\")\n\tif out, err := exec(t, \"generators\", \"install\", \"go\", \"--dir\", gen); err != nil {\n\t\tt.Fatalf(\"first install: %v\\n%s\", err, out)\n\t}\n\tbefore := snapshotTree(t, gen)\n\tout, err := exec(t, \"generators\", \"install\", \"go\", \"--dir\", gen)\n\tif err != nil {\n\t\tt.Fatalf(\"second install: %v\\n%s\", err, out)\n\t}\n\tif strings.Contains(out, \"create \") {\n\t\tt.Errorf(\"second install created files:\\n%s\", out)\n\t}\n\tif !reflect.DeepEqual(before, snapshotTree(t, gen)) {\n\t\tt.Error(\"second install changed the tree\")\n\t}\n}",
+            "file": "internal/cli/generators_test.go",
+            "name": "TestGeneratorsInstallTwiceIsIdentical"
+          },
+          "kwargs_hash": "sha256:e55f42883c5180eab6362089522c54fc80fe50e06036d5efcc09bd96ff3575e5",
+          "body": "sha256:0635bd24c28ad6adf6b7f7f37051c134e7a35286b4deb0be72c36a45b22d69a4"
+        },
+        {
+          "path": "internal/cli/generators_test.go",
+          "action": "setFunction",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:6589611adfb6618a7920e43f951a79901428192ea95c1084fde9f222aecd9537",
+          "id": {
+            "file": "internal/cli/generators_test.go",
+            "name": "TestGeneratorsRejectsEscape"
+          },
+          "kwargs": {
+            "code": "func TestGeneratorsRejectsEscape(t *testing.T) {\n\tparent := t.TempDir()\n\twork := filepath.Join(parent, \"work\")\n\tif err := os.MkdirAll(work, 0o755); err != nil {\n\t\tt.Fatal(err)\n\t}\n\tif err := os.WriteFile(filepath.Join(parent, \"canary\"), []byte(\"c\"), 0o644); err != nil {\n\t\tt.Fatal(err)\n\t}\n\tbefore := snapshotTree(t, parent)\n\tfor _, name := range []string{\"../evil\", \"a/b\", \"..\", \".\", \"\"} {\n\t\tif _, err := exec(t, \"generators\", \"install\", name, \"--dir\", filepath.Join(work, \"generators\")); err == nil {\n\t\t\tt.Errorf(\"name %q was accepted\", name)\n\t\t}\n\t}\n\tif !reflect.DeepEqual(before, snapshotTree(t, parent)) {\n\t\tt.Error(\"escape attempt changed the parent tree\")\n\t}\n}",
+            "file": "internal/cli/generators_test.go",
+            "name": "TestGeneratorsRejectsEscape"
+          },
+          "kwargs_hash": "sha256:f2ae6537064f8dbcad3b3d163a40cebaec496333d723d990d472c21a2c58e284",
+          "body": "sha256:bc462e4b1319c7a162ff3660426546ee9ff8c4924ae4316b2f9dca07e4c5cc85"
+        },
+        {
+          "path": "internal/cli/generators_test.go",
+          "action": "setFunction",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:6589611adfb6618a7920e43f951a79901428192ea95c1084fde9f222aecd9537",
+          "id": {
+            "file": "internal/cli/generators_test.go",
+            "name": "TestGeneratorsUnknownBuiltinHintsFrom"
+          },
+          "kwargs": {
+            "code": "func TestGeneratorsUnknownBuiltinHintsFrom(t *testing.T) {\n\tgen := filepath.Join(t.TempDir(), \"generators\")\n\tout, err := exec(t, \"generators\", \"install\", \"nosuchpkg\", \"--dir\", gen)\n\tif err == nil {\n\t\tt.Fatalf(\"expected error, got:\\n%s\", out)\n\t}\n\tif !strings.Contains(err.Error()+out, \"--from\") {\n\t\tt.Errorf(\"error lacks --from hint: %v\", err)\n\t}\n}",
+            "file": "internal/cli/generators_test.go",
+            "name": "TestGeneratorsUnknownBuiltinHintsFrom"
+          },
+          "kwargs_hash": "sha256:5cb075d6b579211007017dbabf8ff96288679e660fb6be8a7f52e0c50e8b9a90",
+          "body": "sha256:b9e011715a9d37ef09ca8e9c56302c44ec3c79bdab4365381b55cb91d18d072d"
+        },
+        {
+          "path": "internal/cli/generators_test.go",
+          "action": "setFunction",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:6589611adfb6618a7920e43f951a79901428192ea95c1084fde9f222aecd9537",
+          "id": {
+            "file": "internal/cli/generators_test.go",
+            "name": "snapshotTree"
+          },
+          "kwargs": {
+            "code": "func snapshotTree(t *testing.T, root string) map[string]string {\n\tt.Helper()\n\tout := map[string]string{}\n\terr := filepath.Walk(root, func(p string, info os.FileInfo, err error) error {\n\t\tif err != nil {\n\t\t\treturn err\n\t\t}\n\t\tif info.IsDir() {\n\t\t\treturn nil\n\t\t}\n\t\tdata, err := os.ReadFile(p)\n\t\tif err != nil {\n\t\t\treturn err\n\t\t}\n\t\trel, err := filepath.Rel(root, p)\n\t\tif err != nil {\n\t\t\treturn err\n\t\t}\n\t\tout[rel] = string(data)\n\t\treturn nil\n\t})\n\tif err != nil {\n\t\tt.Fatal(err)\n\t}\n\treturn out\n}",
+            "file": "internal/cli/generators_test.go",
+            "name": "snapshotTree"
+          },
+          "kwargs_hash": "sha256:f316e24050e69374c2c43f7cf39d8e4776fe11b93868f72a799ea3e802237d65",
+          "body": "sha256:60f999f9617fc6af2a5442e26fab6d1d2f3937bb2509b24f5af7064f28af8089"
+        }
+      ]
+    }
+  ]
+}

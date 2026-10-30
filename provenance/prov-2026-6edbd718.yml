@@ -2,8 +2,8 @@ id: prov-2026-6edbd718
 title: 'cli: the grow log wiring'
 type: imprint
 status: implemented
-version: 5
-reason: 'Marker v2 records: remove cross-record duplicates and tighten shapes'
+version: 6
+reason: Refresh spec hashes after the v2 marker migration rewrote the spec files
 created_at: "2026-10-16"
 author: calebcowen@gmail.com
 intent: |-
@@ -369,7 +369,7 @@ forbidden_scope: []
 implements: prov-2026-7a13f569
 implements_version: 2
 related: []
-sealed_at_sha: 0f2536ee327dacf7ff3f5ad21abefb85a41a837f
+sealed_at_sha: 542fbe423c54671974ecc70a2235179eaaddff49
 associated_specs:
   - path: internal/cli/growlogwire_test.go
     run_command: go test ./internal/cli -run 'TestGrowLogEntries|TestGrowLogFailure|TestGrowLogModel|TestGrowLogSettings|TestWriteGrowLog' -count=1

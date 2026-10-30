@@ -2,8 +2,8 @@ id: prov-2026-010fd5b2
 title: 'go: internal/pipeline/restamp.go, replay restamp and reconcile helpers'
 type: imprint
 status: implemented
-version: 2
-reason: Spec file edited under prov-2026-c637c262; refresh its hash
+version: 3
+reason: Refresh spec hashes after the v2 marker migration rewrote the spec files
 created_at: "2026-10-16"
 author: calebcowen@gmail.com
 intent: |
@@ -97,7 +97,7 @@ forbidden_scope: []
 implements: prov-2026-c637c262
 implements_version: 1
 related: []
-sealed_at_sha: b7f00f8fe3b8f748c7639545a12fa0a60a13d5e0
+sealed_at_sha: 8f09cec21feea0f0f0e8241cae4107009673e6e4
 associated_specs:
   - path: internal/pipeline/restamp_test.go
     run_command: go test ./internal/pipeline -count=1 -run 'Restamp'

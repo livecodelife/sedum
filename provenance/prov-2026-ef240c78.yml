@@ -2,8 +2,8 @@ id: prov-2026-ef240c78
 title: 'cli: grow-log registered and called from grow (hand-written)'
 type: imprint
 status: implemented
-version: 5
-reason: 'Marker v2 records: remove cross-record duplicates and tighten shapes'
+version: 6
+reason: Refresh spec hashes after the v2 marker migration rewrote the spec files
 created_at: "2026-10-16"
 author: calebcowen@gmail.com
 intent: The grow log is wired into sedum grow and the root command.
@@ -21,7 +21,7 @@ forbidden_scope: []
 implements: prov-2026-7a13f569
 implements_version: 2
 related: []
-sealed_at_sha: 589dd94ea7ace186f2c42b77648e141a2bed83a5
+sealed_at_sha: bda47775b9a42bedf8205483e7d0f67fb5308228
 associated_specs:
   - path: internal/cli/growlog_wiring_test.go
     run_command: go test ./internal/cli -run 'TestGrowLogCommandRegistered' -count=1

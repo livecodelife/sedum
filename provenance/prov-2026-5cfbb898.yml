@@ -2,8 +2,8 @@ id: prov-2026-5cfbb898
 title: 'go: internal/cli/orphans.go, grow''s orphan summary'
 type: imprint
 status: implemented
-version: 2
-reason: Spec file edited under prov-2026-3f83335f; refresh its hash
+version: 3
+reason: Refresh spec hashes after the v2 marker migration rewrote the spec files
 created_at: "2026-10-16"
 author: calebcowen@gmail.com
 intent: |-
@@ -126,7 +126,7 @@ forbidden_scope: []
 implements: prov-2026-3f83335f
 implements_version: 2
 related: []
-sealed_at_sha: d3bb8ceb98ae36ebf5e35d3a1e42132e336f5666
+sealed_at_sha: 840190ed37690521b4f2676d9a9079513e6f7d39
 associated_specs:
   - path: internal/cli/orphans_test.go
     run_command: go test ./internal/cli -count=1 -run 'Orphan'

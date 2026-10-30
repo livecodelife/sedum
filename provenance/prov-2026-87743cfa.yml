@@ -2,8 +2,8 @@ id: prov-2026-87743cfa
 title: 'cli: the sedum grow-log command'
 type: imprint
 status: implemented
-version: 2
-reason: tests grown into the placeholder spec file
+version: 3
+reason: Refresh spec hashes after the v2 marker migration rewrote the spec files
 created_at: "2026-10-16"
 author: calebcowen@gmail.com
 intent: |-
@@ -164,7 +164,7 @@ forbidden_scope: []
 implements: prov-2026-7a13f569
 implements_version: 2
 related: []
-sealed_at_sha: 777292a185dd6dffb5edd359121b25cff4dbf9aa
+sealed_at_sha: f2fcea22924b700d4bd6a6fec53c51c9cfeba5d2
 associated_specs:
   - path: internal/cli/growlogcmd_test.go
     run_command: go test ./internal/cli -run 'TestParseSince|TestRunGrowLog' -count=1

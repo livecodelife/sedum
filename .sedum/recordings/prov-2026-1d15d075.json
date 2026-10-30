@@ -1,0 +1,624 @@
+{
+  "sedum_version": "0.11.0",
+  "packages": {
+    "go": {
+      "extensions": [
+        ".go"
+      ]
+    }
+  },
+  "records": [
+    {
+      "record_id": "prov-2026-1d15d075",
+      "gen": "sha256:450c20a9cdeb291d35f0f29c47d40a5b6c6a10105ecdcf8fb4a7e01872e8c90f",
+      "created_at": "2026-10-16",
+      "files": [
+        {
+          "path": "internal/adopt/command.go",
+          "package": "go",
+          "template": "*/{pkg}/{name}.go",
+          "captures": {
+            "name": "command",
+            "pkg": "adopt"
+          }
+        },
+        {
+          "path": "internal/adopt/command_test.go",
+          "package": "go",
+          "template": "*/{pkg}/{name}.go",
+          "captures": {
+            "name": "command_test",
+            "pkg": "adopt"
+          }
+        }
+      ],
+      "phases": [
+        {
+          "name": "default",
+          "invocations": [
+            {
+              "action": "addImport",
+              "kwargs": {
+                "file": "internal/adopt/command.go",
+                "path": "bytes"
+              }
+            },
+            {
+              "action": "addImport",
+              "kwargs": {
+                "file": "internal/adopt/command.go",
+                "path": "context"
+              }
+            },
+            {
+              "action": "addImport",
+              "kwargs": {
+                "file": "internal/adopt/command.go",
+                "path": "encoding/json"
+              }
+            },
+            {
+              "action": "addImport",
+              "kwargs": {
+                "file": "internal/adopt/command.go",
+                "path": "errors"
+              }
+            },
+            {
+              "action": "addImport",
+              "kwargs": {
+                "file": "internal/adopt/command.go",
+                "path": "fmt"
+              }
+            },
+            {
+              "action": "addImport",
+              "kwargs": {
+                "file": "internal/adopt/command.go",
+                "path": "io"
+              }
+            },
+            {
+              "action": "addImport",
+              "kwargs": {
+                "file": "internal/adopt/command.go",
+                "path": "os/exec"
+              }
+            },
+            {
+              "action": "addImport",
+              "kwargs": {
+                "file": "internal/adopt/command.go",
+                "path": "strings"
+              }
+            },
+            {
+              "action": "addImport",
+              "kwargs": {
+                "file": "internal/adopt/command.go",
+                "path": "time"
+              }
+            },
+            {
+              "action": "setConst",
+              "kwargs": {
+                "code": "// commandTimeout bounds one run of the adopter command.\nconst commandTimeout = 60 * time.Second",
+                "file": "internal/adopt/command.go",
+                "name": "commandTimeout"
+              }
+            },
+            {
+              "action": "setConst",
+              "kwargs": {
+                "code": "// maxCommandOutput bounds the stdout of one run of the adopter command.\nconst maxCommandOutput = 64 \u003c\u003c 20",
+                "file": "internal/adopt/command.go",
+                "name": "maxCommandOutput"
+              }
+            },
+            {
+              "action": "setType",
+              "kwargs": {
+                "code": "// CommandAdopter splits files by running an external command the user allowed.\ntype CommandAdopter struct {\n\tArgv []string\n\tDir  string\n}",
+                "file": "internal/adopt/command.go",
+                "name": "CommandAdopter"
+              }
+            },
+            {
+              "action": "setFunction",
+              "kwargs": {
+                "code": "// ParseSpans reads one JSON document of the form {\"spans\":[...]} and returns its spans.\n// Unknown fields, trailing data, and an empty or missing spans list are errors.\n// The spans are not validated here; CheckSpans does that.\nfunc ParseSpans(r io.Reader) ([]Span, error) {\n\tdec := json.NewDecoder(r)\n\tdec.DisallowUnknownFields()\n\tvar doc struct {\n\t\tSpans []Span `json:\"spans\"`\n\t}\n\tif err := dec.Decode(\u0026doc); err != nil {\n\t\treturn nil, fmt.Errorf(\"decoding spans: %w\", err)\n\t}\n\tif err := dec.Decode(\u0026struct{}{}); err != io.EOF {\n\t\treturn nil, errors.New(\"trailing data after spans document\")\n\t}\n\tif len(doc.Spans) == 0 {\n\t\treturn nil, errors.New(\"adopter returned no spans\")\n\t}\n\treturn doc.Spans, nil\n}",
+                "file": "internal/adopt/command.go",
+                "name": "ParseSpans"
+              }
+            },
+            {
+              "action": "setMethod",
+              "kwargs": {
+                "code": "// Split runs the command with path appended to its arguments and parses the\n// spans it prints on stdout. The command reads the file itself, so src is not\n// passed to it.\nfunc (c CommandAdopter) Split(path string, src []byte) ([]Span, error) {\n\tif len(c.Argv) == 0 {\n\t\treturn nil, errors.New(\"command adopter: empty command line\")\n\t}\n\tctx, cancel := context.WithTimeout(context.Background(), commandTimeout)\n\tdefer cancel()\n\targs := append(append([]string{}, c.Argv[1:]...), path)\n\tcmd := exec.CommandContext(ctx, c.Argv[0], args...)\n\tcmd.Dir = c.Dir\n\tvar stdout, stderr bytes.Buffer\n\tcmd.Stdout = \u0026stdout\n\tcmd.Stderr = \u0026stderr\n\tif err := cmd.Run(); err != nil {\n\t\tvar exitErr *exec.ExitError\n\t\tif errors.As(err, \u0026exitErr) {\n\t\t\tmsg := strings.SplitN(stderr.String(), \"\\n\", 2)[0]\n\t\t\treturn nil, fmt.Errorf(\"command adopter %s: exit status %d: %s\", c.Argv[0], exitErr.ExitCode(), msg)\n\t\t}\n\t\treturn nil, fmt.Errorf(\"command adopter %s: %w\", c.Argv[0], err)\n\t}\n\tif stdout.Len() \u003e maxCommandOutput {\n\t\treturn nil, fmt.Errorf(\"command adopter %s: stdout exceeds %d bytes\", c.Argv[0], maxCommandOutput)\n\t}\n\tspans, err := ParseSpans(\u0026stdout)\n\tif err != nil {\n\t\treturn nil, fmt.Errorf(\"command adopter %s: %w\", c.Argv[0], err)\n\t}\n\treturn spans, nil\n}",
+                "file": "internal/adopt/command.go",
+                "name": "Split",
+                "receiver": "CommandAdopter"
+              }
+            },
+            {
+              "action": "setMethod",
+              "kwargs": {
+                "code": "// String returns the command line, Argv joined by single spaces.\nfunc (c CommandAdopter) String() string {\n\treturn strings.Join(c.Argv, \" \")\n}",
+                "file": "internal/adopt/command.go",
+                "name": "String",
+                "receiver": "CommandAdopter"
+              }
+            },
+            {
+              "action": "addImport",
+              "kwargs": {
+                "file": "internal/adopt/command_test.go",
+                "path": "os"
+              }
+            },
+            {
+              "action": "addImport",
+              "kwargs": {
+                "file": "internal/adopt/command_test.go",
+                "path": "path/filepath"
+              }
+            },
+            {
+              "action": "addImport",
+              "kwargs": {
+                "file": "internal/adopt/command_test.go",
+                "path": "strings"
+              }
+            },
+            {
+              "action": "addImport",
+              "kwargs": {
+                "file": "internal/adopt/command_test.go",
+                "path": "testing"
+              }
+            },
+            {
+              "action": "setFunction",
+              "kwargs": {
+                "code": "func TestParseSpans(t *testing.T) {\n\ttests := []struct {\n\t\tname    string\n\t\tinput   string\n\t\twantErr bool\n\t\twantLen int\n\t}{\n\t\t{\"valid\", `{\"spans\":[{\"kind\":\"header\",\"text\":\"x\"},{\"kind\":\"unit\",\"text\":\"f()\",\"action\":\"setFunction\",\"kwargs\":{\"name\":\"f\"}}]}`, false, 2},\n\t\t{\"unknown field\", `{\"spans\":[{\"kind\":\"header\",\"text\":\"x\"}],\"extra\":1}`, true, 0},\n\t\t{\"trailing data\", `{\"spans\":[{\"kind\":\"header\",\"text\":\"x\"}]} {}`, true, 0},\n\t\t{\"empty spans\", `{\"spans\":[]}`, true, 0},\n\t\t{\"missing spans\", `{}`, true, 0},\n\t\t{\"invalid json\", `{\"spans\":`, true, 0},\n\t}\n\tfor _, tt := range tests {\n\t\tt.Run(tt.name, func(t *testing.T) {\n\t\t\tspans, err := ParseSpans(strings.NewReader(tt.input))\n\t\t\tif (err != nil) != tt.wantErr {\n\t\t\t\tt.Fatalf(\"ParseSpans error = %v, wantErr %v\", err, tt.wantErr)\n\t\t\t}\n\t\t\tif len(spans) != tt.wantLen {\n\t\t\t\tt.Fatalf(\"got %d spans, want %d\", len(spans), tt.wantLen)\n\t\t\t}\n\t\t})\n\t}\n}",
+                "file": "internal/adopt/command_test.go",
+                "name": "TestParseSpans"
+              }
+            },
+            {
+              "action": "setFunction",
+              "kwargs": {
+                "code": "func TestCommandAdopterSplit(t *testing.T) {\n\tdir := t.TempDir()\n\tfile := filepath.Join(dir, \"input.txt\")\n\tif err := os.WriteFile(file, []byte(\"x\"), 0o644); err != nil {\n\t\tt.Fatal(err)\n\t}\n\ttests := []struct {\n\t\tname    string\n\t\tscript  string\n\t\twantErr string\n\t}{\n\t\t{\n\t\t\tname:   \"success\",\n\t\t\tscript: `printf '{\"spans\":[{\"kind\":\"residual\",\"text\":\"%s\"}]}' \"$1\"`,\n\t\t},\n\t\t{\n\t\t\tname:    \"non-zero exit\",\n\t\t\tscript:  `echo boom \u003e\u00262; exit 3`,\n\t\t\twantErr: \"exit status 3: boom\",\n\t\t},\n\t\t{\n\t\t\tname:    \"malformed stdout\",\n\t\t\tscript:  `echo 'not json'`,\n\t\t\twantErr: \"decoding spans\",\n\t\t},\n\t}\n\tfor _, tt := range tests {\n\t\tt.Run(tt.name, func(t *testing.T) {\n\t\t\tscript := filepath.Join(dir, tt.name+\".sh\")\n\t\t\tif err := os.WriteFile(script, []byte(tt.script+\"\\n\"), 0o644); err != nil {\n\t\t\t\tt.Fatal(err)\n\t\t\t}\n\t\t\tc := CommandAdopter{Argv: []string{\"sh\", script}}\n\t\t\tspans, err := c.Split(file, nil)\n\t\t\tif tt.wantErr != \"\" {\n\t\t\t\tif err == nil || !strings.Contains(err.Error(), tt.wantErr) {\n\t\t\t\t\tt.Fatalf(\"Split error = %v, want it to contain %q\", err, tt.wantErr)\n\t\t\t\t}\n\t\t\t\treturn\n\t\t\t}\n\t\t\tif err != nil {\n\t\t\t\tt.Fatalf(\"Split: %v\", err)\n\t\t\t}\n\t\t\tif len(spans) != 1 || spans[0].Text != file {\n\t\t\t\tt.Fatalf(\"got spans %+v, want one span with the path %q\", spans, file)\n\t\t\t}\n\t\t})\n\t}\n\tif _, err := (CommandAdopter{}).Split(file, nil); err == nil {\n\t\tt.Fatal(\"empty Argv: want error\")\n\t}\n}",
+                "file": "internal/adopt/command_test.go",
+                "name": "TestCommandAdopterSplit"
+              }
+            },
+            {
+              "action": "setFunction",
+              "kwargs": {
+                "code": "func TestCommandString(t *testing.T) {\n\ttests := []struct {\n\t\tname string\n\t\targv []string\n\t\twant string\n\t}{\n\t\t{\"single\", []string{\"adopt\"}, \"adopt\"},\n\t\t{\"multiple\", []string{\"sh\", \"script\", \"-v\"}, \"sh script -v\"},\n\t\t{\"empty\", nil, \"\"},\n\t}\n\tfor _, tt := range tests {\n\t\tc := CommandAdopter{Argv: tt.argv}\n\t\tif got := c.String(); got != tt.want {\n\t\t\tt.Errorf(\"%s: String() = %q, want %q\", tt.name, got, tt.want)\n\t\t}\n\t}\n}",
+                "file": "internal/adopt/command_test.go",
+                "name": "TestCommandString"
+              }
+            },
+            {
+              "action": "setFunction",
+              "kwargs": {
+                "code": "func TestCommandAdopterRunsInDir(t *testing.T) {\n\twork := t.TempDir()\n\tif err := os.WriteFile(filepath.Join(work, \"x.txt\"), []byte(\"x\"), 0o644); err != nil {\n\t\tt.Fatal(err)\n\t}\n\tscripts := t.TempDir()\n\tscript := filepath.Join(scripts, \"pwd.sh\")\n\tbody := `printf '{\"spans\":[{\"kind\":\"residual\",\"text\":\"%s\"}]}' \"$(pwd)\"` + \"\\n\"\n\tif err := os.WriteFile(script, []byte(body), 0o644); err != nil {\n\t\tt.Fatal(err)\n\t}\n\tc := CommandAdopter{Argv: []string{\"sh\", script}, Dir: work}\n\tspans, err := c.Split(\"x.txt\", nil)\n\tif err != nil {\n\t\tt.Fatalf(\"Split: %v\", err)\n\t}\n\tif len(spans) != 1 || !strings.HasSuffix(spans[0].Text, filepath.Base(work)) {\n\t\tt.Fatalf(\"got spans %+v, want text ending in %q\", spans, filepath.Base(work))\n\t}\n}",
+                "file": "internal/adopt/command_test.go",
+                "name": "TestCommandAdopterRunsInDir"
+              }
+            }
+          ]
+        }
+      ],
+      "regions": [
+        {
+          "path": "internal/adopt/command.go",
+          "action": "addImport",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:d6a9443c14d82b7bdf19bb96637f957fd44ad9bfbe8f167c97e6f7699c8b830f",
+          "id": {
+            "file": "internal/adopt/command.go",
+            "path": "bytes"
+          },
+          "kwargs": {
+            "file": "internal/adopt/command.go",
+            "path": "bytes"
+          },
+          "kwargs_hash": "sha256:4857afce00eda649151eff416cf60c9b2a0c2ef093738a3eb1ef5c5b194682b6",
+          "body": "sha256:468731f6dd513df0a66690d4649dc9e7244c96de227d8e6ead98cc5e9747c57a"
+        },
+        {
+          "path": "internal/adopt/command.go",
+          "action": "addImport",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:d6a9443c14d82b7bdf19bb96637f957fd44ad9bfbe8f167c97e6f7699c8b830f",
+          "id": {
+            "file": "internal/adopt/command.go",
+            "path": "context"
+          },
+          "kwargs": {
+            "file": "internal/adopt/command.go",
+            "path": "context"
+          },
+          "kwargs_hash": "sha256:3b4b9dadd9c7218c75aea841946f1162cb0b0faad978b0bd45ffa51e6511412b",
+          "body": "sha256:0f7443fb25d7ad6a970617d4d0df6123283e24801b94c1d84fbe431230f31e1e"
+        },
+        {
+          "path": "internal/adopt/command.go",
+          "action": "addImport",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:d6a9443c14d82b7bdf19bb96637f957fd44ad9bfbe8f167c97e6f7699c8b830f",
+          "id": {
+            "file": "internal/adopt/command.go",
+            "path": "encoding/json"
+          },
+          "kwargs": {
+            "file": "internal/adopt/command.go",
+            "path": "encoding/json"
+          },
+          "kwargs_hash": "sha256:9806ce6177e824d6cd67aed094d96fdac60a7bc30a6efa23dcabd6554ad437c8",
+          "body": "sha256:872d7c3e9dee608e79a7f8ef57930d24b5e30f2a57d891a52549179ace45946a"
+        },
+        {
+          "path": "internal/adopt/command.go",
+          "action": "addImport",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:d6a9443c14d82b7bdf19bb96637f957fd44ad9bfbe8f167c97e6f7699c8b830f",
+          "id": {
+            "file": "internal/adopt/command.go",
+            "path": "errors"
+          },
+          "kwargs": {
+            "file": "internal/adopt/command.go",
+            "path": "errors"
+          },
+          "kwargs_hash": "sha256:4a90414d1beb5c4bfedb4a0f169935b5a9c3fabc7a89d92f58a394c21b6f9cab",
+          "body": "sha256:2b718237ba0a56467c8fd494cc131e942ef410e6228c03b644d70476c71862dc"
+        },
+        {
+          "path": "internal/adopt/command.go",
+          "action": "addImport",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:d6a9443c14d82b7bdf19bb96637f957fd44ad9bfbe8f167c97e6f7699c8b830f",
+          "id": {
+            "file": "internal/adopt/command.go",
+            "path": "fmt"
+          },
+          "kwargs": {
+            "file": "internal/adopt/command.go",
+            "path": "fmt"
+          },
+          "kwargs_hash": "sha256:f7d9e47a45567f6c52700e31fab321a8c6bf92bdc962f8cd86ff0e3a56aebf4e",
+          "body": "sha256:bcbac51883cbf8064e9196b371cb880cee429866652447ad557533d817857609"
+        },
+        {
+          "path": "internal/adopt/command.go",
+          "action": "addImport",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:d6a9443c14d82b7bdf19bb96637f957fd44ad9bfbe8f167c97e6f7699c8b830f",
+          "id": {
+            "file": "internal/adopt/command.go",
+            "path": "io"
+          },
+          "kwargs": {
+            "file": "internal/adopt/command.go",
+            "path": "io"
+          },
+          "kwargs_hash": "sha256:53141eea0d4e10bf88b9feea3c327bf411e7db815a816aa872c46fe0f039b327",
+          "body": "sha256:ef8e8abf4ef5ee40a19dc85b49bf09c5df1fe32abfe834e0ab4c2175baf80ddf"
+        },
+        {
+          "path": "internal/adopt/command.go",
+          "action": "addImport",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:d6a9443c14d82b7bdf19bb96637f957fd44ad9bfbe8f167c97e6f7699c8b830f",
+          "id": {
+            "file": "internal/adopt/command.go",
+            "path": "os/exec"
+          },
+          "kwargs": {
+            "file": "internal/adopt/command.go",
+            "path": "os/exec"
+          },
+          "kwargs_hash": "sha256:56e8aaa78e6ad17525e82b9055bf062c1aa1339e6ca7415432343de810caf185",
+          "body": "sha256:5970e9ca793f55e2beb08de623e98bdbc0ced178860fedd953eef7e15026ee19"
+        },
+        {
+          "path": "internal/adopt/command.go",
+          "action": "addImport",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:d6a9443c14d82b7bdf19bb96637f957fd44ad9bfbe8f167c97e6f7699c8b830f",
+          "id": {
+            "file": "internal/adopt/command.go",
+            "path": "strings"
+          },
+          "kwargs": {
+            "file": "internal/adopt/command.go",
+            "path": "strings"
+          },
+          "kwargs_hash": "sha256:c63b86fec0943b091ca86517e9d58c866b735cc01a4ff2d7399dc426269c9687",
+          "body": "sha256:a9af3c0bc4bf9342df9d7e89a324523fdba7941a9ca4190270e68ff3c4a25ea6"
+        },
+        {
+          "path": "internal/adopt/command.go",
+          "action": "addImport",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:d6a9443c14d82b7bdf19bb96637f957fd44ad9bfbe8f167c97e6f7699c8b830f",
+          "id": {
+            "file": "internal/adopt/command.go",
+            "path": "time"
+          },
+          "kwargs": {
+            "file": "internal/adopt/command.go",
+            "path": "time"
+          },
+          "kwargs_hash": "sha256:9a080bbb8496bfd6e08260d9b36024bba503163a71a2294dd3384510ba8982af",
+          "body": "sha256:e99128ebf4e36998f40b33adf2eef57f4d6c315f1a4d1bdd3b7fc09a0d7bc82d"
+        },
+        {
+          "path": "internal/adopt/command.go",
+          "action": "setConst",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:51be1c18998d63cc558c253e211a6bd188d96cb251dad68c6ea88e03c2d5cc4c",
+          "id": {
+            "file": "internal/adopt/command.go",
+            "name": "commandTimeout"
+          },
+          "kwargs": {
+            "code": "// commandTimeout bounds one run of the adopter command.\nconst commandTimeout = 60 * time.Second",
+            "file": "internal/adopt/command.go",
+            "name": "commandTimeout"
+          },
+          "kwargs_hash": "sha256:03a82fe4de30102079aed8479556b4f6709b11502c261f2ec6b4317726faabd8",
+          "body": "sha256:1194f330573e45043e2b6ee88b35bc2bd876968820407ac939b05fba6de5da09"
+        },
+        {
+          "path": "internal/adopt/command.go",
+          "action": "setConst",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:51be1c18998d63cc558c253e211a6bd188d96cb251dad68c6ea88e03c2d5cc4c",
+          "id": {
+            "file": "internal/adopt/command.go",
+            "name": "maxCommandOutput"
+          },
+          "kwargs": {
+            "code": "// maxCommandOutput bounds the stdout of one run of the adopter command.\nconst maxCommandOutput = 64 \u003c\u003c 20",
+            "file": "internal/adopt/command.go",
+            "name": "maxCommandOutput"
+          },
+          "kwargs_hash": "sha256:c1d780891dd7b5ee5c0170e573c970afa6348b347b651934e85b772a7dcfd3fd",
+          "body": "sha256:d5437951c892e88f7e4dd36d057b88bc47b4435a85f92f0b54d6b2a53aa699bf"
+        },
+        {
+          "path": "internal/adopt/command.go",
+          "action": "setFunction",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:6589611adfb6618a7920e43f951a79901428192ea95c1084fde9f222aecd9537",
+          "id": {
+            "file": "internal/adopt/command.go",
+            "name": "ParseSpans"
+          },
+          "kwargs": {
+            "code": "// ParseSpans reads one JSON document of the form {\"spans\":[...]} and returns its spans.\n// Unknown fields, trailing data, and an empty or missing spans list are errors.\n// The spans are not validated here; CheckSpans does that.\nfunc ParseSpans(r io.Reader) ([]Span, error) {\n\tdec := json.NewDecoder(r)\n\tdec.DisallowUnknownFields()\n\tvar doc struct {\n\t\tSpans []Span `json:\"spans\"`\n\t}\n\tif err := dec.Decode(\u0026doc); err != nil {\n\t\treturn nil, fmt.Errorf(\"decoding spans: %w\", err)\n\t}\n\tif err := dec.Decode(\u0026struct{}{}); err != io.EOF {\n\t\treturn nil, errors.New(\"trailing data after spans document\")\n\t}\n\tif len(doc.Spans) == 0 {\n\t\treturn nil, errors.New(\"adopter returned no spans\")\n\t}\n\treturn doc.Spans, nil\n}",
+            "file": "internal/adopt/command.go",
+            "name": "ParseSpans"
+          },
+          "kwargs_hash": "sha256:6fc0aa3499f769b16adaec3f9886971a168ab243437b39096c7d308d023833e7",
+          "body": "sha256:c66a888ccfbdbfe930f8bf49bd49b675abc7c27d2236c65f9be5eec92b8291a2"
+        },
+        {
+          "path": "internal/adopt/command.go",
+          "action": "setMethod",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:8ea07fc52bbc260836983438ef08ad02746b86a1028c8b1a51b60eeb7b83cc2b",
+          "id": {
+            "file": "internal/adopt/command.go",
+            "name": "Split",
+            "receiver": "CommandAdopter"
+          },
+          "kwargs": {
+            "code": "// Split runs the command with path appended to its arguments and parses the\n// spans it prints on stdout. The command reads the file itself, so src is not\n// passed to it.\nfunc (c CommandAdopter) Split(path string, src []byte) ([]Span, error) {\n\tif len(c.Argv) == 0 {\n\t\treturn nil, errors.New(\"command adopter: empty command line\")\n\t}\n\tctx, cancel := context.WithTimeout(context.Background(), commandTimeout)\n\tdefer cancel()\n\targs := append(append([]string{}, c.Argv[1:]...), path)\n\tcmd := exec.CommandContext(ctx, c.Argv[0], args...)\n\tcmd.Dir = c.Dir\n\tvar stdout, stderr bytes.Buffer\n\tcmd.Stdout = \u0026stdout\n\tcmd.Stderr = \u0026stderr\n\tif err := cmd.Run(); err != nil {\n\t\tvar exitErr *exec.ExitError\n\t\tif errors.As(err, \u0026exitErr) {\n\t\t\tmsg := strings.SplitN(stderr.String(), \"\\n\", 2)[0]\n\t\t\treturn nil, fmt.Errorf(\"command adopter %s: exit status %d: %s\", c.Argv[0], exitErr.ExitCode(), msg)\n\t\t}\n\t\treturn nil, fmt.Errorf(\"command adopter %s: %w\", c.Argv[0], err)\n\t}\n\tif stdout.Len() \u003e maxCommandOutput {\n\t\treturn nil, fmt.Errorf(\"command adopter %s: stdout exceeds %d bytes\", c.Argv[0], maxCommandOutput)\n\t}\n\tspans, err := ParseSpans(\u0026stdout)\n\tif err != nil {\n\t\treturn nil, fmt.Errorf(\"command adopter %s: %w\", c.Argv[0], err)\n\t}\n\treturn spans, nil\n}",
+            "file": "internal/adopt/command.go",
+            "name": "Split",
+            "receiver": "CommandAdopter"
+          },
+          "kwargs_hash": "sha256:1bb36aa16edd9d0f2cdb34c7b83f0b88071a7a105e82054d526494d07f33fec2",
+          "body": "sha256:9711d1ffb8a4ff05e2d9122e6f5b08697d175a7e2f998ffd8dc0e3af75843100"
+        },
+        {
+          "path": "internal/adopt/command.go",
+          "action": "setMethod",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:8ea07fc52bbc260836983438ef08ad02746b86a1028c8b1a51b60eeb7b83cc2b",
+          "id": {
+            "file": "internal/adopt/command.go",
+            "name": "String",
+            "receiver": "CommandAdopter"
+          },
+          "kwargs": {
+            "code": "// String returns the command line, Argv joined by single spaces.\nfunc (c CommandAdopter) String() string {\n\treturn strings.Join(c.Argv, \" \")\n}",
+            "file": "internal/adopt/command.go",
+            "name": "String",
+            "receiver": "CommandAdopter"
+          },
+          "kwargs_hash": "sha256:905eb3aecf2f8986a52aca49bda87d65d0291d09f3b8ae3b8abfa9ec4ebdf019",
+          "body": "sha256:4d0e9d5ba60534927f1e247b283f3442a213f25656b52886f762cf1d1e030e55"
+        },
+        {
+          "path": "internal/adopt/command.go",
+          "action": "setType",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:ebb283283a745fdc09f0294b6e79bd879a830829cb964550ec6b4432fee5bb72",
+          "id": {
+            "file": "internal/adopt/command.go",
+            "name": "CommandAdopter"
+          },
+          "kwargs": {
+            "code": "// CommandAdopter splits files by running an external command the user allowed.\ntype CommandAdopter struct {\n\tArgv []string\n\tDir  string\n}",
+            "file": "internal/adopt/command.go",
+            "name": "CommandAdopter"
+          },
+          "kwargs_hash": "sha256:cf1c3bb7af9e5e949c81f278b656c8421887fcf5043a7f22cffa216e9aba7651",
+          "body": "sha256:a104e4b056e72ac97a5b9f4ff0465573fdebc6552c434c9aa83cd9294381c3a4"
+        },
+        {
+          "path": "internal/adopt/command_test.go",
+          "action": "addImport",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:d6a9443c14d82b7bdf19bb96637f957fd44ad9bfbe8f167c97e6f7699c8b830f",
+          "id": {
+            "file": "internal/adopt/command_test.go",
+            "path": "os"
+          },
+          "kwargs": {
+            "file": "internal/adopt/command_test.go",
+            "path": "os"
+          },
+          "kwargs_hash": "sha256:64e56ebad073686d7a0049d374e272283ec7461b09361cc8f71b5065227e3218",
+          "body": "sha256:7c6e309eb2575d4aa451ec2ab83161d13e9ae03bbca3a4d2ecf30ce12adf0905"
+        },
+        {
+          "path": "internal/adopt/command_test.go",
+          "action": "addImport",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:d6a9443c14d82b7bdf19bb96637f957fd44ad9bfbe8f167c97e6f7699c8b830f",
+          "id": {
+            "file": "internal/adopt/command_test.go",
+            "path": "path/filepath"
+          },
+          "kwargs": {
+            "file": "internal/adopt/command_test.go",
+            "path": "path/filepath"
+          },
+          "kwargs_hash": "sha256:1b07d7f6d58d5ca44979aa2ef6a5b165ce8c393d64eab8532aa9ae66f3662996",
+          "body": "sha256:a6d196b558491e646be93f56a321f339068c64c76aa9d49bb18046e7f9c777a1"
+        },
+        {
+          "path": "internal/adopt/command_test.go",
+          "action": "addImport",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:d6a9443c14d82b7bdf19bb96637f957fd44ad9bfbe8f167c97e6f7699c8b830f",
+          "id": {
+            "file": "internal/adopt/command_test.go",
+            "path": "strings"
+          },
+          "kwargs": {
+            "file": "internal/adopt/command_test.go",
+            "path": "strings"
+          },
+          "kwargs_hash": "sha256:d5b18283099f79e2b38109e0c43a6936b9cd713b1bf79ae91abb7a3c70892cf9",
+          "body": "sha256:a9af3c0bc4bf9342df9d7e89a324523fdba7941a9ca4190270e68ff3c4a25ea6"
+        },
+        {
+          "path": "internal/adopt/command_test.go",
+          "action": "addImport",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:d6a9443c14d82b7bdf19bb96637f957fd44ad9bfbe8f167c97e6f7699c8b830f",
+          "id": {
+            "file": "internal/adopt/command_test.go",
+            "path": "testing"
+          },
+          "kwargs": {
+            "file": "internal/adopt/command_test.go",
+            "path": "testing"
+          },
+          "kwargs_hash": "sha256:eeccbe819056c054b52f3dac78d0ae367de6b4e2343c79dccda69553285ef9a9",
+          "body": "sha256:14a4a5f3bfbf9325de04706efa8c15a9446f01d2a26624ce9c66bd1d69dc212e"
+        },
+        {
+          "path": "internal/adopt/command_test.go",
+          "action": "setFunction",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:6589611adfb6618a7920e43f951a79901428192ea95c1084fde9f222aecd9537",
+          "id": {
+            "file": "internal/adopt/command_test.go",
+            "name": "TestCommandAdopterRunsInDir"
+          },
+          "kwargs": {
+            "code": "func TestCommandAdopterRunsInDir(t *testing.T) {\n\twork := t.TempDir()\n\tif err := os.WriteFile(filepath.Join(work, \"x.txt\"), []byte(\"x\"), 0o644); err != nil {\n\t\tt.Fatal(err)\n\t}\n\tscripts := t.TempDir()\n\tscript := filepath.Join(scripts, \"pwd.sh\")\n\tbody := `printf '{\"spans\":[{\"kind\":\"residual\",\"text\":\"%s\"}]}' \"$(pwd)\"` + \"\\n\"\n\tif err := os.WriteFile(script, []byte(body), 0o644); err != nil {\n\t\tt.Fatal(err)\n\t}\n\tc := CommandAdopter{Argv: []string{\"sh\", script}, Dir: work}\n\tspans, err := c.Split(\"x.txt\", nil)\n\tif err != nil {\n\t\tt.Fatalf(\"Split: %v\", err)\n\t}\n\tif len(spans) != 1 || !strings.HasSuffix(spans[0].Text, filepath.Base(work)) {\n\t\tt.Fatalf(\"got spans %+v, want text ending in %q\", spans, filepath.Base(work))\n\t}\n}",
+            "file": "internal/adopt/command_test.go",
+            "name": "TestCommandAdopterRunsInDir"
+          },
+          "kwargs_hash": "sha256:dc449f929290d2a74b150c91570c8a90714a66055cc7eb2d8f1da56713e0a32b",
+          "body": "sha256:3ba5e8a0ea7b0c9ee34b2a58cd5b55e912b7f8d75786197c0617cc3eb3b2722c"
+        },
+        {
+          "path": "internal/adopt/command_test.go",
+          "action": "setFunction",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:6589611adfb6618a7920e43f951a79901428192ea95c1084fde9f222aecd9537",
+          "id": {
+            "file": "internal/adopt/command_test.go",
+            "name": "TestCommandAdopterSplit"
+          },
+          "kwargs": {
+            "code": "func TestCommandAdopterSplit(t *testing.T) {\n\tdir := t.TempDir()\n\tfile := filepath.Join(dir, \"input.txt\")\n\tif err := os.WriteFile(file, []byte(\"x\"), 0o644); err != nil {\n\t\tt.Fatal(err)\n\t}\n\ttests := []struct {\n\t\tname    string\n\t\tscript  string\n\t\twantErr string\n\t}{\n\t\t{\n\t\t\tname:   \"success\",\n\t\t\tscript: `printf '{\"spans\":[{\"kind\":\"residual\",\"text\":\"%s\"}]}' \"$1\"`,\n\t\t},\n\t\t{\n\t\t\tname:    \"non-zero exit\",\n\t\t\tscript:  `echo boom \u003e\u00262; exit 3`,\n\t\t\twantErr: \"exit status 3: boom\",\n\t\t},\n\t\t{\n\t\t\tname:    \"malformed stdout\",\n\t\t\tscript:  `echo 'not json'`,\n\t\t\twantErr: \"decoding spans\",\n\t\t},\n\t}\n\tfor _, tt := range tests {\n\t\tt.Run(tt.name, func(t *testing.T) {\n\t\t\tscript := filepath.Join(dir, tt.name+\".sh\")\n\t\t\tif err := os.WriteFile(script, []byte(tt.script+\"\\n\"), 0o644); err != nil {\n\t\t\t\tt.Fatal(err)\n\t\t\t}\n\t\t\tc := CommandAdopter{Argv: []string{\"sh\", script}}\n\t\t\tspans, err := c.Split(file, nil)\n\t\t\tif tt.wantErr != \"\" {\n\t\t\t\tif err == nil || !strings.Contains(err.Error(), tt.wantErr) {\n\t\t\t\t\tt.Fatalf(\"Split error = %v, want it to contain %q\", err, tt.wantErr)\n\t\t\t\t}\n\t\t\t\treturn\n\t\t\t}\n\t\t\tif err != nil {\n\t\t\t\tt.Fatalf(\"Split: %v\", err)\n\t\t\t}\n\t\t\tif len(spans) != 1 || spans[0].Text != file {\n\t\t\t\tt.Fatalf(\"got spans %+v, want one span with the path %q\", spans, file)\n\t\t\t}\n\t\t})\n\t}\n\tif _, err := (CommandAdopter{}).Split(file, nil); err == nil {\n\t\tt.Fatal(\"empty Argv: want error\")\n\t}\n}",
+            "file": "internal/adopt/command_test.go",
+            "name": "TestCommandAdopterSplit"
+          },
+          "kwargs_hash": "sha256:4e86c9058c495369fcf1affd43f2c6784ab7855e9ebc098604b02468fd4c0c39",
+          "body": "sha256:1c5ad0d0112a9921ade193726361e84e47fd38dc21d152c8f4d8622847797a41"
+        },
+        {
+          "path": "internal/adopt/command_test.go",
+          "action": "setFunction",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:6589611adfb6618a7920e43f951a79901428192ea95c1084fde9f222aecd9537",
+          "id": {
+            "file": "internal/adopt/command_test.go",
+            "name": "TestCommandString"
+          },
+          "kwargs": {
+            "code": "func TestCommandString(t *testing.T) {\n\ttests := []struct {\n\t\tname string\n\t\targv []string\n\t\twant string\n\t}{\n\t\t{\"single\", []string{\"adopt\"}, \"adopt\"},\n\t\t{\"multiple\", []string{\"sh\", \"script\", \"-v\"}, \"sh script -v\"},\n\t\t{\"empty\", nil, \"\"},\n\t}\n\tfor _, tt := range tests {\n\t\tc := CommandAdopter{Argv: tt.argv}\n\t\tif got := c.String(); got != tt.want {\n\t\t\tt.Errorf(\"%s: String() = %q, want %q\", tt.name, got, tt.want)\n\t\t}\n\t}\n}",
+            "file": "internal/adopt/command_test.go",
+            "name": "TestCommandString"
+          },
+          "kwargs_hash": "sha256:f1e0f4cec7389c9fd43f74e61f940cceabb150a76c1ba4dfc2699adf5cc0656c",
+          "body": "sha256:cc8066d4e5b9b0573eb76728149132d3f326925ee59b52396b28a2f5b372c4e6"
+        },
+        {
+          "path": "internal/adopt/command_test.go",
+          "action": "setFunction",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:6589611adfb6618a7920e43f951a79901428192ea95c1084fde9f222aecd9537",
+          "id": {
+            "file": "internal/adopt/command_test.go",
+            "name": "TestParseSpans"
+          },
+          "kwargs": {
+            "code": "func TestParseSpans(t *testing.T) {\n\ttests := []struct {\n\t\tname    string\n\t\tinput   string\n\t\twantErr bool\n\t\twantLen int\n\t}{\n\t\t{\"valid\", `{\"spans\":[{\"kind\":\"header\",\"text\":\"x\"},{\"kind\":\"unit\",\"text\":\"f()\",\"action\":\"setFunction\",\"kwargs\":{\"name\":\"f\"}}]}`, false, 2},\n\t\t{\"unknown field\", `{\"spans\":[{\"kind\":\"header\",\"text\":\"x\"}],\"extra\":1}`, true, 0},\n\t\t{\"trailing data\", `{\"spans\":[{\"kind\":\"header\",\"text\":\"x\"}]} {}`, true, 0},\n\t\t{\"empty spans\", `{\"spans\":[]}`, true, 0},\n\t\t{\"missing spans\", `{}`, true, 0},\n\t\t{\"invalid json\", `{\"spans\":`, true, 0},\n\t}\n\tfor _, tt := range tests {\n\t\tt.Run(tt.name, func(t *testing.T) {\n\t\t\tspans, err := ParseSpans(strings.NewReader(tt.input))\n\t\t\tif (err != nil) != tt.wantErr {\n\t\t\t\tt.Fatalf(\"ParseSpans error = %v, wantErr %v\", err, tt.wantErr)\n\t\t\t}\n\t\t\tif len(spans) != tt.wantLen {\n\t\t\t\tt.Fatalf(\"got %d spans, want %d\", len(spans), tt.wantLen)\n\t\t\t}\n\t\t})\n\t}\n}",
+            "file": "internal/adopt/command_test.go",
+            "name": "TestParseSpans"
+          },
+          "kwargs_hash": "sha256:c70bc485fc05cf8ecec1251ce1fbd42fe2c8c31d98107a91322875fdfb81a03a",
+          "body": "sha256:8215149f16f9a468f502e88d7d2bb0e6f23bed9c3e4a714f3aac4e28f389b426"
+        }
+      ]
+    }
+  ]
+}

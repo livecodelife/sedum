@@ -2,8 +2,8 @@ id: prov-2026-8394826c
 title: A path no template matches fails with a clear error and leaves no stray file
 type: blueprint
 status: implemented
-version: 6
-reason: merge main (#7) into gen-errors
+version: 7
+reason: Refresh spec hashes after the v2 marker migration rewrote the spec files
 created_at: "2026-10-16"
 author: calebcowen@gmail.com
 intent: |
@@ -56,7 +56,7 @@ affected_scope:
   - provenance/prov-2026-e4bab53b.yml
 forbidden_scope: []
 related: []
-sealed_at_sha: f6084a98dea91cfa73f9d57ad79a60177213aef8
+sealed_at_sha: fcee178ec3528aa1d0c39f8c95628c466d0278cc
 associated_specs:
   - path: internal/inject/notemplate_test.go
     run_command: go test ./internal/inject -count=1

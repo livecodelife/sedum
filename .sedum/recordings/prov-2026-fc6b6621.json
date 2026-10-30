@@ -1,0 +1,542 @@
+{
+  "sedum_version": "0.11.0",
+  "packages": {
+    "go": {
+      "extensions": [
+        ".go"
+      ]
+    }
+  },
+  "records": [
+    {
+      "record_id": "prov-2026-fc6b6621",
+      "gen": "sha256:5e3114492de2056ad3dbbed3f453b183f17b7bfead4e52e181503be5cb4b12ff",
+      "created_at": "2026-10-16",
+      "files": [
+        {
+          "path": "internal/builtin/builtin.go",
+          "package": "go",
+          "template": "*/{pkg}/{name}.go",
+          "captures": {
+            "name": "builtin",
+            "pkg": "builtin"
+          }
+        },
+        {
+          "path": "internal/builtin/builtin_test.go",
+          "package": "go",
+          "template": "*/{pkg}/{name}.go",
+          "captures": {
+            "name": "builtin_test",
+            "pkg": "builtin"
+          }
+        }
+      ],
+      "phases": [
+        {
+          "name": "default",
+          "invocations": [
+            {
+              "action": "addImport",
+              "kwargs": {
+                "file": "internal/builtin/builtin.go",
+                "path": "archive/zip"
+              }
+            },
+            {
+              "action": "addImport",
+              "kwargs": {
+                "file": "internal/builtin/builtin.go",
+                "path": "bytes"
+              }
+            },
+            {
+              "action": "addImport",
+              "kwargs": {
+                "file": "internal/builtin/builtin.go",
+                "path": "fmt"
+              }
+            },
+            {
+              "action": "addImport",
+              "kwargs": {
+                "file": "internal/builtin/builtin.go",
+                "path": "io"
+              }
+            },
+            {
+              "action": "addImport",
+              "kwargs": {
+                "file": "internal/builtin/builtin.go",
+                "path": "sort"
+              }
+            },
+            {
+              "action": "addImport",
+              "kwargs": {
+                "file": "internal/builtin/builtin.go",
+                "path": "strings"
+              }
+            },
+            {
+              "action": "setFunction",
+              "kwargs": {
+                "code": "// Names returns the sorted names of the built-in packages.\nfunc Names() []string {\n\tentries, err := packagesFS.ReadDir(\"packages\")\n\tif err != nil {\n\t\treturn nil\n\t}\n\tvar names []string\n\tfor _, e := range entries {\n\t\tname := e.Name()\n\t\tif strings.HasSuffix(name, \".zip\") {\n\t\t\tnames = append(names, strings.TrimSuffix(name, \".zip\"))\n\t\t}\n\t}\n\tsort.Strings(names)\n\treturn names\n}",
+                "file": "internal/builtin/builtin.go",
+                "name": "Names"
+              }
+            },
+            {
+              "action": "setFunction",
+              "kwargs": {
+                "code": "// Files returns every file of the named built-in package, keyed by its\n// slash-separated path relative to the package root.\nfunc Files(name string) (map[string][]byte, error) {\n\tknown := Names()\n\tfound := false\n\tfor _, n := range known {\n\t\tif n == name {\n\t\t\tfound = true\n\t\t\tbreak\n\t\t}\n\t}\n\tif !found {\n\t\treturn nil, fmt.Errorf(\"no built-in package %q; built-in packages: %s\", name, strings.Join(known, \", \"))\n\t}\n\tdata, err := packagesFS.ReadFile(\"packages/\" + name + \".zip\")\n\tif err != nil {\n\t\treturn nil, err\n\t}\n\tzr, err := zip.NewReader(bytes.NewReader(data), int64(len(data)))\n\tif err != nil {\n\t\treturn nil, err\n\t}\n\tfiles := make(map[string][]byte)\n\tfor _, f := range zr.File {\n\t\tif strings.HasPrefix(f.Name, \"/\") || strings.Contains(f.Name, \"..\") || strings.HasSuffix(f.Name, \"/\") {\n\t\t\treturn nil, fmt.Errorf(\"invalid path %q in built-in package %q\", f.Name, name)\n\t\t}\n\t\trc, err := f.Open()\n\t\tif err != nil {\n\t\t\treturn nil, err\n\t\t}\n\t\tcontent, err := io.ReadAll(rc)\n\t\trc.Close()\n\t\tif err != nil {\n\t\t\treturn nil, err\n\t\t}\n\t\tfiles[f.Name] = content\n\t}\n\treturn files, nil\n}",
+                "file": "internal/builtin/builtin.go",
+                "name": "Files"
+              }
+            },
+            {
+              "action": "setFunction",
+              "kwargs": {
+                "code": "// Paths returns the keys of files sorted.\nfunc Paths(files map[string][]byte) []string {\n\tpaths := make([]string, 0, len(files))\n\tfor p := range files {\n\t\tpaths = append(paths, p)\n\t}\n\tsort.Strings(paths)\n\treturn paths\n}",
+                "file": "internal/builtin/builtin.go",
+                "name": "Paths"
+              }
+            },
+            {
+              "action": "addImport",
+              "kwargs": {
+                "file": "internal/builtin/builtin_test.go",
+                "path": "bytes"
+              }
+            },
+            {
+              "action": "addImport",
+              "kwargs": {
+                "file": "internal/builtin/builtin_test.go",
+                "path": "os"
+              }
+            },
+            {
+              "action": "addImport",
+              "kwargs": {
+                "file": "internal/builtin/builtin_test.go",
+                "path": "path/filepath"
+              }
+            },
+            {
+              "action": "addImport",
+              "kwargs": {
+                "file": "internal/builtin/builtin_test.go",
+                "path": "sort"
+              }
+            },
+            {
+              "action": "addImport",
+              "kwargs": {
+                "file": "internal/builtin/builtin_test.go",
+                "path": "strings"
+              }
+            },
+            {
+              "action": "addImport",
+              "kwargs": {
+                "file": "internal/builtin/builtin_test.go",
+                "path": "testing"
+              }
+            },
+            {
+              "action": "setFunction",
+              "kwargs": {
+                "code": "func TestNames(t *testing.T) {\n\tgot := Names()\n\tif len(got) != 1 || got[0] != \"go\" {\n\t\tt.Fatalf(\"Names() = %q, want [go]\", got)\n\t}\n}",
+                "file": "internal/builtin/builtin_test.go",
+                "name": "TestNames"
+              }
+            },
+            {
+              "action": "setFunction",
+              "kwargs": {
+                "code": "func TestFilesGo(t *testing.T) {\n\tfiles, err := Files(\"go\")\n\tif err != nil {\n\t\tt.Fatal(err)\n\t}\n\tfor _, want := range []string{\"sedum.yaml\", \"actions/actions.yaml\"} {\n\t\tif _, ok := files[want]; !ok {\n\t\t\tt.Errorf(\"Files(\\\"go\\\") missing %s\", want)\n\t\t}\n\t}\n\tfor k := range files {\n\t\tif strings.HasPrefix(k, \"/\") || strings.Contains(k, \"..\") {\n\t\t\tt.Errorf(\"Files(\\\"go\\\") returned unsafe path %q\", k)\n\t\t}\n\t}\n}",
+                "file": "internal/builtin/builtin_test.go",
+                "name": "TestFilesGo"
+              }
+            },
+            {
+              "action": "setFunction",
+              "kwargs": {
+                "code": "func TestFilesUnknown(t *testing.T) {\n\t_, err := Files(\"x\")\n\tif err == nil {\n\t\tt.Fatal(\"Files(\\\"x\\\") returned no error\")\n\t}\n\tif !strings.Contains(err.Error(), \"go\") {\n\t\tt.Errorf(\"error %q does not name the built-in package go\", err)\n\t}\n}",
+                "file": "internal/builtin/builtin_test.go",
+                "name": "TestFilesUnknown"
+              }
+            },
+            {
+              "action": "setFunction",
+              "kwargs": {
+                "code": "func TestPathsSorted(t *testing.T) {\n\tgot := Paths(map[string][]byte{\"b\": nil, \"a\": nil, \"c/d\": nil})\n\tif !sort.StringsAreSorted(got) {\n\t\tt.Errorf(\"Paths() = %q, not sorted\", got)\n\t}\n\twant := []string{\"a\", \"b\", \"c/d\"}\n\tif len(got) != len(want) {\n\t\tt.Fatalf(\"Paths() = %q, want %q\", got, want)\n\t}\n\tfor i := range want {\n\t\tif got[i] != want[i] {\n\t\t\tt.Fatalf(\"Paths() = %q, want %q\", got, want)\n\t\t}\n\t}\n}",
+                "file": "internal/builtin/builtin_test.go",
+                "name": "TestPathsSorted"
+              }
+            },
+            {
+              "action": "setFunction",
+              "kwargs": {
+                "code": "func TestGeneratorsDrift(t *testing.T) {\n\troot := filepath.Join(\"..\", \"..\", \"generators\", \"go\")\n\tif _, err := os.Stat(root); os.IsNotExist(err) {\n\t\tt.Skip(\"generators/go does not exist\")\n\t}\n\tfiles, err := Files(\"go\")\n\tif err != nil {\n\t\tt.Fatal(err)\n\t}\n\tsrc := make(map[string][]byte)\n\terr = filepath.WalkDir(root, func(p string, d os.DirEntry, err error) error {\n\t\tif err != nil {\n\t\t\treturn err\n\t\t}\n\t\tif d.IsDir() {\n\t\t\treturn nil\n\t\t}\n\t\trel, err := filepath.Rel(root, p)\n\t\tif err != nil {\n\t\t\treturn err\n\t\t}\n\t\tdata, err := os.ReadFile(p)\n\t\tif err != nil {\n\t\t\treturn err\n\t\t}\n\t\tsrc[filepath.ToSlash(rel)] = data\n\t\treturn nil\n\t})\n\tif err != nil {\n\t\tt.Fatal(err)\n\t}\n\tfor k, want := range src {\n\t\tgot, ok := files[k]\n\t\tif !ok || !bytes.Equal(got, want) {\n\t\t\tt.Errorf(\"generators/go/%s differs from built-in package; run hack/sync-builtin.sh\", k)\n\t\t}\n\t}\n\tfor k := range files {\n\t\tif _, ok := src[k]; !ok {\n\t\t\tt.Errorf(\"built-in package has %s missing from generators/go; run hack/sync-builtin.sh\", k)\n\t\t}\n\t}\n}",
+                "file": "internal/builtin/builtin_test.go",
+                "name": "TestGeneratorsDrift"
+              }
+            }
+          ]
+        }
+      ],
+      "regions": [
+        {
+          "path": "internal/builtin/builtin.go",
+          "action": "addImport",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:d6a9443c14d82b7bdf19bb96637f957fd44ad9bfbe8f167c97e6f7699c8b830f",
+          "id": {
+            "file": "internal/builtin/builtin.go",
+            "path": "archive/zip"
+          },
+          "kwargs": {
+            "file": "internal/builtin/builtin.go",
+            "path": "archive/zip"
+          },
+          "kwargs_hash": "sha256:1f57c332afa6b5b8d53944798e8d8898a43bb91d7c9480ad2c7226b55b01a41c",
+          "body": "sha256:d313d2d9a0178875efd7a917bc5a898ac82d6ac825476f6784d6a74e7e61b8e1"
+        },
+        {
+          "path": "internal/builtin/builtin.go",
+          "action": "addImport",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:d6a9443c14d82b7bdf19bb96637f957fd44ad9bfbe8f167c97e6f7699c8b830f",
+          "id": {
+            "file": "internal/builtin/builtin.go",
+            "path": "bytes"
+          },
+          "kwargs": {
+            "file": "internal/builtin/builtin.go",
+            "path": "bytes"
+          },
+          "kwargs_hash": "sha256:20d7ebfa4df60fa6df4dbf6cbb66406789614ccb961248f47ca66a8a7435f190",
+          "body": "sha256:468731f6dd513df0a66690d4649dc9e7244c96de227d8e6ead98cc5e9747c57a"
+        },
+        {
+          "path": "internal/builtin/builtin.go",
+          "action": "addImport",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:d6a9443c14d82b7bdf19bb96637f957fd44ad9bfbe8f167c97e6f7699c8b830f",
+          "id": {
+            "file": "internal/builtin/builtin.go",
+            "path": "fmt"
+          },
+          "kwargs": {
+            "file": "internal/builtin/builtin.go",
+            "path": "fmt"
+          },
+          "kwargs_hash": "sha256:e717a6641c9566ea079c737695ab562492d086c218c6ced72acdf1ef2b32d0c6",
+          "body": "sha256:bcbac51883cbf8064e9196b371cb880cee429866652447ad557533d817857609"
+        },
+        {
+          "path": "internal/builtin/builtin.go",
+          "action": "addImport",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:d6a9443c14d82b7bdf19bb96637f957fd44ad9bfbe8f167c97e6f7699c8b830f",
+          "id": {
+            "file": "internal/builtin/builtin.go",
+            "path": "io"
+          },
+          "kwargs": {
+            "file": "internal/builtin/builtin.go",
+            "path": "io"
+          },
+          "kwargs_hash": "sha256:39eb732aec16ea55f76b54e3019846aaca9eee727edf049c60be6884f01d69a7",
+          "body": "sha256:ef8e8abf4ef5ee40a19dc85b49bf09c5df1fe32abfe834e0ab4c2175baf80ddf"
+        },
+        {
+          "path": "internal/builtin/builtin.go",
+          "action": "addImport",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:d6a9443c14d82b7bdf19bb96637f957fd44ad9bfbe8f167c97e6f7699c8b830f",
+          "id": {
+            "file": "internal/builtin/builtin.go",
+            "path": "sort"
+          },
+          "kwargs": {
+            "file": "internal/builtin/builtin.go",
+            "path": "sort"
+          },
+          "kwargs_hash": "sha256:80e69c5246d01ab9f9a787021d67acceabe7d6b481000363167f9d5abf3a271b",
+          "body": "sha256:f197172617ae21ef23b1855b09aafb14571020ae81bff877d63d3ff81f4bf63c"
+        },
+        {
+          "path": "internal/builtin/builtin.go",
+          "action": "addImport",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:d6a9443c14d82b7bdf19bb96637f957fd44ad9bfbe8f167c97e6f7699c8b830f",
+          "id": {
+            "file": "internal/builtin/builtin.go",
+            "path": "strings"
+          },
+          "kwargs": {
+            "file": "internal/builtin/builtin.go",
+            "path": "strings"
+          },
+          "kwargs_hash": "sha256:685b043f96c25a8e437c35d5484152728de810f28d56cb2b5a85c40d7583fe94",
+          "body": "sha256:a9af3c0bc4bf9342df9d7e89a324523fdba7941a9ca4190270e68ff3c4a25ea6"
+        },
+        {
+          "path": "internal/builtin/builtin.go",
+          "action": "setFunction",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:6589611adfb6618a7920e43f951a79901428192ea95c1084fde9f222aecd9537",
+          "id": {
+            "file": "internal/builtin/builtin.go",
+            "name": "Files"
+          },
+          "kwargs": {
+            "code": "// Files returns every file of the named built-in package, keyed by its\n// slash-separated path relative to the package root.\nfunc Files(name string) (map[string][]byte, error) {\n\tknown := Names()\n\tfound := false\n\tfor _, n := range known {\n\t\tif n == name {\n\t\t\tfound = true\n\t\t\tbreak\n\t\t}\n\t}\n\tif !found {\n\t\treturn nil, fmt.Errorf(\"no built-in package %q; built-in packages: %s\", name, strings.Join(known, \", \"))\n\t}\n\tdata, err := packagesFS.ReadFile(\"packages/\" + name + \".zip\")\n\tif err != nil {\n\t\treturn nil, err\n\t}\n\tzr, err := zip.NewReader(bytes.NewReader(data), int64(len(data)))\n\tif err != nil {\n\t\treturn nil, err\n\t}\n\tfiles := make(map[string][]byte)\n\tfor _, f := range zr.File {\n\t\tif strings.HasPrefix(f.Name, \"/\") || strings.Contains(f.Name, \"..\") || strings.HasSuffix(f.Name, \"/\") {\n\t\t\treturn nil, fmt.Errorf(\"invalid path %q in built-in package %q\", f.Name, name)\n\t\t}\n\t\trc, err := f.Open()\n\t\tif err != nil {\n\t\t\treturn nil, err\n\t\t}\n\t\tcontent, err := io.ReadAll(rc)\n\t\trc.Close()\n\t\tif err != nil {\n\t\t\treturn nil, err\n\t\t}\n\t\tfiles[f.Name] = content\n\t}\n\treturn files, nil\n}",
+            "file": "internal/builtin/builtin.go",
+            "name": "Files"
+          },
+          "kwargs_hash": "sha256:21f0aec1df9caee7ad8e4f4169c61064b5e964b84a3de81ed24db2e26362efb6",
+          "body": "sha256:267311fb5dabc97358a0113bea618f53a36a9aefeab1d7df412f446cc95cc4a2"
+        },
+        {
+          "path": "internal/builtin/builtin.go",
+          "action": "setFunction",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:6589611adfb6618a7920e43f951a79901428192ea95c1084fde9f222aecd9537",
+          "id": {
+            "file": "internal/builtin/builtin.go",
+            "name": "Names"
+          },
+          "kwargs": {
+            "code": "// Names returns the sorted names of the built-in packages.\nfunc Names() []string {\n\tentries, err := packagesFS.ReadDir(\"packages\")\n\tif err != nil {\n\t\treturn nil\n\t}\n\tvar names []string\n\tfor _, e := range entries {\n\t\tname := e.Name()\n\t\tif strings.HasSuffix(name, \".zip\") {\n\t\t\tnames = append(names, strings.TrimSuffix(name, \".zip\"))\n\t\t}\n\t}\n\tsort.Strings(names)\n\treturn names\n}",
+            "file": "internal/builtin/builtin.go",
+            "name": "Names"
+          },
+          "kwargs_hash": "sha256:8eacddfe0b33a8343007d8bf8231a5c453a5921d2d2c2a9300bda8a2bccd4f2e",
+          "body": "sha256:acf49b2d695864fd06b8b92e380eb37988f60a04dd6c18e22bc7655807bd066e"
+        },
+        {
+          "path": "internal/builtin/builtin.go",
+          "action": "setFunction",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:6589611adfb6618a7920e43f951a79901428192ea95c1084fde9f222aecd9537",
+          "id": {
+            "file": "internal/builtin/builtin.go",
+            "name": "Paths"
+          },
+          "kwargs": {
+            "code": "// Paths returns the keys of files sorted.\nfunc Paths(files map[string][]byte) []string {\n\tpaths := make([]string, 0, len(files))\n\tfor p := range files {\n\t\tpaths = append(paths, p)\n\t}\n\tsort.Strings(paths)\n\treturn paths\n}",
+            "file": "internal/builtin/builtin.go",
+            "name": "Paths"
+          },
+          "kwargs_hash": "sha256:f4944cbbe3d4e77ed01ba889eb5f3aabf5654f933509ae1d24bf6eb3d7318672",
+          "body": "sha256:8e6ed6c2e2fa29f55d0734526c7da73e3b9853239a891737021cba96a11495ed"
+        },
+        {
+          "path": "internal/builtin/builtin_test.go",
+          "action": "addImport",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:d6a9443c14d82b7bdf19bb96637f957fd44ad9bfbe8f167c97e6f7699c8b830f",
+          "id": {
+            "file": "internal/builtin/builtin_test.go",
+            "path": "bytes"
+          },
+          "kwargs": {
+            "file": "internal/builtin/builtin_test.go",
+            "path": "bytes"
+          },
+          "kwargs_hash": "sha256:af12bd3ff7cc333ab5b3a4ceb777cb41e81e076f4e27d905a526bd818558ac7a",
+          "body": "sha256:468731f6dd513df0a66690d4649dc9e7244c96de227d8e6ead98cc5e9747c57a"
+        },
+        {
+          "path": "internal/builtin/builtin_test.go",
+          "action": "addImport",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:d6a9443c14d82b7bdf19bb96637f957fd44ad9bfbe8f167c97e6f7699c8b830f",
+          "id": {
+            "file": "internal/builtin/builtin_test.go",
+            "path": "os"
+          },
+          "kwargs": {
+            "file": "internal/builtin/builtin_test.go",
+            "path": "os"
+          },
+          "kwargs_hash": "sha256:f112c7c9f6cd9c6fe684d527fa5f232e59a93deba96175c2efa13719a98ab194",
+          "body": "sha256:7c6e309eb2575d4aa451ec2ab83161d13e9ae03bbca3a4d2ecf30ce12adf0905"
+        },
+        {
+          "path": "internal/builtin/builtin_test.go",
+          "action": "addImport",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:d6a9443c14d82b7bdf19bb96637f957fd44ad9bfbe8f167c97e6f7699c8b830f",
+          "id": {
+            "file": "internal/builtin/builtin_test.go",
+            "path": "path/filepath"
+          },
+          "kwargs": {
+            "file": "internal/builtin/builtin_test.go",
+            "path": "path/filepath"
+          },
+          "kwargs_hash": "sha256:1d36510eba9db1e6acd843fb7672fa4d23150f5f4179b8e45a8804fc955fd011",
+          "body": "sha256:a6d196b558491e646be93f56a321f339068c64c76aa9d49bb18046e7f9c777a1"
+        },
+        {
+          "path": "internal/builtin/builtin_test.go",
+          "action": "addImport",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:d6a9443c14d82b7bdf19bb96637f957fd44ad9bfbe8f167c97e6f7699c8b830f",
+          "id": {
+            "file": "internal/builtin/builtin_test.go",
+            "path": "sort"
+          },
+          "kwargs": {
+            "file": "internal/builtin/builtin_test.go",
+            "path": "sort"
+          },
+          "kwargs_hash": "sha256:52d5b862464688104055a07e1c1c7e0f07624d7c9794de8c6654a6132ad8a4fc",
+          "body": "sha256:f197172617ae21ef23b1855b09aafb14571020ae81bff877d63d3ff81f4bf63c"
+        },
+        {
+          "path": "internal/builtin/builtin_test.go",
+          "action": "addImport",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:d6a9443c14d82b7bdf19bb96637f957fd44ad9bfbe8f167c97e6f7699c8b830f",
+          "id": {
+            "file": "internal/builtin/builtin_test.go",
+            "path": "strings"
+          },
+          "kwargs": {
+            "file": "internal/builtin/builtin_test.go",
+            "path": "strings"
+          },
+          "kwargs_hash": "sha256:74f9e2f23aef3e795b7c02d1a44904e16b9f8b9229b211d45a47959722f9f4cd",
+          "body": "sha256:a9af3c0bc4bf9342df9d7e89a324523fdba7941a9ca4190270e68ff3c4a25ea6"
+        },
+        {
+          "path": "internal/builtin/builtin_test.go",
+          "action": "addImport",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:d6a9443c14d82b7bdf19bb96637f957fd44ad9bfbe8f167c97e6f7699c8b830f",
+          "id": {
+            "file": "internal/builtin/builtin_test.go",
+            "path": "testing"
+          },
+          "kwargs": {
+            "file": "internal/builtin/builtin_test.go",
+            "path": "testing"
+          },
+          "kwargs_hash": "sha256:0ee2fd2edf9e17772d12f1ff422202bcb56ecec16d036dcddd5bad31a8b5710b",
+          "body": "sha256:14a4a5f3bfbf9325de04706efa8c15a9446f01d2a26624ce9c66bd1d69dc212e"
+        },
+        {
+          "path": "internal/builtin/builtin_test.go",
+          "action": "setFunction",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:6589611adfb6618a7920e43f951a79901428192ea95c1084fde9f222aecd9537",
+          "id": {
+            "file": "internal/builtin/builtin_test.go",
+            "name": "TestFilesGo"
+          },
+          "kwargs": {
+            "code": "func TestFilesGo(t *testing.T) {\n\tfiles, err := Files(\"go\")\n\tif err != nil {\n\t\tt.Fatal(err)\n\t}\n\tfor _, want := range []string{\"sedum.yaml\", \"actions/actions.yaml\"} {\n\t\tif _, ok := files[want]; !ok {\n\t\t\tt.Errorf(\"Files(\\\"go\\\") missing %s\", want)\n\t\t}\n\t}\n\tfor k := range files {\n\t\tif strings.HasPrefix(k, \"/\") || strings.Contains(k, \"..\") {\n\t\t\tt.Errorf(\"Files(\\\"go\\\") returned unsafe path %q\", k)\n\t\t}\n\t}\n}",
+            "file": "internal/builtin/builtin_test.go",
+            "name": "TestFilesGo"
+          },
+          "kwargs_hash": "sha256:a701071028e4b2cd4fc12d59eacadcdcf18f7c9ba8cc5a50f5bf35cf331f1ead",
+          "body": "sha256:3778b0f4c9256edc0bfa6089a33a9e030424b353684391b4fdd60560ddd90ff9"
+        },
+        {
+          "path": "internal/builtin/builtin_test.go",
+          "action": "setFunction",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:6589611adfb6618a7920e43f951a79901428192ea95c1084fde9f222aecd9537",
+          "id": {
+            "file": "internal/builtin/builtin_test.go",
+            "name": "TestFilesUnknown"
+          },
+          "kwargs": {
+            "code": "func TestFilesUnknown(t *testing.T) {\n\t_, err := Files(\"x\")\n\tif err == nil {\n\t\tt.Fatal(\"Files(\\\"x\\\") returned no error\")\n\t}\n\tif !strings.Contains(err.Error(), \"go\") {\n\t\tt.Errorf(\"error %q does not name the built-in package go\", err)\n\t}\n}",
+            "file": "internal/builtin/builtin_test.go",
+            "name": "TestFilesUnknown"
+          },
+          "kwargs_hash": "sha256:147582918d015af263c2a2eccd18858abf7917e76044a58e1ab04f2574bd6d01",
+          "body": "sha256:d52a4b6dd6b9ab662535b0123ab7380594e50dffeb2abc8888eefb6baa4d0907"
+        },
+        {
+          "path": "internal/builtin/builtin_test.go",
+          "action": "setFunction",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:6589611adfb6618a7920e43f951a79901428192ea95c1084fde9f222aecd9537",
+          "id": {
+            "file": "internal/builtin/builtin_test.go",
+            "name": "TestGeneratorsDrift"
+          },
+          "kwargs": {
+            "code": "func TestGeneratorsDrift(t *testing.T) {\n\troot := filepath.Join(\"..\", \"..\", \"generators\", \"go\")\n\tif _, err := os.Stat(root); os.IsNotExist(err) {\n\t\tt.Skip(\"generators/go does not exist\")\n\t}\n\tfiles, err := Files(\"go\")\n\tif err != nil {\n\t\tt.Fatal(err)\n\t}\n\tsrc := make(map[string][]byte)\n\terr = filepath.WalkDir(root, func(p string, d os.DirEntry, err error) error {\n\t\tif err != nil {\n\t\t\treturn err\n\t\t}\n\t\tif d.IsDir() {\n\t\t\treturn nil\n\t\t}\n\t\trel, err := filepath.Rel(root, p)\n\t\tif err != nil {\n\t\t\treturn err\n\t\t}\n\t\tdata, err := os.ReadFile(p)\n\t\tif err != nil {\n\t\t\treturn err\n\t\t}\n\t\tsrc[filepath.ToSlash(rel)] = data\n\t\treturn nil\n\t})\n\tif err != nil {\n\t\tt.Fatal(err)\n\t}\n\tfor k, want := range src {\n\t\tgot, ok := files[k]\n\t\tif !ok || !bytes.Equal(got, want) {\n\t\t\tt.Errorf(\"generators/go/%s differs from built-in package; run hack/sync-builtin.sh\", k)\n\t\t}\n\t}\n\tfor k := range files {\n\t\tif _, ok := src[k]; !ok {\n\t\t\tt.Errorf(\"built-in package has %s missing from generators/go; run hack/sync-builtin.sh\", k)\n\t\t}\n\t}\n}",
+            "file": "internal/builtin/builtin_test.go",
+            "name": "TestGeneratorsDrift"
+          },
+          "kwargs_hash": "sha256:9df199d3ab110e2512a6f11672a5d2feed9851279b615d7a30bea164a40f8840",
+          "body": "sha256:d13112a4ce2ee91f44042e0416a784e0c7e4bd7cc80873f11f14bb4550dc4453"
+        },
+        {
+          "path": "internal/builtin/builtin_test.go",
+          "action": "setFunction",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:6589611adfb6618a7920e43f951a79901428192ea95c1084fde9f222aecd9537",
+          "id": {
+            "file": "internal/builtin/builtin_test.go",
+            "name": "TestNames"
+          },
+          "kwargs": {
+            "code": "func TestNames(t *testing.T) {\n\tgot := Names()\n\tif len(got) != 1 || got[0] != \"go\" {\n\t\tt.Fatalf(\"Names() = %q, want [go]\", got)\n\t}\n}",
+            "file": "internal/builtin/builtin_test.go",
+            "name": "TestNames"
+          },
+          "kwargs_hash": "sha256:0ced5a0649047eb2c6f276cf90507d65124da5cf6fd197ab0b1ef5f4a38eb322",
+          "body": "sha256:1fcfb3510df84d70fb1ff06c3fe96cd9fea5fdfd80a3d51201f46ae1379d0cfd"
+        },
+        {
+          "path": "internal/builtin/builtin_test.go",
+          "action": "setFunction",
+          "variant": "",
+          "tier": "owned",
+          "pkg": "sha256:6589611adfb6618a7920e43f951a79901428192ea95c1084fde9f222aecd9537",
+          "id": {
+            "file": "internal/builtin/builtin_test.go",
+            "name": "TestPathsSorted"
+          },
+          "kwargs": {
+            "code": "func TestPathsSorted(t *testing.T) {\n\tgot := Paths(map[string][]byte{\"b\": nil, \"a\": nil, \"c/d\": nil})\n\tif !sort.StringsAreSorted(got) {\n\t\tt.Errorf(\"Paths() = %q, not sorted\", got)\n\t}\n\twant := []string{\"a\", \"b\", \"c/d\"}\n\tif len(got) != len(want) {\n\t\tt.Fatalf(\"Paths() = %q, want %q\", got, want)\n\t}\n\tfor i := range want {\n\t\tif got[i] != want[i] {\n\t\t\tt.Fatalf(\"Paths() = %q, want %q\", got, want)\n\t\t}\n\t}\n}",
+            "file": "internal/builtin/builtin_test.go",
+            "name": "TestPathsSorted"
+          },
+          "kwargs_hash": "sha256:0f48f4337c0a73af84cdb33c6a02cecc860b537a2068905343fa0756a747ab9d",
+          "body": "sha256:ed6b8cb8f73aac4a1a03822cac1e65d12b9e390fb2cc64560cfb32e2d3a41935"
+        }
+      ]
+    }
+  ]
+}
