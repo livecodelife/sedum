@@ -1,9 +1,9 @@
 id: prov-2026-9bc22cf7
 title: 'adopt: the built-in Go adopter'
 type: imprint
-status: implemented
-version: 10
-reason: a non-main root package is skipped with a named reason
+status: open
+version: 11
+reason: Refresh spec hashes after the v2 marker migration rewrote the spec files
 created_at: "2026-10-16"
 author: calebcowen@gmail.com
 intent: |-
@@ -348,7 +348,7 @@ forbidden_scope: []
 implements: prov-2026-36809902
 implements_version: 2
 related: []
-sealed_at_sha: 286dc27d5528abde58cd5ffc98940a085329fb96
+sealed_at_sha: ""
 associated_specs:
   - path: internal/adopt/goadopter_test.go
     run_command: go test ./internal/adopt -run 'GoAdopter' -count=1
