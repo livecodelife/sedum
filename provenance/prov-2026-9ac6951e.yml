@@ -1,9 +1,9 @@
 id: prov-2026-9ac6951e
 title: 'adopt: the adoption report'
 type: imprint
-status: implemented
-version: 5
-reason: 'stage 2: Text prints the scope lines'
+status: open
+version: 6
+reason: Refresh spec hashes after the v2 marker migration rewrote the spec files
 created_at: "2026-10-16"
 author: calebcowen@gmail.com
 intent: |-
@@ -74,7 +74,7 @@ forbidden_scope: []
 implements: prov-2026-95d9ae7e
 implements_version: 2
 related: []
-sealed_at_sha: 44e942f33b42988ff26023817756597b09dfa0db
+sealed_at_sha: ""
 associated_specs:
   - path: internal/adopt/report_test.go
     run_command: go test ./internal/adopt -run 'TestReport|TestResiduals' -count=1
