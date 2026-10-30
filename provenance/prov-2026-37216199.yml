@@ -1,9 +1,9 @@
 id: prov-2026-37216199
 title: 'adopt: file selection with skip reasons'
 type: imprint
-status: implemented
-version: 6
-reason: tests grown into the placeholder spec file
+status: open
+version: 7
+reason: Refresh spec hashes after the v2 marker migration rewrote the spec files
 created_at: "2026-10-16"
 author: calebcowen@gmail.com
 intent: |-
@@ -47,7 +47,7 @@ forbidden_scope: []
 implements: prov-2026-95d9ae7e
 implements_version: 2
 related: []
-sealed_at_sha: 00f87bf38c43c8a3b25a0519f4ffb8c04166d91e
+sealed_at_sha: ""
 associated_specs:
   - path: internal/adopt/select_test.go
     run_command: go test ./internal/adopt -run 'TestSelect' -count=1
