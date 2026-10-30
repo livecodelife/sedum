@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.11.1
+
+- `sedum evidence` no longer aborts when markers name a record that has no record file. It skips those regions, names each one (`skipped <id>: regions in <file>, no record file`), and still judges every real record; `--refresh` appends entries only for real records. A skipped region does not change the exit code, and the JSON report is unchanged.
+
 ## 0.11.0
 
 - **Slim release archive.** Each platform now has a second archive, `sedum_<version>_<os>_<arch>_slim.tar.gz`, without the bundled model (the full archive is about 1.7 GB). `install.sh --no-model` (or `SEDUM_NO_MODEL=1`) installs it; the default stays the full archive, an unknown argument fails naming it before anything is downloaded, and a failure names the tag and archive. `checksums.txt` covers every archive.
