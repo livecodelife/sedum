@@ -1,7 +1,7 @@
 id: prov-2026-a15d039a
 title: 'adopt: the round-trip verifier'
 type: imprint
-status: open
+status: implemented
 version: 3
 reason: Refresh spec hashes after the v2 marker migration rewrote the spec files
 created_at: "2026-10-16"
@@ -21,7 +21,7 @@ forbidden_scope: []
 implements: prov-2026-95d9ae7e
 implements_version: 2
 related: []
-sealed_at_sha: ""
+sealed_at_sha: 59257908e1d14981229ccc44a675bbc56375bb34
 associated_specs:
   - path: internal/adopt/verify_test.go
     run_command: go test ./internal/adopt -run 'TestStripMarkers|TestVerify' -count=1
