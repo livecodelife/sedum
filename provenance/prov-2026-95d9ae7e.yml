@@ -1,9 +1,9 @@
 id: prov-2026-95d9ae7e
 title: 'Sedum adopt core: language-agnostic adoption with a coverage report'
 type: blueprint
-status: implemented
-version: 3
-reason: 'stage 2: the builtin adopter form adds a test file under the genpkg adopt imprint'
+status: open
+version: 4
+reason: A real adopt writes the per-record recordings
 created_at: "2026-10-16"
 author: calebcowen@gmail.com
 intent: |-
@@ -79,10 +79,20 @@ intent: |-
     and the splitter are package declarations.
   - No model call, ever. Adopt uses no flag that names a model.
   - Adoption writes nothing outside the output dir's managed files, `.sedum/adopt/`,
-    and (never) records. It does not create provenance records.
+    `.sedum/recordings/`, and (never) records. It does not create provenance records.
   - A skipped or rejected file is never partly written.
   - Adopting an adopted tree is a no-op (files with markers are skipped).
   - Existing grow/replay behaviour is unchanged; no flag or hash changes.
+  - A real run (not --dry-run) writes, for each record whose files it adopted, that record's recording to `.sedum/recordings/<record id>.json` under the project root.
+  - A per-record recording has the same form as the one a grow replay writes.
+  - A per-record recording lists the record's files and phases as adopted.
+  - A per-record recording has an entry for each region written into an adopted file.
+  - A file rejected at the round trip is not written, has no region entry and is not listed in a per-record recording.
+  - Entries of an earlier adopt of other files of the same record are kept in its per-record recording.
+  - A dry run writes no recording under `.sedum/recordings/`.
+  - A run that adopts nothing writes no recording under `.sedum/recordings/`.
+  - After a real adopt, `sedum grow --check` finds each adopted record current instead of reporting "no recording".
+  - The combined recording written to `.sedum/adopt/adopt.json` (or the path given by --recording) is unchanged.
   - Generate first: the new code is grown with sedum-haiku through the go package
     (context via --prompt-file); hand-written only what cannot be grown, with a reason.
 constraints: []
@@ -98,7 +108,7 @@ affected_scope:
   - internal/genpkg/adopt_builtin_test.go
 forbidden_scope: []
 related: []
-sealed_at_sha: 4ab696a4f8e31a10bf17de92aad6cdd9772d3866
+sealed_at_sha: ""
 associated_specs:
   - path: internal/adopt/adopt_test.go
     run_command: go test ./internal/adopt -count=1
