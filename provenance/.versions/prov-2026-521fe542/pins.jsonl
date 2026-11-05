@@ -1,0 +1,1 @@
+{"at":"2026-11-02T20:01:24Z","parent":"prov-2026-b5c21813","from":6,"to":7,"reason":"Written against the platform-neutral verify design now in b5c21813 v7 (Platforms section, nine platform constraints, the new shared/Unix/Windows/cross-build specs); nothing in this record contradicts it","author":"calebcowen@gmail.com"}

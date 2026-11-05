@@ -1,0 +1,66 @@
+id: prov-2026-521fe542
+title: 'go: internal/verify/verify_unix.go, Unix shell start and process-group kill for verify commands'
+type: imprint
+status: open
+version: 2
+reason: 'Re-based on upstream after the v2 marker migration: spec files changed on disk, and drop the claim that the header anchor exists only in newly created files'
+created_at: "2026-10-30"
+author: calebcowen@gmail.com
+intent: |-
+  The Go logic of internal/verify/verify_unix.go (go package, package verify): the Unix implementations of the platform hooks runCommand calls. Behaviour is byte-equivalent to the pre-change runCommand on Unix. The file is created by sedum grow, and setBuildConstraint writes its build line at the header anchor of the generated file.
+
+  Actions, in this order:
+
+    1. setBuildConstraint with file internal/verify/verify_unix.go and constraint unix. This is the first call. It writes the build line above package, so Go builds the file for Unix-like platforms only and excludes it on Windows.
+
+    2. Imports, each its own addImport, exactly: context, os/exec, syscall.
+
+    3. Declarations, in this order, each exactly one set* call whose code kwarg is the code below verbatim (gofmt-formatted, comments kept). Do not alter, reorder or add anything.
+
+      - setFunction name shellCommand, code exactly:
+          // shellCommand returns the unstarted command that runs one shell command line
+          // through sh -c. ctx is unused here; the parameter keeps the signature the same
+          // on every platform.
+          func shellCommand(ctx context.Context, command string) *exec.Cmd {
+          	return exec.Command("sh", "-c", command)
+          }
+
+      - setFunction name configureProcess, code exactly:
+          // configureProcess prepares cmd before it starts: the command leads its own
+          // process group, so killTree can signal everything it started.
+          func configureProcess(cmd *exec.Cmd) {
+          	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
+          }
+
+      - setFunction name killTree, code exactly:
+          // killTree terminates the started command and every process in its group.
+          func killTree(cmd *exec.Cmd) {
+          	_ = syscall.Kill(-cmd.Process.Pid, syscall.SIGKILL)
+          }
+constraints:
+  - On Unix, shellCommand(ctx context.Context, command string) returns an unstarted *exec.Cmd that runs the command through 'sh -c <command>', with sh resolved from PATH by exec.Command
+  - On Unix, shellCommand does not use ctx, does not set the working directory and does not start the process
+  - On Unix, configureProcess(cmd *exec.Cmd) sets cmd.SysProcAttr to a syscall.SysProcAttr with Setpgid true, so the command runs in its own process group
+  - On Unix, killTree(cmd *exec.Cmd) sends SIGKILL to the process group whose id is the negated cmd.Process.Pid, which terminates the started command and every process in that group
+  - On Unix, killTree ignores the error returned by syscall.Kill
+  - The file begins with the build constraint 'unix' followed by a blank line before the package clause, so it is excluded when building for Windows
+  - The file builds with GOOS=linux and with GOOS=darwin, each with GOARCH=amd64 and CGO_ENABLED=0
+affected_scope:
+  - internal/verify/verify_unix.go
+forbidden_scope: []
+implements: prov-2026-b5c21813
+implements_version: 7
+related: []
+sealed_at_sha: ""
+associated_specs:
+  - path: internal/verify/verify_test.go
+    run_command: go test ./internal/verify -count=1
+  - path: internal/verify/verify_unix_test.go
+    run_command: go test ./internal/verify -count=1
+  - path: internal/verify/verify_shared_test.go
+    run_command: go test ./internal/verify -count=1
+  - path: internal/verify/verify_crossbuild_test.go
+    run_command: go test ./internal/verify -count=1
+associated_traces: []
+monitors: []
+tags: []
