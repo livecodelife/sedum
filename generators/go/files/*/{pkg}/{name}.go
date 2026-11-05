@@ -1,3 +1,5 @@
+// sedum:anchor:header
+
 package {{pkg}}
 
 // sedum:anchor:imports
