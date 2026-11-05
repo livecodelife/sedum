@@ -1,7 +1,7 @@
 id: prov-2026-b5c21813
 title: grow --repair feeds project verification failures back to the model
 type: blueprint
-status: open
+status: implemented
 version: 7
 reason: 'Make verify shell and process-kill behaviour platform-neutral and add Windows: sh -c when sh is on PATH else cmd /C, whole-tree termination on timeout/cancel, compile-time platform selection, a cgo-free windows/amd64 build must succeed; records the new shared, Unix, Windows and cross-build verify tests as proof. Re-applied on top of upstream v6 after the v2 marker migration'
 created_at: "2026-10-16"
@@ -96,7 +96,7 @@ affected_scope:
   - internal/selection/verifyerror_test.go
 forbidden_scope: []
 related: []
-sealed_at_sha: ""
+sealed_at_sha: 2a1b770ac9cddda4077d0ca0ed624132f1e7b58c
 associated_specs:
   - path: internal/verify/verify_test.go
     run_command: go test ./internal/verify -count=1
