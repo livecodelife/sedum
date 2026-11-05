@@ -1,13 +1,13 @@
 id: prov-2026-6ab86198
 title: 'go: internal/verify/verify_test.go, tests for project verification'
 type: imprint
-status: implemented
-version: 3
-reason: Refresh spec hashes after the v2 marker migration rewrote the spec files
+status: open
+version: 4
+reason: Match verify_test.go after the process-group timeout test moved to the hand-written verify_unix_test.go. Re-applied on top of upstream v3
 created_at: "2026-10-16"
 author: calebcowen@gmail.com
-intent: |
-  The tests of internal/verify/verify_test.go (go package, package verify): config loading, the scratch tree, failures and truncated output, skipped directories, and a timeout that kills the process group and cleans up. The file already exists holding only its package clause.
+intent: |-
+  The tests of internal/verify/verify_test.go (go package, package verify): config loading, the scratch tree, failures and truncated output, and skipped directories. The file already exists holding only its package clause. Process-group kill tests (Unix) and process-tree kill tests (Windows) live in the hand-written verify_unix_test.go and verify_windows_test.go and are not generated.
 
   Imports, each its own addImport, exactly: bytes, context, os, path/filepath, strings, testing, time.
 
@@ -129,32 +129,6 @@ intent: |
         		t.Errorf("failures = %+v, err = %v", failures, err)
         	}
         }
-
-    - setFunction name TestRunKillsTheWholeProcessGroupOnTimeoutAndCleansUp, code exactly:
-        // A timeout kills the command and everything it started, reports it as a
-        // failure, and still removes the scratch directory.
-        func TestRunKillsTheWholeProcessGroupOnTimeoutAndCleansUp(t *testing.T) {
-        	marker := filepath.Join(t.TempDir(), "cwd")
-        	cfg := Config{Commands: []string{"pwd > " + marker + "; sleep 30 & sleep 30"}, Timeout: 300 * time.Millisecond}
-        	start := time.Now()
-        	failures, err := Run(context.Background(), cfg, tree(t, nil), nil, &bytes.Buffer{})
-        	if err != nil {
-        		t.Fatal(err)
-        	}
-        	if elapsed := time.Since(start); elapsed > 10*time.Second {
-        		t.Errorf("Run took %s: the background process held the run open", elapsed)
-        	}
-        	if len(failures) != 1 || !strings.HasPrefix(failures[0].Status, "timed out") {
-        		t.Fatalf("failures = %+v, want one timeout", failures)
-        	}
-        	data, err := os.ReadFile(marker)
-        	if err != nil {
-        		t.Fatal(err)
-        	}
-        	if _, err := os.Stat(strings.TrimSpace(string(data))); err == nil {
-        		t.Errorf("the scratch directory %s was not removed", strings.TrimSpace(string(data)))
-        	}
-        }
 constraints: []
 affected_scope:
   - internal/verify/verify_test.go
@@ -162,7 +136,7 @@ forbidden_scope: []
 implements: prov-2026-b5c21813
 implements_version: 1
 related: []
-sealed_at_sha: aa402fd4d21480d3689a4f0728c78b1d41c468ee
+sealed_at_sha: ""
 associated_specs:
   - path: internal/verify/verify_test.go
     run_command: go test ./internal/verify -count=1

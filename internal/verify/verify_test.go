@@ -156,30 +156,3 @@ func TestRunSkipsHiddenAndNamedDirectories(t *testing.T) {
 }
 
 // /sedum:setFunction
-// sedum:setFunction {"v":2,"tier":"owned","record":"prov-2026-6ab86198","gen":"sha256:aaf13f1fa8f54e47d5b1b268a14d9f7ab32f03b73759ac545746dcf9b58d05e3","pkg":"sha256:6589611adfb6618a7920e43f951a79901428192ea95c1084fde9f222aecd9537","id":{"file":"internal/verify/verify_test.go","name":"TestRunKillsTheWholeProcessGroupOnTimeoutAndCleansUp"},"kwargs":"sha256:4512d7e26e7e390b14ff3ac57fca958f3eecf12c5e13cd41103868750118cf08","body":"sha256:ab510181b38c4dd01719200e0e157b7033bc42d42c4977a238d6011a1d9f8841"}
-// A timeout kills the command and everything it started, reports it as a
-// failure, and still removes the scratch directory.
-func TestRunKillsTheWholeProcessGroupOnTimeoutAndCleansUp(t *testing.T) {
-	marker := filepath.Join(t.TempDir(), "cwd")
-	cfg := Config{Commands: []string{"pwd > " + marker + "; sleep 30 & sleep 30"}, Timeout: 300 * time.Millisecond}
-	start := time.Now()
-	failures, err := Run(context.Background(), cfg, tree(t, nil), nil, &bytes.Buffer{})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if elapsed := time.Since(start); elapsed > 10*time.Second {
-		t.Errorf("Run took %s: the background process held the run open", elapsed)
-	}
-	if len(failures) != 1 || !strings.HasPrefix(failures[0].Status, "timed out") {
-		t.Fatalf("failures = %+v, want one timeout", failures)
-	}
-	data, err := os.ReadFile(marker)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if _, err := os.Stat(strings.TrimSpace(string(data))); err == nil {
-		t.Errorf("the scratch directory %s was not removed", strings.TrimSpace(string(data)))
-	}
-}
-
-// /sedum:setFunction
