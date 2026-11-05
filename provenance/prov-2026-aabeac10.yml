@@ -1,17 +1,17 @@
 id: prov-2026-aabeac10
 title: 'go: internal/verify/verify.go, project verification in a scratch tree'
 type: imprint
-status: implemented
-version: 3
-reason: Refresh spec hashes after the v2 marker migration rewrote the spec files
+status: open
+version: 4
+reason: Route the shell start and process kill through the platform hooks shellCommand, configureProcess and killTree (drops syscall), and record the shared and cross-build verify tests as proof. Re-applied on top of upstream v3
 created_at: "2026-10-16"
 author: calebcowen@gmail.com
-intent: |
+intent: |-
   The Go logic of internal/verify/verify.go (go package, package verify): a project's verification commands, run in a scratch copy of the tree with a record's selection applied (prov-2026-b5c21813).
 
-  Imports, each its own addImport, exactly: bytes, context, errors, fmt, io, io/fs, os, os/exec, path/filepath, strings, syscall, time, gopkg.in/yaml.v3.
+  Imports, each its own addImport, exactly: bytes, context, errors, fmt, io, io/fs, os, os/exec, path/filepath, strings, time, gopkg.in/yaml.v3.
 
-  Declarations, in this order, each exactly one set* call whose code kwarg is the code below verbatim (gofmt-formatted, comments kept). Do not alter, reorder or add anything.
+  Declarations, in this order, each exactly one set* call whose code kwarg is the code below verbatim (gofmt-formatted, comments kept). Do not alter, reorder or add anything. The hooks shellCommand, configureProcess and killTree are not declared here: they are declared per platform in internal/verify/verify_unix.go and internal/verify/verify_windows.go.
 
     - setConst name ConfigPath, code exactly:
         // ConfigPath is where a project names its verification commands, relative to
@@ -136,12 +136,13 @@ intent: |
         }
 
     - setFunction name runCommand, code exactly:
-        // runCommand runs one shell command in dir, in its own process group so a
-        // timeout kills everything it started. status is empty when it exited 0.
+        // runCommand runs one shell command in dir, started and configured by the
+        // platform hooks so a timeout kills everything it started. status is empty
+        // when it exited 0.
         func runCommand(ctx context.Context, dir, command string, timeout time.Duration) (status, output string, err error) {
-        	cmd := exec.Command("sh", "-c", command)
+        	cmd := shellCommand(ctx, command)
         	cmd.Dir = dir
-        	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
+        	configureProcess(cmd)
         	var buf bytes.Buffer
         	cmd.Stdout, cmd.Stderr = &buf, &buf
         	if err := cmd.Start(); err != nil {
@@ -163,11 +164,11 @@ intent: |
         		}
         		return "", "", waitErr
         	case <-timer.C:
-        		_ = syscall.Kill(-cmd.Process.Pid, syscall.SIGKILL)
+        		killTree(cmd)
         		<-done
         		return fmt.Sprintf("timed out after %s", timeout), tail(buf.String()), nil
         	case <-ctx.Done():
-        		_ = syscall.Kill(-cmd.Process.Pid, syscall.SIGKILL)
+        		killTree(cmd)
         		<-done
         		return "", "", ctx.Err()
         	}
@@ -239,11 +240,15 @@ affected_scope:
   - internal/verify/verify.go
 forbidden_scope: []
 implements: prov-2026-b5c21813
-implements_version: 1
+implements_version: 7
 related: []
-sealed_at_sha: 57049a8145c9ff36e26c9240eac5202dd355a207
+sealed_at_sha: ""
 associated_specs:
   - path: internal/verify/verify_test.go
+    run_command: go test ./internal/verify -count=1
+  - path: internal/verify/verify_shared_test.go
+    run_command: go test ./internal/verify -count=1
+  - path: internal/verify/verify_crossbuild_test.go
     run_command: go test ./internal/verify -count=1
 associated_traces: []
 monitors: []
