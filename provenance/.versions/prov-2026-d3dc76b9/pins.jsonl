@@ -1,0 +1,1 @@
+{"at":"2026-11-02T20:01:24Z","parent":"prov-2026-b5c21813","from":5,"to":7,"reason":"selection.go's typed-error call site is untouched by the platform work in b5c21813 v7; parent versions 6-7 reviewed, v2-5 were completed upstream","author":"calebcowen@gmail.com"}
