@@ -1,0 +1,41 @@
+id: prov-2026-291dbe16
+title: Grow's Phase 5 syntax preview reconciles the record's owned regions as Phase 7 would
+type: imprint
+status: open
+version: 3
+reason: 'Spec file updated: reconciling tests call CheckSyntaxReconciled; added non-reconciling and grow-level tests'
+created_at: "2026-11-02"
+author: calebcowen@gmail.com
+intent: |-
+  CheckSyntaxReconciled, which has the same signature as CheckSyntax, previews a re-selecting record's files with that record's owned regions it no longer selects removed, so the buffers it checks are the ones Phase 7 would leave. Grow's Phase 5 check uses it, while replay's validation keeps the non-reconciling CheckSyntax because Phase 7 replay does not prune.
+
+  A record revised to drop an import or a declaration must not be failed for a region it no longer produces, such as an owned import of a package the new code never uses. Phase 7 already prunes those regions in the same all-or-nothing write, so the preview applies the same reconciliation to the same files, in memory only, and leaves every other record's regions alone.
+constraints:
+  - CheckSyntaxReconciled builds its preview with the invoking record reconciled over every managed file in files, the files whose Unmanaged is false and whose package is non-nil and that Phase 7 would write, with each target built as an inject.Target holding Path and Package
+  - A selection that drops an import its earlier version declared, and no longer uses the package, produces no unused-import violation for that package from CheckSyntaxReconciled
+  - A region owned by any other record is present, unchanged, in the buffers CheckSyntaxReconciled checks
+  - A seeded region is present, unchanged, in the buffers CheckSyntaxReconciled checks
+  - A region the selection produces again is replaced in place and never pruned by CheckSyntaxReconciled
+  - CheckSyntaxReconciled never writes to the output directory, and never modifies a file on disk
+  - A real violation in the reconciled buffers, such as an import the code does not use or a qualifier the file does not import, is still reported by CheckSyntaxReconciled as a syntax violation
+  - A selection that cannot be applied, such as an ownership conflict or a missing anchor, still yields no violations from CheckSyntaxReconciled
+  - CheckSyntaxReconciled returns no violations and does not reconcile when no file has a package with a syntax key or the selection is empty
+  - An owned region of the invoking record that the selection does not produce is absent from the buffers CheckSyntaxReconciled checks
+  - CheckSyntax does not reconcile, so a stale owned region of the invoking record is still present in the buffers it checks
+  - Grow's syntax check in the selection package calls CheckSyntaxReconciled
+  - Replay's validation of recorded selections still calls CheckSyntax
+affected_scope:
+  - internal/selection/syntax.go
+  - internal/selection/syntax_reconcile_test.go
+  - internal/selection/selection.go
+forbidden_scope: []
+implements: prov-2026-5403d162
+implements_version: 1
+related: []
+sealed_at_sha: ""
+associated_specs:
+  - path: internal/selection/syntax_reconcile_test.go
+    run_command: go test ./internal/selection -run CheckSyntax -count=1
+associated_traces: []
+monitors: []
+tags: []

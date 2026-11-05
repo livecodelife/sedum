@@ -31,7 +31,23 @@ const RuleSyntax = "syntax"
 // Phase 3 rendered for it. A selection that cannot be applied at all - an
 // ownership conflict, a missing anchor - is not reported here; Phase 7 reports
 // it with its own diagnostic.
+//
+// CheckSyntax does not reconcile: the preview it builds leaves regions the
+// selection does not touch as they are. Replay uses it for that reason; grow
+// uses CheckSyntaxReconciled.
 func CheckSyntax(recordID string, files []resolve.File, invocations []recording.Invocation, variables map[string]string, output string) []Violation {
+	return checkSyntax(recordID, files, invocations, variables, output, false)
+}
+
+// CheckSyntaxReconciled is CheckSyntax with the preview reconciled the way
+// Phase 7 of grow reconciles it: regions this record owns that the selection
+// does not fill are cleared in the preview, so the checked content is what
+// grow would write. Grow uses it; replay uses CheckSyntax.
+func CheckSyntaxReconciled(recordID string, files []resolve.File, invocations []recording.Invocation, variables map[string]string, output string) []Violation {
+	return checkSyntax(recordID, files, invocations, variables, output, true)
+}
+
+func checkSyntax(recordID string, files []resolve.File, invocations []recording.Invocation, variables map[string]string, output string, reconcile bool) []Violation {
 	checked := false
 	unwritten := map[string]string{}
 	for _, f := range files {
@@ -50,7 +66,18 @@ func CheckSyntax(recordID string, files []resolve.File, invocations []recording.
 	if err != nil {
 		return nil
 	}
-	buffers, err := inject.Preview(expanded, inject.Options{Output: output, Unwritten: unwritten})
+	opts := inject.Options{Output: output, Unwritten: unwritten}
+	if reconcile {
+		var targets []inject.Target
+		for _, f := range files {
+			if f.Unmanaged || f.Package == nil {
+				continue
+			}
+			targets = append(targets, inject.Target{Path: f.Path, Package: f.Package})
+		}
+		opts.Reconcile = []inject.Reconcile{{RecordID: recordID, Targets: targets}}
+	}
+	buffers, err := inject.Preview(expanded, opts)
 	if err != nil {
 		return nil
 	}
