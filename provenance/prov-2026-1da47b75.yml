@@ -1,7 +1,7 @@
 id: prov-2026-1da47b75
 title: sedum generators install vendors a package with a go.mod boundary
 type: blueprint
-status: open
+status: implemented
 version: 9
 reason: Add the setBuildConstraint action and header anchor to the go generator package so generated files can be build-constrained, motivated by Windows support for verify (prov-2026-b5c21813). Re-applied on top of upstream v8; drops the claim that the header anchor exists only in files sedum creates
 created_at: "2026-10-16"
@@ -101,7 +101,7 @@ affected_scope:
   - generators/go/
 forbidden_scope: []
 related: []
-sealed_at_sha: ""
+sealed_at_sha: f36343996b615f0113e0135f0c3b071ee8a58a9a
 associated_specs:
   - path: internal/builtin/builtin_test.go
     run_command: go test ./internal/builtin -count=1
