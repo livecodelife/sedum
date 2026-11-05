@@ -1,7 +1,7 @@
 id: prov-2026-291dbe16
 title: Grow's Phase 5 syntax preview reconciles the record's owned regions as Phase 7 would
 type: imprint
-status: open
+status: implemented
 version: 3
 reason: 'Spec file updated: reconciling tests call CheckSyntaxReconciled; added non-reconciling and grow-level tests'
 created_at: "2026-11-02"
@@ -32,7 +32,7 @@ forbidden_scope: []
 implements: prov-2026-5403d162
 implements_version: 1
 related: []
-sealed_at_sha: ""
+sealed_at_sha: 5244d0758da32d91b47ab2c7e9093e664e98e01e
 associated_specs:
   - path: internal/selection/syntax_reconcile_test.go
     run_command: go test ./internal/selection -run CheckSyntax -count=1
