@@ -1,0 +1,66 @@
+id: prov-2026-ab7a8e5f
+version: 1
+content_hash: sha256:608bfde73d1682134254caea5f006925a54152ce58e4dd88d96571a326144a92
+parent_hash: ""
+reason: ""
+author: calebcowen@gmail.com
+created_at: "2026-10-30T21:21:27Z"
+spec_hashes:
+  - sha256:b954d0b9e5456b50ba6f564d9cf7e53fa969d10a66ca293ce23b4b86c6692631
+  - sha256:e59c7aba21c1153c528f2ca4c1ec75dda74cbaac2d744babf973d517fa194bf1
+  - sha256:8bccea62a254d8cea8fd6d78f045effcf0998d5bd5f146c3a22a9a108beacd01
+  - sha256:60fc3b61f6d033976b76373a3d061e7c623fdd9f2ac967764be080e00a950ed1
+content:
+  id: prov-2026-ab7a8e5f
+  title: 'go: internal/verify/verify_windows.go, Windows shell start and process-tree kill for verify commands'
+  type: imprint
+  created_at: "2026-10-30"
+  author: calebcowen@gmail.com
+  intent: |-
+    The Go logic of internal/verify/verify_windows.go (go package, package verify): the Windows implementations of the platform hooks runCommand calls. The file name makes Go build it for GOOS=windows only.
+
+    Imports, each its own addImport, exactly: context, os/exec, strconv, syscall.
+
+    Declarations, in this order, each exactly one set* call whose code kwarg is the code below verbatim (gofmt-formatted, comments kept). Do not alter, reorder or add anything.
+
+      - setFunction name shellCommand, code exactly:
+          // shellCommand returns the unstarted command that runs one shell command line:
+          // through sh -c when an sh is on PATH, as Git for Windows provides, otherwise
+          // through cmd /C with the line passed to the process unquoted.
+          func shellCommand(ctx context.Context, command string) *exec.Cmd {
+          	if sh, err := exec.LookPath("sh"); err == nil {
+          		return exec.Command(sh, "-c", command)
+          	}
+          	cmd := exec.Command("cmd")
+          	cmd.SysProcAttr = &syscall.SysProcAttr{CmdLine: "cmd.exe /C " + command}
+          	return cmd
+          }
+
+      - setFunction name configureProcess, code exactly:
+          // configureProcess prepares cmd before it starts. Windows needs no process
+          // group, and it must not replace SysProcAttr, which shellCommand may have set.
+          func configureProcess(cmd *exec.Cmd) {}
+
+      - setFunction name killTree, code exactly:
+          // killTree terminates the started command and every process it started.
+          func killTree(cmd *exec.Cmd) {
+          	_ = exec.Command("taskkill", "/T", "/F", "/PID", strconv.Itoa(cmd.Process.Pid)).Run()
+          	_ = cmd.Process.Kill()
+          }
+  constraints:
+    - On Windows, shellCommand(ctx context.Context, command string) returns an unstarted *exec.Cmd that runs the command through 'sh -c <command>' when exec.LookPath finds an executable named sh
+    - On Windows, shellCommand returns a command that runs through 'cmd.exe /C <command>' when exec.LookPath finds no sh, with the command line given verbatim through SysProcAttr.CmdLine so cmd receives the text unquoted
+    - On Windows, shellCommand does not set the working directory and does not start the process
+    - On Windows, configureProcess(cmd *exec.Cmd) sets no process group and leaves cmd.SysProcAttr unchanged
+    - On Windows, killTree(cmd *exec.Cmd) terminates the started process and every process it started by running 'taskkill /T /F /PID <pid>' for cmd.Process.Pid
+    - On Windows, killTree ignores taskkill's error and then also kills cmd.Process directly
+    - The file references no Unix-only symbol and builds with GOOS=windows, GOARCH=amd64 and CGO_ENABLED=0
+  affected_scope:
+    - internal/verify/verify_windows.go
+  implements: prov-2026-b5c21813
+  implements_version: 6
+  associated_specs:
+    - path: internal/verify/verify_test.go
+    - path: internal/verify/verify_windows_test.go
+    - path: internal/verify/verify_shared_test.go
+    - path: internal/verify/verify_crossbuild_test.go
