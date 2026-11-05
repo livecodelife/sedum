@@ -1,7 +1,7 @@
 id: prov-2026-6ab86198
 title: 'go: internal/verify/verify_test.go, tests for project verification'
 type: imprint
-status: open
+status: implemented
 version: 4
 reason: Match verify_test.go after the process-group timeout test moved to the hand-written verify_unix_test.go. Re-applied on top of upstream v3
 created_at: "2026-10-16"
@@ -136,7 +136,7 @@ forbidden_scope: []
 implements: prov-2026-b5c21813
 implements_version: 1
 related: []
-sealed_at_sha: ""
+sealed_at_sha: 88a0a318499d8c9ebeee22f22be5f1ffff8f7b83
 associated_specs:
   - path: internal/verify/verify_test.go
     run_command: go test ./internal/verify -count=1
