@@ -1,7 +1,7 @@
 id: prov-2026-521fe542
 title: 'go: internal/verify/verify_unix.go, Unix shell start and process-group kill for verify commands'
 type: imprint
-status: open
+status: implemented
 version: 2
 reason: 'Re-based on upstream after the v2 marker migration: spec files changed on disk, and drop the claim that the header anchor exists only in newly created files'
 created_at: "2026-10-30"
@@ -51,7 +51,7 @@ forbidden_scope: []
 implements: prov-2026-b5c21813
 implements_version: 7
 related: []
-sealed_at_sha: ""
+sealed_at_sha: 1e0e124f32fbcfa5ba9b999c5c2c74b934b7565f
 associated_specs:
   - path: internal/verify/verify_test.go
     run_command: go test ./internal/verify -count=1
