@@ -1,5 +1,5 @@
 {
-  "sedum_version": "0.11.0",
+  "sedum_version": "0.11.1",
   "packages": {
     "go": {
       "extensions": [
@@ -10,7 +10,7 @@
   "records": [
     {
       "record_id": "prov-2026-aabeac10",
-      "gen": "sha256:101d811fc4a470dbb6ac18b477cc46a0afe98d566820267f4bfdd1b8526beb0b",
+      "gen": "sha256:0237180f617d2adb747e746c32779a147e010edf4cb7c49844c4fecf6ee44cf5",
       "created_at": "2026-10-16",
       "files": [
         {
@@ -95,13 +95,6 @@
               "kwargs": {
                 "file": "internal/verify/verify.go",
                 "path": "strings"
-              }
-            },
-            {
-              "action": "addImport",
-              "kwargs": {
-                "file": "internal/verify/verify.go",
-                "path": "syscall"
               }
             },
             {
@@ -203,7 +196,7 @@
             {
               "action": "setFunction",
               "kwargs": {
-                "code": "// runCommand runs one shell command in dir, in its own process group so a\n// timeout kills everything it started. status is empty when it exited 0.\nfunc runCommand(ctx context.Context, dir, command string, timeout time.Duration) (status, output string, err error) {\n\tcmd := exec.Command(\"sh\", \"-c\", command)\n\tcmd.Dir = dir\n\tcmd.SysProcAttr = \u0026syscall.SysProcAttr{Setpgid: true}\n\tvar buf bytes.Buffer\n\tcmd.Stdout, cmd.Stderr = \u0026buf, \u0026buf\n\tif err := cmd.Start(); err != nil {\n\t\treturn \"\", \"\", err\n\t}\n\tdone := make(chan error, 1)\n\tgo func() { done \u003c- cmd.Wait() }()\n\n\ttimer := time.NewTimer(timeout)\n\tdefer timer.Stop()\n\tselect {\n\tcase waitErr := \u003c-done:\n\t\tif waitErr == nil {\n\t\t\treturn \"\", \"\", nil\n\t\t}\n\t\tvar exit *exec.ExitError\n\t\tif errors.As(waitErr, \u0026exit) {\n\t\t\treturn exit.String(), tail(buf.String()), nil\n\t\t}\n\t\treturn \"\", \"\", waitErr\n\tcase \u003c-timer.C:\n\t\t_ = syscall.Kill(-cmd.Process.Pid, syscall.SIGKILL)\n\t\t\u003c-done\n\t\treturn fmt.Sprintf(\"timed out after %s\", timeout), tail(buf.String()), nil\n\tcase \u003c-ctx.Done():\n\t\t_ = syscall.Kill(-cmd.Process.Pid, syscall.SIGKILL)\n\t\t\u003c-done\n\t\treturn \"\", \"\", ctx.Err()\n\t}\n}",
+                "code": "// runCommand runs one shell command in dir, started and configured by the\n// platform hooks so a timeout kills everything it started. status is empty\n// when it exited 0.\nfunc runCommand(ctx context.Context, dir, command string, timeout time.Duration) (status, output string, err error) {\n\tcmd := shellCommand(ctx, command)\n\tcmd.Dir = dir\n\tconfigureProcess(cmd)\n\tvar buf bytes.Buffer\n\tcmd.Stdout, cmd.Stderr = \u0026buf, \u0026buf\n\tif err := cmd.Start(); err != nil {\n\t\treturn \"\", \"\", err\n\t}\n\tdone := make(chan error, 1)\n\tgo func() { done \u003c- cmd.Wait() }()\n\n\ttimer := time.NewTimer(timeout)\n\tdefer timer.Stop()\n\tselect {\n\tcase waitErr := \u003c-done:\n\t\tif waitErr == nil {\n\t\t\treturn \"\", \"\", nil\n\t\t}\n\t\tvar exit *exec.ExitError\n\t\tif errors.As(waitErr, \u0026exit) {\n\t\t\treturn exit.String(), tail(buf.String()), nil\n\t\t}\n\t\treturn \"\", \"\", waitErr\n\tcase \u003c-timer.C:\n\t\tkillTree(cmd)\n\t\t\u003c-done\n\t\treturn fmt.Sprintf(\"timed out after %s\", timeout), tail(buf.String()), nil\n\tcase \u003c-ctx.Done():\n\t\tkillTree(cmd)\n\t\t\u003c-done\n\t\treturn \"\", \"\", ctx.Err()\n\t}\n}",
                 "file": "internal/verify/verify.go",
                 "name": "runCommand"
               }
@@ -431,23 +424,6 @@
           "pkg": "sha256:d6a9443c14d82b7bdf19bb96637f957fd44ad9bfbe8f167c97e6f7699c8b830f",
           "id": {
             "file": "internal/verify/verify.go",
-            "path": "syscall"
-          },
-          "kwargs": {
-            "file": "internal/verify/verify.go",
-            "path": "syscall"
-          },
-          "kwargs_hash": "sha256:3ae6c99c9b992da095bc368f9ddd477c69cb9e7bed4a81604aeb47134684b74d",
-          "body": "sha256:1bede81c0dadcc701b7d096e89e517dcc5093c7f22a750533e538bf2882846ba"
-        },
-        {
-          "path": "internal/verify/verify.go",
-          "action": "addImport",
-          "variant": "",
-          "tier": "owned",
-          "pkg": "sha256:d6a9443c14d82b7bdf19bb96637f957fd44ad9bfbe8f167c97e6f7699c8b830f",
-          "id": {
-            "file": "internal/verify/verify.go",
             "path": "time"
           },
           "kwargs": {
@@ -594,12 +570,12 @@
             "name": "runCommand"
           },
           "kwargs": {
-            "code": "// runCommand runs one shell command in dir, in its own process group so a\n// timeout kills everything it started. status is empty when it exited 0.\nfunc runCommand(ctx context.Context, dir, command string, timeout time.Duration) (status, output string, err error) {\n\tcmd := exec.Command(\"sh\", \"-c\", command)\n\tcmd.Dir = dir\n\tcmd.SysProcAttr = \u0026syscall.SysProcAttr{Setpgid: true}\n\tvar buf bytes.Buffer\n\tcmd.Stdout, cmd.Stderr = \u0026buf, \u0026buf\n\tif err := cmd.Start(); err != nil {\n\t\treturn \"\", \"\", err\n\t}\n\tdone := make(chan error, 1)\n\tgo func() { done \u003c- cmd.Wait() }()\n\n\ttimer := time.NewTimer(timeout)\n\tdefer timer.Stop()\n\tselect {\n\tcase waitErr := \u003c-done:\n\t\tif waitErr == nil {\n\t\t\treturn \"\", \"\", nil\n\t\t}\n\t\tvar exit *exec.ExitError\n\t\tif errors.As(waitErr, \u0026exit) {\n\t\t\treturn exit.String(), tail(buf.String()), nil\n\t\t}\n\t\treturn \"\", \"\", waitErr\n\tcase \u003c-timer.C:\n\t\t_ = syscall.Kill(-cmd.Process.Pid, syscall.SIGKILL)\n\t\t\u003c-done\n\t\treturn fmt.Sprintf(\"timed out after %s\", timeout), tail(buf.String()), nil\n\tcase \u003c-ctx.Done():\n\t\t_ = syscall.Kill(-cmd.Process.Pid, syscall.SIGKILL)\n\t\t\u003c-done\n\t\treturn \"\", \"\", ctx.Err()\n\t}\n}",
+            "code": "// runCommand runs one shell command in dir, started and configured by the\n// platform hooks so a timeout kills everything it started. status is empty\n// when it exited 0.\nfunc runCommand(ctx context.Context, dir, command string, timeout time.Duration) (status, output string, err error) {\n\tcmd := shellCommand(ctx, command)\n\tcmd.Dir = dir\n\tconfigureProcess(cmd)\n\tvar buf bytes.Buffer\n\tcmd.Stdout, cmd.Stderr = \u0026buf, \u0026buf\n\tif err := cmd.Start(); err != nil {\n\t\treturn \"\", \"\", err\n\t}\n\tdone := make(chan error, 1)\n\tgo func() { done \u003c- cmd.Wait() }()\n\n\ttimer := time.NewTimer(timeout)\n\tdefer timer.Stop()\n\tselect {\n\tcase waitErr := \u003c-done:\n\t\tif waitErr == nil {\n\t\t\treturn \"\", \"\", nil\n\t\t}\n\t\tvar exit *exec.ExitError\n\t\tif errors.As(waitErr, \u0026exit) {\n\t\t\treturn exit.String(), tail(buf.String()), nil\n\t\t}\n\t\treturn \"\", \"\", waitErr\n\tcase \u003c-timer.C:\n\t\tkillTree(cmd)\n\t\t\u003c-done\n\t\treturn fmt.Sprintf(\"timed out after %s\", timeout), tail(buf.String()), nil\n\tcase \u003c-ctx.Done():\n\t\tkillTree(cmd)\n\t\t\u003c-done\n\t\treturn \"\", \"\", ctx.Err()\n\t}\n}",
             "file": "internal/verify/verify.go",
             "name": "runCommand"
           },
-          "kwargs_hash": "sha256:f89163807102b98f6b7870f75e645138678d0ecc6526f42fdd1b6d4e869b7875",
-          "body": "sha256:01cfedd30b173a605d33263930bbbce2e0876a9a111725a8949da69e20b31491"
+          "kwargs_hash": "sha256:e058c0903d5f87031a1aace48b9f7269c88665abad80798806dda33d4c1a40f4",
+          "body": "sha256:921bcc71df900032bc690a64c6a568aceee4628838465006db6c8bf51c0da0af"
         },
         {
           "path": "internal/verify/verify.go",

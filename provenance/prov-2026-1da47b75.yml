@@ -2,11 +2,11 @@ id: prov-2026-1da47b75
 title: sedum generators install vendors a package with a go.mod boundary
 type: blueprint
 status: implemented
-version: 8
-reason: Refresh spec hashes after the v2 marker migration rewrote the spec files
+version: 9
+reason: Add the setBuildConstraint action and header anchor to the go generator package so generated files can be build-constrained, motivated by Windows support for verify (prov-2026-b5c21813). Re-applied on top of upstream v8; drops the claim that the header anchor exists only in files sedum creates
 created_at: "2026-10-16"
 author: calebcowen@gmail.com
-intent: |
+intent: |-
   provisio-mgr (#provisio, 2026-10-16), from prov-cli's cold-start walkthrough (F4). A user who copies a generator package into their own module gets templates that `go test ./...` and `go build ./...` try to compile (the template files are named *.go and contain {{...}}). Sedum's own repo avoids this with generators/go.mod, a module boundary the toolchain skips; nothing tells a user to do the same and nothing helps them.
 
   ## Behaviour
@@ -18,6 +18,11 @@ intent: |
   ## How the built-in package is carried
   The generators directory is its own Go module (that boundary is the point), so the root module cannot go:embed it, and go:embed refuses some of its file names (the literal `*` directories under files/). The binary carries the package as internal/builtin/packages/go.zip, a deterministic zip that hack/sync-builtin.sh regenerates from generators/go (provisio-mgr: the copy is never hand-maintained). The embed var is declared by hand in internal/builtin/embed.go. A test fails when the archive's contents differ from generators/go, and its message tells you to run the script.
 
+  ## Build-constrained generated files
+  The go package gives generated files a `header` anchor above the `package` clause and an action `setBuildConstraint(file, constraint)` that writes a `//go:build <expr>` line there, so a generated file can be limited to one platform family (the verify package needs Windows-only and Unix-only files). `constraint` is one of eight fixed variants: unix, windows, linux, darwin, and a not_ form of each (not_unix, not_windows, not_linux, not_darwin). Each renders `//go:build <expr>` followed by one blank line. A file carries one constraint: setting a different one replaces it in place, and setting the same one again changes nothing.
+
+  Fixed variants were chosen over a free-form expression so that every accepted value is correct by construction and nothing needs parsing or escaping; the cost is that a combination such as linux-and-arm64 cannot be expressed until a variant is added. Existing actions render exactly as before.
+
   ## Not in scope
   A package registry or network fetch, uninstall/update commands, installing anything but packages and go.mod, and changing how packages are loaded.
 
@@ -25,6 +30,15 @@ intent: |
   internal/builtin (embed accessor and drift test), internal/cli/generators.go (plan, apply, safety checks) and internal/genpkg/gomod.go (the warning), with their tests, are grown with sedum-haiku via the go package. Handwritten: the one-line registration in root.go, the call in genpkg/load.go, the rule constant in diag.go, the go:embed var (gofmt cannot keep a directive directly above a var once a region marker sits above it), hack/sync-builtin.sh (a script, exempt like build files) and the archive it produces, a go.mod for testdata/generators, README and PRD.
 constraints:
   - 'The root-level Go template is package main: a template can only bind captures from the path, so a root file in another package is not adoptable'
+  - The go generator package places a header anchor above the package clause of its file templates
+  - setBuildConstraint takes two arguments, file and constraint, and constraint must be exactly one of unix, windows, linux, darwin, not_unix, not_windows, not_linux or not_darwin
+  - setBuildConstraint renders the line //go:build followed by the variant expression, then one blank line, before the package clause
+  - A file generated with setBuildConstraint is gofmt-clean
+  - setBuildConstraint fails with an error when constraint is not one of the eight variants, including an unknown name, a compound expression such as unix && amd64, a value containing a newline, and the empty string
+  - Setting a different constraint on a file that already has one replaces the existing constraint in place and leaves exactly one //go:build line
+  - Re-running setBuildConstraint with the same constraint leaves the file byte-for-byte unchanged
+  - Actions of the go package other than setBuildConstraint render output identical to before the header anchor existed
+  - internal/builtin/packages/go.zip contains the setBuildConstraint action and the header anchor, so the drift test TestGeneratorsDrift passes
 affected_scope:
   - internal/builtin/**
   - hack/sync-builtin.sh
@@ -87,7 +101,7 @@ affected_scope:
   - generators/go/
 forbidden_scope: []
 related: []
-sealed_at_sha: 80a1cccea9ea13a58bf8a96dda8a18964dfe2770
+sealed_at_sha: f36343996b615f0113e0135f0c3b071ee8a58a9a
 associated_specs:
   - path: internal/builtin/builtin_test.go
     run_command: go test ./internal/builtin -count=1

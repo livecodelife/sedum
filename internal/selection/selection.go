@@ -381,7 +381,7 @@ func Select(ctx context.Context, client Client, req Request, opts Options) (Answ
 		// and a failure is put to the model like any other broken rule
 		// (prov-2026-5403d162).
 		if len(violations) == 0 {
-			violations = CheckSyntax(req.RecordID, req.Files, invocations, opts.Variables, opts.Output)
+			violations = CheckSyntaxReconciled(req.RecordID, req.Files, invocations, opts.Variables, opts.Output)
 		}
 		if len(violations) == 0 {
 			log.Info("model output validated", "record", req.RecordID,

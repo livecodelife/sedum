@@ -82,3 +82,21 @@ actions:
     injects_into: "{{file}}"
     anchor: imports
     identity: [file, name]
+
+  # The one thing that may stand above the package clause: a file-level build
+  # constraint. The constraint is a declared variant rather than a free string,
+  # so it is checked at load and a model cannot put arbitrary text above
+  # `package`. A file carries at most one: identity is the file alone, so a
+  # record that revises the constraint replaces it in place. The negated
+  # variants spell "every platform except" - the filename-suffix convention
+  # already covers a single GOOS but not `unix` or a negation.
+  setBuildConstraint:
+    description: Constrains the whole file to build only on the named platform (or, for a not_ variant, on every platform except it), replacing an earlier constraint on the file.
+    kwargs:
+      file: { type: string, required: true, description: "The Go file to write into. It must be one of the authorized files." }
+      constraint: { type: string, required: true, description: "Which platform the file builds for. One of the declared variants; a not_ variant means every platform except the one named. unix is the set of Unix-like operating systems, not a single one." }
+    discriminator: constraint
+    variants: [unix, windows, linux, darwin, not_unix, not_windows, not_linux, not_darwin]
+    injects_into: "{{file}}"
+    anchor: header
+    identity: [file]

@@ -58,7 +58,7 @@ affected_scope:
   - internal/selection/selection.go
 forbidden_scope: []
 implements: prov-2026-b5c21813
-implements_version: 5
+implements_version: 7
 related: []
 sealed_at_sha: 7aa1f93d6352d8169d19a6872aa69a2f5a900ac5
 associated_specs:
