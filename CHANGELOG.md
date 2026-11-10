@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.12.0
+
+- Sedum builds and runs on Windows: the verify step starts its shell and kills its process tree with Windows calls, and the Unix process-group calls moved to their own file.
+- A real `sedum adopt` writes the per-record recordings, so a later `sedum grow --check` finds an adopted record current.
+
 ## 0.11.1
 
 - `sedum evidence` no longer aborts when markers name a record that has no record file. It skips those regions, names each one (`skipped <id>: regions in <file>, no record file`), and still judges every real record; `--refresh` appends entries only for real records. A skipped region does not change the exit code, and the JSON report is unchanged.
