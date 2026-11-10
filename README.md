@@ -94,6 +94,22 @@ go install github.com/livecodelife/sedum/cmd/sedum@latest
 Or download an archive from [Releases](https://github.com/livecodelife/sedum/releases)
 and check it against `checksums.txt` yourself. Builds are published for
 linux and darwin on amd64 and arm64; they are static, with no runtime dependency.
+Windows is covered in [its own section](#windows).
+
+### Windows
+
+`install.sh` is a POSIX shell script and does not run on Windows. Download
+`sedum_<version>_windows_amd64_slim.zip` from
+[Releases](https://github.com/livecodelife/sedum/releases), check it against
+`checksums.txt`, and put `sedum.exe` on your `PATH`. Or, with Go:
+
+```sh
+go install github.com/livecodelife/sedum/cmd/sedum@latest
+```
+
+The Windows download is the slim build, without the bundled model (the full archives for the other platforms bundle one). Pass `--model` or
+`--local-model` to `sedum grow`. It is built by CI for windows/amd64 only; it has
+not been run on Windows.
 
 ### Pinning a version
 

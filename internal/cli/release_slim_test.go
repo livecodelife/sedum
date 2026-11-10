@@ -81,11 +81,11 @@ func TestReleasePublishesASlimArchiveBesideTheFullOne(t *testing.T) {
 		t.Errorf("both archives have the id %v", full["id"])
 	}
 
-	// The same build goes into both.
+	// The same build goes into both; the slim one also packs the Windows build.
 	fullIDs, _ := full["ids"].([]any)
 	slimIDs, _ := slim["ids"].([]any)
-	if fmt.Sprint(fullIDs) != fmt.Sprint(slimIDs) || fmt.Sprint(slimIDs) != "[sedum]" {
-		t.Errorf("the archives must both pack the sedum build: full %v, slim %v", fullIDs, slimIDs)
+	if fmt.Sprint(fullIDs) != "[sedum]" || fmt.Sprint(slimIDs) != "[sedum sedum-windows]" {
+		t.Errorf("the full archive packs the sedum build and the slim one also the Windows build: full %v, slim %v", fullIDs, slimIDs)
 	}
 
 	has := func(sources []string, fragment string) bool {
@@ -510,4 +510,46 @@ func TestSlimArchiveWithAWrongChecksumIsRefused(t *testing.T) {
 	got.mustFail(t)
 	wantIn(t, "stderr", got.stderr, "checksum mismatch")
 	wantFiles(t, dest)
+}
+
+// Windows is published as a slim zip only: the full archive bundles a
+// goinfer-serve that is not pinned for Windows.
+func TestWindowsIsPublishedAsASlimZipOnly(t *testing.T) {
+	var cfg struct {
+		Builds []struct {
+			ID     string   `yaml:"id"`
+			Goos   []string `yaml:"goos"`
+			Goarch []string `yaml:"goarch"`
+		} `yaml:"builds"`
+	}
+	if err := yaml.Unmarshal([]byte(read(t, ".goreleaser.yml")), &cfg); err != nil {
+		t.Fatal(err)
+	}
+	for _, b := range cfg.Builds {
+		switch b.ID {
+		case "sedum-windows":
+			if fmt.Sprint(b.Goos) != "[windows]" || fmt.Sprint(b.Goarch) != "[amd64]" {
+				t.Errorf("the Windows build is %v/%v, want windows/amd64", b.Goos, b.Goarch)
+			}
+		default:
+			for _, os := range b.Goos {
+				if os == "windows" {
+					t.Errorf("build %s targets windows, so the full archive would pack it", b.ID)
+				}
+			}
+		}
+	}
+	slim := archiveByName(t, "_slim")
+	overrides, _ := slim["format_overrides"].([]any)
+	if len(overrides) != 1 || !strings.Contains(fmt.Sprint(overrides[0]), "windows") || !strings.Contains(fmt.Sprint(overrides[0]), "zip") {
+		t.Errorf("the slim archive format_overrides = %v, want windows as zip", overrides)
+	}
+}
+
+// The installer cannot run on Windows; its unsupported-OS message points at the
+// README's Windows section.
+func TestInstallerPointsWindowsAtTheReadme(t *testing.T) {
+	if !strings.Contains(read(t, "install.sh"), "README.md#windows") {
+		t.Error("install.sh's unsupported-OS message does not point at the README's Windows section")
+	}
 }
