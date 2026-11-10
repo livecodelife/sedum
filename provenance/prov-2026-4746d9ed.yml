@@ -1,8 +1,8 @@
 id: prov-2026-4746d9ed
 title: Sedum is installable and versioned, so a caller can pin it
 status: implemented
-version: 7
-reason: Refresh the slim archive test spec
+version: 11
+reason: Publish a Windows amd64 slim zip; README gains a Windows section
 created_at: "2026-08-20"
 author: calebcowen@gmail.com
 intent: |
@@ -123,6 +123,22 @@ constraints:
   - When the checksums.txt of a release does not list the slim archive, a slim request installs nothing.
   - When the checksums.txt of a release does not list the slim archive, the message of a slim request names the tag and the slim archive's file name.
   - When the checksums.txt of a release does not list the slim archive, a slim request does not install the full archive.
+  - The windows archive is named sedum_<version>_windows_amd64_slim.zip.
+  - The windows archive contains sedum.exe.
+  - The windows archive contains README.md, LICENSE, TOOL_BOUNDARIES.md and the conformance directory.
+  - The windows archive contains neither goinfer-serve nor sedum-default-model.gguf.
+  - No full archive is published for windows.
+  - checksums.txt lists the windows archive.
+  - The unsupported-operating-system message of install.sh includes the text README.md#windows.
+  - README.md has a section headed Windows.
+  - The Windows section says the download is the slim build.
+  - The Windows section says the download has no bundled model.
+  - The Windows section says the windows build is made by CI.
+  - The Windows section says the windows build has not been run on Windows.
+  - The release configuration defines a build whose target is windows on amd64.
+  - The windows build is the only build that targets windows.
+  - The slim archives for the other operating systems are tar.gz.
+  - The unsupported-operating-system message of install.sh names go install as the way to build from source.
 affected_scope:
   - go.mod
   - go.sum
@@ -136,12 +152,13 @@ affected_scope:
   - .goreleaser.yml
   - .github/workflows/ci.yml
   - .github/workflows/release.yml
+  - README.md
 forbidden_scope: []
 type: blueprint
 related:
   - prov-2026-b5465dfa
   - prov-2026-59535684
-sealed_at_sha: 6bb66d86bfc6835f47f7ebedc0b7fb6f1660e413
+sealed_at_sha: 750a993880ff8777de5252a85eaef871bb6e525d
 associated_specs:
   - path: internal/cli/release_test.go
     run_command: go test -count=1 ./$(dirname {{path}})

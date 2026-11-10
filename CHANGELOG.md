@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.12.1
+
+- The release publishes a Windows archive: `sedum_<version>_windows_amd64_slim.zip`, the slim build without the bundled model, listed in `checksums.txt`. There is no full Windows archive. It is built by CI for windows/amd64 only and has not been run on Windows. `install.sh` does not run on Windows; its unsupported-OS message and the README's Windows section say how to install.
+
 ## 0.12.0
 
 - Sedum builds and runs on Windows: the verify step starts its shell and kills its process tree with Windows calls, and the Unix process-group calls moved to their own file.

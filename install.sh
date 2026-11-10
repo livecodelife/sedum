@@ -57,7 +57,7 @@ detect_os() {
 	case "$(uname -s)" in
 		Linux)  echo linux ;;
 		Darwin) echo darwin ;;
-		*)      fail "unsupported operating system: $(uname -s). Build from source: go install github.com/${REPO}/cmd/${BIN}@latest" ;;
+		*)      fail "unsupported operating system: $(uname -s). On Windows, see https://github.com/${REPO}/blob/main/README.md#windows. Otherwise build from source: go install github.com/${REPO}/cmd/${BIN}@latest" ;;
 	esac
 }
 

@@ -43,6 +43,24 @@ builds:
     ldflags:
       - -s -w
 
+  # Windows is its own build so the full archive, which bundles goinfer-serve
+  # and the model, does not pick it up: no Windows goinfer-serve is pinned in
+  # hack/fetch-release-assets.sh. Only the slim archive packs it. amd64 only,
+  # the one target the Windows port builds. Built by CI; not run on Windows.
+  - id: sedum-windows
+    main: ./cmd/sedum
+    binary: sedum
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - windows
+    goarch:
+      - amd64
+    flags:
+      - -trimpath
+    ldflags:
+      - -s -w
+
 archives:
   - id: sedum
     ids:
@@ -78,9 +96,15 @@ archives:
   - id: sedum-slim
     ids:
       - sedum
+      - sedum-windows
     name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}_slim"
     formats:
       - tar.gz
+    # A Windows archive is a zip, named like the others.
+    format_overrides:
+      - goos: windows
+        formats:
+          - zip
     files:
       - README.md
       - LICENSE
