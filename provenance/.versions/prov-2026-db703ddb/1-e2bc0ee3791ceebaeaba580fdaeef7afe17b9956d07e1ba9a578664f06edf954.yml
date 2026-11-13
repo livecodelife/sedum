@@ -1,0 +1,35 @@
+id: prov-2026-db703ddb
+version: 1
+content_hash: sha256:e2bc0ee3791ceebaeaba580fdaeef7afe17b9956d07e1ba9a578664f06edf954
+parent_hash: ""
+reason: ""
+author: calebcowen@gmail.com
+created_at: "2026-11-13T16:10:16Z"
+spec_hashes:
+  - sha256:87794bd28173787fec494ec339698daece91b49e5d003d4b434116fbf2ff98b0
+content:
+  id: prov-2026-db703ddb
+  title: 'Version 0.11.2: selection sends no assistant turn for an empty model reply'
+  type: blueprint
+  created_at: "2026-11-13"
+  author: calebcowen@gmail.com
+  intent: '0.11.1 -> 0.11.2: patch, because a model reply with no content no longer puts an empty assistant message in the next request, which the API refused with HTTP 400. Select still sends the follow-up user message and appends an assistant turn only when the reply holds text. See CHANGELOG.md.'
+  constraints:
+    - A reply is empty when its Content is the empty string or holds only whitespace.
+    - When the reply that Select loops on is empty, the next request must not contain an assistant message for it.
+    - When a reply is empty and a completeness note is due, the next request must still end with the user message carrying the note.
+    - When a reply is empty and verification failed with repairs remaining, the next request must still end with the user message carrying the failure text.
+    - When a reply is empty and its output was rejected with retries remaining, the next request must still end with the user message carrying the rejection text.
+    - When a reply is not empty, the next request must contain an assistant message holding the reply's Content unchanged, followed by the user message.
+    - An empty reply must not change Answer.Rejected, Answer.Repairs or Answer.Completeness, nor the retry and repair limits.
+    - internal/recording/version.go must declare the Version constant as the string 0.11.2.
+    - CHANGELOG.md must open with a 0.11.2 section, above 0.11.1, describing that selection sends no assistant turn for an empty model reply.
+    - The tag-vs-constant check in .github/workflows/release.yml gates the release, and the tag is pushed only once this commit is on main.
+  affected_scope:
+    - internal/selection/selection.go
+    - internal/recording/version.go
+    - CHANGELOG.md
+  implements: prov-2026-d554bfc3
+  implements_version: 1
+  associated_specs:
+    - path: internal/cli/release_test.go
