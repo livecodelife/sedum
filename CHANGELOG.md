@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.12.2
+
+- Selection sends no assistant turn for an empty model reply. A reply with no content (or only whitespace) is no longer put back in the next request as an empty assistant message, which the API refused with HTTP 400; the follow-up user message (completeness note, verification failure or rejection) is still sent, and the rejected, repair and completeness counts and limits are unchanged.
+
 ## 0.12.1
 
 - The release publishes a Windows archive: `sedum_<version>_windows_amd64_slim.zip`, the slim build without the bundled model, listed in `checksums.txt`. There is no full Windows archive. It is built by CI for windows/amd64 only and has not been run on Windows. `install.sh` does not run on Windows; its unsupported-OS message and the README's Windows section say how to install.

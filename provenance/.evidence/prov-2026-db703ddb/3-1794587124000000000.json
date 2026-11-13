@@ -1,0 +1,13 @@
+{
+  "record_id": "prov-2026-db703ddb",
+  "version": 3,
+  "content_hash": "sha256:ac89936901504b5ab86a3f06e633680bcd2fa21bdb796336be2402d02a3fefef",
+  "spec_hashes": [
+    "sha256:87794bd28173787fec494ec339698daece91b49e5d003d4b434116fbf2ff98b0",
+    "sha256:c72f4b3d4b7f78010a08e190d6d38a1b01755b507a670a08a8c9324f65eed305"
+  ],
+  "code_hash": "",
+  "passed": true,
+  "at": "2026-11-13T16:25:24Z",
+  "runner": "provenance complete"
+}

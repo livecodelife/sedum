@@ -404,10 +404,7 @@ func Select(ctx context.Context, client Client, req Request, opts Options) (Answ
 					answer.Completeness = 1
 					log.Info("selection leaves anchors unfilled", "record", req.RecordID,
 						"attempt", i+1, "unfilled", anchorSummary(unfilled))
-					messages = append(messages,
-						Message{Role: RoleAssistant, Content: raw.Content},
-						Message{Role: RoleUser, Content: note(unfilled)},
-					)
+					messages = appendTurn(messages, raw.Content, note(unfilled))
 					continue
 				}
 			}
@@ -429,10 +426,7 @@ func Select(ctx context.Context, client Client, req Request, opts Options) (Answ
 							}
 						}
 						answer.Repairs++
-						messages = append(messages,
-							Message{Role: RoleAssistant, Content: raw.Content},
-							Message{Role: RoleUser, Content: failure},
-						)
+						messages = appendTurn(messages, raw.Content, failure)
 						continue
 					}
 				}
@@ -463,11 +457,18 @@ func Select(ctx context.Context, client Client, req Request, opts Options) (Answ
 		// The rejected response stays in the conversation. Re-prompting with
 		// the violations but without what they refer to would ask the model to
 		// correct something it can no longer see.
-		messages = append(messages,
-			Message{Role: RoleAssistant, Content: raw.Content},
-			Message{Role: RoleUser, Content: rejection(violations)},
-		)
+		messages = appendTurn(messages, raw.Content, rejection(violations))
 	}
+}
+
+// appendTurn adds the model's reply, when it holds text, and then the user
+// message that answers it. An empty or whitespace-only reply is not sent back
+// as an assistant message, which the API refuses.
+func appendTurn(messages []Message, reply, user string) []Message {
+	if strings.TrimSpace(reply) != "" {
+		messages = append(messages, Message{Role: RoleAssistant, Content: reply})
+	}
+	return append(messages, Message{Role: RoleUser, Content: user})
 }
 
 // candidateOf is every file Phase 7 would write for an answer, keyed by path:
