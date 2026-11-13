@@ -1,7 +1,7 @@
 id: prov-2026-db703ddb
 title: 'Version 0.12.2: selection sends no assistant turn for an empty model reply'
 type: blueprint
-status: open
+status: implemented
 version: 3
 reason: Attach the empty-reply spec
 created_at: "2026-11-13"
@@ -27,7 +27,7 @@ forbidden_scope: []
 implements: prov-2026-d554bfc3
 implements_version: 1
 related: []
-sealed_at_sha: ""
+sealed_at_sha: d8c98a011bac3e8dad8af8f2591c99381e5f88c7
 associated_specs:
   - path: internal/cli/release_test.go
     run_command: go test ./internal/cli -run Release
