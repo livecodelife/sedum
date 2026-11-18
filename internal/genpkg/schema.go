@@ -32,6 +32,7 @@ type manifest struct {
 	Syntax        string                       `yaml:"syntax"`
 	Optional      []string                     `yaml:"optional_anchors"`
 	Adopt         *Adopt                       `yaml:"adopt"`
+	Convergence   *Convergence                 `yaml:"convergence"`
 }
 
 // Variable is a project fact this package's templates reference and cannot
@@ -366,6 +367,8 @@ type Package struct {
 	Dir           string
 	Extensions    []string
 	CommentPrefix string
+	// Convergence is the optional convergence block (nil when absent).
+	Convergence *Convergence
 	// CommentSuffix closes a comment in targets that have no line-comment
 	// form. Empty for every target that does, which is most of them, and an
 	// empty suffix produces exactly the marker bytes Sedum wrote before the

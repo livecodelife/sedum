@@ -26,3 +26,42 @@ adopt:
 
 test_paths:
   - "**/*_test.go"
+
+# How graft (or any consumer) writes a stub whose body is left open, and the
+# file of placeholder helpers it delegates to. Sedum's core renders these with
+# the same engine as every other template; the strings below are the whole of
+# the Go knowledge involved. The output is gofmt-clean as written.
+convergence:
+  synth_suffix: "_synth"
+  helper: "{{stem}}{{Name}}Body"
+  param: "{{name}} {{type}}"
+  arg: "{{name}}"
+  spread_prefix: "..."
+  spread_arg: "{{name}}..."
+  receiver_param: "{{receiver_name}} {{receiver_type}}"
+  receiver_arg: "{{receiver_name}}"
+  result:
+    none: ""
+    one: " {{result}}"
+    many: " ({{results}})"
+  call:
+    func: "{{helper}}({{args}})"
+    method: "{{receiver_name}}.{{helper}}({{args}})"
+  body:
+    void: "{{call}}"
+    value: "return {{call}}"
+  declare:
+    func: "func {{helper}}({{params}}){{result}}"
+    method: "func ({{receiver_name}} {{receiver_type}}) {{helper}}({{params}}){{result}}"
+  note: "{{name}} is rendered by graft; its body is a convergence region ({{helper}})."
+  stub:
+    func: "{{doc}}\nfunc {{name}}({{params}}){{result}} {\n\t{{body}}\n}"
+    method: "{{doc}}\nfunc ({{receiver_name}} {{receiver_type}}) {{name}}({{params}}){{result}} {\n\t{{body}}\n}"
+  import: "import \"{{path}}\""
+  import_use: "{{base}}."
+  seed_decl: "{{declare}} {\n\tpanic(\"{{placeholder}}\")\n}"
+  seed: "package {{package}}\n\n{{imports}}\n\n{{decls}}\n\n"
+  package:
+    entry: "main"
+    entry_dirs: [".", "cmd/*"]
+    default: "{{dirname}}"
