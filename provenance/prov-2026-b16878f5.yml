@@ -2,8 +2,8 @@ id: prov-2026-b16878f5
 title: 'Convergence contract review fixes: identifiers, type imports, optional params, formatting, rendered placeholder check'
 type: blueprint
 status: open
-version: 2
-reason: The convergence specs gain the review-fix cases
+version: 3
+reason: Attach the typescript and validation specs
 created_at: "2026-11-18"
 author: lcl-graft-render@users.noreply.github.com
 intent: 'Fixes from the review of the convergence contract. A file stem that is not an identifier (my-mod) yields a valid identifier for helper names and for the synth import alias, with the path kept verbatim. A seed gets an import of the file''s own types its helper signatures use, and the typescript output type-checks with tsc --noEmit. An optional parameter (n?) is called without the question mark. The placeholder is checked in the rendered seed at load, not in the template text. A package may declare a format argv (go: gofmt) that is run over every rendered stub and seed. A cmd/** entry pattern matches any depth. package.entry is validated at load.'
@@ -30,6 +30,10 @@ sealed_at_sha: ""
 associated_specs:
   - path: internal/genpkg/convergence_go_test.go
     run_command: go test ./internal/genpkg -run GoConvergence
+  - path: internal/genpkg/convergence_ts_test.go
+    run_command: go test ./internal/genpkg -run TypeScriptConvergence
+  - path: internal/genpkg/convergence_check_test.go
+    run_command: go test ./internal/genpkg -run ConvergenceBlockIsValidated
 
 associated_traces: []
 monitors: []
