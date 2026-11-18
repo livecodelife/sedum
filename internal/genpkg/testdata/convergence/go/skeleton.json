@@ -1,0 +1,176 @@
+{
+  "files": [
+    {
+      "path": "running.go",
+      "imports": [
+        "flag",
+        "log",
+        "net",
+        "sync"
+      ],
+      "decls": [
+        {
+          "kind": "const",
+          "name": "serverName",
+          "code": "const serverName = \"freeq-lite\""
+        },
+        {
+          "kind": "type",
+          "name": "Server",
+          "code": "type Server struct {\n\tmu       sync.Mutex\n\tclients  map[string]*Client\n\tchannels map[string]*channel\n}"
+        },
+        {
+          "kind": "type",
+          "name": "channel",
+          "code": "type channel struct {\n\tname    string\n\tmembers map[string]*Client\n}"
+        },
+        {
+          "kind": "type",
+          "name": "Client",
+          "code": "type Client struct {\n\tNick       string\n\tUser       string\n\tRegistered bool\n\tchannels   map[string]bool\n\tconn       net.Conn\n\tout        chan string\n}"
+        },
+        {
+          "kind": "type",
+          "name": "Message",
+          "code": "type Message struct {\n\tCommand string\n\tParams  []string\n}"
+        },
+        {
+          "kind": "var",
+          "name": "handlers",
+          "code": "var handlers = map[string]func(s *Server, c *Client, m Message){}"
+        },
+        {
+          "kind": "func",
+          "name": "main",
+          "code": "func main() {\n\taddr := flag.String(\"addr\", \":6667\", \"listen address\")\n\tflag.Parse()\n\ts := &Server{clients: map[string]*Client{}, channels: map[string]*channel{}}\n\tln, err := net.Listen(\"tcp\", *addr)\n\tif err != nil {\n\t\tlog.Fatal(err)\n\t}\n\tfor {\n\t\tconn, err := ln.Accept()\n\t\tif err != nil {\n\t\t\tlog.Fatal(err)\n\t\t}\n\t\tgo s.serve(conn)\n\t}\n}"
+        }
+      ],
+      "stubs": [
+        {
+          "name": "serve",
+          "receiver_name": "s",
+          "receiver_type": "*Server",
+          "params": [
+            {
+              "name": "conn",
+              "type": "net.Conn"
+            }
+          ],
+          "doc": "serve runs one connection: it sets c.conn, reads CRLF or bare-LF lines, dispatches through handlers, and calls Disconnect when the connection ends."
+        },
+        {
+          "name": "Send",
+          "receiver_name": "c",
+          "receiver_type": "*Client",
+          "params": [
+            {
+              "name": "line",
+              "type": "string"
+            }
+          ],
+          "doc": "Send queues one protocol line for c. line carries no trailing CRLF and is already complete, including any leading ':'; Send only appends CRLF."
+        },
+        {
+          "name": "Reply",
+          "receiver_name": "s",
+          "receiver_type": "*Server",
+          "params": [
+            {
+              "name": "c",
+              "type": "*Client"
+            },
+            {
+              "name": "code",
+              "type": "string"
+            },
+            {
+              "name": "text",
+              "type": "string"
+            }
+          ],
+          "doc": "Reply sends c a line from the server itself, built in full: \":\" + serverName + \" \" + code + \" \" + target + \" :\" + text, where target is c.Nick, or \"*\" before c has a nick."
+        },
+        {
+          "name": "Prefix",
+          "receiver_name": "c",
+          "receiver_type": "*Client",
+          "results": [
+            "string"
+          ],
+          "doc": "Prefix returns c's prefix, nick!user@freeq-lite, WITHOUT the leading ':'. Every sender of a prefixed line adds the ':' itself (\":\" + c.Prefix() + \" JOIN ...\"), including QUIT."
+        },
+        {
+          "name": "Disconnect",
+          "receiver_name": "s",
+          "receiver_type": "*Server",
+          "params": [
+            {
+              "name": "c",
+              "type": "*Client"
+            },
+            {
+              "name": "reason",
+              "type": "string"
+            }
+          ],
+          "doc": "Disconnect removes c from the server and from every channel, tells the channel peers \":\" + c.Prefix() + \" QUIT :\" + reason (once each), then closes c.conn."
+        }
+      ],
+      "section": "freeq-lite › Running"
+    },
+    {
+      "path": "registration.go",
+      "stubs": [
+        {
+          "name": "init"
+        }
+      ],
+      "section": "freeq-lite › Registration"
+    },
+    {
+      "path": "keepalive.go",
+      "stubs": [
+        {
+          "name": "init"
+        }
+      ],
+      "section": "freeq-lite › Keepalive"
+    },
+    {
+      "path": "channels.go",
+      "stubs": [
+        {
+          "name": "init"
+        }
+      ],
+      "section": "freeq-lite › Channels"
+    },
+    {
+      "path": "messages.go",
+      "stubs": [
+        {
+          "name": "init"
+        }
+      ],
+      "section": "freeq-lite › Messages"
+    },
+    {
+      "path": "leaving.go",
+      "stubs": [
+        {
+          "name": "init"
+        }
+      ],
+      "section": "freeq-lite › Leaving"
+    },
+    {
+      "path": "everything_else.go",
+      "stubs": [
+        {
+          "name": "init"
+        }
+      ],
+      "section": "freeq-lite › Everything else"
+    }
+  ]
+}
