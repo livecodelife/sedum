@@ -1,9 +1,9 @@
 id: prov-2026-28c809b8
 title: 'Convergence contract: sedum convergence render/info; go and typescript packages'
 type: blueprint
-status: implemented
-version: 3
-reason: Drop the generic load spec; the convergence specs are the proof
+status: open
+version: 4
+reason: The specs it names were extended by the review-fix record
 created_at: "2026-11-18"
 author: lcl-graft-render@users.noreply.github.com
 intent: A generator package may declare an optional convergence block telling a consumer (graft) how its language writes a stub that delegates to a helper and how a seed of placeholder helpers looks. sedum convergence render applies it (JSON in, JSON out) and sedum convergence info reports the package facts. The go package declares the block and reproduces graft's current output byte for byte; a new typescript package targets Node strip-types.
@@ -29,7 +29,7 @@ affected_scope:
   - internal/builtin/packages/go.zip
 forbidden_scope: []
 related: []
-sealed_at_sha: e9bf098880aab0e3268db986c6e49891ba904352
+sealed_at_sha: ""
 associated_specs:
   - path: internal/genpkg/convergence_go_test.go
     run_command: go test ./internal/genpkg -run GoConvergence
