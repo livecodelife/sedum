@@ -1,0 +1,39 @@
+id: prov-2026-28c809b8
+title: 'Convergence contract: sedum convergence render/info; go and typescript packages'
+type: blueprint
+status: open
+version: 1
+reason: ""
+created_at: "2026-11-18"
+author: lcl-graft-render@users.noreply.github.com
+intent: A generator package may declare an optional convergence block telling a consumer (graft) how its language writes a stub that delegates to a helper and how a seed of placeholder helpers looks. sedum convergence render applies it (JSON in, JSON out) and sedum convergence info reports the package facts. The go package declares the block and reproduces graft's current output byte for byte; a new typescript package targets Node strip-types.
+constraints:
+  - "Load rejects a convergence block with a missing required template, a template that references a value it is not given, or a seed declaration that lacks the text graft: not converged."
+  - "A package with no convergence block loads exactly as before and no gen or pkg hash changes."
+  - "sedum convergence render --generators D --package P reads {files:[{path,package,imports,stubs}]} on stdin, refuses unknown keys, and prints per file the synth path, seed, imports, and per stub the action, kwargs, helper, stub text and helper signature."
+  - "sedum convergence info prints the package's extensions, comment prefix, synth suffix and the placeholder."
+  - "The go package's convergence output equals graft's golden stubs and seeds byte for byte."
+  - "The typescript package's rendered stub and synth files load under node --experimental-strip-types."
+affected_scope:
+  - internal/cli/convergence.go
+  - internal/cli/convergence_test.go
+  - internal/cli/root.go
+  - internal/genpkg/convergence.go
+  - internal/genpkg/convergence_render.go
+  - internal/genpkg/convergence_check_test.go
+  - internal/genpkg/convergence_go_test.go
+  - internal/genpkg/convergence_ts_test.go
+  - internal/genpkg/load.go
+  - internal/genpkg/schema.go
+  - internal/genpkg/testdata/convergence/**
+  - internal/builtin/packages/go.zip
+forbidden_scope: []
+related: []
+sealed_at_sha: ""
+associated_specs:
+  - path: internal/genpkg/genpkg_test.go
+    run_command: go test ./internal/genpkg
+
+associated_traces: []
+monitors: []
+tags: []
