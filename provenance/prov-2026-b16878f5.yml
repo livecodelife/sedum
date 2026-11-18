@@ -1,7 +1,7 @@
 id: prov-2026-b16878f5
 title: 'Convergence contract review fixes: identifiers, type imports, optional params, formatting, rendered placeholder check'
 type: blueprint
-status: open
+status: implemented
 version: 3
 reason: Attach the typescript and validation specs
 created_at: "2026-11-18"
@@ -26,7 +26,7 @@ affected_scope:
   - internal/builtin/packages/go.zip
 forbidden_scope: []
 related: []
-sealed_at_sha: ""
+sealed_at_sha: c9f194392ea15f0abb7a5295b944404e3da6868f
 associated_specs:
   - path: internal/genpkg/convergence_go_test.go
     run_command: go test ./internal/genpkg -run GoConvergence
