@@ -31,8 +31,9 @@ type Convergence struct {
 	// file that holds its helpers: dir/<stem><suffix><ext>.
 	SynthSuffix string `yaml:"synth_suffix"`
 
-	// Helper names the helper a stub delegates to. Values: stem, name, Name
-	// (name with its first letter upper-cased), dir, ext.
+	// Helper names the helper a stub delegates to. Values: stem, ident (the
+	// stem as an identifier: a file named my-mod gives myMod), name, Name (name
+	// with its first letter upper-cased), dir, ext.
 	Helper string `yaml:"helper"`
 
 	// Param renders one parameter (values: name, type). Arg renders it as a
@@ -91,6 +92,18 @@ type Convergence struct {
 	MethodAction string `yaml:"method_action"`
 	MethodName   string `yaml:"method_name"`
 
+	// TypeImport, when set, renders the line that gives a seed the types its
+	// helper signatures use (values: names, pre-joined with ", ", and module,
+	// the specifier of the stub file). The names are the file's declarations
+	// of kind type that a helper signature mentions. Unset: the seed needs no
+	// such import (Go: same package).
+	TypeImport string `yaml:"type_import"`
+
+	// Format, when set, is an argv run with the rendered text on stdin whose
+	// stdout replaces it (Go: [gofmt]); it is applied to every stub and seed.
+	// The trailing newlines of the unformatted text are kept.
+	Format []string `yaml:"format"`
+
 	// Import renders one import line (values: path, alias). ImportUse, when set, is
 	// the text an import must be used as to be kept in the seed (values: base,
 	// the last path segment, and alias): an import no helper signature mentions would
@@ -148,7 +161,7 @@ type convTemplate struct {
 
 // templates lists every template with the values it may reference.
 func (c *Convergence) templates() []convTemplate {
-	hv := []string{"stem", "name", "Name", "dir", "ext"}
+	hv := []string{"stem", "ident", "name", "Name", "dir", "ext"}
 	sig := []string{"helper", "params", "result"}
 	recv := []string{"receiver_name", "receiver_type", "recv_params"}
 	cat := func(parts ...[]string) []string {
@@ -169,8 +182,8 @@ func (c *Convergence) templates() []convTemplate {
 		{"receiver_param", c.ReceiverParam, []string{"receiver_name", "receiver_type"}},
 		{"receiver_arg", c.ReceiverArg, []string{"receiver_name"}},
 		{"synth_import", c.SynthImport, []string{"synth_stem", "stem", "dir", "ext"}},
-		{"call.func", c.Call.Func, []string{"helper", "args", "synth_stem"}},
-		{"call.method", c.Call.Method, []string{"helper", "args", "synth_stem", "receiver_name", "recv_args"}},
+		{"call.func", c.Call.Func, []string{"helper", "args", "synth_stem", "synth_alias"}},
+		{"call.method", c.Call.Method, []string{"helper", "args", "synth_stem", "synth_alias", "receiver_name", "recv_args"}},
 		{"body.void", c.Body.Void, []string{"call"}},
 		{"body.value", c.Body.Value, []string{"call"}},
 		{"declare.func", c.Declare.Func, sig},
@@ -183,14 +196,16 @@ func (c *Convergence) templates() []convTemplate {
 		{"method_name", c.MethodName, []string{"receiver_type", "name"}},
 		{"seed_decl", c.SeedDecl, []string{"declare", "placeholder"}},
 		{"seed", c.Seed, []string{"package", "imports", "decls", "file", "stem", "dir", "ext"}},
+		{"package.entry", c.Package.Entry, nil},
 		{"package.default", c.Package.Default, []string{"dirname"}},
+		{"type_import", c.TypeImport, []string{"names", "module"}},
 	}
 }
 
 // optionalConvTemplates may be empty.
 var optionalConvTemplates = map[string]bool{
 	"spread_arg": true, "import_use": true, "package.default": true,
-	"result.none": true, "synth_import": true, "method_name": true, "receiver_param": true, "receiver_arg": true,
+	"result.none": true, "type_import": true, "package.entry": true, "synth_import": true, "method_name": true, "receiver_param": true, "receiver_arg": true,
 }
 
 // checkConvergence validates the block: every required template present,
@@ -236,9 +251,7 @@ func checkConvergence(pkg *Package, r *reporter) {
 			}
 		}
 	}
-	if !strings.Contains(c.SeedDecl, ConvergencePlaceholder) && !strings.Contains(c.SeedDecl, "{{placeholder") {
-		bad("seed_decl must contain %q (or reference {{placeholder}}), or a converged body cannot be told from a seeded one", ConvergencePlaceholder)
-	}
+	checkRenderedPlaceholder(pkg, c, bad)
 	if !strings.Contains(c.Seed, "{{decls") {
 		bad("seed must reference {{decls}}")
 	}
@@ -253,6 +266,11 @@ func checkConvergence(pkg *Package, r *reporter) {
 	for _, p := range c.Package.EntryDirs {
 		if p == "" {
 			bad("package.entry_dirs has an empty pattern")
+		}
+	}
+	for _, a := range c.Format {
+		if a == "" {
+			bad("format has an empty argument")
 		}
 	}
 }
@@ -286,4 +304,26 @@ func (p *Package) ConvergenceInfo() (ConvergenceInfo, error) {
 		SynthSuffix:   p.Convergence.SynthSuffix,
 		Placeholder:   ConvergencePlaceholder,
 	}, nil
+}
+
+// checkRenderedPlaceholder renders seed_decl and seed with the placeholder and
+// requires the placeholder in the output: a transform on it ({{placeholder|upper}})
+// would pass a textual check and seed text no consumer recognises.
+func checkRenderedPlaceholder(pkg *Package, c *Convergence, bad func(string, ...any)) {
+	if c.SeedDecl == "" || c.Seed == "" {
+		return // already reported as missing
+	}
+	r := &convRenderer{p: pkg, c: c, cache: map[string]*render.Template{}}
+	decl, err := r.do("seed_decl", c.SeedDecl, map[string]string{"declare": "declare", "placeholder": ConvergencePlaceholder})
+	if err != nil {
+		return // the compile check reported it
+	}
+	if !strings.Contains(decl, ConvergencePlaceholder) {
+		bad("seed_decl renders %q, which lacks %q, so a converged body cannot be told from a seeded one", decl, ConvergencePlaceholder)
+		return
+	}
+	seed, err := r.do("seed", c.Seed, map[string]string{"package": "p", "imports": "", "decls": decl, "file": "f", "stem": "f", "dir": ".", "ext": ""})
+	if err == nil && !strings.Contains(seed, ConvergencePlaceholder) {
+		bad("seed renders without %q", ConvergencePlaceholder)
+	}
 }

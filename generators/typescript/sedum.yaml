@@ -29,7 +29,7 @@ test_paths:
 # the stub as a function; there is no setMethod action.
 convergence:
   synth_suffix: "_synth"
-  helper: "{{stem}}{{Name}}Body"
+  helper: "{{ident}}{{Name}}Body"
   param: "{{name}}: {{type}}"
   arg: "{{name}}"
   receiver_param: "{{receiver_name}}: {{receiver_type}}"
@@ -43,8 +43,8 @@ convergence:
     one: ": {{result}}"
     many: ": [{{results}}]"
   call:
-    func: "{{synth_stem}}.{{helper}}({{args}})"
-    method: "{{synth_stem}}.{{helper}}({{recv_args}})"
+    func: "{{synth_alias}}.{{helper}}({{args}})"
+    method: "{{synth_alias}}.{{helper}}({{recv_args}})"
   body:
     void: "{{call}};"
     value: "return {{call}};"
@@ -57,5 +57,6 @@ convergence:
     method: "{{doc}}\nexport function {{receiver_type}}_{{name}}({{recv_params}}){{result}} {\n  {{body}}\n}"
   import: "import * as {{alias}} from \"{{path}}\";"
   import_use: "{{alias}}."
+  type_import: "import type { {{names}} } from \"{{module}}\";"
   seed_decl: "{{declare}} {\n  throw new Error(\"{{placeholder}}\");\n}"
   seed: "// Helpers for {{file}}, written by graft's convergence step.\n{{imports}}\n\n{{decls}}\n\n"

@@ -33,7 +33,8 @@ test_paths:
 # the Go knowledge involved. The output is gofmt-clean as written.
 convergence:
   synth_suffix: "_synth"
-  helper: "{{stem}}{{Name}}Body"
+  format: [gofmt]
+  helper: "{{ident}}{{Name}}Body"
   param: "{{name}} {{type}}"
   arg: "{{name}}"
   spread_prefix: "..."
@@ -63,5 +64,5 @@ convergence:
   seed: "package {{package}}\n\n{{imports}}\n\n{{decls}}\n\n"
   package:
     entry: "main"
-    entry_dirs: [".", "cmd/*"]
+    entry_dirs: [".", "cmd/**"]
     default: "{{dirname}}"

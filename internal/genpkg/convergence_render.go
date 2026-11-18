@@ -1,7 +1,9 @@
 package genpkg
 
 import (
+	"bytes"
 	"fmt"
+	"os/exec"
 	"path"
 	"regexp"
 	"sort"
@@ -26,8 +28,17 @@ type ConvStub struct {
 	Doc          string      `json:"doc,omitempty"`
 }
 
+// ConvDecl is a declaration of the stub file, named for the seed's type imports.
+type ConvDecl struct {
+	Kind string `json:"kind"`
+	Name string `json:"name"`
+}
+
 // ConvFile is one source file whose stubs delegate to helpers.
 type ConvFile struct {
+	// Decls names the file's own declarations, so a seed can import the types
+	// its helper signatures use (Kind "type").
+	Decls   []ConvDecl `json:"decls,omitempty"`
 	Path    string     `json:"path"`
 	Package string     `json:"package,omitempty"`
 	Imports []string   `json:"imports,omitempty"`
@@ -126,6 +137,32 @@ func (r *convRenderer) do(label, src string, vals map[string]string) (string, er
 	return s, nil
 }
 
+// identOf turns a file stem into an identifier: characters that cannot be in
+// one are dropped and the letter after each is capitalised (my-mod -> myMod);
+// underscores and digits stay, and a leading digit gets an underscore.
+func identOf(stem string) string {
+	var b strings.Builder
+	up := false
+	for _, r := range stem {
+		switch {
+		case r == '_' || (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || (r >= '0' && r <= '9'):
+			if up && b.Len() > 0 {
+				b.WriteString(strings.ToUpper(string(r)))
+			} else {
+				b.WriteRune(r)
+			}
+			up = false
+		default:
+			up = true
+		}
+	}
+	out := b.String()
+	if out != "" && out[0] >= '0' && out[0] <= '9' {
+		out = "_" + out
+	}
+	return out
+}
+
 func upperFirst(s string) string {
 	if s == "" {
 		return s
@@ -221,6 +258,25 @@ func (r *convRenderer) file(f ConvFile) (ConvRenderedFile, error) {
 		}
 		lines = append(lines, l)
 	}
+	if c.TypeImport != "" {
+		var names []string
+		for _, d := range f.Decls {
+			if d.Kind != "type" {
+				continue
+			}
+			if regexp.MustCompile(`\b` + regexp.QuoteMeta(d.Name) + `\b`).MatchString(all) {
+				names = append(names, d.Name)
+			}
+		}
+		if len(names) > 0 {
+			sort.Strings(names)
+			l, err := r.do("type_import", c.TypeImport, map[string]string{"names": strings.Join(names, ", "), "module": "./" + stem + ext})
+			if err != nil {
+				return rf, err
+			}
+			lines = append(lines, l)
+		}
+	}
 	seed, err := r.do("seed", c.Seed, map[string]string{
 		"package": pkg, "imports": strings.Join(lines, "\n"), "decls": strings.Join(decls, "\n\n"),
 		"file": f.Path, "stem": stem, "dir": dir, "ext": ext,
@@ -228,8 +284,39 @@ func (r *convRenderer) file(f ConvFile) (ConvRenderedFile, error) {
 	if err != nil {
 		return rf, err
 	}
-	rf.Seed = blankRuns.ReplaceAllString(seed, "\n\n")
+	rf.Seed, err = r.format("seed", blankRuns.ReplaceAllString(seed, "\n\n"))
+	if err != nil {
+		return rf, err
+	}
 	return rf, nil
+}
+
+// matchDir is path.Match, plus a trailing "/**" that matches the directory and
+// everything below it.
+func matchDir(pat, dir string) bool {
+	if base, ok := strings.CutSuffix(pat, "/**"); ok {
+		return dir == base || strings.HasPrefix(dir, base+"/")
+	}
+	ok, _ := path.Match(pat, dir)
+	return ok
+}
+
+// format runs the package's format argv over text, keeping its trailing
+// newlines. Without a format, text is returned as is.
+func (r *convRenderer) format(label, text string) (string, error) {
+	if len(r.c.Format) == 0 {
+		return text, nil
+	}
+	trimmed := strings.TrimRight(text, "\n")
+	tail := text[len(trimmed):]
+	cmd := exec.Command(r.c.Format[0], r.c.Format[1:]...)
+	cmd.Stdin = strings.NewReader(text)
+	var out, errb bytes.Buffer
+	cmd.Stdout, cmd.Stderr = &out, &errb
+	if err := cmd.Run(); err != nil {
+		return "", fmt.Errorf("%s: format %v: %w: %s", label, r.c.Format, err, strings.TrimSpace(errb.String()))
+	}
+	return strings.TrimRight(out.String(), "\n") + tail, nil
 }
 
 func (r *convRenderer) packageName(f ConvFile, dir string) (string, error) {
@@ -239,7 +326,7 @@ func (r *convRenderer) packageName(f ConvFile, dir string) (string, error) {
 	pk := r.c.Package
 	if pk.Entry != "" {
 		for _, pat := range pk.EntryDirs {
-			if ok, _ := path.Match(pat, dir); ok {
+			if matchDir(pat, dir) {
 				return r.do("package.entry", pk.Entry, map[string]string{})
 			}
 		}
@@ -259,7 +346,7 @@ func (r *convRenderer) stub(f ConvFile, s ConvStub, stem, dir, ext, synthStem st
 	if s.Name == "" {
 		return ConvRenderedStub{}, fmt.Errorf("a stub needs a name")
 	}
-	helper, err := r.do("helper", c.Helper, map[string]string{"stem": stem, "name": s.Name, "Name": upperFirst(s.Name), "dir": dir, "ext": ext})
+	helper, err := r.do("helper", c.Helper, map[string]string{"stem": stem, "ident": identOf(stem), "name": s.Name, "Name": upperFirst(s.Name), "dir": dir, "ext": ext})
 	if err != nil {
 		return ConvRenderedStub{}, err
 	}
@@ -277,7 +364,7 @@ func (r *convRenderer) stub(f ConvFile, s ConvStub, stem, dir, ext, synthStem st
 		if c.SpreadPrefix != "" && strings.HasPrefix(pa.Type, c.SpreadPrefix) {
 			tmpl = c.SpreadArg
 		}
-		a, err := r.do("arg", tmpl, map[string]string{"name": pa.Name})
+		a, err := r.do("arg", tmpl, map[string]string{"name": strings.TrimSuffix(pa.Name, "?")})
 		if err != nil {
 			return ConvRenderedStub{}, err
 		}
@@ -309,7 +396,7 @@ func (r *convRenderer) stub(f ConvFile, s ConvStub, stem, dir, ext, synthStem st
 		}
 		recvParam = rp
 		call, err = r.do("call.method", c.Call.Method, map[string]string{
-			"helper": helper, "args": aj, "synth_stem": synthStem, "receiver_name": s.ReceiverName,
+			"helper": helper, "args": aj, "synth_stem": synthStem, "synth_alias": importAlias(synthStem), "receiver_name": s.ReceiverName,
 			"recv_args": strings.Join(append([]string{ra}, args...), ", ")})
 		if err != nil {
 			return ConvRenderedStub{}, err
@@ -321,7 +408,7 @@ func (r *convRenderer) stub(f ConvFile, s ConvStub, stem, dir, ext, synthStem st
 			return ConvRenderedStub{}, err
 		}
 	} else {
-		call, err = r.do("call.func", c.Call.Func, map[string]string{"helper": helper, "args": aj, "synth_stem": synthStem})
+		call, err = r.do("call.func", c.Call.Func, map[string]string{"helper": helper, "args": aj, "synth_stem": synthStem, "synth_alias": importAlias(synthStem)})
 		if err != nil {
 			return ConvRenderedStub{}, err
 		}
@@ -345,7 +432,7 @@ func (r *convRenderer) stub(f ConvFile, s ConvStub, stem, dir, ext, synthStem st
 	}
 	cp, cs := r.p.CommentPrefix+" ", r.p.CommentSuffix
 	var doc []string
-	if strings.TrimSpace(s.Doc) != "" {
+	if s.Doc != "" {
 		for _, l := range strings.Split(strings.TrimSpace(s.Doc), "\n") {
 			doc = append(doc, cp+l+cs)
 		}
@@ -363,6 +450,10 @@ func (r *convRenderer) stub(f ConvFile, s ConvStub, stem, dir, ext, synthStem st
 		tmpl, label = c.Stub.Method, "stub.method"
 	}
 	stub, err := r.do(label, tmpl, vals)
+	if err != nil {
+		return ConvRenderedStub{}, err
+	}
+	stub, err = r.format("stub "+s.Name, stub)
 	if err != nil {
 		return ConvRenderedStub{}, err
 	}
