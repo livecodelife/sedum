@@ -1,7 +1,7 @@
 id: prov-2026-28c809b8
 title: 'Convergence contract: sedum convergence render/info; go and typescript packages'
 type: blueprint
-status: open
+status: implemented
 version: 3
 reason: Drop the generic load spec; the convergence specs are the proof
 created_at: "2026-11-18"
@@ -29,7 +29,7 @@ affected_scope:
   - internal/builtin/packages/go.zip
 forbidden_scope: []
 related: []
-sealed_at_sha: ""
+sealed_at_sha: e9bf098880aab0e3268db986c6e49891ba904352
 associated_specs:
   - path: internal/genpkg/convergence_go_test.go
     run_command: go test ./internal/genpkg -run GoConvergence
