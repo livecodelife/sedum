@@ -98,3 +98,73 @@ func TestTypeScriptConvergence(t *testing.T) {
 		t.Fatalf("node could not load and run the rendered files: %v\n%s", err, outb)
 	}
 }
+
+// tsc finds a TypeScript compiler and Node's types: tsc on PATH with
+// NODE_TYPES_DIR unset is not enough, so it installs both into a temp dir.
+func tscCommand(t *testing.T) (dir, tsc string) {
+	t.Helper()
+	dir = t.TempDir()
+	cmd := exec.Command("npm", "install", "--silent", "--no-audit", "--no-fund", "--prefix", dir, "typescript@5.9.3", "@types/node@24")
+	if out, err := cmd.CombinedOutput(); err != nil {
+		if os.Getenv("CI") != "" {
+			t.Fatalf("npm install typescript: %v\n%s", err, out)
+		}
+		t.Skipf("cannot install typescript (%v)", err)
+	}
+	return dir, filepath.Join(dir, "node_modules", ".bin", "tsc")
+}
+
+// The rendered files are TypeScript that type-checks, not only code Node can
+// strip: the seed imports the types its signatures use, hyphenated file names
+// give valid identifiers, and an optional parameter is called without its "?".
+func TestTypeScriptConvergenceTypechecks(t *testing.T) {
+	in := ConvRenderInput{Files: []ConvFile{{
+		Path:    "my-mod.ts",
+		Imports: []string{"node:net"},
+		Decls:   []ConvDecl{{Kind: "type", Name: "Server"}, {Kind: "type", Name: "Client"}, {Kind: "const", Name: "serverName"}},
+		Stubs: []ConvStub{
+			{Name: "serve", ReceiverName: "s", ReceiverType: "Server", Params: []ConvParam{{Name: "sock", Type: "net.Socket"}, {Name: "n?", Type: "number"}}, Results: []string{"string"}},
+			{Name: "join", Params: []ConvParam{{Name: "c", Type: "Client"}, {Name: "...parts", Type: "string[]"}}},
+		},
+	}}}
+	out, err := loadConvPackage(t, "typescript").RenderConvergence(in)
+	if err != nil {
+		t.Fatal(err)
+	}
+	f := out.Files[0]
+	if strings.Contains(f.Stubs[0].Stub, "n?)") || !strings.Contains(f.Stubs[0].Stub, "myModServeBody(s, sock, n)") {
+		t.Errorf("optional parameter: %q", f.Stubs[0].Stub)
+	}
+	if !strings.Contains(f.Stubs[1].Stub, "myModJoinBody(c, ...parts)") {
+		t.Errorf("rest parameter: %q", f.Stubs[1].Stub)
+	}
+	if !strings.Contains(f.Seed, `import type { Client, Server } from "./my-mod.ts";`) {
+		t.Errorf("seed lacks its type import:\n%s", f.Seed)
+	}
+	dir, tsc := tscCommand(t)
+	work := filepath.Join(dir, "work")
+	if err := os.MkdirAll(work, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	var main strings.Builder
+	for _, im := range f.Imports {
+		main.WriteString("import * as " + im["alias"] + " from \"" + im["path"] + "\";\n")
+	}
+	main.WriteString("export class Server { n = 0; }\nexport class Client { id = 1; }\nexport const serverName = \"x\";\n")
+	for _, s := range f.Stubs {
+		main.WriteString(s.Stub + "\n")
+	}
+	for name, text := range map[string]string{
+		f.Path: main.String(), f.SynthPath: f.Seed,
+		"tsconfig.json": `{"compilerOptions":{"noEmit":true,"strict":true,"target":"es2022","module":"nodenext","allowImportingTsExtensions":true,"erasableSyntaxOnly":true,"types":["node"],"typeRoots":["../node_modules/@types"]},"files":["my-mod.ts","my-mod_synth.ts"]}`,
+	} {
+		if err := os.WriteFile(filepath.Join(work, name), []byte(text), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	cmd := exec.Command(tsc, "-p", ".")
+	cmd.Dir = work
+	if outb, err := cmd.CombinedOutput(); err != nil {
+		t.Fatalf("tsc --noEmit failed: %v\n%s\n--- stub file\n%s\n--- seed\n%s", err, outb, main.String(), f.Seed)
+	}
+}

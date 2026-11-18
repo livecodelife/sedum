@@ -1,0 +1,35 @@
+id: prov-2026-b16878f5
+version: 2
+content_hash: sha256:66bba661c49b5ea8b336ea01d8d38a701638e6a4d847c2b1f00db6f57f6922c1
+parent_hash: sha256:253aeb2e457ab624761ece78229eb96a041a895ef390522c7f1bb1889c4412d7
+reason: The convergence specs gain the review-fix cases
+author: lcl-graft-render@users.noreply.github.com
+created_at: "2026-11-18T22:23:54Z"
+spec_hashes:
+  - sha256:8ec1c1c88a19d0ccf8b41a0609fc71ff6f0411bab8863ef2eea5c2e7c7d2ca69
+content:
+  id: prov-2026-b16878f5
+  title: 'Convergence contract review fixes: identifiers, type imports, optional params, formatting, rendered placeholder check'
+  type: blueprint
+  created_at: "2026-11-18"
+  author: lcl-graft-render@users.noreply.github.com
+  intent: 'Fixes from the review of the convergence contract. A file stem that is not an identifier (my-mod) yields a valid identifier for helper names and for the synth import alias, with the path kept verbatim. A seed gets an import of the file''s own types its helper signatures use, and the typescript output type-checks with tsc --noEmit. An optional parameter (n?) is called without the question mark. The placeholder is checked in the rendered seed at load, not in the template text. A package may declare a format argv (go: gofmt) that is run over every rendered stub and seed. A cmd/** entry pattern matches any depth. package.entry is validated at load.'
+  constraints:
+    - A file stem that is not an identifier is turned into one (my-mod gives myMod, underscores kept) for the helper name, and the synth import alias and the call use the same identifier; the file path is unchanged.
+    - With type_import declared, a seed imports the file's own type declarations that a helper signature mentions, and the rendered typescript seed and stub files pass tsc --noEmit.
+    - An optional parameter (name ending in a question mark) is declared as written and called without the question mark.
+    - 'Load renders seed_decl and seed and rejects a block whose rendered output lacks the text graft: not converged, even when the template text contains it.'
+    - A format argv, when declared, is run on every rendered stub and seed with the text on stdin and replaces it, keeping the trailing newlines; the go package declares gofmt and its output is unchanged.
+    - An entry_dirs pattern ending in /** matches the directory and every directory below it; package.entry is validated at load.
+    - A doc that is only whitespace still yields one comment line, as graft wrote it.
+  affected_scope:
+    - internal/genpkg/convergence.go
+    - internal/genpkg/convergence_render.go
+    - internal/genpkg/convergence_go_test.go
+    - internal/genpkg/convergence_ts_test.go
+    - internal/genpkg/convergence_check_test.go
+    - internal/cli/convergence_test.go
+    - internal/genpkg/testdata/convergence/**
+    - internal/builtin/packages/go.zip
+  associated_specs:
+    - path: internal/genpkg/convergence_go_test.go

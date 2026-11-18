@@ -112,3 +112,29 @@ func TestGoConvergenceMatchesGraftGolden(t *testing.T) {
 		t.Fatal("nothing compared")
 	}
 }
+
+func TestGoConvergenceFormatsAndPicksMain(t *testing.T) {
+	pkg := loadConvPackage(t, "go")
+	out, err := pkg.RenderConvergence(ConvRenderInput{Files: []ConvFile{
+		{Path: "cmd/tool/sub/a.go", Imports: []string{"net"}, Stubs: []ConvStub{{
+			Name: "f", Params: []ConvParam{{Name: "m", Type: "map[string] int"}, {Name: "c", Type: "net.Conn"}, {Name: "rest", Type: "...string"}}, Results: []string{"error"}}}},
+		{Path: "x/my-mod.go", Stubs: []ConvStub{{Name: "g", Doc: " "}}},
+	}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	a := out.Files[0]
+	if !strings.HasPrefix(a.Seed, "package main\n") {
+		t.Errorf("cmd/tool/sub is a main package: %q", a.Seed)
+	}
+	if !strings.Contains(a.Seed, "map[string]int") || strings.Contains(a.Seed, "map[string] int") {
+		t.Errorf("seed is not gofmt-clean: %q", a.Seed)
+	}
+	if !strings.Contains(a.Stubs[0].Stub, "aFBody(m, c, rest...)") {
+		t.Errorf("stub = %q", a.Stubs[0].Stub)
+	}
+	b := out.Files[1]
+	if !strings.Contains(b.Stubs[0].Helper, "myModGBody") || !strings.HasPrefix(b.Stubs[0].Stub, "//\n") {
+		t.Errorf("hyphenated stem / blank doc: %+v", b.Stubs[0])
+	}
+}

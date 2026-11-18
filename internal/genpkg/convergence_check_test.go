@@ -41,12 +41,16 @@ func TestConvergenceBlockIsValidated(t *testing.T) {
 		"seed_decl without the placeholder": func(s string) string {
 			return strings.Replace(s, `panic(\"{{placeholder}}\")`, `panic(\"todo\")`, 1)
 		},
-		"missing helper":    func(s string) string { return strings.Replace(s, "  helper: \"{{stem}}{{Name}}Body\"\n", "", 1) },
+		"missing helper":    func(s string) string { return strings.Replace(s, "  helper: \"{{ident}}{{Name}}Body\"\n", "", 1) },
 		"bad method action": func(s string) string { return strings.Replace(s, "  note:", "  method_action: setThing\n  note:", 1) },
 	}
 	cases["unknown value"] = func(s string) string {
 		return strings.Replace(s, `arg: "{{name}}"`, `arg: "{{nope}}"`, 1)
 	}
+	cases["placeholder transformed"] = func(s string) string {
+		return strings.Replace(s, `panic(\"{{placeholder}}\")`, `panic(\"{{placeholder|upper}}\")`, 1)
+	}
+	cases["unknown format arg"] = func(s string) string { return strings.Replace(s, "format: [gofmt]", `format: [gofmt, ""]`, 1) }
 	for name, edit := range cases {
 		t.Run(name, func(t *testing.T) {
 			_, findings, err := Load(copyGoWith(t, edit), Options{Only: []string{"go"}})
