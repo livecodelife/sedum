@@ -1,7 +1,7 @@
 id: prov-2026-28c809b8
 title: 'Convergence contract: sedum convergence render/info; go and typescript packages'
 type: blueprint
-status: open
+status: implemented
 version: 5
 reason: 'Release 0.13.0: the version constant goes in the feature''s record, as for 0.12.2'
 created_at: "2026-11-18"
@@ -30,7 +30,7 @@ affected_scope:
   - internal/recording/version.go
 forbidden_scope: []
 related: []
-sealed_at_sha: ""
+sealed_at_sha: abfe26c68c5a0ee0d94f8e23e606f056ab720237
 associated_specs:
   - path: internal/genpkg/convergence_go_test.go
     run_command: go test ./internal/genpkg -run GoConvergence
