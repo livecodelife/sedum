@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.13.0
+
+- **Convergence contract.** A package may declare an optional `convergence:` block that says how its language writes a stub that delegates to a helper, and how a file of placeholder helpers looks. `sedum convergence render --generators D --package P` reads `{files:[{path,imports,stubs}]}` on stdin and prints, per file, the synth path, the seed, the stub invocations (action, kwargs), helper signatures and the imports to add; `sedum convergence info` prints the extensions, comment prefix, synth suffix and placeholder. Load rejects a malformed block, including a seed that lacks the placeholder `graft: not converged`. Sedum's core knows no language: it renders the package's templates. A package with no block is unchanged, and no gen or package hash changes. A sedum older than this change cannot load a package that declares the block (`manifest_malformed`), because manifests are decoded strictly.
+- A convergence block may declare `format:` (the go package runs `gofmt` over every stub and seed), `type_import:` (a seed imports the file's own types its signatures use) and `method_action`/`method_name`. Identifiers derived from a file stem are sanitised (`my-mod` gives `myMod`), an optional parameter (`n?`) is called without the `?`, `cmd/**` matches any depth, and the placeholder is checked in the rendered seed when the package loads.
+- The `go` package declares its convergence block; a conformance test pins its output byte for byte to graft's golden stubs and seeds.
+- New `typescript` generator package (Node strip-types: ESM, explicit `.ts` extensions): setFunction, setType, setVar, setConst, addImport, and a convergence block. Method stubs are exported `<Receiver>_<name>` functions taking the receiver first, because a helper in another module cannot be a method of the class.
+
 ## 0.12.2
 
 - Selection sends no assistant turn for an empty model reply. A reply with no content (or only whitespace) is no longer put back in the next request as an empty assistant message, which the API refused with HTTP 400; the follow-up user message (completeness note, verification failure or rejection) is still sent, and the rejected, repair and completeness counts and limits are unchanged.

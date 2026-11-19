@@ -1,0 +1,4 @@
+{"files":[{"path":"src/server.ts","imports":["node:net"],"stubs":[
+ {"name":"serve","receiver_name":"s","receiver_type":"Server","params":[{"name":"c","type":"net.Socket"}],"results":["void"],"doc":"Serve."},
+ {"name":"parse","params":[{"name":"line","type":"string"}],"results":["string","number"]},
+ {"name":"tick"}]}]}

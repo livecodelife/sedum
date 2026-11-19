@@ -163,6 +163,7 @@ func loadPackage(dir, dirName string) (*Package, Findings, error) {
 		Syntax:          man.Syntax,
 		OptionalAnchors: man.Optional,
 		Adopt:           man.Adopt,
+		Convergence:     man.Convergence,
 		Actions:         map[string]*Action{},
 	}
 
@@ -237,6 +238,7 @@ func loadPackage(dir, dirName string) (*Package, Findings, error) {
 	checkTestPaths(pkg, r)
 	checkAdopt(pkg, r)
 	checkSyntax(pkg, r)
+	checkConvergence(pkg, r)
 	checkDeadConfig(pkg, r)
 
 	if r.hasErrors() {

@@ -1,0 +1,62 @@
+name: typescript
+extensions: [".ts"]
+comment_prefix: "//"
+
+# No built-in syntax checker: a TypeScript file is checked by the project's own
+# gate (tsc --noEmit, or Node parsing it). Sedum only places declarations.
+
+optional_anchors: [imports]
+
+unmanaged:
+  - package.json
+  - package-lock.json
+  - tsconfig.json
+  - "**/package.json"
+  - "**/tsconfig.json"
+  - node_modules/**
+
+test_paths:
+  - "**/*.test.ts"
+
+# Stubs and seeds for graft's convergence regions. Written for Node's
+# --experimental-strip-types: ESM, explicit ".ts" extensions, no enums,
+# namespaces or parameter properties.
+#
+# A method stub cannot delegate to a method of its class from another module,
+# so methods are declared as exported functions named <Receiver>_<name> that
+# take the receiver as their first parameter, and the helper does too
+# (receiver-first). The skeleton declares the receiver as a type or class and
+# the stub as a function; there is no setMethod action.
+convergence:
+  synth_suffix: "_synth"
+  helper: "{{ident}}{{Name}}Body"
+  param: "{{name}}: {{type}}"
+  arg: "{{name}}"
+  receiver_param: "{{receiver_name}}: {{receiver_type}}"
+  receiver_arg: "{{receiver_name}}"
+  synth_import: "./{{synth_stem}}{{ext}}"
+  import_alias: true
+  method_action: setFunction
+  method_name: "{{receiver_type}}_{{name}}"
+  result:
+    none: ""
+    one: ": {{result}}"
+    many: ": [{{results}}]"
+  call:
+    func: "{{synth_alias}}.{{helper}}({{args}})"
+    method: "{{synth_alias}}.{{helper}}({{recv_args}})"
+  body:
+    void: "{{call}};"
+    value: "return {{call}};"
+  declare:
+    func: "export function {{helper}}({{params}}){{result}}"
+    method: "export function {{helper}}({{recv_params}}){{result}}"
+  note: "{{name}} is rendered by graft; its body is a convergence region ({{helper}})."
+  stub:
+    func: "{{doc}}\nexport function {{name}}({{params}}){{result}} {\n  {{body}}\n}"
+    method: "{{doc}}\nexport function {{receiver_type}}_{{name}}({{recv_params}}){{result}} {\n  {{body}}\n}"
+  import: "import * as {{alias}} from \"{{path}}\";"
+  import_use: "{{alias}}."
+  type_import: "import type { {{names}} } from \"{{module}}\";"
+  seed_decl: "{{declare}} {\n  throw new Error(\"{{placeholder}}\");\n}"
+  seed: "// Helpers for {{file}}, written by graft's convergence step.\n{{imports}}\n\n{{decls}}\n\n"

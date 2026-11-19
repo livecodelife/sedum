@@ -158,6 +158,10 @@ sedum generators install go
 sedum generators install mypkg --from ../shared-generators --dir tools/generators
 ```
 
+**Render a stub, helper signatures and a seed for a consumer (the convergence contract)** — a package may declare a `convergence:` block in `sedum.yaml` that says how its language writes a stub that delegates to a helper, and how a file of placeholder helpers looks. `sedum convergence render --generators D --package P` reads `{files:[{path,package,imports,decls,stubs}]}` as JSON on stdin and prints, per file, the synth path, seed, imports to add and, per stub, the action, kwargs, helper, stub text and helper signature; `sedum convergence info` prints the extensions, comment prefix, synth suffix and the placeholder (`graft: not converged`). The core knows no language: it renders the package's templates, so a seed's placeholder is checked in the *rendered* output when the package loads. An optional `format:` argv (the `go` package uses `[gofmt]`) is run over every rendered stub and seed. A sedum older than this block fails to load a package that has one (`manifest_malformed`).
+
+The `go` package declares the block. The `typescript` package (Node `--experimental-strip-types`: ESM, explicit `.ts` imports, no enums or namespaces) is not built in, so install it with `sedum generators install typescript --from <dir>`. **Known limitation:** the typescript package has no `setClass` or `setMethod` action, so a method stub is an exported function `<Receiver>_<name>` that takes the receiver first (a helper in another module cannot be a method of the class); a skeleton declares a class with `setType` and its methods as such functions.
+
 **Validate the example generator packages** — runs every load-time check against a generators directory and exits. Requires no records, no model, and no network.
 
 ```sh

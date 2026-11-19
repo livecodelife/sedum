@@ -1,0 +1,337 @@
+{
+  "sedum_version": "0.12.2",
+  "packages": {
+    "go": {
+      "extensions": [
+        ".go"
+      ]
+    }
+  },
+  "records": [
+    {
+      "record_id": "prov-2026-0636929a",
+      "gen": "sha256:3be8aeaa565ddfba99dd99f20dfcbc43ffeb7ca30f1072a1086fdf716a32090c",
+      "files": [
+        {
+          "path": "channels.go",
+          "package": "go",
+          "template": "{name}.go",
+          "captures": {
+            "name": "channels"
+          }
+        }
+      ],
+      "phases": [
+        {
+          "name": "default",
+          "invocations": [
+            {
+              "action": "setFunction",
+              "kwargs": {
+                "code": "// init is rendered by graft; its body is a convergence region (channelsInitBody).\nfunc init() {\n\tchannelsInitBody()\n}",
+                "file": "channels.go",
+                "name": "init"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "record_id": "prov-2026-59061ff2",
+      "gen": "sha256:af5881260f0173519f8ea5386569e555704ff7be39b7d29e57ecd992dc1ff766",
+      "files": [
+        {
+          "path": "leaving.go",
+          "package": "go",
+          "template": "{name}.go",
+          "captures": {
+            "name": "leaving"
+          }
+        }
+      ],
+      "phases": [
+        {
+          "name": "default",
+          "invocations": [
+            {
+              "action": "setFunction",
+              "kwargs": {
+                "code": "// init is rendered by graft; its body is a convergence region (leavingInitBody).\nfunc init() {\n\tleavingInitBody()\n}",
+                "file": "leaving.go",
+                "name": "init"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "record_id": "prov-2026-69661708",
+      "gen": "sha256:9c11891d45f78ed26ba4bf0b43a67e85a5a15a8cdbe44525c7f2b061129a4fa7",
+      "files": [
+        {
+          "path": "running.go",
+          "package": "go",
+          "template": "{name}.go",
+          "captures": {
+            "name": "running"
+          }
+        }
+      ],
+      "phases": [
+        {
+          "name": "default",
+          "invocations": [
+            {
+              "action": "addImport",
+              "kwargs": {
+                "file": "running.go",
+                "path": "flag"
+              }
+            },
+            {
+              "action": "addImport",
+              "kwargs": {
+                "file": "running.go",
+                "path": "log"
+              }
+            },
+            {
+              "action": "addImport",
+              "kwargs": {
+                "file": "running.go",
+                "path": "net"
+              }
+            },
+            {
+              "action": "addImport",
+              "kwargs": {
+                "file": "running.go",
+                "path": "sync"
+              }
+            },
+            {
+              "action": "setConst",
+              "kwargs": {
+                "code": "const serverName = \"freeq-lite\"",
+                "file": "running.go",
+                "name": "serverName"
+              }
+            },
+            {
+              "action": "setType",
+              "kwargs": {
+                "code": "type Server struct {\n\tmu       sync.Mutex\n\tclients  map[string]*Client\n\tchannels map[string]*channel\n}",
+                "file": "running.go",
+                "name": "Server"
+              }
+            },
+            {
+              "action": "setType",
+              "kwargs": {
+                "code": "type channel struct {\n\tname    string\n\tmembers map[string]*Client\n}",
+                "file": "running.go",
+                "name": "channel"
+              }
+            },
+            {
+              "action": "setType",
+              "kwargs": {
+                "code": "type Client struct {\n\tNick       string\n\tUser       string\n\tRegistered bool\n\tchannels   map[string]bool\n\tconn       net.Conn\n\tout        chan string\n}",
+                "file": "running.go",
+                "name": "Client"
+              }
+            },
+            {
+              "action": "setType",
+              "kwargs": {
+                "code": "type Message struct {\n\tCommand string\n\tParams  []string\n}",
+                "file": "running.go",
+                "name": "Message"
+              }
+            },
+            {
+              "action": "setVar",
+              "kwargs": {
+                "code": "var handlers = map[string]func(s *Server, c *Client, m Message){}",
+                "file": "running.go",
+                "name": "handlers"
+              }
+            },
+            {
+              "action": "setFunction",
+              "kwargs": {
+                "code": "func main() {\n\taddr := flag.String(\"addr\", \":6667\", \"listen address\")\n\tflag.Parse()\n\ts := &Server{clients: map[string]*Client{}, channels: map[string]*channel{}}\n\tln, err := net.Listen(\"tcp\", *addr)\n\tif err != nil {\n\t\tlog.Fatal(err)\n\t}\n\tfor {\n\t\tconn, err := ln.Accept()\n\t\tif err != nil {\n\t\t\tlog.Fatal(err)\n\t\t}\n\t\tgo s.serve(conn)\n\t}\n}",
+                "file": "running.go",
+                "name": "main"
+              }
+            },
+            {
+              "action": "setMethod",
+              "kwargs": {
+                "code": "// serve runs one connection: it sets c.conn, reads CRLF or bare-LF lines, dispatches through handlers, and calls Disconnect when the connection ends.\n// serve is rendered by graft; its body is a convergence region (runningServeBody).\nfunc (s *Server) serve(conn net.Conn) {\n\ts.runningServeBody(conn)\n}",
+                "file": "running.go",
+                "name": "serve",
+                "receiver": "Server"
+              }
+            },
+            {
+              "action": "setMethod",
+              "kwargs": {
+                "code": "// Send queues one protocol line for c. line carries no trailing CRLF and is already complete, including any leading ':'; Send only appends CRLF.\n// Send is rendered by graft; its body is a convergence region (runningSendBody).\nfunc (c *Client) Send(line string) {\n\tc.runningSendBody(line)\n}",
+                "file": "running.go",
+                "name": "Send",
+                "receiver": "Client"
+              }
+            },
+            {
+              "action": "setMethod",
+              "kwargs": {
+                "code": "// Reply sends c a line from the server itself, built in full: \":\" + serverName + \" \" + code + \" \" + target + \" :\" + text, where target is c.Nick, or \"*\" before c has a nick.\n// Reply is rendered by graft; its body is a convergence region (runningReplyBody).\nfunc (s *Server) Reply(c *Client, code string, text string) {\n\ts.runningReplyBody(c, code, text)\n}",
+                "file": "running.go",
+                "name": "Reply",
+                "receiver": "Server"
+              }
+            },
+            {
+              "action": "setMethod",
+              "kwargs": {
+                "code": "// Prefix returns c's prefix, nick!user@freeq-lite, WITHOUT the leading ':'. Every sender of a prefixed line adds the ':' itself (\":\" + c.Prefix() + \" JOIN ...\"), including QUIT.\n// Prefix is rendered by graft; its body is a convergence region (runningPrefixBody).\nfunc (c *Client) Prefix() string {\n\treturn c.runningPrefixBody()\n}",
+                "file": "running.go",
+                "name": "Prefix",
+                "receiver": "Client"
+              }
+            },
+            {
+              "action": "setMethod",
+              "kwargs": {
+                "code": "// Disconnect removes c from the server and from every channel, tells the channel peers \":\" + c.Prefix() + \" QUIT :\" + reason (once each), then closes c.conn.\n// Disconnect is rendered by graft; its body is a convergence region (runningDisconnectBody).\nfunc (s *Server) Disconnect(c *Client, reason string) {\n\ts.runningDisconnectBody(c, reason)\n}",
+                "file": "running.go",
+                "name": "Disconnect",
+                "receiver": "Server"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "record_id": "prov-2026-89effc53",
+      "gen": "sha256:9c87f7610f9fd9659c2d52df9f434162e868075fae9d55953d9ba02ad08561e5",
+      "files": [
+        {
+          "path": "everything_else.go",
+          "package": "go",
+          "template": "{name}.go",
+          "captures": {
+            "name": "everything_else"
+          }
+        }
+      ],
+      "phases": [
+        {
+          "name": "default",
+          "invocations": [
+            {
+              "action": "setFunction",
+              "kwargs": {
+                "code": "// init is rendered by graft; its body is a convergence region (everything_elseInitBody).\nfunc init() {\n\teverything_elseInitBody()\n}",
+                "file": "everything_else.go",
+                "name": "init"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "record_id": "prov-2026-8c50333f",
+      "gen": "sha256:92e71dae5a20ab467fe9d1497ab677289ef417238773259aab9223e0d7295c7b",
+      "files": [
+        {
+          "path": "messages.go",
+          "package": "go",
+          "template": "{name}.go",
+          "captures": {
+            "name": "messages"
+          }
+        }
+      ],
+      "phases": [
+        {
+          "name": "default",
+          "invocations": [
+            {
+              "action": "setFunction",
+              "kwargs": {
+                "code": "// init is rendered by graft; its body is a convergence region (messagesInitBody).\nfunc init() {\n\tmessagesInitBody()\n}",
+                "file": "messages.go",
+                "name": "init"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "record_id": "prov-2026-95c6ad4c",
+      "gen": "sha256:d9857bc181f7a7179b649f07d8478bbf0b1eef9a57729ae6ad70795c7907e328",
+      "files": [
+        {
+          "path": "keepalive.go",
+          "package": "go",
+          "template": "{name}.go",
+          "captures": {
+            "name": "keepalive"
+          }
+        }
+      ],
+      "phases": [
+        {
+          "name": "default",
+          "invocations": [
+            {
+              "action": "setFunction",
+              "kwargs": {
+                "code": "// init is rendered by graft; its body is a convergence region (keepaliveInitBody).\nfunc init() {\n\tkeepaliveInitBody()\n}",
+                "file": "keepalive.go",
+                "name": "init"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "record_id": "prov-2026-cfe0aab0",
+      "gen": "sha256:cda481cf8c3b685deddbb108ed2be9b50757464548fa28c8cb615f2c746887df",
+      "files": [
+        {
+          "path": "registration.go",
+          "package": "go",
+          "template": "{name}.go",
+          "captures": {
+            "name": "registration"
+          }
+        }
+      ],
+      "phases": [
+        {
+          "name": "default",
+          "invocations": [
+            {
+              "action": "setFunction",
+              "kwargs": {
+                "code": "// init is rendered by graft; its body is a convergence region (registrationInitBody).\nfunc init() {\n\tregistrationInitBody()\n}",
+                "file": "registration.go",
+                "name": "init"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "complete": true
+}

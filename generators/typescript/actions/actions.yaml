@@ -1,0 +1,59 @@
+actions:
+  # A generic TypeScript package for one-off code: each action writes one whole
+  # top-level declaration the model supplies as TypeScript source, into the file
+  # its `file` kwarg names. Identity is the file and the declared name, so a
+  # record that revises a declaration replaces it in place.
+  #
+  # Code must run under Node's strip-types: no enums, namespaces or parameter
+  # properties. Imports use explicit ".ts" extensions.
+  setFunction:
+    description: Defines one top-level function, replacing an earlier version of it.
+    kwargs:
+      file: { type: string, required: true, description: "The TypeScript file to write into. It must be one of the authorized files." }
+      name: { type: string, required: true, description: "The function's name." }
+      code: { type: literal, required: true, description: "The whole function declaration, signature and body, exported if other files use it." }
+    injects_into: "{{file}}"
+    anchor: decls
+    identity: [file, name]
+
+  setType:
+    description: Defines one named type, interface or class, replacing an earlier version of it.
+    kwargs:
+      file: { type: string, required: true, description: "The TypeScript file to write into. It must be one of the authorized files." }
+      name: { type: string, required: true, description: "The declared name." }
+      code: { type: literal, required: true, description: "The whole type, interface or class declaration." }
+    injects_into: "{{file}}"
+    anchor: decls
+    identity: [file, name]
+
+  setVar:
+    description: Defines one module-level variable, replacing an earlier version of it.
+    kwargs:
+      file: { type: string, required: true, description: "The TypeScript file to write into. It must be one of the authorized files." }
+      name: { type: string, required: true, description: "The variable's name." }
+      code: { type: literal, required: true, description: "The whole let declaration." }
+    injects_into: "{{file}}"
+    anchor: decls
+    identity: [file, name]
+
+  setConst:
+    description: Defines one module-level constant, replacing an earlier version of it.
+    kwargs:
+      file: { type: string, required: true, description: "The TypeScript file to write into. It must be one of the authorized files." }
+      name: { type: string, required: true, description: "The constant's name." }
+      code: { type: literal, required: true, description: "The whole const declaration." }
+    injects_into: "{{file}}"
+    anchor: decls
+    identity: [file, name]
+
+  # The module is bound to a name (`import * as net from "node:net"`), so every
+  # use is qualified and an import never needs a named-binding list.
+  addImport:
+    description: Imports one module under a namespace name.
+    kwargs:
+      file: { type: string, required: true, description: "The TypeScript file to write into. It must be one of the authorized files." }
+      path: { type: string, required: true, description: "The module specifier, for example node:net or ./types.ts." }
+      alias: { type: string, required: true, description: "The name the module is bound to." }
+    injects_into: "{{file}}"
+    anchor: imports
+    identity: [file, path]
