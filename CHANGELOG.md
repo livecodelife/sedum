@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.13.0
 
 - **Convergence contract.** A package may declare an optional `convergence:` block that says how its language writes a stub that delegates to a helper, and how a file of placeholder helpers looks. `sedum convergence render --generators D --package P` reads `{files:[{path,imports,stubs}]}` on stdin and prints, per file, the synth path, the seed, the stub invocations (action, kwargs), helper signatures and the imports to add; `sedum convergence info` prints the extensions, comment prefix, synth suffix and placeholder. Load rejects a malformed block, including a seed that lacks the placeholder `graft: not converged`. Sedum's core knows no language: it renders the package's templates. A package with no block is unchanged, and no gen or package hash changes. A sedum older than this change cannot load a package that declares the block (`manifest_malformed`), because manifests are decoded strictly.
 - A convergence block may declare `format:` (the go package runs `gofmt` over every stub and seed), `type_import:` (a seed imports the file's own types its signatures use) and `method_action`/`method_name`. Identifiers derived from a file stem are sanitised (`my-mod` gives `myMod`), an optional parameter (`n?`) is called without the `?`, `cmd/**` matches any depth, and the placeholder is checked in the rendered seed when the package loads.
