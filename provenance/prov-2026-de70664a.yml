@@ -2,8 +2,8 @@ id: prov-2026-de70664a
 title: 'Version 0.14.0: gen_hash covers a record''s shape'
 type: blueprint
 status: open
-version: 3
-reason: Refresh the pinned specs after the review changes
+version: 4
+reason: Refresh the pinned specs after the golden entry change
 created_at: "2026-11-21"
 author: lcl-graft-render@users.noreply.github.com
 intent: sedum reads a record's optional shape and includes it in the record's gen_hash, so a marker's gen equals the gen_hash graft and every other tool computes. The shared provenance library defines the hash (provenance dbb6d0d); sedum's genhash.Input gains Shape and the record reader fills it from the decoded record. The version constant becomes 0.14.0 with a CHANGELOG entry; the tag is pushed by the maintainer, not here.

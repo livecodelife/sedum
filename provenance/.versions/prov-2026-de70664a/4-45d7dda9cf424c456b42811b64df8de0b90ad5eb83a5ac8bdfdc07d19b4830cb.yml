@@ -1,0 +1,36 @@
+id: prov-2026-de70664a
+version: 4
+content_hash: sha256:45d7dda9cf424c456b42811b64df8de0b90ad5eb83a5ac8bdfdc07d19b4830cb
+parent_hash: sha256:3a24a5ce8613e964c33410d710940e71146326444fc78f11e57912694905facd
+reason: Refresh the pinned specs after the golden entry change
+author: lcl-graft-render@users.noreply.github.com
+created_at: "2026-11-21T05:16:16Z"
+spec_hashes:
+  - sha256:f312dd43fd59256deedab6308d95229c70faf535a78caa2d47bbc2aec838f59b
+  - sha256:a495825ba4082d99cbc06d59a698d5fdd1eedd378b8ead9387d87b2131dd2d46
+content:
+  id: prov-2026-de70664a
+  title: 'Version 0.14.0: gen_hash covers a record''s shape'
+  type: blueprint
+  created_at: "2026-11-21"
+  author: lcl-graft-render@users.noreply.github.com
+  intent: sedum reads a record's optional shape and includes it in the record's gen_hash, so a marker's gen equals the gen_hash graft and every other tool computes. The shared provenance library defines the hash (provenance dbb6d0d); sedum's genhash.Input gains Shape and the record reader fills it from the decoded record. The version constant becomes 0.14.0 with a CHANGELOG entry; the tag is pushed by the maintainer, not here.
+  constraints:
+    - A record with no shape, or an empty one, has exactly the gen it had in 0.13.0, so no marker moves. A golden test pins the 0.13.0 gen of every record in sedum's own provenance directory and eval fixtures.
+    - A record with a shape has the library's gen_hash for its four fields and its shape, read through the same decode as every other field; shape is one of the keys the record projection keeps.
+    - A malformed shape is the library's error at load.
+    - A shape the library rejects as a whole (a shape on a schema 1 record, an unknown key in an entry) is reported at the line of the shape key, like every other load error.
+  affected_scope:
+    - go.mod
+    - go.sum
+    - CHANGELOG.md
+    - internal/genhash/genhash.go
+    - internal/genhash/shape_test.go
+    - internal/record/record.go
+    - internal/record/shape_test.go
+    - internal/record/gen_golden_test.go
+    - internal/record/testdata/gen_golden.json
+    - internal/recording/version.go
+  associated_specs:
+    - path: internal/record/gen_golden_test.go
+    - path: internal/genhash/shape_test.go

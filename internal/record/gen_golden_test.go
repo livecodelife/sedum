@@ -14,7 +14,9 @@ var updateGolden = flag.Bool("update-gen-golden", false, "rewrite testdata/gen_g
 // The golden file holds the gens sedum 0.13.0 computed, so a record written
 // since (such as the one for 0.14.0 itself) is not in it: the test checks every
 // golden record still loads with the same gen, and a new record has no 0.13.0
-// value to pin.
+// value to pin. A record revised since 0.13.0 has its entry recomputed by the
+// 0.13.0 code over the new content (prov-2026-5f1e4f0a, whose constraint was
+// added in this change), so the entry still comes from the old implementation.
 //
 // goldenDirs are sedum's own record directories. The golden file holds each
 // record's gen as sedum 0.13.0 computed it, before gen_hash covered shape. A
