@@ -1,7 +1,7 @@
 id: prov-2026-de70664a
 title: 'Version 0.14.0: gen_hash covers a record''s shape'
 type: blueprint
-status: open
+status: implemented
 version: 1
 reason: ""
 created_at: "2026-11-21"
@@ -24,7 +24,7 @@ affected_scope:
   - internal/recording/version.go
 forbidden_scope: []
 related: []
-sealed_at_sha: ""
+sealed_at_sha: 38f9bfe8c128c152090552eec05678360adc57a1
 associated_specs:
   - path: internal/record/gen_golden_test.go
     run_command: go test ./internal/record -run GenOfRecordsWithoutShape
