@@ -3,7 +3,8 @@
 // region has changed since (prov-2026-66bea9f3).
 //
 // gen_hash covers exactly the fields Sedum reads from a record - intent,
-// constraints, affected_scope and forbidden_scope - and nothing else, so a
+// constraints, affected_scope, forbidden_scope and the optional shape - and
+// nothing else, so a
 // status flip, a seal or a re-pin never looks like a content change.
 //
 // The definition is not Sedum's. It belongs to the shared provenance record
@@ -21,6 +22,10 @@ type Input struct {
 	Constraints    []string
 	AffectedScope  []string
 	ForbiddenScope []string
+	// Shape is the record's optional skeleton, as the library decodes it. An
+	// empty shape is absent from the hash, so a record without one hashes as
+	// it did before gen_hash covered shape.
+	Shape []any
 }
 
 // Of returns the record's gen_hash as "sha256:" followed by 64 lowercase hex
