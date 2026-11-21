@@ -5,12 +5,17 @@ import (
 	"flag"
 	"os"
 	"path/filepath"
-	"sort"
+	"strings"
 	"testing"
 )
 
 var updateGolden = flag.Bool("update-gen-golden", false, "rewrite testdata/gen_golden.json from the current code")
 
+// The golden file holds the gens sedum 0.13.0 computed, so a record written
+// since (such as the one for 0.14.0 itself) is not in it: the test checks every
+// golden record still loads with the same gen, and a new record has no 0.13.0
+// value to pin.
+//
 // goldenDirs are sedum's own record directories. The golden file holds each
 // record's gen as sedum 0.13.0 computed it, before gen_hash covered shape. A
 // record with no shape must keep that exact hash: provenance leaves the shape
@@ -35,7 +40,7 @@ func currentGens(t *testing.T) map[string]string {
 			t.Fatalf("load %s: %v", d, err)
 		}
 		for _, r := range set.Known {
-			got[filepath.ToSlash(filepath.Join(filepath.Base(filepath.Dir(d)), filepath.Base(d), r.ID))] = r.Gen
+			got[filepath.ToSlash(filepath.Join(strings.TrimPrefix(filepath.ToSlash(d), "../../"), r.ID))] = r.Gen
 		}
 	}
 	return got
@@ -45,11 +50,6 @@ func TestGenOfRecordsWithoutShapeIsUnchanged(t *testing.T) {
 	got := currentGens(t)
 	const golden = "testdata/gen_golden.json"
 	if *updateGolden {
-		keys := make([]string, 0, len(got))
-		for k := range got {
-			keys = append(keys, k)
-		}
-		sort.Strings(keys)
 		b, _ := json.MarshalIndent(got, "", "  ")
 		if err := os.WriteFile(golden, append(b, '\n'), 0o644); err != nil {
 			t.Fatal(err)

@@ -247,6 +247,12 @@ func decode(data []byte) (*librecord.Record, error) {
 				return nil, fmt.Errorf("line %d: %s%s", line, m[1], m[2])
 			}
 		}
+		// The library reports a shape it rejects as a whole (a shape on a
+		// schema 1 record, an unknown key inside an entry) without a line.
+		// It is the shape key's problem, so it is reported at that key.
+		if line, ok := lines["shape"]; ok && strings.Contains(err.Error(), "shape") {
+			return nil, fmt.Errorf("line %d: %v", line, err)
+		}
 		return nil, err
 	}
 	return rec, nil
