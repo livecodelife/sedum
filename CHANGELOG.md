@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.14.0
+
+- **gen_hash covers a record's shape.** sedum now reads the record's optional `shape` (the skeleton: one entry per file) and hands it to the shared provenance library, so a marker's `gen` is the same gen_hash graft and every other tool computes. Provenance bumped to dbb6d0d (the library change that added shape to gen_hash).
+- A record with no shape (or an empty one) hashes exactly as it did in 0.13.0, so no marker moves: a golden test pins the 0.13.0 hash of every record in sedum's own `provenance/` and eval fixtures.
+- A record that has a shape gets a new `gen` once, so `grow --check` reports its regions stale on the first run after upgrading; regenerating (or re-rendering a rendered region) writes the new gen.
+- `shape` is now one of the keys sedum reads from a record, so a malformed shape is an error at load, as the library reports it. Only schema 2 records may carry one.
+
 ## 0.13.0
 
 - **Convergence contract.** A package may declare an optional `convergence:` block that says how its language writes a stub that delegates to a helper, and how a file of placeholder helpers looks. `sedum convergence render --generators D --package P` reads `{files:[{path,imports,stubs}]}` on stdin and prints, per file, the synth path, the seed, the stub invocations (action, kwargs), helper signatures and the imports to add; `sedum convergence info` prints the extensions, comment prefix, synth suffix and placeholder. Load rejects a malformed block, including a seed that lacks the placeholder `graft: not converged`. Sedum's core knows no language: it renders the package's templates. A package with no block is unchanged, and no gen or package hash changes. A sedum older than this change cannot load a package that declares the block (`manifest_malformed`), because manifests are decoded strictly.

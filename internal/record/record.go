@@ -60,7 +60,7 @@ type Record struct {
 	Forbidden []string
 
 	// Gen is the record's gen_hash, which every region it writes carries as
-	// "gen" (prov-2026-66bea9f3). It is taken over the four fields exactly as
+	// "gen" (prov-2026-66bea9f3). It is taken over the fields (shape included) exactly as
 	// the file states them - before trimming, deduplication, sorting, or the
 	// split into paths and patterns - because the hash is shared with every
 	// other tool that reads records, and none of them see Sedum's view.
@@ -212,6 +212,7 @@ var readKeys = map[string]bool{
 	"id": true, "version": true, "created_at": true, "status": true,
 	"aliases": true, "type": true, "implements": true,
 	"intent": true, "constraints": true, "affected_scope": true, "forbidden_scope": true,
+	"shape": true,
 }
 
 // decode reads one record file through the shared library, over the keys
@@ -285,6 +286,7 @@ func readRecord(full, name string) (*Record, error) {
 			Constraints:    doc.Constraints,
 			AffectedScope:  doc.AffectedScope,
 			ForbiddenScope: doc.ForbiddenScope,
+			Shape:          doc.Shape,
 		}),
 	}
 

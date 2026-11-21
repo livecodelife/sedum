@@ -4,7 +4,7 @@ go 1.25.7
 
 require (
 	github.com/iancoleman/strcase v0.3.0
-	github.com/livecodelife/provenance v0.0.0-20261016034035-3cb3faf4a887
+	github.com/livecodelife/provenance v0.0.0-20261120224936-dbb6d0d9f329
 	github.com/sashabaranov/go-openai v1.42.0
 	github.com/spf13/cobra v1.10.2
 	github.com/spf13/pflag v1.0.9
